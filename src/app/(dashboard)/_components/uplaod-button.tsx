@@ -106,31 +106,9 @@ const UploadButton = () => {
             <Tooltip>
               <TooltipTrigger>
                 <div className="relative size-9 rounded-full flex items-center justify-center drop-shadow-md cursor-default animate-pulse">
-                  <svg
-                    className="absolute w-full h-full transform -rotate-90"
-                    viewBox="0 0 36 36"
-                  >
-                    <circle
-                      className="text-gray-300"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="transparent"
-                      r="16"
-                      cx="18"
-                      cy="18"
-                    />
-                    <circle
-                      className="text-primary"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      fill="transparent"
-                      r="16"
-                      cx="18"
-                      cy="18"
-                      strokeDasharray="100"
-                      strokeDashoffset={100 - progress}
-                    />
+                  <svg className="absolute w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <circle className="text-gray-300" stroke="currentColor" strokeWidth="4" fill="transparent" r="16" cx="18" cy="18" />
+                    <circle className="text-primary" stroke="currentColor" strokeWidth="4" strokeLinecap="round" fill="transparent" r="16" cx="18" cy="18" strokeDasharray="100" strokeDashoffset={100 - progress} />
                   </svg>
                   <P className="text-xs text-primary font-bold">{progress}%</P>
                 </div>
@@ -142,6 +120,7 @@ const UploadButton = () => {
           </TooltipProvider>
         ))}
       <Button
+        className="bg-black shadow-none rounded-sm"
         onClick={() => {
           document.getElementById("file-upload")?.click();
         }}
@@ -149,13 +128,7 @@ const UploadButton = () => {
         <RiFileAddFill /> Upload
       </Button>
 
-      <input
-        type="file"
-        className="hidden"
-        id="file-upload"
-        multiple
-        onChange={handleFileChange}
-      />
+      <input type="file" className="hidden" id="file-upload" multiple onChange={handleFileChange} />
     </>
   );
 };

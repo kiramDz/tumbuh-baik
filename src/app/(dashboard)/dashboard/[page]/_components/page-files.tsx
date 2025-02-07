@@ -38,16 +38,10 @@ const PageFiles = ({ page }: PageFilesProps) => {
 
       queryClient.setQueryData(["files", page], (oldData: unknown) => {
         const oldFiles = (oldData as { files: IFile[] })?.files || [];
-        const newFiles = newData.files as IFile[] || [];
+        const newFiles = (newData.files as IFile[]) || [];
 
         // Ensure no duplicates using a Set or filtering by `_id`
-        const mergedFiles = [
-          ...oldFiles,
-          ...newFiles.filter(
-            (newFile) =>
-              !oldFiles.some((oldFile) => oldFile._id === newFile._id)
-          ),
-        ];
+        const mergedFiles = [...oldFiles, ...newFiles.filter((newFile) => !oldFiles.some((oldFile) => oldFile._id === newFile._id))];
 
         return {
           files: mergedFiles,
@@ -94,13 +88,10 @@ const PageFiles = ({ page }: PageFilesProps) => {
 
   if (files?.length === 0)
     return (
-      <Image
-        src="/not-found.png"
-        width={400}
-        height={400}
-        className="m-auto"
-        alt="not-found"
-      />
+      <div className="w-full h-[500px] flex items-center justify-center flex-col">
+        <h2 className="text-xl font-semibold">File not found</h2>
+        <Image src="/file-not-found.png" width={400} height={400}  alt="not-found" />
+      </div>
     );
 
   return (
@@ -112,13 +103,8 @@ const PageFiles = ({ page }: PageFilesProps) => {
       </div>
 
       {!isLoading && !isPageFull && (
-        <div
-          ref={ref}
-          className="w-full flex h-fit items-center justify-center"
-        >
-          <div className="py-3">
-            {inView && <RiLoader3Fill className="animate-spin" />}
-          </div>
+        <div ref={ref} className="w-full flex h-fit items-center justify-center">
+          <div className="py-3">{inView && <RiLoader3Fill className="animate-spin" />}</div>
         </div>
       )}
     </>

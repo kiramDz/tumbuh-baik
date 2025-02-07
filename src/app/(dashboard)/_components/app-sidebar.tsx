@@ -1,24 +1,7 @@
 "use client";
 
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import {
-  RiFilePdf2Fill,
-  RiImageFill,
-  RiPieChart2Fill,
-  RiStarFill,
-  RiUserShared2Fill,
-  RiVideoFill,
-} from "@remixicon/react";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { RiFilePdf2Fill, RiImageFill, RiPieChart2Fill, RiDeleteBinFill } from "@remixicon/react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { paragraphVariants } from "@/components/custom/p";
@@ -37,33 +20,33 @@ const items = [
     url: "/dashboard/images",
     icon: RiImageFill,
   },
-  {
-    title: "Videos",
-    url: "/dashboard/videos",
-    icon: RiVideoFill,
-  },
+  // {
+  //   title: "Videos",
+  //   url: "/dashboard/videos",
+  //   icon: RiVideoFill,
+  // },
   {
     title: "Others",
     url: "/dashboard/others",
     icon: RiPieChart2Fill,
   },
   {
-    title: "Shared with me",
+    title: "Trash",
     url: "/dashboard/shared",
-    icon: RiUserShared2Fill,
+    icon: RiDeleteBinFill,
   },
-  {
-    title: "Subscription",
-    url: "/dashboard/subscription",
-    icon: RiStarFill,
-  },
+  // {
+  //   title: "Subscription",
+  //   url: "/dashboard/subscription",
+  //   icon: RiStarFill,
+  // },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   return (
-    <Sidebar collapsible="icon" className="border-none">
-      <SidebarContent>
+    <Sidebar collapsible="icon" className="border-none ">
+      <SidebarContent className="bg-[#f9f9f9]">
         {/* Sidebar Header here */}
         <SidebarHeader>
           <SidebarMenu className="space-y-4 mt-3">
@@ -87,8 +70,7 @@ export function AppSidebar() {
                         weight: "medium",
                       }),
                       "py-6 px-5 rounded-lg",
-                      pathname === item.url &&
-                        "bg-primary drop-shadow-xl text-white hover:bg-primary hover:text-white"
+                      pathname === item.url && "bg-[#e4e5e9]  text-black hover:bg-black hover:text-white"
                     )}
                   >
                     <Link href={item.url}>
