@@ -6,12 +6,7 @@ import { ChangeEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import axios from "axios";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { P } from "@/components/custom/p";
 import { IFile } from "@/lib/database/schema/file.model";
 
@@ -20,10 +15,12 @@ const UploadButton = () => {
   const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
   const [isUploading, setIsUploading] = useState(false);
 
+  //Fungsi yang dioper ke useMutation
+  // saat diapnggil oleh mutation, dia kaan mengembalikan data respon
   async function uploadFile(file: File) {
     const formData = new FormData();
     formData.append("file", file);
-
+    // unggah file ke server
     const res = await axios.post("/api/v1/files/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress: (progressEvent) => {
@@ -40,23 +37,24 @@ const UploadButton = () => {
 
     return res.data;
   }
-
+  //Mengelola pemanggilan uploadFile dan menangani hasilnya.
   const mutation = useMutation({
     mutationFn: uploadFile,
     onSuccess: (newData) => {
-      queryClient.setQueryData(
-        ["files", newData.category],
-        (oldData: { files: IFile[] }) => {
-          const uploadedFile = newData.file;
-          const oldFile = oldData.files || [];
-
-          const newMergeFiles = [uploadedFile, ...oldFile];
-
-          const updatedData = { ...oldData, files: newMergeFiles };
-
-          return updatedData;
+      queryClient.setQueryData(["files", newData.category], (oldData: { files: IFile[] }) => {
+        // Pastikan oldData tidak undefined
+        if (!oldData) {
+          oldData = { files: [] };
         }
-      );
+        const uploadedFile = newData.file;
+        const oldFile = oldData.files || [];
+
+        const newMergeFiles = [uploadedFile, ...oldFile];
+
+        const updatedData = { ...oldData, files: newMergeFiles };
+
+        return updatedData;
+      });
 
       toast(newData?.message, {
         description: newData?.description,

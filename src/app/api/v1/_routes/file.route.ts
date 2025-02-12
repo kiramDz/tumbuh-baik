@@ -88,14 +88,9 @@ fileRoute.get("/:page", async (c) => {
     } = session;
 
     if (category === "shared") {
-      const documentCount = await File.aggregate([
-        { $unwind: "$sharedWith" },
-        { $match: { "sharedWith.email": userEmail } },
-        { $count: "totalDocuments" },
-      ]);
+      const documentCount = await File.aggregate([{ $unwind: "$sharedWith" }, { $match: { "sharedWith.email": userEmail } }, { $count: "totalDocuments" }]);
 
-      const totalFiles =
-        documentCount.length > 0 ? documentCount[0].totalDocuments : 0;
+      const totalFiles = documentCount.length > 0 ? documentCount[0].totalDocuments : 0;
 
       const files = await File.aggregate([
         { $unwind: "$sharedWith" },
@@ -204,8 +199,7 @@ fileRoute.post("/upload", async (c) => {
         {
           message: "⚠️ Warning",
           category: null,
-          description:
-            "Subscription not found. Please log out and log in again to refresh your session.",
+          description: "Subscription not found. Please log out and log in again to refresh your session.",
           file: null,
         },
         { status: 404 }
@@ -217,8 +211,7 @@ fileRoute.post("/upload", async (c) => {
         {
           message: "⚠️ Warning",
           category: null,
-          description:
-            "Your subscription has expired. Please re-subscribe to continue.",
+          description: "Your subscription has expired. Please re-subscribe to continue.",
           file: null,
         },
         { status: 400 }
@@ -230,23 +223,22 @@ fileRoute.post("/upload", async (c) => {
         {
           message: "⚠️ Warning",
           category: null,
-          description:
-            "Storage limit exceeded. Please subscribe and select additional storage.",
+          description: "Storage limit exceeded. Please subscribe and select additional storage.",
           file: null,
         },
         { status: 400 }
       );
     }
-
+    // unggah File ke Pinata
     const uploadData = await pinata.upload.file(file).addMetadata({
       keyvalues: {
         userId,
         name,
       },
     });
-
+    // Kategorisasi File, periksa `getCategoryFromMimeType` for detail
     const category = getCategoryFromMimeType(uploadData.mime_type);
-
+    // Menyimpan Informasi File ke Database
     const uploadedFile = await File.create({
       pinataId: uploadData.id,
       name: uploadData.name,
@@ -280,10 +272,7 @@ fileRoute.post("/upload", async (c) => {
 
     const err = parseError(error);
 
-    return c.json(
-      { message: "Error", description: err, file: null },
-      { status: 500 }
-    );
+    return c.json({ message: "Error", description: err, file: null }, { status: 500 });
   }
 });
 
