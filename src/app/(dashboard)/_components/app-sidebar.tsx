@@ -11,13 +11,14 @@ import { SearchBar } from "./search-bar";
 // Menu items.
 const items = [
   {
-    title: "Documents",
+    // disini nyimapn all file + recent file (nengok figma)
+    title: "Storage",
     url: "/dashboard/documents",
     icon: RiFilePdf2Fill,
   },
   {
-    title: "Images",
-    url: "/dashboard/images",
+    title: "Teams",
+    url: "/dashboard/teams",
     icon: RiImageFill,
   },
   // {
@@ -33,6 +34,11 @@ const items = [
   {
     title: "Trash",
     url: "/dashboard/shared",
+    icon: RiDeleteBinFill,
+  },
+  {
+    title: "Help",
+    url: "/dashboard/subscription",
     icon: RiDeleteBinFill,
   },
   // {

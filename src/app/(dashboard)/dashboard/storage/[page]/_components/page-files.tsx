@@ -21,6 +21,7 @@ const PageFiles = ({ page }: PageFilesProps) => {
   const [isPageFull, setIsPageFull] = useState(false);
   const queryClient = useQueryClient();
 
+  // fetch data sesuai page (nengok params.page in [page]/page.tsx)
   const { data, isLoading, error } = useQuery({
     queryKey: ["files", page],
     queryFn: async () => await getFiles({ page, currentPage }),
@@ -84,13 +85,14 @@ const PageFiles = ({ page }: PageFilesProps) => {
       </P>
     );
 
+  //data yg sd di fetch, nntinya akan dipage oleh FileCard
   const files = data.files as IFile[];
 
   if (files?.length === 0)
     return (
       <div className="w-full h-[500px] flex items-center justify-center flex-col">
         <h2 className="text-xl font-semibold">File not found</h2>
-        <Image src="/file-not-found.png" width={400} height={400}  alt="not-found" />
+        <Image src="/file-not-found.png" width={400} height={400} alt="not-found" />
       </div>
     );
 
