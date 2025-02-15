@@ -6,14 +6,14 @@ export interface IFile {
   name: string; // File name
   cid: string; // Content ID from Pinata
   size: number; // File size
-  mimeType: string; // MIME type
+  mimeType: string; // MIME type, bakal dipakai untuk bedain kategiru file
   userInfo: { id: mongoose.Types.ObjectId | string; name: string };
   groupId?: string; // Optional group ID
   sharedWith: {
     email: string; // Email of the person with whom the file is shared
     permissions: ("file:read" | "file:update" | "file:delete")[]; // Permissions
   }[];
-  category: string;
+  category: { type: string; enum: ["BMKG", "Citra Satelit", "Buoys", "Daily Weather"]; required: true };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,7 +30,7 @@ const fileSchema: Schema<FileModel> = new Schema(
     cid: { type: String, required: true },
     size: { type: Number, required: true },
     mimeType: { type: String, required: true },
-    category: { type: String, required: true },
+    category: { type: String, enum: ["BMKG", "Citra Satelit", "Buoys", "Daily Weather"], required: true },
     userInfo: {
       id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       name: { type: String, required: true },
@@ -52,5 +52,4 @@ const fileSchema: Schema<FileModel> = new Schema(
   { timestamps: true }
 );
 
-export const File: Model<FileModel> =
-  mongoose.models.File || mongoose.model<FileModel>("File", fileSchema);
+export const File: Model<FileModel> = mongoose.models.File || mongoose.model<FileModel>("File", fileSchema);
