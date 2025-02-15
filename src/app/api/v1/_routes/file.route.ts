@@ -3,7 +3,7 @@ import db from "@/lib/database/db";
 import { File } from "@/lib/database/schema/file.model";
 import { Subscription } from "@/lib/database/schema/subscription.model";
 import { pinata } from "@/lib/pinata/config";
-import { getCategoryFromMimeType, parseError } from "@/lib/utils";
+import { parseError } from "@/lib/utils";
 import { Hono } from "hono";
 
 const fileRoute = new Hono();
@@ -172,7 +172,14 @@ fileRoute.post("/upload", async (c) => {
     await db();
 
     const data = await c.req.formData();
-    const file: File | null = data.get("file") as unknown as File;
+    // const file: File | null = data.get("file") as unknown as File;
+    // Ambil file dan pastikan tidak null
+    const file = data.get("file") as File | null;
+    if (!file) {
+      return c.json({ message: "No file provided" }, { status: 400 });
+    }
+    console.log("Received file:", file);
+    console.log("File type:", file?.type);
 
     const session = await getServerSession();
 
@@ -229,15 +236,27 @@ fileRoute.post("/upload", async (c) => {
         { status: 400 }
       );
     }
+    // Kategorisasi File, periksa fortmat file dengan `getCategoryFromMimeType` for detail
+    const category = data.get("category") as string;
+    console.log("Received category:", category);
+    if (!["bmkg-station", "itra-satelit", "temperatur-laut", "daily-weather"].includes(category)) {
+      return c.json({ message: "Invalid category" }, { status: 400 });
+    }
+    console.log("Received category:", category);
+    const categoryMap: Record<string, string> = {
+      "bmkg-station": "BMKG",
+      "citra-satelit": "Citra Satelit",
+      "temperatur-laut": "Temperatur Laut",
+      "daily-weather": "Daily Weather",
+    };
+
+    const mappedCategory = categoryMap[category] || category;
     // unggah File ke Pinata
+    // **Upload file ke Pinata hanya setelah semua validasi berhasil**
     const uploadData = await pinata.upload.file(file).addMetadata({
-      keyvalues: {
-        userId,
-        name,
-      },
+      keyvalues: { userId, name },
     });
-    // Kategorisasi File, periksa `getCategoryFromMimeType` for detail
-    const category = getCategoryFromMimeType(uploadData.mime_type);
+
     // Menyimpan Informasi File ke Database
     const uploadedFile = await File.create({
       pinataId: uploadData.id,
@@ -246,8 +265,9 @@ fileRoute.post("/upload", async (c) => {
       cid: uploadData.cid,
       size: uploadData.size,
       userInfo: { id: userId, name },
-      category,
+      category: mappedCategory,
     });
+    
 
     await Subscription.updateOne(
       { subscriber: userId },
