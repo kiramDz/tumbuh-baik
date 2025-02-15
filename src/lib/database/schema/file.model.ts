@@ -13,7 +13,7 @@ export interface IFile {
     email: string; // Email of the person with whom the file is shared
     permissions: ("file:read" | "file:update" | "file:delete")[]; // Permissions
   }[];
-  category: { type: string; enum: ["BMKG", "Citra Satelit", "Buoys", "Daily Weather"]; required: true };
+  category: { type: string; enum: ["bmkg-station", "citra-satelit", "temperatur-laut", "daily-weather"]; required: true };
   createdAt: Date;
   updatedAt: Date;
 }
