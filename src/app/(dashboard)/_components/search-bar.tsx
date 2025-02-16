@@ -1,27 +1,13 @@
+// ERROR :  GET /BMKG.png 404
+// KRN ENDPOINT CATEGORY DIPAKAI
+
 "use client";
 
 import { useSidebar } from "@/components/ui/sidebar";
-import {
-  RiArrowRightFill,
-  RiFileDownloadFill,
-  RiLoader3Fill,
-  RiSearch2Fill,
-} from "@remixicon/react";
-import {
-  ChangeEvent,
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useState,
-} from "react";
+import { RiArrowRightFill, RiFileDownloadFill, RiLoader3Fill, RiSearch2Fill } from "@remixicon/react";
+import { ChangeEvent, Dispatch, SetStateAction, useEffect, useState } from "react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -65,21 +51,12 @@ const SearchBar = () => {
         </Button>
       )}
 
-      <SearchDialog
-        isSearchDialogOpen={isSearchDialogOpen}
-        setIsSearchDialogOpen={setIsSearchDialogOpen}
-      />
+      <SearchDialog isSearchDialogOpen={isSearchDialogOpen} setIsSearchDialogOpen={setIsSearchDialogOpen} />
     </>
   );
 };
 
-const SearchDialog = ({
-  isSearchDialogOpen,
-  setIsSearchDialogOpen,
-}: {
-  isSearchDialogOpen: boolean;
-  setIsSearchDialogOpen: Dispatch<SetStateAction<boolean>>;
-}) => {
+const SearchDialog = ({ isSearchDialogOpen, setIsSearchDialogOpen }: { isSearchDialogOpen: boolean; setIsSearchDialogOpen: Dispatch<SetStateAction<boolean>> }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const queryClient = useQueryClient();
@@ -135,22 +112,12 @@ const SearchDialog = ({
         <div>
           <div className="flex items-center justify-start gap-3">
             <RiSearch2Fill />
-            <Input
-              className="input"
-              placeholder="Search here..."
-              onChange={handleChange}
-            />
+            <Input className="input" placeholder="Search here..." onChange={handleChange} />
 
             {isSearching && <RiLoader3Fill className="animate-spin" />}
           </div>
 
-          <div className={cn("space-y-3", mutation.data && "mt-4")}>
-            {mutation.data &&
-              mutation.data.length > 0 &&
-              mutation.data.map((file: IFile) => (
-                <SearchDisplayCard file={file} key={file._id} />
-              ))}
-          </div>
+          <div className={cn("space-y-3", mutation.data && "mt-4")}>{mutation.data && mutation.data.length > 0 && mutation.data.map((file: IFile) => <SearchDisplayCard file={file} key={file._id} />)}</div>
         </div>
       </DialogContent>
     </Dialog>
@@ -186,8 +153,7 @@ const SearchDisplayCard = ({ file }: { file: IFile }) => {
 
               <div>
                 <P size="small" variant="muted" weight="light">
-                  {format(createdAt, "dd-MMMM-yyyy")} | Uploaded By:{" "}
-                  <b>{userName}</b>
+                  {format(createdAt, "dd-MMMM-yyyy")} | Uploaded By: <b>{userName}</b>
                 </P>
               </div>
             </div>
@@ -215,11 +181,7 @@ const SearchDisplayCard = ({ file }: { file: IFile }) => {
               dynamicDownload(data as string, file.name);
             }}
           >
-            {!isLinkInProgress ? (
-              <RiFileDownloadFill />
-            ) : (
-              <RiLoader3Fill className="animate-spin" />
-            )}
+            {!isLinkInProgress ? <RiFileDownloadFill /> : <RiLoader3Fill className="animate-spin" />}
           </Button>
         </div>
       </CardContent>

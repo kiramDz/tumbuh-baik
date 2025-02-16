@@ -1,3 +1,8 @@
+// ERROR :  GET /BMKG.png 404 
+// KRN ENDPOINT CATEGORY DIPAKAI 
+//
+
+
 import { IFile } from "@/lib/database/schema/file.model";
 import { cn, dynamicDownload, formatFileSize } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
