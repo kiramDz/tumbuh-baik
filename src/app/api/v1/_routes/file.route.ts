@@ -63,6 +63,7 @@ fileRoute.get("/", async (c) => {
   }
 });
 
+// endpoint untuk membuat halaman khushs untuk image | doc | pdf dll
 fileRoute.get("/:page", async (c) => {
   try {
     await db();
@@ -167,6 +168,67 @@ fileRoute.get("/:page", async (c) => {
   }
 });
 
+// endpoint untuk membuat halaman base on category : citra-satelite | buoys dll
+fileRoute.get("/:category", async (c) => {
+  try {
+    await db();
+    const category = c.req.param("category");
+    const page = Number(c.req.query("page")) || 1;
+    const session = await getServerSession();
+    const FILE_SIZE = 9;
+
+    if (!session) {
+      return c.json(
+        {
+          message: "Unauthorized",
+          description: "You need to be logged in to access files",
+        },
+        { status: 401 }
+      );
+    }
+
+    const {
+      user: { id: userId },
+    } = session;
+
+    const totalFiles = await File.countDocuments({
+      "userInfo.id": userId,
+      category,
+    });
+
+    const files = await File.find({ "userInfo.id": userId, category })
+      .skip((page - 1) * FILE_SIZE)
+      .limit(FILE_SIZE)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return c.json(
+      {
+        message: "Success",
+        description: "",
+        data: {
+          files,
+          total: totalFiles,
+          currentPage: page,
+          totalPages: Math.ceil(totalFiles / FILE_SIZE),
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error in fetching category files: ", error);
+    return c.json(
+      {
+        message: "Error",
+        description: "Failed to fetch files",
+        data: null,
+      },
+      { status: 500 }
+    );
+  }
+});
+
+
 fileRoute.post("/upload", async (c) => {
   try {
     await db();
@@ -239,7 +301,7 @@ fileRoute.post("/upload", async (c) => {
     // Kategorisasi File, periksa fortmat file dengan `getCategoryFromMimeType` for detail
     const category = data.get("category") as string;
     console.log("Received category:", category);
-    if (!["bmkg-station", "itra-satelit", "temperatur-laut", "daily-weather"].includes(category)) {
+    if (!["bmkg-station", "citra-satelit", "temperatur-laut", "daily-weather"].includes(category)) {
       return c.json({ message: "Invalid category" }, { status: 400 });
     }
     console.log("Received category:", category);
