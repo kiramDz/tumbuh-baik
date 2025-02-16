@@ -12,10 +12,10 @@ import { useInView } from "react-intersection-observer";
 import { toast } from "sonner";
 
 interface PageFilesProps {
-  page: string;
+  category: string;
 }
 
-const PageFiles = ({ page }: PageFilesProps) => {
+const PageFiles = ({ category }: PageFilesProps) => {
   const { ref, inView } = useInView();
   const [currentPage, setCurrentPage] = useState(1);
   const [isPageFull, setIsPageFull] = useState(false);
@@ -23,21 +23,21 @@ const PageFiles = ({ page }: PageFilesProps) => {
 
   // fetch data sesuai page (nengok params.page in [page]/page.tsx)
   const { data, isLoading, error } = useQuery({
-    queryKey: ["files", page],
-    queryFn: async () => await getFiles({ page, currentPage }),
+    queryKey: ["files", category, currentPage],
+    queryFn: async () => await getFiles({ category, currentPage }),
     refetchOnMount: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
   });
 
   const mutation = useMutation({
-    mutationFn: getFiles,
+    mutationFn: ({ category, page }: { category: string; page: number }) => getFiles({ category, currentPage: page }),
     onSuccess: (newData) => {
       if (currentPage === newData.totalPages) {
         setIsPageFull(true);
       }
 
-      queryClient.setQueryData(["files", page], (oldData: unknown) => {
+      queryClient.setQueryData(["files", category], (oldData: unknown) => {
         const oldFiles = (oldData as { files: IFile[] })?.files || [];
         const newFiles = (newData.files as IFile[]) || [];
 
@@ -69,7 +69,7 @@ const PageFiles = ({ page }: PageFilesProps) => {
       setCurrentPage((prev) => {
         const nextPage = prev + 1;
 
-        mutation.mutateAsync({ page, currentPage: nextPage });
+       mutation.mutateAsync({ category, page: nextPage });
 
         return nextPage;
       });

@@ -15,7 +15,7 @@ export default function StorageLayout() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Link href="/dashboard/storage/others">
+            <Link href="/dashboard/storage/bmkg-station">
               <Card className="w-full h-48 flex-col items-center justify-center ">
                 <CardHeader className="flex flex-row items-center justify-center s">
                   <CardTitle className="text-sm font-medium">Buoys Data</CardTitle>
