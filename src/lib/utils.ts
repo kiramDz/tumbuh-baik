@@ -16,7 +16,6 @@ export function parseError(error: unknown) {
   if (error instanceof AxiosError) return error.response?.data?.message || error.message;
 
   if (typeof error === "string") return error;
-  
 
   return JSON.stringify(error);
 }
@@ -35,7 +34,6 @@ export function formatFileSize(sizeInBytes: number): string {
 type FileCategory = "document" | "video" | "image" | "audio" | "other";
 
 export function getCategoryFromMimeType(mimeType: string): FileCategory {
-
   if (mimeType === "application/pdf") return "document";
 
   if (mimeType.startsWith("video/")) return "video";
@@ -57,6 +55,18 @@ export function generatePageKey(page: string): string {
   if (page === "others") return "other";
 
   return page;
+}
+
+// stroage slug
+export function pageIdentifier(slug: string): string {
+  const categoryMap: Record<string, string> = {
+    "bmkg-station": "BMKG",
+    "citra-satelit": "Citra Satelit",
+    "temperatur-laut": "Temperatur Laut",
+    "daily-weather": "Daily Weather",
+  };
+
+  return categoryMap[slug] || slug; // Default jika slug tidak dikenali
 }
 
 export function dynamicDownload(url: string, name: string) {
