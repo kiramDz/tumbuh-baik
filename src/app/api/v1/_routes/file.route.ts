@@ -66,6 +66,7 @@ fileRoute.get("/", async (c) => {
 // endpoint untuk membuat halaman khushs untuk image | doc | pdf dll
 fileRoute.get("/:page", async (c) => {
   try {
+    console.log("=== Endpoint /page terpanggil ===");
     await db();
     const category = c.req.param("page");
     const page = Number(c.req.query("page"));
@@ -171,6 +172,7 @@ fileRoute.get("/:page", async (c) => {
 // endpoint untuk membuat halaman base on category : citra-satelite | buoys dll
 fileRoute.get("/:category", async (c) => {
   try {
+    console.log("=== Endpoint /CATEGORY terpanggil ===");
     await db();
     const category = c.req.param("category");
     const page = Number(c.req.query("page")) || 1;
@@ -227,7 +229,6 @@ fileRoute.get("/:category", async (c) => {
     );
   }
 });
-
 
 fileRoute.post("/upload", async (c) => {
   try {
@@ -329,7 +330,6 @@ fileRoute.post("/upload", async (c) => {
       userInfo: { id: userId, name },
       category: mappedCategory,
     });
-    
 
     await Subscription.updateOne(
       { subscriber: userId },
@@ -355,6 +355,67 @@ fileRoute.post("/upload", async (c) => {
     const err = parseError(error);
 
     return c.json({ message: "Error", description: err, file: null }, { status: 500 });
+  }
+});
+
+fileRoute.get("/:recent", async (c) => {
+  try {
+    console.log("=== Endpoint /recent terpanggil ===");
+    await db();
+    const page = Number(c.req.query("page")) || 1;
+    const session = await getServerSession();
+    const FILE_SIZE = 10;
+
+    if (!session) {
+      return c.json(
+        {
+          message: "Unauthorized",
+          description: "You need to be logged in to access files",
+          data: null,
+        },
+        { status: 401 }
+      );
+    }
+
+    const {
+      user: { id: userId },
+    } = session;
+
+    console.log("User ID:", userId);
+
+    const totalFiles = await File.countDocuments({ "userInfo.id": userId });
+    const files = await File.find({ "userInfo.id": userId })
+      .skip((page - 1) * FILE_SIZE)
+      .limit(FILE_SIZE)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log("Total Files Count:", totalFiles);
+    console.log("Recent Files Data:", files);
+
+    return c.json(
+      {
+        message: "Success",
+        description: "",
+        data: {
+          files,
+          total: totalFiles,
+          currentPage: page,
+          totalPages: Math.ceil(totalFiles / FILE_SIZE),
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.log("Error in fetching recent files:", error);
+    return c.json(
+      {
+        message: "Error",
+        description: "Failed to fetch recent files",
+        data: null,
+      },
+      { status: 500 }
+    );
   }
 });
 
