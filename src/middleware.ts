@@ -16,27 +16,29 @@ async function getMiddlewareSession(req: NextRequest) {
 
 export default async function authMiddleware(req: NextRequest) {
   const session = await getMiddlewareSession(req);
-  const pathname = req.nextUrl.pathname
-  const url = req.url
+  const pathname = req.nextUrl.pathname;
+  const url = req.url;
 
-  if(pathname === "/"){
-    return NextResponse.redirect(new URL("/dashboard", url))
+  // Halaman root tetap publik
+  if (pathname === "/") {
+    return NextResponse.next();
   }
 
-  if(pathname.startsWith("/dashboard")){
-    if(session){
-      return NextResponse.next()
+  // untuk masuk ke dashboard harus ke /sign-in dlu
+  if (pathname.startsWith("/dashboard")) {
+    if (session) {
+      return NextResponse.next();
     }
 
-    return NextResponse.redirect(new URL("/sign-in", url))
+    return NextResponse.redirect(new URL("/sign-in", url));
   }
 
-  if(pathname.startsWith("/sign-")){
-    if(!session){
-      return NextResponse.next()
+  if (pathname.startsWith("/sign-")) {
+    if (!session) {
+      return NextResponse.next();
     }
 
-    return NextResponse.redirect(new URL("/dashboard", url))
+    return NextResponse.redirect(new URL("/dashboard", url));
   }
 
   return NextResponse.next();

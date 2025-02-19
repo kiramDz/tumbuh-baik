@@ -90,32 +90,7 @@ const UploadButton = () => {
     },
   });
 
-  // async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-  //   const files = Array.from(e.target.files || []);
-
-  //   if (!files.length) {
-  //     toast("No file selected", {
-  //       description: "Please select a file to upload",
-  //     });
-
-  //     return;
-  //   }
-
-  //   const progressMap: Record<string, number> = {};
-
-  //   files.forEach((file) => {
-  //     progressMap[file.name] = 0;
-  //   });
-
-  //   setFileProgress(progressMap);
-
-  //   setIsUploading(true);
-
-  //   await Promise.all(files.map((file) => mutation.mutateAsync(file)));
-
-  //   e.target.value = "";
-  // }
-
+  
   return (
     <>
       {isUploading &&
