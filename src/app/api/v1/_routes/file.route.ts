@@ -63,6 +63,34 @@ fileRoute.get("/", async (c) => {
   }
 });
 
+fileRoute.get("/recent", async (c) => {
+  try {
+    await db(); // Pastikan koneksi ke database
+    console.log("=== Endpoint /recent terpanggil ===");
+
+    // Cari 10 file terbaru, hanya ambil field yang diperlukan
+    const recentFiles = await File.find({})
+      // .select("name category size userInfo") // userInfo berisi nama owner
+      // .sort({ createdAt: -1 })
+      .limit(4);
+    // .lean();
+
+    return c.json({
+      message: "Success",
+      description: "",
+      data: {
+        files: recentFiles,
+        total: recentFiles.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching recent files:", error);
+    const err = parseError(error);
+    return c.json({ message: "Error", description: err }, { status: 500 });
+  }
+});
+
+
 // endpoint untuk membuat halaman khushs untuk image | doc | pdf dll
 // fileRoute.get("/:page", async (c) => {
 //   try {
@@ -360,31 +388,5 @@ fileRoute.get("/recent2", async (c) => {
 });
 
 // =================== RECENT ENDPOINT GAGAL
-fileRoute.get("/recent", async (c) => {
-  try {
-    await db(); // Pastikan koneksi ke database
-    console.log("=== Endpoint /recent terpanggil ===");
-
-    // Cari 10 file terbaru, hanya ambil field yang diperlukan
-    const recentFiles = await File.find({})
-      // .select("name category size userInfo") // userInfo berisi nama owner
-      // .sort({ createdAt: -1 })
-      .limit(4);
-      // .lean();
-
-    return c.json({
-      message: "Success",
-      description: "",
-      data: {
-        files: recentFiles,
-        total: recentFiles.length,
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching recent files:", error);
-    const err = parseError(error);
-    return c.json({ message: "Error", description: err }, { status: 500 });
-  }
-});
 
 export default fileRoute;
