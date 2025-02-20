@@ -1,115 +1,102 @@
+// coba sambung prmpt di claude, krn dh hampir mentok ni
+
 "use client";
 
-// Tbale sudah berhasil, hanya saja belum bisa menmapilan daya terbaru
-/*
-TES PROMPT : 
-Coba abis ni perbaiki promt
-
-Coba pakai pendekatan kita yg hadnya ingin menampilkan 10 data terbaru yg diupload melalui endpoint upload, data terabit akan ditampilkan di /recent-table.tsx 
-Bantu saya memagut endpoint untuk get 10 data terbaru dan memasukkan ke table
-Share : upload-button (file), dan Schema (table), upload endpoint (code)
-*/
-import { MoreVertical, ChevronDown, Folder } from "lucide-react";
-import { Button } from "@/components/ui/button";
+// import { MoreVertical, ChevronDown, Folder } from "lucide-react";
+// import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+// import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-// import axios from "axios";
-import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { getRecentFiles } from "@/lib/fetch/files.fetch";
+import { IFile } from "@/lib/database/schema/file.model";
 
-// interface FileItem {
-//   name: string;
-//   type: "Folder" | "Document";
-//   size: string;
-//   modified: string;
-// }
-
-interface FileItem {
-  id: string;
+interface RecentFile {
+  _id: string;
   name: string;
-  type: string;
+  category: string;
   size: number;
-  modified: string;
+  userInfo: {
+    name: string;
+  };
 }
 
-// const files: FileItem[] = [
-//   {
-//     name: "Dribbble Shots",
-//     type: "Folder",
-//     size: "48 MB",
-//     modified: "09/04/2023 20:29",
-//   },
-//   {
-//     name: "Invoice for Victor.pdf",
-//     type: "Document",
-//     size: "19 MB",
-//     modified: "08/04/2023 20:29",
-//   },
-// ];
+// Fungsi untuk mengambil data dari endpoint /recent
+const fetchRecentFiles = async (): Promise<RecentFile[]> => {
+  try {
+    console.log("Fetching recent files...");
+    const res = await axios.get("/api/v1/files/recent");
+    console.log("Response:", res.data);
+    if (!res.data.data.files) throw new Error("Files not found");
+    return res.data.data.files;
+  } catch (error) {
+    console.error("Fetch error:", error);
+    throw error;
+  }
+};
 
 export default function RecentTable() {
+  const queryClient = useQueryClient();
+  const [recentFiles, setRecentFiles] = useState<IFile[]>([]);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["recentFiles"],
-    queryFn: async () => await getRecentFiles(),
+    queryFn: getRecentFiles,
     refetchOnMount: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
   });
+  // Gunakan useMutation seperti di category untuk konsistensi
+  const mutation = useMutation({
+    mutationFn: getRecentFiles,
+    onSuccess: (newData) => {
+      // Perbarui cache dan state lokal
+      queryClient.setQueryData(["recentFiles"], newData);
+      setRecentFiles(newData.files);
+    },
+    onError: (e) => {
+      toast("Error loading recent files", { description: e.message });
+    },
+  });
 
-  const files = data?.files ?? [];
-  console.log("API Response:", data);
-  console.log("isi:", files);
+  useEffect(() => {
+    mutation.mutate();
+  }, [data]);
 
-  if (isLoading) return <p>Loading...</p>;
-  if (error) return <p>Error loading files</p>;
+  if (isLoading) return <div>Loading...</div>;
+  if (error) {
+    toast("Error loading recent files");
+    return <div>Error loading data.</div>;
+  }
+
+  const filesss = data.files as IFile[];
+  console.log("recente file",recentFiles);
+  console.log("filess",filesss)
 
   return (
     <div className="flex flex-1 flex-col space-y-4">
       <div className="relative flex flex-1">
         <div className="flex overflow-scroll rounded-md border md:overflow-auto  w-full">
           <ScrollArea className="flex-1">
-            <Table className="relative w-full">
+            <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[300px]">
-                    Name <ChevronDown className="ml-1 h-4 w-4 inline-block" />
-                  </TableHead>
-                  <TableHead>
-                    Type <ChevronDown className="ml-1 h-4 w-4 inline-block" />
-                  </TableHead>
-                  <TableHead>File size</TableHead>
-                  <TableHead>Last modified</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead>Name</TableHead>
+                  {/* <TableHead>Category</TableHead> */}
+                  <TableHead>Size</TableHead>
+                  <TableHead>Owner</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {files.map((file: FileItem) => (
-                  <TableRow key={file.id}>
-                    <TableCell className="font-medium text-black">
-                      <div className="flex items-center gap-2">
-                        {/* {file.type === "Folder" ? <Folder className="h-5 w-5 text-yellow-400" /> : <FileText className="h-5 w-5 text-red-400" />} */}
-                        <Folder className="h-5 w-5 text-yellow-400" />
-                        {file.name}tes
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-black">{file.type}</TableCell>
-                    <TableCell>{(file.size / 1024 / 1024).toFixed(2)} MB</TableCell>
-                    <TableCell>{new Date(file.modified).toLocaleString()}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Download</DropdownMenuItem>
-                          <DropdownMenuItem>Rename</DropdownMenuItem>
-                          <DropdownMenuItem>Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                {filesss.map((file) => (
+                  <TableRow key={file._id}>
+                    <TableCell>{file.name}</TableCell>
+                    <TableCell>{file.category}</TableCell>
+                    <TableCell>{file.size}</TableCell>
+                    <TableCell>{file.userInfo.name}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

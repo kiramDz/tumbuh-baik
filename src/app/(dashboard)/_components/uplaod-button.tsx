@@ -36,8 +36,8 @@ const UploadButton = () => {
       file: undefined,
     },
   });
+  //File diambil dari FormData dan dikirm denagn endpoint
   //Fungsi yang dioper ke useMutation
-  // saat diapnggil oleh mutation, dia kaan mengembalikan data respon
   async function uploadFile(formData: FormData) {
     const file = formData.get("file") as File; // Pastikan ini adalah File
     const fileName = file ? file.name : "unknown";
@@ -57,7 +57,7 @@ const UploadButton = () => {
 
     return res.data;
   }
-  //Mengelola pemanggilan uploadFile dan menangani hasilnya.
+  //mengunggah file ke server.
   const mutation = useMutation({
     mutationFn: uploadFile,
     onSuccess: (newData) => {
@@ -90,7 +90,6 @@ const UploadButton = () => {
     },
   });
 
-  
   return (
     <>
       {isUploading &&

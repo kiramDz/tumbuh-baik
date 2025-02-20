@@ -64,110 +64,109 @@ fileRoute.get("/", async (c) => {
 });
 
 // endpoint untuk membuat halaman khushs untuk image | doc | pdf dll
-fileRoute.get("/:page", async (c) => {
-  try {
-    console.log("=== Endpoint /page terpanggil ===");
-    await db();
-    const category = c.req.param("page");
-    const page = Number(c.req.query("page"));
-    const session = await getServerSession();
-    const FILE_SIZE = 9;
+// fileRoute.get("/:page", async (c) => {
+//   try {
+//     await db();
+//     const category = c.req.param("page");
+//     const page = Number(c.req.query("page"));
+//     const session = await getServerSession();
+//     const FILE_SIZE = 9;
 
-    if (!session) {
-      return c.json(
-        {
-          message: "Unauthorized",
-          description: "You need to be logged in to upload files",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
+//     if (!session) {
+//       return c.json(
+//         {
+//           message: "Unauthorized",
+//           description: "You need to be logged in to upload files",
+//         },
+//         {
+//           status: 401,
+//         }
+//       );
+//     }
 
-    const {
-      user: { id: userId, email: userEmail },
-    } = session;
+//     const {
+//       user: { id: userId, email: userEmail },
+//     } = session;
 
-    if (category === "shared") {
-      const documentCount = await File.aggregate([{ $unwind: "$sharedWith" }, { $match: { "sharedWith.email": userEmail } }, { $count: "totalDocuments" }]);
+//     if (category === "shared") {
+//       const documentCount = await File.aggregate([{ $unwind: "$sharedWith" }, { $match: { "sharedWith.email": userEmail } }, { $count: "totalDocuments" }]);
 
-      const totalFiles = documentCount.length > 0 ? documentCount[0].totalDocuments : 0;
+//       const totalFiles = documentCount.length > 0 ? documentCount[0].totalDocuments : 0;
 
-      const files = await File.aggregate([
-        { $unwind: "$sharedWith" },
-        { $match: { "sharedWith.email": userEmail } },
-        {
-          $group: {
-            _id: "$_id", // Group back the files by their original ID
-            pinataId: { $first: "$pinataId" },
-            name: { $first: "$name" },
-            cid: { $first: "$cid" },
-            size: { $first: "$size" },
-            mimeType: { $first: "$mimeType" },
-            userInfo: { $first: "$userInfo" },
-            groupId: { $first: "$groupId" },
-            sharedWith: { $push: "$sharedWith" }, // Reconstruct the sharedWith array
-            category: { $first: "$category" },
-            createdAt: { $first: "$createdAt" },
-            updatedAt: { $first: "$updatedAt" },
-          },
-        },
-      ]);
+//       const files = await File.aggregate([
+//         { $unwind: "$sharedWith" },
+//         { $match: { "sharedWith.email": userEmail } },
+//         {
+//           $group: {
+//             _id: "$_id", // Group back the files by their original ID
+//             pinataId: { $first: "$pinataId" },
+//             name: { $first: "$name" },
+//             cid: { $first: "$cid" },
+//             size: { $first: "$size" },
+//             mimeType: { $first: "$mimeType" },
+//             userInfo: { $first: "$userInfo" },
+//             groupId: { $first: "$groupId" },
+//             sharedWith: { $push: "$sharedWith" }, // Reconstruct the sharedWith array
+//             category: { $first: "$category" },
+//             createdAt: { $first: "$createdAt" },
+//             updatedAt: { $first: "$updatedAt" },
+//           },
+//         },
+//       ]);
 
-      return c.json(
-        {
-          message: "Success",
-          description: "",
-          data: {
-            files: files,
-            total: totalFiles,
-            currentPage: page,
-            totalPages: Math.ceil(totalFiles / FILE_SIZE),
-          },
-        },
-        { status: 200 }
-      );
-    }
+//       return c.json(
+//         {
+//           message: "Success",
+//           description: "",
+//           data: {
+//             files: files,
+//             total: totalFiles,
+//             currentPage: page,
+//             totalPages: Math.ceil(totalFiles / FILE_SIZE),
+//           },
+//         },
+//         { status: 200 }
+//       );
+//     }
 
-    const totalFiles = await File.countDocuments({
-      "userInfo.id": userId,
-      category,
-    });
+//     const totalFiles = await File.countDocuments({
+//       "userInfo.id": userId,
+//       category,
+//     });
 
-    const files = await File.find({ "userInfo.id": userId, category })
-      .skip((page - 1) * FILE_SIZE)
-      .limit(FILE_SIZE)
-      .sort({ createdAt: -1 })
-      .lean();
+//     const files = await File.find({ "userInfo.id": userId, category })
+//       .skip((page - 1) * FILE_SIZE)
+//       .limit(FILE_SIZE)
+//       .sort({ createdAt: -1 })
+//       .lean();
 
-    return c.json(
-      {
-        message: "Success",
-        description: "",
-        data: {
-          files: files,
-          total: totalFiles,
-          currentPage: page,
-          totalPages: Math.ceil(totalFiles / FILE_SIZE),
-        },
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.log("Error in fetching files: ", error);
-    const err = parseError(error);
+//     return c.json(
+//       {
+//         message: "Success",
+//         description: "",
+//         data: {
+//           files: files,
+//           total: totalFiles,
+//           currentPage: page,
+//           totalPages: Math.ceil(totalFiles / FILE_SIZE),
+//         },
+//       },
+//       { status: 200 }
+//     );
+//   } catch (error) {
+//     console.log("Error in fetching files: ", error);
+//     const err = parseError(error);
 
-    return c.json(
-      {
-        message: "Error",
-        description: err,
-        data: null,
-      },
-      { status: 500 }
-    );
-  }
-});
+//     return c.json(
+//       {
+//         message: "Error",
+//         description: err,
+//         data: null,
+//       },
+//       { status: 500 }
+//     );
+//   }
+// });
 
 // endpoint untuk membuat halaman base on category : citra-satelite | buoys dll
 fileRoute.get("/:category", async (c) => {
@@ -176,29 +175,13 @@ fileRoute.get("/:category", async (c) => {
     await db();
     const category = c.req.param("category");
     const page = Number(c.req.query("page")) || 1;
-    const session = await getServerSession();
     const FILE_SIZE = 9;
 
-    if (!session) {
-      return c.json(
-        {
-          message: "Unauthorized",
-          description: "You need to be logged in to access files",
-        },
-        { status: 401 }
-      );
-    }
-
-    const {
-      user: { id: userId },
-    } = session;
-
     const totalFiles = await File.countDocuments({
-      "userInfo.id": userId,
       category,
     });
 
-    const files = await File.find({ "userInfo.id": userId, category })
+    const files = await File.find({ category })
       .skip((page - 1) * FILE_SIZE)
       .limit(FILE_SIZE)
       .sort({ createdAt: -1 })
@@ -232,11 +215,12 @@ fileRoute.get("/:category", async (c) => {
 
 fileRoute.post("/upload", async (c) => {
   try {
+    // pastikan koneksi dengan database
     await db();
 
     const data = await c.req.formData();
     // const file: File | null = data.get("file") as unknown as File;
-    // Ambil file dan pastikan tidak null
+    // Ambil file dari request (data.get("file")).
     const file = data.get("file") as File | null;
     if (!file) {
       return c.json({ message: "No file provided" }, { status: 400 });
@@ -358,64 +342,48 @@ fileRoute.post("/upload", async (c) => {
   }
 });
 
-fileRoute.get("/:recent", async (c) => {
+//==================== TES RECENT 2 :
+fileRoute.get("/recent2", async (c) => {
   try {
-    console.log("=== Endpoint /recent terpanggil ===");
+    console.log("=== Endpoint /recent2 terpanggil ===");
     await db();
-    const page = Number(c.req.query("page")) || 1;
-    const session = await getServerSession();
-    const FILE_SIZE = 10;
 
-    if (!session) {
-      return c.json(
-        {
-          message: "Unauthorized",
-          description: "You need to be logged in to access files",
-          data: null,
-        },
-        { status: 401 }
-      );
-    }
+    const recentFiles = await File.find().sort({ createdAt: -1 }).limit(10);
+    console.log("=== Data yang dikirim ke frontend ===");
+    console.log(recentFiles); // Debugging
 
-    const {
-      user: { id: userId },
-    } = session;
-
-    console.log("User ID:", userId);
-
-    const totalFiles = await File.countDocuments({ "userInfo.id": userId });
-    const files = await File.find({ "userInfo.id": userId })
-      .skip((page - 1) * FILE_SIZE)
-      .limit(FILE_SIZE)
-      .sort({ createdAt: -1 })
-      .lean();
-
-    console.log("Total Files Count:", totalFiles);
-    console.log("Recent Files Data:", files);
-
-    return c.json(
-      {
-        message: "Success",
-        description: "",
-        data: {
-          files,
-          total: totalFiles,
-          currentPage: page,
-          totalPages: Math.ceil(totalFiles / FILE_SIZE),
-        },
-      },
-      { status: 200 }
-    );
+    return c.json({ message: "Success", data: { files: recentFiles, total: recentFiles.length } }); // Pastikan selalu mengembalikan array
   } catch (error) {
-    console.log("Error in fetching recent files:", error);
-    return c.json(
-      {
-        message: "Error",
-        description: "Failed to fetch recent files",
-        data: null,
+    console.error("Error fetching recent files:", error);
+    return c.json({ files: [], message: "Error", description: "Failed to fetch recent files" }, { status: 500 });
+  }
+});
+
+// =================== RECENT ENDPOINT GAGAL
+fileRoute.get("/recent", async (c) => {
+  try {
+    await db(); // Pastikan koneksi ke database
+    console.log("=== Endpoint /recent terpanggil ===");
+
+    // Cari 10 file terbaru, hanya ambil field yang diperlukan
+    const recentFiles = await File.find({})
+      // .select("name category size userInfo") // userInfo berisi nama owner
+      // .sort({ createdAt: -1 })
+      .limit(4);
+      // .lean();
+
+    return c.json({
+      message: "Success",
+      description: "",
+      data: {
+        files: recentFiles,
+        total: recentFiles.length,
       },
-      { status: 500 }
-    );
+    });
+  } catch (error) {
+    console.error("Error fetching recent files:", error);
+    const err = parseError(error);
+    return c.json({ message: "Error", description: err }, { status: 500 });
   }
 });
 
