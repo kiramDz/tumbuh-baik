@@ -1,14 +1,10 @@
-// coba sambung prmpt di claude, krn dh hampir mentok ni
+
 
 "use client";
 
-// import { MoreVertical, ChevronDown, Folder } from "lucide-react";
-// import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-// import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import axios from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getRecentFiles } from "@/lib/fetch/files.fetch";
@@ -24,19 +20,6 @@ interface RecentFile {
   };
 }
 
-// Fungsi untuk mengambil data dari endpoint /recent
-const fetchRecentFiles = async (): Promise<RecentFile[]> => {
-  try {
-    console.log("Fetching recent files...");
-    const res = await axios.get("/api/v1/files/recent");
-    console.log("Response:", res.data);
-    if (!res.data.data.files) throw new Error("Files not found");
-    return res.data.data.files;
-  } catch (error) {
-    console.error("Fetch error:", error);
-    throw error;
-  }
-};
 
 export default function RecentTable() {
   const queryClient = useQueryClient();
@@ -50,6 +33,7 @@ export default function RecentTable() {
     refetchOnWindowFocus: false,
   });
   // Gunakan useMutation seperti di category untuk konsistensi
+  // untuk update data otomatis
   const mutation = useMutation({
     mutationFn: getRecentFiles,
     onSuccess: (newData) => {
@@ -61,7 +45,7 @@ export default function RecentTable() {
       toast("Error loading recent files", { description: e.message });
     },
   });
-
+//trigger mutation, jika ada perubahan data
   useEffect(() => {
     mutation.mutate();
   }, [data]);
@@ -72,7 +56,7 @@ export default function RecentTable() {
     return <div>Error loading data.</div>;
   }
 
-  const filesss = data.files as IFile[];
+  const filesss = data?.files as IFile[];
   console.log("recente file",recentFiles);
   console.log("filess",filesss)
 
