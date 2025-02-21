@@ -70,10 +70,10 @@ fileRoute.get("/recent", async (c) => {
 
     // Cari 10 file terbaru, hanya ambil field yang diperlukan
     const recentFiles = await File.find({})
-      // .select("name category size userInfo") // userInfo berisi nama owner
-      // .sort({ createdAt: -1 })
-      .limit(4);
-    // .lean();
+      .select("name category size userInfo") // userInfo berisi nama owner
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
 
     return c.json({
       message: "Success",
