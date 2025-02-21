@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,9 +5,11 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { getRecentFiles } from "@/lib/fetch/files.fetch";
 import { IFile } from "@/lib/database/schema/file.model";
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 interface RecentFile {
   _id: string;
   name: string;
@@ -20,20 +20,19 @@ interface RecentFile {
   };
 }
 
-
 export default function RecentTable() {
   const queryClient = useQueryClient();
   const [recentFiles, setRecentFiles] = useState<IFile[]>([]);
 
-  const { data, isLoading, error } = useQuery({
+  const { isLoading, error } = useQuery<RecentFile[]>({
     queryKey: ["recentFiles"],
     queryFn: getRecentFiles,
     refetchOnMount: false,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
   });
-  // Gunakan useMutation seperti di category untuk konsistensi
-  // untuk update data otomatis
+
+  // Gunakan useMutation untuk update data secara otomatis
   const mutation = useMutation({
     mutationFn: getRecentFiles,
     onSuccess: (newData) => {
@@ -45,10 +44,10 @@ export default function RecentTable() {
       toast("Error loading recent files", { description: e.message });
     },
   });
-//trigger mutation, jika ada perubahan data
+  //trigger mutation, jika ada perubahan data
   useEffect(() => {
     mutation.mutate();
-  }, [data]);
+  }, []);
 
   if (isLoading) return <div>Loading...</div>;
   if (error) {
@@ -56,31 +55,42 @@ export default function RecentTable() {
     return <div>Error loading data.</div>;
   }
 
-  const filesss = data?.files as IFile[];
-  console.log("recente file",recentFiles);
-  console.log("filess",filesss)
-
   return (
     <div className="flex flex-1 flex-col space-y-4">
       <div className="relative flex flex-1">
         <div className="flex overflow-scroll rounded-md border md:overflow-auto  w-full">
           <ScrollArea className="flex-1">
-            <Table>
+            <Table className="relative w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  {/* <TableHead>Category</TableHead> */}
+                  <TableHead className="min-w-[300px]">Name</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Owner</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filesss.map((file) => (
+                {recentFiles.map((file) => (
                   <TableRow key={file._id}>
                     <TableCell>{file.name}</TableCell>
-                    <TableCell>{file.category}</TableCell>
-                    <TableCell>{file.size}</TableCell>
+                    <TableCell>{String(file.category)}</TableCell>
+                    <TableCell>{file.size < 1024 ? `${file.size} B` : file.size < 1024 * 1024 ? `${(file.size / 1024).toFixed(2)} KB` : `${(file.size / (1024 * 1024)).toFixed(2)} MB`}</TableCell>
                     <TableCell>{file.userInfo.name}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>Download</DropdownMenuItem>
+                          <DropdownMenuItem>Rename</DropdownMenuItem>
+                          <DropdownMenuItem>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
