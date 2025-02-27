@@ -1,6 +1,7 @@
 import { AxiosError } from "axios";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import Papa from "papaparse";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -81,4 +82,24 @@ export function dynamicDownload(url: string, name: string) {
 
 export function ActionResponse<T>(data: T): T {
   return JSON.parse(JSON.stringify(data));
+}
+
+export function parseCSV(csvString: string, columns: string[]) {
+  try {
+    const parsed = Papa.parse(csvString, { header: true });
+
+    if (parsed.errors.length > 0) {
+      throw new Error(`CSV Parsing Error: ${parsed.errors[0].message}`);
+    }
+
+    return parsed.data.map((row: any) => {
+      const filteredRow: any = {};
+      columns.forEach((col) => {
+        filteredRow[col] = row[col] || null; // Jika kolom tidak ada, beri null
+      });
+      return filteredRow;
+    });
+  } catch (error) {
+    return { error: `Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}` };
+  }
 }
