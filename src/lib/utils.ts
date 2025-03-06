@@ -84,9 +84,37 @@ export function ActionResponse<T>(data: T): T {
   return JSON.parse(JSON.stringify(data));
 }
 
+// export function parseCSV(csvString: string, columns: string[]) {
+//   try {
+//     const parsed = Papa.parse(csvString, { header: true });
+
+//     if (parsed.errors.length > 0) {
+//       throw new Error(`CSV Parsing Error: ${parsed.errors[0].message}`);
+//     }
+
+//     return parsed.data.map((row: any) => {
+//       const filteredRow: any = {};
+//       columns.forEach((col) => {
+//         filteredRow[col] = row[col] || null; // Jika kolom tidak ada, beri null
+//       });
+//       return filteredRow;
+//     });
+//   } catch (error) {
+//     return { error: `Failed to parse CSV: ${error instanceof Error ? error.message : String(error)}` };
+//   }
+// }
+
 export function parseCSV(csvString: string, columns: string[]) {
   try {
-    const parsed = Papa.parse(csvString, { header: true });
+    // Tambahkan opsi delimiter dan pastikan newline terdeteksi dengan benar
+    const parsed = Papa.parse(csvString, {
+      header: true,
+      delimiter: ",", // Secara eksplisit tentukan delimiter
+      newline: "\n", // Secara eksplisit tentukan newline
+      skipEmptyLines: true, // Lewati baris kosong
+    });
+
+    console.log("Hasil Papa.parse:", parsed.data[0]); // Debug untuk melihat baris pertama
 
     if (parsed.errors.length > 0) {
       throw new Error(`CSV Parsing Error: ${parsed.errors[0].message}`);
@@ -95,7 +123,7 @@ export function parseCSV(csvString: string, columns: string[]) {
     return parsed.data.map((row: any) => {
       const filteredRow: any = {};
       columns.forEach((col) => {
-        filteredRow[col] = row[col] || null; // Jika kolom tidak ada, beri null
+        filteredRow[col] = row[col] || null;
       });
       return filteredRow;
     });
