@@ -15,3 +15,5 @@ app.route("/visualization", visualizationRoute);
 
 export const GET = handle(app)
 export const POST = handle(app)
+
+//https://http://localhost:3000/api/v1/visualization/daily-weather
