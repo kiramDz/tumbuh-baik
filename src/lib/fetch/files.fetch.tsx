@@ -1,9 +1,7 @@
 import axios from "axios";
 
 export async function getFiles({ currentPage, category }: { category: string; currentPage: number }) {
-  // if (page === "subscription") {
-  //   return { files: [] };
-  // }
+
 
   const res = await axios.get(`/api/v1/files/${category}`, {
     params: {

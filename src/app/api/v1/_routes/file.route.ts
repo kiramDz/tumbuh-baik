@@ -219,112 +219,6 @@ fileRoute.post("/upload", async (c) => {
   }
 });
 
-
-// endpoint untuk membuat halaman khushs untuk image | doc | pdf dll
-// fileRoute.get("/:page", async (c) => {
-//   try {
-//     await db();
-//     const category = c.req.param("page");
-//     const page = Number(c.req.query("page"));
-//     const session = await getServerSession();
-//     const FILE_SIZE = 9;
-
-//     if (!session) {
-//       return c.json(
-//         {
-//           message: "Unauthorized",
-//           description: "You need to be logged in to upload files",
-//         },
-//         {
-//           status: 401,
-//         }
-//       );
-//     }
-
-//     const {
-//       user: { id: userId, email: userEmail },
-//     } = session;
-
-//     if (category === "shared") {
-//       const documentCount = await File.aggregate([{ $unwind: "$sharedWith" }, { $match: { "sharedWith.email": userEmail } }, { $count: "totalDocuments" }]);
-
-//       const totalFiles = documentCount.length > 0 ? documentCount[0].totalDocuments : 0;
-
-//       const files = await File.aggregate([
-//         { $unwind: "$sharedWith" },
-//         { $match: { "sharedWith.email": userEmail } },
-//         {
-//           $group: {
-//             _id: "$_id", // Group back the files by their original ID
-//             pinataId: { $first: "$pinataId" },
-//             name: { $first: "$name" },
-//             cid: { $first: "$cid" },
-//             size: { $first: "$size" },
-//             mimeType: { $first: "$mimeType" },
-//             userInfo: { $first: "$userInfo" },
-//             groupId: { $first: "$groupId" },
-//             sharedWith: { $push: "$sharedWith" }, // Reconstruct the sharedWith array
-//             category: { $first: "$category" },
-//             createdAt: { $first: "$createdAt" },
-//             updatedAt: { $first: "$updatedAt" },
-//           },
-//         },
-//       ]);
-
-//       return c.json(
-//         {
-//           message: "Success",
-//           description: "",
-//           data: {
-//             files: files,
-//             total: totalFiles,
-//             currentPage: page,
-//             totalPages: Math.ceil(totalFiles / FILE_SIZE),
-//           },
-//         },
-//         { status: 200 }
-//       );
-//     }
-
-//     const totalFiles = await File.countDocuments({
-//       "userInfo.id": userId,
-//       category,
-//     });
-
-//     const files = await File.find({ "userInfo.id": userId, category })
-//       .skip((page - 1) * FILE_SIZE)
-//       .limit(FILE_SIZE)
-//       .sort({ createdAt: -1 })
-//       .lean();
-
-//     return c.json(
-//       {
-//         message: "Success",
-//         description: "",
-//         data: {
-//           files: files,
-//           total: totalFiles,
-//           currentPage: page,
-//           totalPages: Math.ceil(totalFiles / FILE_SIZE),
-//         },
-//       },
-//       { status: 200 }
-//     );
-//   } catch (error) {
-//     console.log("Error in fetching files: ", error);
-//     const err = parseError(error);
-
-//     return c.json(
-//       {
-//         message: "Error",
-//         description: err,
-//         data: null,
-//       },
-//       { status: 500 }
-//     );
-//   }
-// });
-
 // endpoint untuk membuat halaman base on category : citra-satelite | buoys dll
 fileRoute.get("/:category", async (c) => {
   try {
@@ -369,10 +263,5 @@ fileRoute.get("/:category", async (c) => {
     );
   }
 });
-
-
-
-
-
 
 export default fileRoute;
