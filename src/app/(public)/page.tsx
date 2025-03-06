@@ -6,6 +6,7 @@ import { Chart1 } from "@/components/chart/chart1";
 import { Chart2 } from "@/components/chart/chart2";
 import { Chart3 } from "@/components/chart/chart3";
 import { Chart4 } from "@/components/chart/chart4";
+import WeatherChart from "@/components/chart/weather-chart";
 export const metadata: Metadata = {
   title: "Next Shadcn Dashboard Starter",
   description: "Basic dashboard with Next.js and Shadcn",
@@ -27,7 +28,7 @@ export default async function PublicPage() {
                 {/* Top 3 cards */}
                 <div className="grid grid-cols-3 gap-4">
                   {/* Total Shipments Card */}
-                  <Chart1 />
+                  <WeatherChart />
 
                   {/* Active Tracking Card */}
                   <Chart2 />
@@ -37,7 +38,7 @@ export default async function PublicPage() {
                 </div>
 
                 {/* Chart Card - Full width below the 3 cards */}
-                <Chart4/>
+                <Chart4 />
               </div>
 
               {/* Right section - Map Card */}
