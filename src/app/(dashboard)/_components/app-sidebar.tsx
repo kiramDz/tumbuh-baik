@@ -13,7 +13,7 @@ const items = [
   {
     // disini nyimapn all file + recent file (nengok figma)
     title: "Storage",
-    url: "/dashboard/documents",
+    url: "/dashboard/storage",
     icon: RiFilePdf2Fill,
   },
   {
@@ -21,11 +21,7 @@ const items = [
     url: "/dashboard/teams",
     icon: RiImageFill,
   },
-  // {
-  //   title: "Videos",
-  //   url: "/dashboard/videos",
-  //   icon: RiVideoFill,
-  // },
+
   {
     title: "Others",
     url: "/dashboard/others",
