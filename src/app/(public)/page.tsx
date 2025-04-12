@@ -1,74 +1,122 @@
-import type { Metadata } from "next";
-import PageContainer from "@/components/page-container";
-import { MapPin } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Chart2 } from "@/components/chart/chart2";
-import { Chart3 } from "@/components/chart/chart3";
-import { Chart4 } from "@/components/chart/chart4";
-import WeatherChart from "@/components/chart/weather-chart";
-export const metadata: Metadata = {
-  title: "Next Shadcn Dashboard Starter",
-  description: "Basic dashboard with Next.js and Shadcn",
-};
-export default async function PublicPage() {
+"use client";
+
+//cpde : https://github.com/manju1807/Weatherly-nextjs-weather-app/blob/main/src/app/page.tsx
+
+import { useGeolocation } from "@/hooks/use-geolocation";
+import { useEffect, useState, useCallback, Suspense, lazy } from "react";
+import { DEFAULT_COORDINATES } from "@/constant/index";
+import Navbar from "@/components/navbar";
+import WeatherDashboardSkeleton from "@/components/dashboard-skeleton";
+import { ErrorBoundary } from "react-error-boundary";
+import LocationPermissionDialog from "@/components/location-dialog";
+import { useWeatherData } from "@/hooks/use-weatherData";
+import { useDebounceWithComparison } from "@/hooks/use-DebounceWithComparison";
+import { useCoordinatesComparison } from "@/hooks/use-coordinatesComparison";
+import { ErrorFallback } from "@/components/error-fallback";
+
+// Lazy loaded component
+const WeatherDashboard = lazy(() => import("@/components/view/weather-dashboard"));
+
+export default function PublicPage() {
+  const [coordinates, setCoordinates] = useState(DEFAULT_COORDINATES);
+  const [isManualSelection, setIsManualSelection] = useState(false);
+  const [unit] = useState<"metric" | "imperial">("metric");
+  const [showLocationDialog, setShowLocationDialog] = useState(true);
+  const [geolocationEnabled, setGeolocationEnabled] = useState(false);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
+
+  const compareCoordinates = useCoordinatesComparison();
+  const debouncedCoordinates = useDebounceWithComparison(coordinates, 500, compareCoordinates);
+
+  const {
+    latitude,
+    longitude,
+    loading: locationLoading,
+    hasPermission,
+  } = useGeolocation({
+    timeout: 1000,
+    enabled: geolocationEnabled,
+  });
+
+  const { weatherData, error, isLoading, setError } = useWeatherData(debouncedCoordinates, locationLoading, hasInitialLoad);
+
+  // Location handlers
+  const handleLocationChange = useCallback(
+    (lat: number, lon: number) => {
+      const newCoords = { lat, lon };
+      if (!compareCoordinates(coordinates, newCoords)) {
+        setIsManualSelection(true);
+        setGeolocationEnabled(false);
+        setCoordinates(newCoords);
+        setHasInitialLoad(true);
+      }
+    },
+    [coordinates, compareCoordinates]
+  );
+
+  const handleUseCurrentLocation = useCallback(() => {
+    setIsManualSelection(false);
+    setGeolocationEnabled(true);
+  }, []);
+
+  const handleLocationPermission = useCallback((allow: boolean) => {
+    setShowLocationDialog(false);
+    setGeolocationEnabled(allow);
+    setIsManualSelection(!allow);
+    if (!allow) {
+      setCoordinates(DEFAULT_COORDINATES);
+    }
+    setHasInitialLoad(true);
+  }, []);
+
+  // Update coordinates based on geolocation
+  useEffect(() => {
+    if (geolocationEnabled && hasPermission && !isManualSelection && !compareCoordinates(coordinates, { lat: latitude, lon: longitude })) {
+      setCoordinates({ lat: latitude, lon: longitude });
+      setHasInitialLoad(true);
+    }
+  }, [geolocationEnabled, hasPermission, isManualSelection, latitude, longitude, coordinates, compareCoordinates]);
+
+  // Content renderer
+  const renderContent = useCallback(() => {
+    if (showLocationDialog || (!isManualSelection && locationLoading && !hasInitialLoad)) {
+      return <WeatherDashboardSkeleton />;
+    }
+
+    if (error) {
+      return (
+        <div className="flex items-center justify-center flex-1" role="alert" aria-live="assertive">
+          <p className="text-red-500">{error}</p>
+        </div>
+      );
+    }
+
+    if (!weatherData || isLoading) {
+      return <WeatherDashboardSkeleton />;
+    }
+
+    return (
+      <Suspense fallback={<WeatherDashboardSkeleton />}>
+        <WeatherDashboard weatherData={weatherData} unit={unit} />
+      </Suspense>
+    );
+  }, [showLocationDialog, isManualSelection, locationLoading, hasInitialLoad, error, weatherData, isLoading, unit]);
+
   return (
     <>
-      <PageContainer>
-        <div className="flex flex-1 flex-col space-y-2">
-          <div className="flex items-center justify-between space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight">Hi, Welcome back 👋</h2>
-          </div>
-
-          <div className="w-full p-4">
-            {/* Main grid with 2 columns on md screens */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Left section */}
-              <div className="space-y-4 col-span-3">
-                {/* Top 3 cards */}
-                <div className="grid grid-cols-3 gap-4">
-                  {/* Total Shipments Card */}
-                  <WeatherChart />
-
-                  {/* Active Tracking Card */}
-                  <Chart2 />
-
-                  {/* Delivered Shipment Card */}
-                  <Chart3 />
-                </div>
-
-                {/* Chart Card - Full width below the 3 cards */}
-                <Chart4 />
-              </div>
-
-              {/* Right section - Map Card */}
-              <div className="col-span-1">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Delivery In Progress</CardTitle>
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[400px] bg-muted rounded-md flex items-center justify-center">
-                      <span className="text-sm text-muted-foreground">Map View</span>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Delivery In Progress</CardTitle>
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[400px] bg-muted rounded-md flex items-center justify-center">
-                      <span className="text-sm text-muted-foreground">Map View</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </div>
-        </div>
-      </PageContainer>
+      <div className="min-h-screen flex flex-col">
+        <LocationPermissionDialog open={showLocationDialog} onOpenChange={setShowLocationDialog} onAllowLocation={() => handleLocationPermission(true)} onDenyLocation={() => handleLocationPermission(false)} />
+        <ErrorBoundary
+          FallbackComponent={ErrorFallback}
+          onReset={() => {
+            setError(null);
+            handleUseCurrentLocation();
+          }}
+        >
+          <Navbar onLocationChange={handleLocationChange} onUseCurrentLocation={handleUseCurrentLocation} isUsingCurrentLocation={!isManualSelection} />
+          {renderContent()}
+        </ErrorBoundary>
+      </div>
     </>
   );
 }

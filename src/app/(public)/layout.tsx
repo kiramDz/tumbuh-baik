@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <main className="flex flex-1 w-full flex-col">{children}</main>
+      <main className="flex flex-1 w-full flex-col min-h-screen text-nowrap">{children}</main>
     </>
   );
 }
