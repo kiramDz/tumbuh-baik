@@ -7,6 +7,8 @@ import TemperatureHumidityChart from "./temp-humidity";
 import CurrentWeatherCard from "./current-weather";
 import WindPressureCard from "./wind-pressure";
 import HourlyForecast from "./hourly-forecast";
+import { Banner } from "./banner";
+import { WeatherTabs } from "./weather-tabs";
 
 interface WeatherDashboardProps {
   weatherData: WeatherData;
@@ -28,17 +30,19 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
 
   return (
     <div className="bg-inherit min-h-screen flex flex-col">
-      <div className="container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-        <CurrentWeatherCard currentWeather={currentWeather} forecast={forecast} unit={unit} />
-        <div className="grid grid-rows-2 gap-4">
-          <WindPressureCard currentWeather={currentWeather} unit={unit} />
-          <HourlyForecast forecast={hourlyForecastData} unit={unit} />
+      <Banner />
+      <WeatherTabs defaultTab="weather">
+        <div className="container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+          <CurrentWeatherCard currentWeather={currentWeather} forecast={forecast} unit={unit} />
+          <div className="grid grid-rows-2 gap-4">
+            <WindPressureCard currentWeather={currentWeather} unit={unit} />
+            <HourlyForecast forecast={hourlyForecastData} unit={unit} />
+          </div>
+          <AirPollutionChart data={airPollution} />
+          <TemperatureHumidityChart data={forecast} unit={unit} />
+          <DayDuration data={currentWeather} />
         </div>
-        <AirPollutionChart data={airPollution} />
-        <TemperatureHumidityChart data={forecast} unit={unit} />
-        <DayDuration data={currentWeather} />
-        {/* <ClientMap center={[currentWeather.coord.lat, currentWeather.coord.lon]} zoom={10} markerPosition={[currentWeather.coord.lat, currentWeather.coord.lon]} popupContent={`${currentWeather.name}, ${currentWeather.sys.country}`} /> */}
-      </div>
+      </WeatherTabs>
     </div>
   );
 };
