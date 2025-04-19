@@ -10,6 +10,8 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { toast } from "sonner";
+import MainTable from "./table/main-table";
+
 
 interface PageFilesProps {
   category: string;
@@ -69,7 +71,7 @@ const PageFiles = ({ category }: PageFilesProps) => {
       setCurrentPage((prev) => {
         const nextPage = prev + 1;
 
-       mutation.mutateAsync({ category, page: nextPage });
+        mutation.mutateAsync({ category, page: nextPage });
 
         return nextPage;
       });
@@ -98,10 +100,13 @@ const PageFiles = ({ category }: PageFilesProps) => {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-6">
+      <div className="grid flex-col grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-6">
         {files.map((file) => (
           <FileCard file={file} key={file._id} />
         ))}
+      </div>
+      <div className="container mx-auto py-4">
+        <MainTable />
       </div>
 
       {!isLoading && !isPageFull && (
