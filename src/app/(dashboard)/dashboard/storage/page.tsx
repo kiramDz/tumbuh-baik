@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icons } from "@/components/icons";
 import RecentTable from "@/components/recent-table";
 import Link from "next/link";
+import MainTable from "./_components/main-table";
 export default function StorageLayout() {
   return (
     <>
@@ -51,6 +52,9 @@ export default function StorageLayout() {
             </Card>
           </div>
           <RecentTable />
+          <div className="container mx-auto py-4">
+            <MainTable />
+          </div>
         </div>
       </PageContainer>
     </>
