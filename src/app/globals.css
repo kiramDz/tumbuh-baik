@@ -134,3 +134,9 @@
     @apply bg-accent rounded-lg;
   }
 }
+
+@layer utilities {
+  .container-wrapper {
+    @apply max-w-[1400px] min-[1800px]:max-w-screen-2xl min-[1400px]:border-x border-border/70 dark:border-border mx-auto w-full border-dashed;
+  }
+}

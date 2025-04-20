@@ -1,4 +1,4 @@
-import { Edit, ExternalLink } from "lucide-react";
+import { Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -20,35 +20,34 @@ export function Banner() {
       <div className="relative px-6 py-4 w-1/3">
         <div className="mt-10 rounded-lg bg-white p-6 shadow-lg">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold">Myanmar Kyeeonkyeewa Solar Power Plant Project</h1>
+            <h1 className="text-2xl font-bold">Aceh Besar</h1>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <Badge variant="outline" className="bg-yellow-50 text-yellow-700 hover:bg-yellow-50">
-                In development
+                Forecasting
               </Badge>
               <Badge variant="outline" className="bg-gray-100 hover:bg-gray-100">
-                Energy demand
+                Weather
               </Badge>
               <span className="text-sm text-gray-500">ID: 192819210</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1">
               <div className="flex items-center gap-1">
-                <span className="text-lg font-medium">4029</span>
-                <ExternalLink className="h-4 w-4 text-gray-400" />
+                <span className="text-lg font-medium">2025</span>
               </div>
-              <p className="text-sm text-gray-500">Registry ID</p>
+              <p className="text-sm text-gray-500">year</p>
             </div>
 
             <div className="space-y-1">
-              <p className="text-lg font-medium">VM0038</p>
-              <p className="text-sm text-gray-500">Methodology</p>
+              <p className="text-lg font-medium">Indonesia</p>
+              <p className="text-sm text-gray-500">Country</p>
             </div>
 
             <div className="space-y-1">
-              <p className="text-lg font-medium">Africa, Egypt</p>
-              <p className="text-sm text-gray-500">Location</p>
+              <p className="text-lg font-medium">Asia</p>
+              <p className="text-sm text-gray-500">Continent</p>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { type ReactNode, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PlantingCalender } from "./calender/planting-calender";
 import { CloudSun, CalendarDays, Pi, ChartNoAxesGantt } from "lucide-react";
+import Formula from "@/content/formula/aceh-besar.mdx";
 interface ProjectTabsProps {
   defaultTab?: string;
   children: ReactNode;
@@ -43,9 +44,8 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
         </TabsContent>
 
         <TabsContent value="calculation" className="mt-6">
-          <div className="rounded-lg border p-6">
-            <h3 className="text-lg font-medium">Activity Content</h3>
-            <p className="text-gray-500">Activity information will be displayed here.</p>
+          <div className="prose max-w-none dark:prose-invert">
+            <Formula />
           </div>
         </TabsContent>
 
