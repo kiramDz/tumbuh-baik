@@ -18,7 +18,7 @@ export const columns: ColumnDef<PaymentType>[] = [
   },
   {
     accessorKey: "fullName",
-    header: "Full Name",
+    header: "Source",
   },
   {
     accessorKey: "email",
@@ -37,7 +37,7 @@ export const columns: ColumnDef<PaymentType>[] = [
     header: ({ column }) => {
       return (
         <Button variant="ghost" className="-ml-4" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Amount
+          Record
           <Icons.sort className="ml-2 h-4 w-4" />
         </Button>
       );

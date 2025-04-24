@@ -5,6 +5,8 @@ import type { MDXComponents } from "mdx/types";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import MdxLayout from "./mdx-layout";
+import DataTable from "./data-table";
+import MathFormula from "./math-formula";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
@@ -17,6 +19,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     AlertDescription,
     Button,
     MdxLayout,
+    DataTable,
+    MathFormula,
     h1: ({ children }) => <h1 style={{ color: "red", fontSize: "48px" }}>{children}</h1>,
     h2: ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 className={cn("font-heading mt-16 scroll-m-20 border-b pb-4 text-xl font-semibold tracking-tight first:mt-0", className)} {...props} />,
     h3: ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h3 className={cn("font-heading mt-8 scroll-m-20 text-lg font-semibold tracking-tight", className)} {...props} />,

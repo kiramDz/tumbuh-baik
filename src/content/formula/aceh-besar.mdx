@@ -1,14 +1,24 @@
+
 <MdxLayout className="m-10">
 # 🌱 Kalender Tanam
 
 > Sistem ini menggunakan metode _Holt-Winters_ untuk memprediksi waktu tanam dan panen.
+## Pendahuluan
 
-**Data Digunakan:**
+Kalender tanam yang kami kembangkan menggunakan data cuaca dari BMKG Aceh Besar dan OpenAPI untuk memprediksi waktu tanam optimal bagi petani. Sistem ini mengolah data historis dan prediksi cuaca untuk menentukan periode tanam yang ideal berdasarkan kebutuhan masing-masing tanaman.
 
+## Sumber Data
 - **BMKG**: Curah hujan
 - **Daily Weather**: Suhu, kelembaban
 - **Buoys**: Suhu laut
 - **Satelit**: Tutupan awan
+
+## Metode Pengolahan Data - Holt-Winters
+
+<MathFormula
+  title="Komponen Level (a)"
+  formula="a_t = \alpha \frac{Y_t}{S_{t-L}} + (1 - \alpha)(a_{t-1} + b_{t-1})"
+/>
 
 <Accordion title="Lihat Langkah Pengolahan">1. Clean data 2. Proses Holt-Winters 3. Visualisasi ke kalender</Accordion>
 </MdxLayout>
