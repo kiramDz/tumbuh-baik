@@ -1,6 +1,5 @@
 import { Children } from "@/props/types";
 import { SidebarProvider } from "@/components/ui/sidebar";
-// import { AppSidebar } from "./_components/app-sidebar";
 import DashboardHeader from "./_components/header";
 import { AppSidebar } from "@/components/app-sidebar";
 

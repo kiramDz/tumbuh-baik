@@ -1,21 +1,22 @@
 "use client";
 
-import SidebarTrigger from "@/components/custom/sidebar-trigger";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import DashboardBreadcrumb from "./breadcrumb";
 import UploadButton from "./uplaod-button";
 import HeaderProfile from "./header-profile";
+import { Separator } from "@/components/ui/separator";
 
 const DashboardHeader = () => {
   return (
-    <header className="flex items-center justify-between py-5">
+    <header className="group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
       <div className="flex items-center gap-4 justify-start flex-1">
         <SidebarTrigger />
         <DashboardBreadcrumb />
       </div>
-
+      <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
       <div className="w-full h-fit flex items-center gap-4 justify-end flex-1">
-       <UploadButton />
-       <HeaderProfile />
+        <UploadButton />
+        <HeaderProfile />
       </div>
     </header>
   );

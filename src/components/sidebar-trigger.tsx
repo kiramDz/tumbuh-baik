@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
-import { useSidebar } from "../ui/sidebar";
+import { Button } from "./ui/button";
+import { useSidebar } from "./ui/sidebar";
 import { RiSidebarFoldFill, RiSidebarUnfoldFill } from "@remixicon/react";
 
 const SidebarTrigger = () => {
@@ -22,4 +22,4 @@ const SidebarTrigger = () => {
   );
 };
 
-export default SidebarTrigger
+export default SidebarTrigger;

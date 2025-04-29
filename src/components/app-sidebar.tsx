@@ -17,7 +17,7 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "/dashboard/storage",
+      url: "/dashboard/",
       icon: LayoutDashboardIcon,
     },
     {

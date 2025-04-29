@@ -18,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cn(`min-h-svh bg-background font-sans antialiased`, fontSans.variable, fontMono.variable)}>
+      <body className={cn(`min-h-svh bg-background font-mono antialiased`, fontSans.variable, fontMono.variable)}>
         <QueryProvider>
           {children}
           <Toast />
