@@ -1,5 +1,3 @@
-// disbi akan menampikan 4 card file dan recent files
-//jadi kita buat aja dlu design untuk storage, dan buat card denagn path /dashboard/storage/documents
 import PageContainer from "@/components/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icons } from "@/components/icons";

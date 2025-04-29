@@ -37,11 +37,7 @@ const items = [
     url: "/dashboard/subscription",
     icon: RiDeleteBinFill,
   },
-  // {
-  //   title: "Subscription",
-  //   url: "/dashboard/subscription",
-  //   icon: RiStarFill,
-  // },
+
 ];
 
 export function AppSidebar() {
