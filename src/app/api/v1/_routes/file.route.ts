@@ -65,12 +65,11 @@ fileRoute.get("/", async (c) => {
 
 fileRoute.get("/recent", async (c) => {
   try {
-    await db(); // Pastikan koneksi ke database
+    await db();
     console.log("=== Endpoint /recent terpanggil ===");
 
-    // Cari 10 file terbaru, hanya ambil field yang diperlukan
     const recentFiles = await File.find({})
-      .select("name category size userInfo") // userInfo berisi nama owner
+      .select("name category size userInfo") 
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();

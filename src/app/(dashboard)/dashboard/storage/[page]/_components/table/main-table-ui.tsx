@@ -17,15 +17,23 @@ import {
 } from "@tanstack/react-table";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DataTablePagination } from "./pagination";
-import { DataTableToolbar } from "./data-table-toolbar";
+// import { DataTablePagination } from "./pagination";
+import { DataTablePaginationCopy } from "./pagination-copy";
+// import { DataTableToolbar } from "./data-table-toolbar";
+import { DataTableViewOptions } from "./data-table-view-option";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    total: number;
+    onPageChange: (page: number) => void;
+  };
 }
 
-export function MainTableUI<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
+export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -54,7 +62,10 @@ export function MainTableUI<TData, TValue>({ columns, data }: DataTableProps<TDa
 
   return (
     <div className="space-y-4">
-      <DataTableToolbar table={table} />
+      {/* <DataTableToolbar table={table} /> */}
+      <div className="w-full flex items-center justify-end">
+        <DataTableViewOptions table={table} />
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -85,7 +96,7 @@ export function MainTableUI<TData, TValue>({ columns, data }: DataTableProps<TDa
           </TableBody>
         </Table>
       </div>
-      <DataTablePagination table={table} />
+      <DataTablePaginationCopy pagination={pagination} />
     </div>
   );
 }

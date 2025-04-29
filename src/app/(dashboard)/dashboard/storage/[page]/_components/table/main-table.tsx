@@ -1,27 +1,42 @@
-// tempat table akan menerima data dari api, dan data column
 
-import { useEffect, useState } from "react";
-import { PaymentType } from "@/types/table-schema";
-import { columns } from "./columns/temp-columns";
+
+import { useState } from "react";
+import { bmkgColumns } from "./columns/bmkg-columns";
 import { MainTableUI } from "./main-table-ui";
+import { getBmkgData } from "@/lib/fetch/files.fetch";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
-async function getData(): Promise<PaymentType[]> {
-  const res = await fetch("https://my.api.mockaroo.com/payment_info.json?key=f0933e60");
-  if (!res.ok) {
-    throw new Error("Failed to fetch data");
-  }
-
-  return res.json();
-}
 
 export default function MainTable() {
-  const [paymentData, setPaymentData] = useState<PaymentType[]>([]);
-  useEffect(() => {
-    const data = async () => {
-      const result = await getData();
-      setPaymentData(result);
-    };
-    data();
-  }, []);
-  return <MainTableUI columns={columns} data={paymentData} />;
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["bmkgData", page],
+    queryFn: () => getBmkgData(page),
+    refetchOnWindowFocus: false,
+  });
+
+  console.log("Query data received:", data);
+  console.log("Items to display:", data?.items);
+
+  if (isLoading) return <div>Loading...</div>;
+
+  if (error) {
+    toast("Failed to load BMKG data");
+    return <div>Error loading data.</div>;
+  }
+  console.log("Rendering table with data:", data?.items);
+  return (
+    <MainTableUI
+      data={data?.items || []}
+      columns={bmkgColumns}
+      pagination={{
+        currentPage: data?.currentPage || 1,
+        totalPages: data?.totalPages || 1,
+        total: data?.total || 0,
+        onPageChange: (newPage) => setPage(newPage),
+      }}
+    />
+  );
 }

@@ -2,16 +2,16 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IFile {
   _id: string;
-  pinataId: string; // ID from Pinata
-  name: string; // File name
-  cid: string; // Content ID from Pinata
-  size: number; // File size
-  mimeType: string; // MIME type, bakal dipakai untuk bedain kategiru file
+  pinataId: string; 
+  name: string; 
+  cid: string; 
+  size: number; 
+  mimeType: string; 
   userInfo: { id: mongoose.Types.ObjectId | string; name: string };
-  groupId?: string; // Optional group ID
+  groupId?: string; 
   sharedWith: {
-    email: string; // Email of the person with whom the file is shared
-    permissions: ("file:read" | "file:update" | "file:delete")[]; // Permissions
+    email: string;
+    permissions: ("file:read" | "file:update" | "file:delete")[]; 
   }[];
   category: { type: string; enum: ["bmkg-station", "citra-satelit", "temperatur-laut", "daily-weather"]; required: true };
   createdAt: Date;
@@ -51,5 +51,8 @@ const fileSchema: Schema<FileModel> = new Schema(
   },
   { timestamps: true }
 );
+
+
+
 
 export const File: Model<FileModel> = mongoose.models.File || mongoose.model<FileModel>("File", fileSchema);

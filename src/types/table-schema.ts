@@ -10,4 +10,21 @@ export const paymentSchmea = z.object({
   fullName: z.string(),
 });
 
+export const BmkgSchema = z.object({
+  _id: z.string(),
+  timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date string",
+  }),
+  // Tambahkan field sesuai data BMKG Anda
+  city: z.string(),
+  temperature: z.number(),
+  humidity: z.number(),
+  windSpeed: z.number(),
+  lat: z.number(),
+  lon: z.number(),
+  pressure: z.number(),
+  // Tambahkan field lain sesuai kebutuhan
+});
+
+export type BmkgDataType = z.infer<typeof BmkgSchema>
 export type PaymentType = z.infer<typeof paymentSchmea>;

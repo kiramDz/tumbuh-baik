@@ -25,6 +25,21 @@ export async function getRecentFiles() {
   }
 }
 
+export async function getBmkgData(page = 1) {
+  try {
+    const res = await axios.get(`/api/v1/bmkg?page=${page}`);
+    console.log("Raw API response:", res);
+    if (res.status === 200) {
+      console.log("BMKG API Response:", res.data);
+       console.log("Items specifically:", res.data.data?.items);
+      return res.data.data || { items: [], total: 0, currentPage: 1, totalPages: 1 };
+    }
+  } catch (error) {
+    console.error("Error fetching BMKG data:", error);
+    return { items: [], total: 0, currentPage: 1, totalPages: 1 };
+  }
+}
+
 export const searchFiles = async (search: string) => {
   if (!search) return [];
 

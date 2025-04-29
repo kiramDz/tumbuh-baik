@@ -1,6 +1,5 @@
 "use client";
 
-import FileCard from "@/app/(dashboard)/_components/file-card/card";
 import { P } from "@/components/custom/p";
 import { IFile } from "@/lib/database/schema/file.model";
 import { getFiles } from "@/lib/fetch/files.fetch";
@@ -11,7 +10,6 @@ import { useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { toast } from "sonner";
 import MainTable from "./table/main-table";
-
 
 interface PageFilesProps {
   category: string;
@@ -100,11 +98,6 @@ const PageFiles = ({ category }: PageFilesProps) => {
 
   return (
     <>
-      <div className="grid flex-col grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-6">
-        {files.map((file) => (
-          <FileCard file={file} key={file._id} />
-        ))}
-      </div>
       <div className="container mx-auto py-4">
         <MainTable />
       </div>
