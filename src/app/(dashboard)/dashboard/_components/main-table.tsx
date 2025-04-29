@@ -1,4 +1,3 @@
-// tempat table akan menerima data dari api, dan data column
 'use client'
 import { useEffect, useState } from "react";
 import { PaymentType } from "@/types/table-schema";

@@ -3,7 +3,7 @@ import PageFiles from "./_components/page-files";
 
 interface Props {
   params: Promise<{
-    page: "citra-satelit" | "temperatur-laut" | "daily-weather";
+    page: "citra-satelit" | "temperatur-laut" | "daily-weather" |"bmkg-station";
   }>;
 }
 
