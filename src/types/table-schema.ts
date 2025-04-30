@@ -10,6 +10,16 @@ export const paymentSchmea = z.object({
   fullName: z.string(),
 });
 
+export const statusSchmea = z.object({
+  id: z.number(),
+  source: z.string(),
+  status: z.enum(["backlog", "todo", "in progress", "done", "canceled"]),
+  record: z.number(),
+  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date string",
+  }),
+});
+
 export const BmkgSchema = z.object({
   _id: z.string(),
   timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -28,3 +38,4 @@ export const BmkgSchema = z.object({
 
 export type BmkgDataType = z.infer<typeof BmkgSchema>
 export type PaymentType = z.infer<typeof paymentSchmea>;
+export type Statustype = z.infer<typeof statusSchmea>

@@ -1,56 +1,28 @@
 import { ColumnDef } from "@tanstack/react-table";
 
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-
 import { statuses } from "./filters";
 // import { DataTableRowActions } from "./data-table-row-actions";
-import { PaymentType } from "@/types/table-schema";
-import { Icons } from "./icons";
+import { Statustype } from "@/types/table-schema";
+import { format } from "date-fns";
 
-export const columns: ColumnDef<PaymentType>[] = [
+export const columns: ColumnDef<Statustype>[] = [
   {
-    id: "select",
-    header: ({ table }) => <Checkbox checked={table.getIsAllPageRowsSelected()} onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)} aria-label="Select all" />,
-    cell: ({ row }) => <Checkbox checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} aria-label="Select row" />,
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "fullName",
+    accessorKey: "source",
     header: "Source",
   },
   {
-    accessorKey: "email",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Date
-          <Icons.sort className="ml-2 h-4 w-4" />
-        </Button>
-      );
+    accessorKey: "date",
+    header: "Waktu",
+    cell: ({ row }) => {
+      const rawDate = row.getValue("date") as string;
+      const date = new Date(rawDate);
+      return format(date, "dd/MM/yyyy");
     },
   },
 
   {
-    accessorKey: "amount",
-    header: ({ column }) => {
-      return (
-        <Button variant="ghost" className="-ml-4" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-          Record
-          <Icons.sort className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-    cell: ({ row }) => {
-      const amount = parseFloat(row.getValue("amount"));
-      const formatted = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(amount);
-
-      return <div className=" font-medium">{formatted}</div>;
-    },
+    accessorKey: "record",
+    header: "Record",
   },
   {
     accessorKey: "status",
@@ -73,9 +45,4 @@ export const columns: ColumnDef<PaymentType>[] = [
       return value.includes(row.getValue(id));
     },
   },
-  //   {
-  //     id: "actions",
-  //     header: () => <div>Actions</div>,
-  //     cell: ({ row }) => <DataTableRowActions row={row} />,
-  //   },
 ];

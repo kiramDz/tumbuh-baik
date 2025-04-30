@@ -17,7 +17,7 @@ const DashboardHeader = () => {
       </div>
       <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
       <div className="w-full h-fit flex items-center gap-4 justify-end flex-1">
-        <UploadButton />
+        {/* <UploadButton /> */}
         <HeaderProfile />
       </div>
     </header>

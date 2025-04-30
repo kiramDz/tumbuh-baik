@@ -1,26 +1,77 @@
-'use client'
-import { useEffect, useState } from "react";
-import { PaymentType } from "@/types/table-schema";
+"use client";
+
 import { columns } from "./columns";
 import { MainTableUI } from "./main-table-ui";
 
-async function getData(): Promise<PaymentType[]> {
-  const res = await fetch("https://my.api.mockaroo.com/payment_info.json?key=f0933e60");
-  if (!res.ok) {
-    throw new Error("Failed to fetch data");
-  }
-
-  return res.json();
-}
+const dummyData = [
+  {
+    source: "BMKG Station",
+    date: "2025-04-28",
+    record: 120,
+    status: "backlog",
+  },
+  {
+    source: "Buoys",
+    date: "2025-04-28",
+    record: 120,
+    status: "in progress",
+  },
+  {
+    source: "Citra Satelite",
+    date: "2025-04-28",
+    record: 120,
+    status: "in progress",
+  },
+  {
+    source: "Daily weather",
+    date: "2025-04-28",
+    record: 120,
+    status: "in progress",
+  },
+  {
+    source: "BMKG Station",
+    date: "2025-04-28",
+    record: 120,
+    status: "in progress",
+  },
+  {
+    source: "BMKG Station",
+    date: "2025-04-28",
+    record: 120,
+    status: "in progress",
+  },
+  {
+    source: "BMKG Station",
+    date: "2025-04-28",
+    record: 120,
+    status: "in progress",
+  },
+  {
+    source: "BMKG Station",
+    date: "2025-04-28",
+    record: 120,
+    status: "in progress",
+  },
+  {
+    source: "Citra Satelit",
+    date: "2025-04-27",
+    record: 95,
+    status: "backlog",
+  },
+  {
+    source: "Temperatur Laut",
+    date: "2025-04-26",
+    record: 0,
+    status: "canceled",
+  },
+  {
+    source: "Daily Weather",
+    date: "2025-04-25",
+    record: 110,
+    status: "backlog",
+  },
+];
 
 export default function MainTable() {
-  const [paymentData, setPaymentData] = useState<PaymentType[]>([]);
-  useEffect(() => {
-    const data = async () => {
-      const result = await getData();
-      setPaymentData(result);
-    };
-    data();
-  }, []);
-  return <MainTableUI columns={columns} data={paymentData} />;
+  return <MainTableUI columns={columns} data={dummyData} />;
 }

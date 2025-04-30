@@ -98,7 +98,7 @@ const PageFiles = ({ category }: PageFilesProps) => {
 
   return (
     <>
-      <div className="container mx-auto py-4">
+      <div className="container mx-auto p-0">
         <MainTable />
       </div>
 
