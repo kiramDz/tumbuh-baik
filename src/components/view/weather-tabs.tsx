@@ -2,7 +2,7 @@
 
 import { type ReactNode, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { PlantingCalender } from "./calender/planting-calender";
+import { YearlyCalender } from "./calender/planting-calender-2";
 import { CloudSun, CalendarDays, Pi, ChartNoAxesGantt } from "lucide-react";
 import Formula from "@/content/formula/aceh-besar.mdx";
 interface ProjectTabsProps {
@@ -40,7 +40,7 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
         </TabsContent>
 
         <TabsContent value="calender" className="mt-6">
-          <PlantingCalender />
+          <YearlyCalender />
         </TabsContent>
 
         <TabsContent value="calculation" className="mt-6">
