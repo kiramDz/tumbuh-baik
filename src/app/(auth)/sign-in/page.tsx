@@ -1,10 +1,9 @@
 import React from "react";
-import AuthForm from "../_components/auth-form";
-// import SignUpViewPage from "../_components/auth-form-copy";
+
+import AdminSignIn from "../_components/admin-sign-in";
 
 const SignInPage = () => {
-  // return <SignUpViewPage />; 
-  return <AuthForm action="Sign In" />
+  return <AdminSignIn />;
 };
 
 export default SignInPage;

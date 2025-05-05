@@ -1,8 +1,12 @@
 import React from "react";
-import AuthForm from "../_components/auth-form";
+import { AdminSignUp } from "../_components/admin-sign-up";
 
 const SignUpPage = () => {
-  return <AuthForm action="Sign Up" />;
+  return (
+    <>
+      <AdminSignUp />
+    </>
+  );
 };
 
 export default SignUpPage;

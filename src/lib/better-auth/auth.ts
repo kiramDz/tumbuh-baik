@@ -18,6 +18,9 @@ export const auth = betterAuth({
       clientSecret: GOOGLE_CLIENT_SECRET,
     },
   },
+  emailAndPassword: {
+    enabled: true,
+  },
   hooks: {
     after: createAuthMiddleware(async (c) => {
       const newSession = c.context.newSession;
@@ -49,10 +52,7 @@ export const auth = betterAuth({
             }
           );
         } catch (error) {
-          console.log(
-            "Error in creating subscription in auth before hook: ",
-            error
-          );
+          console.log("Error in creating subscription in auth before hook: ", error);
 
           throw c.redirect("/sign-in");
         }
