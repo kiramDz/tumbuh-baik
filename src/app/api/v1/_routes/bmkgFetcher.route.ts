@@ -3,6 +3,7 @@ import axios from "axios";
 import { BMKGApi } from "@/lib/database/schema/bmkgApi.model";
 import db from "@/lib/database/db";
 import { parseError } from "@/lib/utils";
+import cron from "node-cron";
 
 // Daftar kode wilayah gampong Aceh Besar (misalnya)
 const gampongList = [
@@ -28,6 +29,7 @@ bmkgFetcherRoute.get("/", async (c) => {
 
       const cuacaNested = data.data?.[0]?.cuaca ?? [];
       const cuacaData = cuacaNested.flat();
+      const tanggalHariIni = new Date().toISOString().split("T")[0];
 
       const mappedCuaca = cuacaData
         .filter((item: any) => item.local_datetime && item.t && item.hu && item.weather_desc && item.ws && item.wd && item.tcc && item.vs_text)
@@ -41,14 +43,22 @@ bmkgFetcherRoute.get("/", async (c) => {
           tcc: item.tcc,
           vs_text: item.vs_text,
         }));
-
-      await BMKGApi.create({
-        kode_gampong: kodeGampong, // dari loop
-        nama_gampong: data.lokasi?.desa, // dari response
-        tanggal_data: new Date().toISOString().split("T")[0],
-        analysis_date: new Date(data.data?.[0]?.cuaca?.[0]?.analysis_date ?? new Date()),
-        data: mappedCuaca,
-      });
+      // data lama tdk akan terhaous ketika data baru diupdate
+      await BMKGApi.findOneAndUpdate(
+        {
+          kode_gampong: kodeGampong,
+          tanggal_data: tanggalHariIni,
+        },
+        {
+          nama_gampong: data.lokasi?.desa || "Unknown",
+          analysis_date: new Date(data.data?.[0]?.cuaca?.[0]?.analysis_date || new Date()),
+          data: mappedCuaca,
+        },
+        {
+          upsert: true,
+          new: true,
+        }
+      );
 
       // Simpan ke MongoDB
     }
@@ -61,6 +71,19 @@ bmkgFetcherRoute.get("/", async (c) => {
     console.error("Error fetching data from BMKG:", error);
     const err = parseError(error);
     return c.json({ message: "Error", description: err }, { status: 500 });
+  }
+});
+
+//update setiap 48 jam (2 hari sekli)
+cron.schedule("0 7 */2 * *", async () => {
+  console.log("=== [CRON] Scheduled fetch BMKG API ===");
+
+  try {
+    const fetchUrl = `http://localhost:3000/api/v1/bmkg-fetch`; // Ganti dengan full URL jika perlu
+    await axios.get(fetchUrl);
+    console.log("[CRON] BMKG fetch success.");
+  } catch (error) {
+    console.error("[CRON] Error fetching BMKG:", error);
   }
 });
 

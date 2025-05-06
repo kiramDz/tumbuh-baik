@@ -6,7 +6,6 @@ import { parseError } from "@/lib/utils";
 
 const bmkgApiRoute = new Hono();
 
-
 bmkgApiRoute.get("/all", async (c) => {
   try {
     await db();
