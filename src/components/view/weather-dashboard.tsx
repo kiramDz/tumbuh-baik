@@ -12,7 +12,13 @@ import HourlyForecast from "./hourly-forecast";
 import { Banner } from "./banner";
 import { WeatherTabs } from "./weather-tabs";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+
+interface ChartDataPoint {
+  time: string;
+  temperature: number;
+  humidity: number;
+}
 
 interface WeatherDashboardProps {
   weatherData: WeatherData;
@@ -21,50 +27,46 @@ interface WeatherDashboardProps {
 
 const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }) => {
   const { currentWeather, forecast, airPollution } = weatherData;
-  const query = useQuery({
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+
+  // Fetch BMKG data
+  const {
+    data: bmkgApiResponse,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["bmkg-api"],
     queryFn: getBmkgApi,
   });
 
-  const bmkgData = query.data?.data; // akses isi dari response API
-  console.log("BMKG raw response:", query.data);
-
-  const [chartData, setChartData] = useState<{ time: string; temperature: number; humidity: number }[]>([]);
+  const bmkgData = bmkgApiResponse?.data;
+  const selected = bmkgData?.find((item) => item.kode_gampong === "11.06.02.2001");
+  const latestData = selected?.data?.[selected.data.length - 1];
 
   useEffect(() => {
-    if (!bmkgData) return;
+    if (!selected || !selected.data) return;
 
-    // Ambil bmkgData terbaru (asumsi per gampong, kita ambil 1 saja untuk chart)
     const today = new Date("2025-05-06T14:00:00");
     const end = new Date("2025-05-08T23:00:00");
 
-    const selected = bmkgData.find((item) => item.kode_gampong === "11.06.02.2002");
-
-    if (!selected || !selected.bmkgData) {
-      console.error("Data tidak ditemukan atau bmkgData tidak tersedia.");
-      return;
-    }
-
-    const filtered = selected.bmkgData.filter((item: any) => {
+    const filtered = selected.data.filter((item: any) => {
       const dt = new Date(item.local_datetime.replace(" ", "T"));
       return dt >= today && dt <= end;
     });
 
     const mapped = filtered.map((item: any) => ({
-      time: new Date(item.local_datetime).getTime().toString(),
+      time: new Date(item.local_datetime.replace(" ", "T")).getTime().toString(),
       temperature: item.t,
       humidity: item.hu,
     }));
 
     setChartData(mapped);
-  }, [bmkgData]);
+  }, [selected]);
 
-  console.log("bmkgData setelah filter", bmkgData);
+  if (isLoading) return <div>Loading...</div>;
 
-  if (query.isLoading) return <div>Loading...</div>;
-  if (query.error || !bmkgData) return <div>Error loading BMKG data.</div>;
+  if (error || !bmkgData) return <div>Error loading BMKG data.</div>;
 
-  // Extract hourly forecast data for the first 5 items
   const hourlyForecastData = forecast.list.slice(0, 5).map((item) => ({
     time: new Date(item.dt * 1000).toLocaleTimeString([], {
       hour: "2-digit",
@@ -79,7 +81,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
       <Banner />
       <WeatherTabs defaultTab="weather">
         <div className="container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-          <CurrentWeatherCard currentWeather={currentWeather} forecast={forecast} unit={unit} />
+          {latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData, nama_gampong: selected.nama_gampong }} unit={unit} />}
+
           <div className="grid grid-rows-2 gap-4">
             <WindPressureCard currentWeather={currentWeather} unit={unit} />
             <HourlyForecast forecast={hourlyForecastData} unit={unit} />
