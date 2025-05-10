@@ -1,15 +1,17 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-// import { CurrentWeatherResponse, ForecastResponse } from "@/types/weather";
 import { Cloudy, Rainy, Sunny } from "../../../public/svg/weather";
+import type { BMKGDataItem } from "@/types/table-schema";
 
-// interface CurrentWeatherCardProps {
-//   currentWeather: CurrentWeatherResponse;
-//   forecast: ForecastResponse;
-//   unit: "metric" | "imperial";
-// }
+interface CurrentWeatherProps {
+  unit: string;
+  bmkgCurrent: BMKGDataItem & {
+    nama_gampong?: string; 
+    kode_gampong?: string; 
+  };
+}
 
-const CurrentWeatherCard: React.FC<{ bmkgCurrent: any; unit: string }> = ({ bmkgCurrent, unit }) => {
+const CurrentWeatherCard: React.FC<CurrentWeatherProps> = ({ bmkgCurrent, unit }) => {
   const localDate = new Date(bmkgCurrent.local_datetime.replace(" ", "T"));
   const formattedDate = `Today, ${localDate.toLocaleDateString("id-ID", {
     weekday: "long",

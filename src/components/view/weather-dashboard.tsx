@@ -5,7 +5,6 @@ import { WeatherData } from "@/types/weather";
 import DayDuration from "./day-duration";
 import AirPollutionChart from "./air-pollution";
 import TemperatureHumidityChart from "./temp-humidity";
-// import ClientMap from "@/components/views/client-map";
 import CurrentWeatherCard from "./current-weather";
 import WindPressureCard from "./wind-pressure";
 import HourlyForecast from "./hourly-forecast";
@@ -13,6 +12,8 @@ import { Banner } from "./banner";
 import { WeatherTabs } from "./weather-tabs";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
+import { getTodayWeather, getChartData } from "@/lib/bmkg-utils";
+import type { BMKGApiData } from "@/types/table-schema";
 
 interface ChartDataPoint {
   time: string;
@@ -40,28 +41,17 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
   });
 
   const bmkgData = bmkgApiResponse?.data;
-  const selected = bmkgData?.find((item) => item.kode_gampong === "11.06.02.2001");
-  const latestData = selected?.data?.[selected.data.length - 1];
+  const selected = bmkgData?.find((item: BMKGApiData) => item.kode_gampong === "11.06.02.2001");
+
+  const latestData = selected?.data ? getTodayWeather(selected.data) : null;
 
   useEffect(() => {
-    if (!selected || !selected.data) return;
-
-    const today = new Date("2025-05-06T14:00:00");
-    const end = new Date("2025-05-08T23:00:00");
-
-    const filtered = selected.data.filter((item: any) => {
-      const dt = new Date(item.local_datetime.replace(" ", "T"));
-      return dt >= today && dt <= end;
-    });
-
-    const mapped = filtered.map((item: any) => ({
-      time: new Date(item.local_datetime.replace(" ", "T")).getTime().toString(),
-      temperature: item.t,
-      humidity: item.hu,
-    }));
-
+    if (!selected?.data) return;
+    const mapped = getChartData(selected.data);
     setChartData(mapped);
   }, [selected]);
+
+  console.log("🚀 ~ chartData:", chartData);
 
   if (isLoading) return <div>Loading...</div>;
 
@@ -84,7 +74,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
           {latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData, nama_gampong: selected.nama_gampong }} unit={unit} />}
 
           <div className="grid grid-rows-2 gap-4">
-            <WindPressureCard currentWeather={currentWeather} unit={unit} />
+            {latestData && <WindPressureCard bmkgCurrent={latestData} unit={unit} />}
+
             <HourlyForecast forecast={hourlyForecastData} unit={unit} />
           </div>
           <AirPollutionChart data={airPollution} />

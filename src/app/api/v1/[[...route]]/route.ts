@@ -19,6 +19,7 @@ app.route("/visualization", visualizationRoute);
 
 app.route("/bmkg", bmkgRoute);
 app.route("/bmkg-api", bmkgApiRoute);
+//fetch : http://localhost:3000/api/v1/bmkg-fetch
 app.route("/bmkg-fetch", bmkgFetcherRoute);
 
 export const GET = handle(app);
