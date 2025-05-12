@@ -1,4 +1,4 @@
-import type { BMKGDataItem } from "@/types/table-schema";
+import type { BMKGDataItem, BMKGApiData } from "@/types/table-schema";
 
 export const getTodayWeather = (data: BMKGDataItem[]) => {
   const now = new Date();
@@ -7,6 +7,27 @@ export const getTodayWeather = (data: BMKGDataItem[]) => {
     const closestDate = new Date(closest.local_datetime.replace(" ", "T"));
     return Math.abs(itemDate.getTime() - now.getTime()) < Math.abs(closestDate.getTime() - now.getTime()) ? item : closest;
   });
+};
+
+export const getUniqueGampongData = (data: BMKGApiData[]) => {
+  const map = new Map<string, BMKGApiData>();
+
+  data.forEach((item) => {
+    const key = item.kode_gampong;
+
+    // Ambil data dengan tanggal hari ini jika tersedia
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const isToday = item.tanggal_data === today;
+    const isExistingToday = map.get(key)?.tanggal_data === today;
+
+    // Kalau belum ada atau yang sekarang adalah data hari ini
+    if (!map.has(key) || (isToday && !isExistingToday)) {
+      map.set(key, item);
+    }
+  });
+
+  return Array.from(map.values());
 };
 
 export const getChartData = (data: BMKGDataItem[]) => {

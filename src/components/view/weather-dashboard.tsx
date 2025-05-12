@@ -8,7 +8,9 @@ import TemperatureHumidityChart from "./temp-humidity";
 import CurrentWeatherCard from "./current-weather";
 import WindPressureCard from "./wind-pressure";
 import HourlyForecast from "./hourly-forecast";
+
 import { Banner } from "./banner";
+import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +31,7 @@ interface WeatherDashboardProps {
 const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }) => {
   const { currentWeather, forecast, airPollution } = weatherData;
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
 
   // Fetch BMKG data
   const {
@@ -41,7 +44,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
   });
 
   const bmkgData = bmkgApiResponse?.data;
-  const selected = bmkgData?.find((item: BMKGApiData) => item.kode_gampong === "11.06.02.2001");
+  const selected = bmkgData?.find((item: BMKGApiData) => item.kode_gampong === selectedGampong);
 
   const latestData = selected?.data ? getTodayWeather(selected.data) : null;
 
@@ -50,6 +53,12 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
     const mapped = getChartData(selected.data);
     setChartData(mapped);
   }, [selected]);
+
+  useEffect(() => {
+    if (bmkgData && !selectedGampong) {
+      setSelectedGampong(bmkgData[0]?.kode_gampong);
+    }
+  }, [bmkgData]);
 
   console.log("🚀 ~ chartData:", chartData);
 
@@ -70,7 +79,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
     <div className="bg-inherit min-h-screen flex flex-col">
       <Banner />
       <WeatherTabs defaultTab="weather">
-        <div className="container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+        <WeatherHeader bmkgData={bmkgData} selectedCode={selectedGampong} onGampongChange={setSelectedGampong} />
+        <div className=" grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
           {latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData, nama_gampong: selected.nama_gampong }} unit={unit} />}
 
           <div className="grid grid-rows-2 gap-4">
