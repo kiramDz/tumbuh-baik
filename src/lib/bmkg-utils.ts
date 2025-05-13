@@ -73,3 +73,24 @@ export function getWindCondition(ws: number, wd: string): string {
 
   return "Data angin tidak tersedia atau tidak valid.";
 }
+
+export const getHourlyForecastData = (data: BMKGDataItem[]) => {
+  const now = new Date();
+  const end = new Date();
+  end.setDate(end.getDate() + 1);
+  end.setHours(23, 59, 59);
+
+  return data
+    .filter((item) => {
+      const dt = new Date(item.local_datetime.replace(" ", "T"));
+      return dt >= now && dt <= end;
+    })
+    .map((item) => ({
+      time: new Date(item.local_datetime.replace(" ", "T")).toLocaleTimeString([], {
+        hour: "2-digit",
+        hour12: false,
+      }),
+      temperature: item.t,
+      weather: item.weather_desc?.toLowerCase() || "clear",
+    }));
+};

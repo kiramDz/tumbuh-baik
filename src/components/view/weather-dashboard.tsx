@@ -14,7 +14,7 @@ import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
-import { getTodayWeather, getChartData } from "@/lib/bmkg-utils";
+import { getTodayWeather, getChartData, getHourlyForecastData } from "@/lib/bmkg-utils";
 import type { BMKGApiData } from "@/types/table-schema";
 
 interface ChartDataPoint {
@@ -32,7 +32,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
   const { currentWeather, forecast, airPollution } = weatherData;
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
-
+  const now = new Date();
+  const end = new Date();
   // Fetch BMKG data
   const {
     data: bmkgApiResponse,
@@ -66,14 +67,25 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
 
   if (error || !bmkgData) return <div>Error loading BMKG data.</div>;
 
-  const hourlyForecastData = forecast.list.slice(0, 5).map((item) => ({
-    time: new Date(item.dt * 1000).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    temperature: Math.round(item.main.temp),
-    weather: item.weather[0].main,
-  }));
+  end.setDate(now.getDate() + 1);
+  end.setHours(23, 59, 59);
+
+  const forecastData = selected?.data ? getHourlyForecastData(selected.data) : [];
+
+  // const forecastData =
+  //   selected?.data
+  //     ?.filter((item) => {
+  //       const dt = new Date(item.local_datetime.replace(" ", "T"));
+  //       return dt >= now && dt <= end;
+  //     })
+  //     .map((item) => ({
+  //       time: new Date(item.local_datetime.replace(" ", "T")).toLocaleTimeString([], {
+  //         hour: "2-digit",
+  //         hour12: false,
+  //       }),
+  //       temperature: item.t,
+  //       weather: item.weather?.toLowerCase() ?? "", // optional chaining
+  //     })) ?? [];
 
   return (
     <div className="bg-inherit min-h-screen flex flex-col">
@@ -86,7 +98,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
           <div className="grid grid-rows-2 gap-4">
             {latestData && <WindPressureCard bmkgCurrent={latestData} unit={unit} />}
 
-            <HourlyForecast forecast={hourlyForecastData} unit={unit} />
+            <HourlyForecast forecast={forecastData} unit={unit} />
           </div>
           <AirPollutionChart data={airPollution} />
           {chartData.length === 0 ? (
