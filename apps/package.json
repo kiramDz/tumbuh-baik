@@ -1,0 +1,41 @@
+{
+  "name": "padi",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "BroKarim",
+  "license": "ISC",
+  "engines": {
+    "node": ">=12.13.1",
+    "npm": ">=6.14.8"
+  },
+  "scripts": {
+    "analyze": "cd apps/nextjs-typescript-example-00/app && npm run analyze",
+    "build": "npm run stop && npm run destroy && npm run start:clean",
+    "start": "docker-compose up",
+    "start:clean": "docker-compose up --build",
+    "stop": "docker-compose stop",
+    "test": "npm run test:python:flask:curl && npm run test:python:flask && npm run test:nextjs",
+    "test:nextjs": "docker exec -it explore-docker-python-flask-nextjs-typescript_nextjs_1 npm test",
+    "test:nextjs:coverage": "docker exec -it explore-docker-python-flask-nextjs-typescript_nextjs_1 npm run test:coverage",
+    "test:nextjs:watch": "docker exec -it explore-docker-python-flask-nextjs-typescript_nextjs_1 npm run test:watchAll",
+    "test:python:flask": "docker exec -it explore-docker-python-flask-nextjs-typescript_python-flask_1 python -m unittest discover ./",
+    "test:python:flask:curl": "docker exec -it explore-docker-python-flask-nextjs-typescript_python-flask_1 python curl.py",
+    "test:e2e": "npm run test:e2e:cypress",
+    "test:e2e:flaps": "npm run test:e2e:cypress:flaps",
+    "test:e2e:open": "npm run test:e2e:cypress:open",
+    "test:e2e:cypress": "docker-compose up -d --no-deps --build cypress",
+    "test:e2e:cypress:flaps": "npm run test:e2e:cypress && docker-compose run cypress scripts/test-for-flaps.sh",
+    "test:e2e:cypress:open": "cd apps/cypress && npm start",
+    "destroy": "docker-compose rm -f -v",
+    "destroy:global": "docker system prune -f --volumes && docker image prune -a -f"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheRobBrennan/explore-docker-python-flask-nextjs-typescript.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TheRobBrennan/explore-docker-python-flask-nextjs-typescript/issues"
+  },
+  "homepage": "https://github.com/TheRobBrennan/explore-docker-python-flask-nextjs-typescript#readme"
+}
