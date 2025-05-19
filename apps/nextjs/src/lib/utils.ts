@@ -2,6 +2,7 @@ import { AxiosError } from "axios";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import Papa from "papaparse";
+import {  NextRequest } from "next/server";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -69,6 +70,13 @@ export function pageIdentifier(slug: string): string {
 
   return categoryMap[slug] || slug; // Default jika slug tidak dikenali
 }
+
+export function absoluteUrl(req: NextRequest) {
+  const protocol = req.headers.get("x-forwarded-proto") || "http";
+  const host = req.headers.get("host");
+  return `${protocol}://${host}`;
+}
+
 
 export function dynamicDownload(url: string, name: string) {
   const a = document.createElement("a");
