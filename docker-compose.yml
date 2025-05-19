@@ -2,29 +2,51 @@ version: "3.9"
 
 services:
   nextjs:
+    container_name: nextjs
     build:
-      context: ./nextjs
+      context: ./apps/nextjs
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
+      - "6006:6006"
     volumes:
-      - ./nextjs:/app
-    environment:
-      - NODE_ENV=development
+      - ./apps/nextjs:/app
+      # Prevent node_modules and .next from being overwritten
+      - /app/node_modules
+      - /app/.next
+    env_file:
+          - ./apps/nextjs/.env.local
+    depends_on:
+      - mongodb
 
   flask:
     build:
-      context: ./flask
+      # Specify our app directory as the context
+      context: ./apps/flask
+      # Use the Dockerfile that exists within the directory we specified above
+      dockerfile: ./Dockerfile
     ports:
+      # Flask server
       - "5000:5000"
+      # Flask server debug port
+      - "5678:5678"
+    command: flask run --host=0.0.0.0 --port=5000
     volumes:
-      - ./flask:/app
+      - ./apps/flask/:/code
     environment:
-      - FLASK_ENV=development
+      # Specify the path within our Docker container that contains our application code
+      FLASK_APP: /code/app.py
+      FLASK_ENV: development
 
   mongodb:
-    image: mongo
     container_name: mongodb
+    image: mongo:6.0
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: tugas_akhir
+
+volumes:
+  mongo-data:
