@@ -29,7 +29,7 @@ interface WeatherDashboardProps {
 }
 
 const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }) => {
-  const { currentWeather, forecast, airPollution } = weatherData;
+  const { currentWeather, airPollution } = weatherData;
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
   const now = new Date();
@@ -71,21 +71,6 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
   end.setHours(23, 59, 59);
 
   const forecastData = selected?.data ? getHourlyForecastData(selected.data) : [];
-
-  // const forecastData =
-  //   selected?.data
-  //     ?.filter((item) => {
-  //       const dt = new Date(item.local_datetime.replace(" ", "T"));
-  //       return dt >= now && dt <= end;
-  //     })
-  //     .map((item) => ({
-  //       time: new Date(item.local_datetime.replace(" ", "T")).toLocaleTimeString([], {
-  //         hour: "2-digit",
-  //         hour12: false,
-  //       }),
-  //       temperature: item.t,
-  //       weather: item.weather?.toLowerCase() ?? "", // optional chaining
-  //     })) ?? [];
 
   return (
     <div className="bg-inherit min-h-screen flex flex-col">

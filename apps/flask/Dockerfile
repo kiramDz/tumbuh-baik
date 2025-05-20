@@ -1,7 +1,7 @@
 FROM python:3.10-slim
 
 # Set working directory
-WORKDIR /app
+WORKDIR /code
 
 # Salin file requirements.txt terlebih dahulu
 COPY requirements.txt .

@@ -8,14 +8,18 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-      - "6006:6006"
     volumes:
       - ./apps/nextjs:/app
       # Prevent node_modules and .next from being overwritten
       - /app/node_modules
       - /app/.next
-    env_file:
-          - ./apps/nextjs/.env.local
+    environment:
+      - NEXT_PUBLIC_OPENWEATHER_API_KEY=ffe660efdd4b0b8382acfad056e03bb1
+      - BETTER_AUTH_SECRET=bvvybf5oOio27DfGVxCnwqRjP2AvTZfM
+      # - BETTER_AUTH_URL=http://localhost:3000
+      - MONGODB_URI=mongodb://mongodb:27017/tugas_akhir
+      - GOOGLE_CLIENT_ID=44801896856-qpud5qubmi3n4idhltf6crc8n4evfcsm.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=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
     depends_on:
       - mongodb
 
@@ -31,6 +35,7 @@ services:
       # Flask server debug port
       - "5678:5678"
     command: flask run --host=0.0.0.0 --port=5000
+    # command: tail -f /dev/null
     volumes:
       - ./apps/flask/:/code
     environment:

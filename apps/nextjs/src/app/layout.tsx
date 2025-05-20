@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   description: "The only solution you ever need for secure files storage.",
 };
 
+// TODO: Implement session and account data storage in MongoDB container
+// Ensure login functionality works properly
+
 export default function RootLayout({
   children,
 }: Readonly<{

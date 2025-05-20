@@ -1,0 +1,3946 @@
+[{
+  "_id": {
+    "$oid": "68199a96c93bf52a3ebcce44"
+  },
+  "kode_gampong": "11.06.02.2002",
+  "nama_gampong": "Nusa",
+  "tanggal_data": "2025-05-06",
+  "analysis_date": {
+    "$date": "2025-05-06T06:50:13.915Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-06 14:00:00",
+      "t": 28,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 9.6,
+      "wd": "SW",
+      "tcc": 94,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7109"
+      }
+    },
+    {
+      "local_datetime": "2025-05-06 17:00:00",
+      "t": 27,
+      "hu": 80,
+      "weather_desc": "Berawan",
+      "ws": 8.9,
+      "wd": "SW",
+      "tcc": 98,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b710a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-06 20:00:00",
+      "t": 27,
+      "hu": 83,
+      "weather_desc": "Cerah Berawan",
+      "ws": 8.2,
+      "wd": "SW",
+      "tcc": 89,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b710b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-06 23:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Cerah Berawan",
+      "ws": 7.7,
+      "wd": "SW",
+      "tcc": 81,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b710c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 02:00:00",
+      "t": 25,
+      "hu": 90,
+      "weather_desc": "Hujan Ringan",
+      "ws": 15.2,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "< 6 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b710d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 05:00:00",
+      "t": 25,
+      "hu": 92,
+      "weather_desc": "Berawan",
+      "ws": 10,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b710e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 08:00:00",
+      "t": 28,
+      "hu": 77,
+      "weather_desc": "Berawan",
+      "ws": 9.2,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b710f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 11:00:00",
+      "t": 30,
+      "hu": 63,
+      "weather_desc": "Berawan",
+      "ws": 21.2,
+      "wd": "SW",
+      "tcc": 94,
+      "vs_text": "< 6 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7110"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 14:00:00",
+      "t": 28,
+      "hu": 75,
+      "weather_desc": "Berawan",
+      "ws": 15,
+      "wd": "SW",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7111"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 17:00:00",
+      "t": 27,
+      "hu": 80,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.3,
+      "wd": "SW",
+      "tcc": 87,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7112"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 20:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.5,
+      "wd": "SW",
+      "tcc": 88,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7113"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 23:00:00",
+      "t": 26,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 13.2,
+      "wd": "S",
+      "tcc": 98,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7114"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 02:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 12.3,
+      "wd": "S",
+      "tcc": 97,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7115"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 05:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 10,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7116"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 08:00:00",
+      "t": 28,
+      "hu": 73,
+      "weather_desc": "Berawan",
+      "ws": 10,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7117"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 11:00:00",
+      "t": 29,
+      "hu": 69,
+      "weather_desc": "Berawan",
+      "ws": 15.6,
+      "wd": "SW",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7118"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 14:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Hujan Ringan",
+      "ws": 15.6,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b7119"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 17:00:00",
+      "t": 27,
+      "hu": 82,
+      "weather_desc": "Hujan Ringan",
+      "ws": 12.3,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b711a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 20:00:00",
+      "t": 26,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 12.3,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b711b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 23:00:00",
+      "t": 25,
+      "hu": 89,
+      "weather_desc": "Berawan",
+      "ws": 13.1,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b711c"
+      }
+    }
+  ],
+  "createdAt": {
+    "$date": "2025-05-06T05:13:58.241Z"
+  },
+  "updatedAt": {
+    "$date": "2025-05-06T06:50:13.916Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68199a96c93bf52a3ebcce5a"
+  },
+  "kode_gampong": "11.06.02.2001",
+  "nama_gampong": "Mon Ikeun",
+  "tanggal_data": "2025-05-06",
+  "analysis_date": {
+    "$date": "2025-05-06T06:50:13.375Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-06 14:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 6.8,
+      "wd": "SW",
+      "tcc": 94,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e0"
+      }
+    },
+    {
+      "local_datetime": "2025-05-06 17:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 5.8,
+      "wd": "S",
+      "tcc": 97,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e1"
+      }
+    },
+    {
+      "local_datetime": "2025-05-06 20:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 6.2,
+      "wd": "S",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e2"
+      }
+    },
+    {
+      "local_datetime": "2025-05-06 23:00:00",
+      "t": 24,
+      "hu": 94,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.8,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e3"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 02:00:00",
+      "t": 24,
+      "hu": 93,
+      "weather_desc": "Hujan Ringan",
+      "ws": 11.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 6 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e4"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 05:00:00",
+      "t": 24,
+      "hu": 93,
+      "weather_desc": "Berawan",
+      "ws": 10.3,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e5"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 08:00:00",
+      "t": 27,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 8.3,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e6"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 11:00:00",
+      "t": 28,
+      "hu": 71,
+      "weather_desc": "Berawan",
+      "ws": 16.1,
+      "wd": "SW",
+      "tcc": 92,
+      "vs_text": "< 6 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e7"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 14:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 10.4,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e8"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 17:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Cerah Berawan",
+      "ws": 8.1,
+      "wd": "S",
+      "tcc": 82,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70e9"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 20:00:00",
+      "t": 24,
+      "hu": 90,
+      "weather_desc": "Cerah Berawan",
+      "ws": 9.2,
+      "wd": "S",
+      "tcc": 86,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70ea"
+      }
+    },
+    {
+      "local_datetime": "2025-05-07 23:00:00",
+      "t": 24,
+      "hu": 91,
+      "weather_desc": "Berawan",
+      "ws": 10.8,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70eb"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 02:00:00",
+      "t": 24,
+      "hu": 89,
+      "weather_desc": "Berawan",
+      "ws": 11.4,
+      "wd": "S",
+      "tcc": 97,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70ec"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 05:00:00",
+      "t": 24,
+      "hu": 91,
+      "weather_desc": "Berawan",
+      "ws": 10.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70ed"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 08:00:00",
+      "t": 27,
+      "hu": 77,
+      "weather_desc": "Berawan",
+      "ws": 10.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70ee"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 11:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Berawan",
+      "ws": 11.1,
+      "wd": "SW",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70ef"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 14:00:00",
+      "t": 24,
+      "hu": 90,
+      "weather_desc": "Hujan Ringan",
+      "ws": 11.1,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70f0"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 17:00:00",
+      "t": 26,
+      "hu": 87,
+      "weather_desc": "Hujan Ringan",
+      "ws": 9.4,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70f1"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 20:00:00",
+      "t": 24,
+      "hu": 92,
+      "weather_desc": "Berawan",
+      "ws": 9.4,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70f2"
+      }
+    },
+    {
+      "local_datetime": "2025-05-08 23:00:00",
+      "t": 24,
+      "hu": 92,
+      "weather_desc": "Berawan",
+      "ws": 10.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6819b125b2ce7ea2a98b70f3"
+      }
+    }
+  ],
+  "createdAt": {
+    "$date": "2025-05-06T05:13:58.368Z"
+  },
+  "updatedAt": {
+    "$date": "2025-05-06T06:50:13.377Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "681ebfaade60c2f59398530d"
+  },
+  "tanggal_data": "2025-05-10",
+  "kode_gampong": "11.06.02.2001",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-10T02:53:30.625Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-10T02:53:30.625Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-10 10:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.9,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb06"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 13:00:00",
+      "t": 28,
+      "hu": 72,
+      "weather_desc": "Cerah Berawan",
+      "ws": 15.2,
+      "wd": "S",
+      "tcc": 86,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb07"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 16:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Cerah Berawan",
+      "ws": 13.5,
+      "wd": "S",
+      "tcc": 84,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb08"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 19:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 11.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb09"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 22:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 10.8,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb0a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 01:00:00",
+      "t": 25,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 11.6,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb0b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 04:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 10.5,
+      "wd": "S",
+      "tcc": 91,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb0c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 07:00:00",
+      "t": 26,
+      "hu": 81,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.3,
+      "wd": "S",
+      "tcc": 76,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb0d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 10:00:00",
+      "t": 28,
+      "hu": 75,
+      "weather_desc": "Hujan Ringan",
+      "ws": 9.6,
+      "wd": "S",
+      "tcc": 76,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb0e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 13:00:00",
+      "t": 27,
+      "hu": 82,
+      "weather_desc": "Cerah Berawan",
+      "ws": 14.6,
+      "wd": "S",
+      "tcc": 85,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb0f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 16:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Cerah Berawan",
+      "ws": 16.1,
+      "wd": "S",
+      "tcc": 76,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb10"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 19:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 12.9,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb11"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 22:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 15.3,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb12"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 01:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 16.7,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb13"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 04:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 15.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb14"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 07:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 10.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb15"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 10:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 18.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb16"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 13:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Hujan Ringan",
+      "ws": 18.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb17"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 16:00:00",
+      "t": 24,
+      "hu": 93,
+      "weather_desc": "Hujan Ringan",
+      "ws": 13.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb18"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 19:00:00",
+      "t": 24,
+      "hu": 94,
+      "weather_desc": "Berawan",
+      "ws": 13.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb19"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 22:00:00",
+      "t": 24,
+      "hu": 92,
+      "weather_desc": "Berawan",
+      "ws": 11.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfaaaa5b26d78790bb1a"
+      }
+    }
+  ],
+  "nama_gampong": "Mon Ikeun",
+  "updatedAt": {
+    "$date": "2025-05-10T02:53:30.625Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "681ebfabde60c2f59398530f"
+  },
+  "kode_gampong": "11.06.02.2002",
+  "tanggal_data": "2025-05-10",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-10T02:53:31.444Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-10T02:53:31.358Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-10 10:00:00",
+      "t": 29,
+      "hu": 69,
+      "weather_desc": "Cerah Berawan",
+      "ws": 15.4,
+      "wd": "S",
+      "tcc": 84,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb71"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 13:00:00",
+      "t": 30,
+      "hu": 64,
+      "weather_desc": "Berawan",
+      "ws": 19.2,
+      "wd": "SW",
+      "tcc": 94,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb72"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 16:00:00",
+      "t": 28,
+      "hu": 72,
+      "weather_desc": "Cerah Berawan",
+      "ws": 18.1,
+      "wd": "SW",
+      "tcc": 84,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb73"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 19:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 13.9,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb74"
+      }
+    },
+    {
+      "local_datetime": "2025-05-10 22:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 12,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb75"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 01:00:00",
+      "t": 26,
+      "hu": 81,
+      "weather_desc": "Berawan",
+      "ws": 13.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb76"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 04:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 12,
+      "wd": "S",
+      "tcc": 92,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb77"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 07:00:00",
+      "t": 27,
+      "hu": 75,
+      "weather_desc": "Cerah Berawan",
+      "ws": 13.7,
+      "wd": "S",
+      "tcc": 77,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb78"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 10:00:00",
+      "t": 30,
+      "hu": 67,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.2,
+      "wd": "S",
+      "tcc": 77,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb79"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 13:00:00",
+      "t": 28,
+      "hu": 74,
+      "weather_desc": "Cerah Berawan",
+      "ws": 19.1,
+      "wd": "S",
+      "tcc": 85,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb7a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 16:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Cerah Berawan",
+      "ws": 19.5,
+      "wd": "SW",
+      "tcc": 73,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb7b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 19:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 15.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb7c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-11 22:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 18.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb7d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 01:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 17.8,
+      "wd": "S",
+      "tcc": 95,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb7e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 04:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 15.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb7f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 07:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 10.2,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb80"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 10:00:00",
+      "t": 29,
+      "hu": 69,
+      "weather_desc": "Berawan",
+      "ws": 22.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb81"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 13:00:00",
+      "t": 28,
+      "hu": 73,
+      "weather_desc": "Berawan",
+      "ws": 22.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb82"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 16:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 14.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb83"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 19:00:00",
+      "t": 25,
+      "hu": 90,
+      "weather_desc": "Berawan",
+      "ws": 14.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb84"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 22:00:00",
+      "t": 26,
+      "hu": 89,
+      "weather_desc": "Berawan",
+      "ws": 12.3,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "681ebfabaa5b26d78790bb85"
+      }
+    }
+  ],
+  "nama_gampong": "Nusa",
+  "updatedAt": {
+    "$date": "2025-05-10T02:53:31.444Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "682195a1de60c2f593985310"
+  },
+  "tanggal_data": "2025-05-12",
+  "kode_gampong": "11.06.02.2001",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-12T06:30:57.887Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-12T06:30:57.889Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-12 14:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Cerah Berawan",
+      "ws": 13.2,
+      "wd": "S",
+      "tcc": 79,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad0e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 17:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.3,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad0f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 20:00:00",
+      "t": 24,
+      "hu": 90,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.7,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad10"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 23:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Cerah Berawan",
+      "ws": 15.5,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad11"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 02:00:00",
+      "t": 24,
+      "hu": 87,
+      "weather_desc": "Cerah Berawan",
+      "ws": 14.6,
+      "wd": "S",
+      "tcc": 67,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad12"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 05:00:00",
+      "t": 24,
+      "hu": 87,
+      "weather_desc": "Cerah Berawan",
+      "ws": 13.7,
+      "wd": "SE",
+      "tcc": 60,
+      "vs_text": "< 6 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad13"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 08:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Cerah",
+      "ws": 6.3,
+      "wd": "S",
+      "tcc": 59,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad14"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 11:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Hujan Ringan",
+      "ws": 13.5,
+      "wd": "S",
+      "tcc": 60,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad15"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 14:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.6,
+      "wd": "S",
+      "tcc": 73,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad16"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 17:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Cerah Berawan",
+      "ws": 9.9,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad17"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 20:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Cerah Berawan",
+      "ws": 7.6,
+      "wd": "S",
+      "tcc": 79,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad18"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 23:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Cerah Berawan",
+      "ws": 9.9,
+      "wd": "SE",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad19"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 02:00:00",
+      "t": 24,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 10.2,
+      "wd": "SE",
+      "tcc": 93,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad1a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 05:00:00",
+      "t": 24,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 11.2,
+      "wd": "S",
+      "tcc": 95,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad1b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 08:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.2,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad1c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 11:00:00",
+      "t": 30,
+      "hu": 66,
+      "weather_desc": "Cerah Berawan",
+      "ws": 7,
+      "wd": "S",
+      "tcc": 63,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad1d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 14:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Cerah Berawan",
+      "ws": 7,
+      "wd": "S",
+      "tcc": 60,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad1e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 17:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.8,
+      "wd": "SE",
+      "tcc": 60,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad1f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 20:00:00",
+      "t": 25,
+      "hu": 91,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.8,
+      "wd": "SE",
+      "tcc": 73,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad20"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 23:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 8.5,
+      "wd": "SE",
+      "tcc": 93,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a1a7afd6cd2b69ad21"
+      }
+    }
+  ],
+  "nama_gampong": "Mon Ikeun",
+  "updatedAt": {
+    "$date": "2025-05-12T06:30:57.889Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "682195a2de60c2f593985311"
+  },
+  "kode_gampong": "11.06.02.2002",
+  "tanggal_data": "2025-05-12",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-12T06:30:58.534Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-12T06:30:58.534Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-12 14:00:00",
+      "t": 27,
+      "hu": 76,
+      "weather_desc": "Cerah Berawan",
+      "ws": 17,
+      "wd": "S",
+      "tcc": 79,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad37"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 17:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.6,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad38"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 20:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.8,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad39"
+      }
+    },
+    {
+      "local_datetime": "2025-05-12 23:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Cerah Berawan",
+      "ws": 15.6,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad3a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 02:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Cerah Berawan",
+      "ws": 14.4,
+      "wd": "S",
+      "tcc": 67,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad3b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 05:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.6,
+      "wd": "S",
+      "tcc": 60,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad3c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 08:00:00",
+      "t": 28,
+      "hu": 77,
+      "weather_desc": "Cerah",
+      "ws": 5.3,
+      "wd": "S",
+      "tcc": 58,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad3d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 11:00:00",
+      "t": 28,
+      "hu": 77,
+      "weather_desc": "Cerah Berawan",
+      "ws": 16.2,
+      "wd": "S",
+      "tcc": 61,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad3e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 14:00:00",
+      "t": 28,
+      "hu": 75,
+      "weather_desc": "Cerah Berawan",
+      "ws": 14.3,
+      "wd": "S",
+      "tcc": 73,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad3f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 17:00:00",
+      "t": 27,
+      "hu": 77,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.5,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad40"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 20:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Cerah Berawan",
+      "ws": 4.8,
+      "wd": "S",
+      "tcc": 79,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad41"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 23:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Cerah Berawan",
+      "ws": 7.6,
+      "wd": "S",
+      "tcc": 80,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad42"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 02:00:00",
+      "t": 25,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 7.1,
+      "wd": "S",
+      "tcc": 93,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad43"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 05:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 8.6,
+      "wd": "S",
+      "tcc": 95,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad44"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 08:00:00",
+      "t": 29,
+      "hu": 70,
+      "weather_desc": "Cerah Berawan",
+      "ws": 8.6,
+      "wd": "S",
+      "tcc": 79,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad45"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 11:00:00",
+      "t": 32,
+      "hu": 61,
+      "weather_desc": "Cerah Berawan",
+      "ws": 4.8,
+      "wd": "SE",
+      "tcc": 63,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad46"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 14:00:00",
+      "t": 28,
+      "hu": 77,
+      "weather_desc": "Cerah Berawan",
+      "ws": 4.8,
+      "wd": "SE",
+      "tcc": 60,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad47"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 17:00:00",
+      "t": 28,
+      "hu": 80,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.1,
+      "wd": "S",
+      "tcc": 60,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad48"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 20:00:00",
+      "t": 26,
+      "hu": 88,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.1,
+      "wd": "S",
+      "tcc": 73,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad49"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 23:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 5.6,
+      "wd": "SE",
+      "tcc": 93,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "682195a2a7afd6cd2b69ad4a"
+      }
+    }
+  ],
+  "nama_gampong": "Nusa",
+  "updatedAt": {
+    "$date": "2025-05-12T06:30:58.534Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6822b828de60c2f593985312"
+  },
+  "tanggal_data": "2025-05-13",
+  "kode_gampong": "11.06.02.2001",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-13T03:10:32.661Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-13T03:10:32.663Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-13 11:00:00",
+      "t": 28,
+      "hu": 73,
+      "weather_desc": "Berawan",
+      "ws": 13.8,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "< 6 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2ea"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 14:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Berawan",
+      "ws": 11.7,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2eb"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 17:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 12,
+      "wd": "S",
+      "tcc": 98,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2ec"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 20:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 9.7,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2ed"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 23:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 8.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2ee"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 02:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 8.2,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2ef"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 05:00:00",
+      "t": 24,
+      "hu": 90,
+      "weather_desc": "Berawan",
+      "ws": 8.7,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f0"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 08:00:00",
+      "t": 27,
+      "hu": 79,
+      "weather_desc": "Berawan",
+      "ws": 7.7,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f1"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 11:00:00",
+      "t": 29,
+      "hu": 73,
+      "weather_desc": "Berawan",
+      "ws": 8.6,
+      "wd": "S",
+      "tcc": 91,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f2"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 14:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Berawan",
+      "ws": 10,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f3"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 17:00:00",
+      "t": 25,
+      "hu": 89,
+      "weather_desc": "Berawan",
+      "ws": 8.1,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f4"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 20:00:00",
+      "t": 25,
+      "hu": 90,
+      "weather_desc": "Berawan",
+      "ws": 7.3,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f5"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 23:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 8.7,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f6"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 02:00:00",
+      "t": 24,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 13.5,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f7"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 05:00:00",
+      "t": 24,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 12.7,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f8"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 08:00:00",
+      "t": 27,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 12.7,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2f9"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 11:00:00",
+      "t": 29,
+      "hu": 71,
+      "weather_desc": "Berawan",
+      "ws": 12.2,
+      "wd": "SE",
+      "tcc": 90,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2fa"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 14:00:00",
+      "t": 28,
+      "hu": 79,
+      "weather_desc": "Berawan",
+      "ws": 12.2,
+      "wd": "SE",
+      "tcc": 95,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2fb"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 17:00:00",
+      "t": 25,
+      "hu": 89,
+      "weather_desc": "Berawan",
+      "ws": 13,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2fc"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 20:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 13,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2fd"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 23:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 12.4,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82894bb8e40f710a2fe"
+      }
+    }
+  ],
+  "nama_gampong": "Mon Ikeun",
+  "updatedAt": {
+    "$date": "2025-05-13T03:10:32.663Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6822b829de60c2f593985313"
+  },
+  "kode_gampong": "11.06.02.2002",
+  "tanggal_data": "2025-05-13",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-13T03:10:33.300Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-13T03:10:33.309Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-13 11:00:00",
+      "t": 29,
+      "hu": 69,
+      "weather_desc": "Berawan",
+      "ws": 15.9,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a315"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 14:00:00",
+      "t": 29,
+      "hu": 71,
+      "weather_desc": "Berawan",
+      "ws": 14.6,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a316"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 17:00:00",
+      "t": 27,
+      "hu": 80,
+      "weather_desc": "Berawan",
+      "ws": 15.1,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a317"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 20:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Berawan",
+      "ws": 9.7,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a318"
+      }
+    },
+    {
+      "local_datetime": "2025-05-13 23:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a319"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 02:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 7.2,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a31a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 05:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 6.5,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a31b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 08:00:00",
+      "t": 28,
+      "hu": 75,
+      "weather_desc": "Berawan",
+      "ws": 5.1,
+      "wd": "SW",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a31c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 11:00:00",
+      "t": 30,
+      "hu": 68,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.7,
+      "wd": "SW",
+      "tcc": 79,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a31d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 14:00:00",
+      "t": 30,
+      "hu": 75,
+      "weather_desc": "Berawan",
+      "ws": 8.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a31e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 17:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 4.9,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a31f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 20:00:00",
+      "t": 26,
+      "hu": 90,
+      "weather_desc": "Berawan",
+      "ws": 2.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a320"
+      }
+    },
+    {
+      "local_datetime": "2025-05-14 23:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 4.7,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a321"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 02:00:00",
+      "t": 25,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 10.4,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a322"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 05:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 9,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a323"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 08:00:00",
+      "t": 28,
+      "hu": 77,
+      "weather_desc": "Berawan",
+      "ws": 9,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a324"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 11:00:00",
+      "t": 30,
+      "hu": 68,
+      "weather_desc": "Berawan",
+      "ws": 8.6,
+      "wd": "SE",
+      "tcc": 90,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a325"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 14:00:00",
+      "t": 29,
+      "hu": 76,
+      "weather_desc": "Berawan",
+      "ws": 8.6,
+      "wd": "SE",
+      "tcc": 97,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a326"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 17:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Berawan",
+      "ws": 10.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a327"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 20:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Berawan",
+      "ws": 10.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a328"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 23:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Berawan",
+      "ws": 7.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6822b82994bb8e40f710a329"
+      }
+    }
+  ],
+  "nama_gampong": "Nusa",
+  "updatedAt": {
+    "$date": "2025-05-13T03:10:33.309Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6825548ff0da4ba1ec1c509c"
+  },
+  "kode_gampong": "11.06.02.2001",
+  "tanggal_data": "2025-05-15",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-15T02:42:23.069Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-15T02:42:23.072Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-15 10:00:00",
+      "t": 29,
+      "hu": 69,
+      "weather_desc": "Cerah Berawan",
+      "ws": 8.3,
+      "wd": "S",
+      "tcc": 81,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31fec"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 13:00:00",
+      "t": 29,
+      "hu": 72,
+      "weather_desc": "Hujan Ringan",
+      "ws": 8.9,
+      "wd": "SE",
+      "tcc": 84,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31fed"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 16:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Cerah Berawan",
+      "ws": 10.4,
+      "wd": "S",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31fee"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 19:00:00",
+      "t": 25,
+      "hu": 89,
+      "weather_desc": "Berawan",
+      "ws": 10.4,
+      "wd": "SE",
+      "tcc": 93,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31fef"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 22:00:00",
+      "t": 25,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 11.2,
+      "wd": "SE",
+      "tcc": 97,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff0"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 01:00:00",
+      "t": 24,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 11,
+      "wd": "S",
+      "tcc": 96,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff1"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 04:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 9.1,
+      "wd": "SE",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff2"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 07:00:00",
+      "t": 26,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 11.6,
+      "wd": "S",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff3"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 10:00:00",
+      "t": 29,
+      "hu": 71,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.2,
+      "wd": "SE",
+      "tcc": 88,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff4"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 13:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Cerah Berawan",
+      "ws": 19.4,
+      "wd": "S",
+      "tcc": 72,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff5"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 16:00:00",
+      "t": 27,
+      "hu": 79,
+      "weather_desc": "Cerah Berawan",
+      "ws": 18.9,
+      "wd": "S",
+      "tcc": 86,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff6"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 19:00:00",
+      "t": 25,
+      "hu": 84,
+      "weather_desc": "Cerah Berawan",
+      "ws": 14.9,
+      "wd": "S",
+      "tcc": 85,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff7"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 22:00:00",
+      "t": 25,
+      "hu": 84,
+      "weather_desc": "Cerah Berawan",
+      "ws": 12.1,
+      "wd": "SE",
+      "tcc": 85,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff8"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 01:00:00",
+      "t": 25,
+      "hu": 83,
+      "weather_desc": "Cerah Berawan",
+      "ws": 10.1,
+      "wd": "S",
+      "tcc": 83,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ff9"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 04:00:00",
+      "t": 25,
+      "hu": 83,
+      "weather_desc": "Cerah Berawan",
+      "ws": 10.4,
+      "wd": "S",
+      "tcc": 89,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ffa"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 07:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 11,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ffb"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 10:00:00",
+      "t": 29,
+      "hu": 67,
+      "weather_desc": "Berawan",
+      "ws": 13.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ffc"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 13:00:00",
+      "t": 29,
+      "hu": 70,
+      "weather_desc": "Cerah Berawan",
+      "ws": 13.8,
+      "wd": "S",
+      "tcc": 89,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ffd"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 16:00:00",
+      "t": 28,
+      "hu": 72,
+      "weather_desc": "Cerah Berawan",
+      "ws": 7.8,
+      "wd": "S",
+      "tcc": 82,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31ffe"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 19:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Cerah",
+      "ws": 7.8,
+      "wd": "S",
+      "tcc": 54,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b31fff"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 22:00:00",
+      "t": 26,
+      "hu": 80,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.8,
+      "wd": "S",
+      "tcc": 83,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32000"
+      }
+    }
+  ],
+  "nama_gampong": "Mon Ikeun",
+  "updatedAt": {
+    "$date": "2025-05-15T02:42:23.072Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6825548ff0da4ba1ec1c509d"
+  },
+  "tanggal_data": "2025-05-15",
+  "kode_gampong": "11.06.02.2002",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-15T02:42:23.683Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-15T02:42:23.685Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-15 10:00:00",
+      "t": 30,
+      "hu": 69,
+      "weather_desc": "Cerah Berawan",
+      "ws": 0.6,
+      "wd": "S",
+      "tcc": 81,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32017"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 13:00:00",
+      "t": 30,
+      "hu": 72,
+      "weather_desc": "Hujan Ringan",
+      "ws": 1.8,
+      "wd": "E",
+      "tcc": 84,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32018"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 16:00:00",
+      "t": 28,
+      "hu": 80,
+      "weather_desc": "Cerah Berawan",
+      "ws": 2.5,
+      "wd": "SW",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32019"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 19:00:00",
+      "t": 26,
+      "hu": 84,
+      "weather_desc": "Berawan",
+      "ws": 6.9,
+      "wd": "S",
+      "tcc": 93,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3201a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-15 22:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 7.7,
+      "wd": "S",
+      "tcc": 97,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3201b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 01:00:00",
+      "t": 25,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 7.3,
+      "wd": "S",
+      "tcc": 96,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3201c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 04:00:00",
+      "t": 25,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 3.8,
+      "wd": "SE",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3201d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 07:00:00",
+      "t": 27,
+      "hu": 79,
+      "weather_desc": "Berawan",
+      "ws": 6.7,
+      "wd": "S",
+      "tcc": 91,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3201e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 10:00:00",
+      "t": 30,
+      "hu": 66,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.6,
+      "wd": "SE",
+      "tcc": 87,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3201f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 13:00:00",
+      "t": 30,
+      "hu": 69,
+      "weather_desc": "Cerah Berawan",
+      "ws": 22.1,
+      "wd": "S",
+      "tcc": 69,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32020"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 16:00:00",
+      "t": 28,
+      "hu": 73,
+      "weather_desc": "Cerah Berawan",
+      "ws": 20.6,
+      "wd": "S",
+      "tcc": 85,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32021"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 19:00:00",
+      "t": 27,
+      "hu": 80,
+      "weather_desc": "Cerah Berawan",
+      "ws": 14.4,
+      "wd": "S",
+      "tcc": 86,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32022"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 22:00:00",
+      "t": 27,
+      "hu": 80,
+      "weather_desc": "Cerah Berawan",
+      "ws": 11.3,
+      "wd": "S",
+      "tcc": 85,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32023"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 01:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Cerah Berawan",
+      "ws": 7.5,
+      "wd": "S",
+      "tcc": 83,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32024"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 04:00:00",
+      "t": 26,
+      "hu": 80,
+      "weather_desc": "Cerah Berawan",
+      "ws": 9.8,
+      "wd": "S",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32025"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 07:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 10,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32026"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 10:00:00",
+      "t": 30,
+      "hu": 63,
+      "weather_desc": "Berawan",
+      "ws": 17.2,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32027"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 13:00:00",
+      "t": 30,
+      "hu": 66,
+      "weather_desc": "Berawan",
+      "ws": 17.2,
+      "wd": "SW",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32028"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 16:00:00",
+      "t": 30,
+      "hu": 68,
+      "weather_desc": "Berawan",
+      "ws": 8.6,
+      "wd": "S",
+      "tcc": 93,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b32029"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 19:00:00",
+      "t": 28,
+      "hu": 77,
+      "weather_desc": "Cerah Berawan",
+      "ws": 8.6,
+      "wd": "S",
+      "tcc": 68,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3202a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 22:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Cerah Berawan",
+      "ws": 4.5,
+      "wd": "S",
+      "tcc": 75,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "6825548fcbc6ae2981b3202b"
+      }
+    }
+  ],
+  "nama_gampong": "Nusa",
+  "updatedAt": {
+    "$date": "2025-05-15T02:42:23.685Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68270a8af0da4ba1ec1c509e"
+  },
+  "tanggal_data": "2025-05-16",
+  "kode_gampong": "11.06.02.2001",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-16T09:51:08.361Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-16T09:51:06.739Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-16 17:00:00",
+      "t": 25,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 13.3,
+      "wd": "S",
+      "tcc": 91,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449945"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 20:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 10.9,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449946"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 23:00:00",
+      "t": 25,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 8.7,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449947"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 02:00:00",
+      "t": 25,
+      "hu": 81,
+      "weather_desc": "Berawan",
+      "ws": 8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449948"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 05:00:00",
+      "t": 24,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 7,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449949"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 08:00:00",
+      "t": 27,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 8.9,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c612997235844994a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 11:00:00",
+      "t": 29,
+      "hu": 69,
+      "weather_desc": "Berawan",
+      "ws": 10.3,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c612997235844994b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 14:00:00",
+      "t": 28,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 9.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 7 km",
+      "_id": {
+        "$oid": "68270a8c612997235844994c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 17:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 8.9,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c612997235844994d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 20:00:00",
+      "t": 26,
+      "hu": 79,
+      "weather_desc": "Berawan",
+      "ws": 7.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c612997235844994e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 23:00:00",
+      "t": 25,
+      "hu": 81,
+      "weather_desc": "Berawan",
+      "ws": 5.3,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c612997235844994f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 02:00:00",
+      "t": 25,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 8.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449950"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 05:00:00",
+      "t": 24,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 9.7,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449951"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 08:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Cerah",
+      "ws": 9.7,
+      "wd": "S",
+      "tcc": 31,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449952"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 11:00:00",
+      "t": 29,
+      "hu": 68,
+      "weather_desc": "Berawan",
+      "ws": 9.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449953"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 14:00:00",
+      "t": 28,
+      "hu": 76,
+      "weather_desc": "Berawan",
+      "ws": 9.5,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449954"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 17:00:00",
+      "t": 27,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 5.7,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449955"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 20:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 5.7,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449956"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 23:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 6.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449957"
+      }
+    }
+  ],
+  "nama_gampong": "Mon Ikeun",
+  "updatedAt": {
+    "$date": "2025-05-16T09:51:08.362Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "68270a8bf0da4ba1ec1c509f"
+  },
+  "tanggal_data": "2025-05-16",
+  "kode_gampong": "11.06.02.2002",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-16T09:51:08.570Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-16T09:51:07.690Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-16 17:00:00",
+      "t": 26,
+      "hu": 81,
+      "weather_desc": "Cerah Berawan",
+      "ws": 15.3,
+      "wd": "S",
+      "tcc": 82,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c612997235844996c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 20:00:00",
+      "t": 26,
+      "hu": 82,
+      "weather_desc": "Berawan",
+      "ws": 8.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c612997235844996d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-16 23:00:00",
+      "t": 26,
+      "hu": 77,
+      "weather_desc": "Berawan",
+      "ws": 5.6,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c612997235844996e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 02:00:00",
+      "t": 26,
+      "hu": 79,
+      "weather_desc": "Berawan",
+      "ws": 4.2,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c612997235844996f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 05:00:00",
+      "t": 25,
+      "hu": 84,
+      "weather_desc": "Berawan",
+      "ws": 3.3,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449970"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 08:00:00",
+      "t": 28,
+      "hu": 75,
+      "weather_desc": "Berawan",
+      "ws": 7.1,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449971"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 11:00:00",
+      "t": 31,
+      "hu": 64,
+      "weather_desc": "Berawan",
+      "ws": 12.1,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449972"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 14:00:00",
+      "t": 29,
+      "hu": 74,
+      "weather_desc": "Berawan",
+      "ws": 11.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449973"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 17:00:00",
+      "t": 27,
+      "hu": 79,
+      "weather_desc": "Berawan",
+      "ws": 10.2,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449974"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 20:00:00",
+      "t": 27,
+      "hu": 77,
+      "weather_desc": "Berawan",
+      "ws": 6.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449975"
+      }
+    },
+    {
+      "local_datetime": "2025-05-17 23:00:00",
+      "t": 26,
+      "hu": 81,
+      "weather_desc": "Berawan",
+      "ws": 4.1,
+      "wd": "SE",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449976"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 02:00:00",
+      "t": 26,
+      "hu": 85,
+      "weather_desc": "Berawan",
+      "ws": 5.2,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449977"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 05:00:00",
+      "t": 25,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 8.3,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449978"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 08:00:00",
+      "t": 29,
+      "hu": 74,
+      "weather_desc": "Cerah",
+      "ws": 8.3,
+      "wd": "S",
+      "tcc": 35,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c6129972358449979"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 11:00:00",
+      "t": 31,
+      "hu": 64,
+      "weather_desc": "Berawan",
+      "ws": 13.6,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c612997235844997a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 14:00:00",
+      "t": 30,
+      "hu": 71,
+      "weather_desc": "Berawan",
+      "ws": 13.6,
+      "wd": "SW",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c612997235844997b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 17:00:00",
+      "t": 28,
+      "hu": 78,
+      "weather_desc": "Berawan",
+      "ws": 7.9,
+      "wd": "SW",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c612997235844997c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 20:00:00",
+      "t": 27,
+      "hu": 83,
+      "weather_desc": "Berawan",
+      "ws": 7.9,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "68270a8c612997235844997d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-18 23:00:00",
+      "t": 26,
+      "hu": 86,
+      "weather_desc": "Berawan",
+      "ws": 4.8,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "< 8 km",
+      "_id": {
+        "$oid": "68270a8c612997235844997e"
+      }
+    }
+  ],
+  "nama_gampong": "Nusa",
+  "updatedAt": {
+    "$date": "2025-05-16T09:51:08.570Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "682ae1cef0da4ba1ec1c50a0"
+  },
+  "kode_gampong": "11.06.02.2001",
+  "tanggal_data": "2025-05-19",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-19T07:46:22.446Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-19T07:46:22.448Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-19 15:00:00",
+      "t": 28,
+      "hu": 78,
+      "weather_desc": "Cerah Berawan",
+      "ws": 1,
+      "wd": "NW",
+      "tcc": 73,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5532"
+      }
+    },
+    {
+      "local_datetime": "2025-05-19 18:00:00",
+      "t": 26,
+      "hu": 91,
+      "weather_desc": "Berawan",
+      "ws": 1.6,
+      "wd": "NE",
+      "tcc": 96,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5533"
+      }
+    },
+    {
+      "local_datetime": "2025-05-19 21:00:00",
+      "t": 26,
+      "hu": 94,
+      "weather_desc": "Cerah Berawan",
+      "ws": 1.9,
+      "wd": "E",
+      "tcc": 77,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5534"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 00:00:00",
+      "t": 25,
+      "hu": 93,
+      "weather_desc": "Cerah Berawan",
+      "ws": 2.6,
+      "wd": "S",
+      "tcc": 70,
+      "vs_text": "< 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5535"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 03:00:00",
+      "t": 24,
+      "hu": 92,
+      "weather_desc": "Cerah Berawan",
+      "ws": 0.9,
+      "wd": "SE",
+      "tcc": 80,
+      "vs_text": "< 9 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5536"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 06:00:00",
+      "t": 25,
+      "hu": 91,
+      "weather_desc": "Udara Kabur",
+      "ws": 2.1,
+      "wd": "E",
+      "tcc": 78,
+      "vs_text": "< 5 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5537"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 09:00:00",
+      "t": 29,
+      "hu": 75,
+      "weather_desc": "Berawan",
+      "ws": 4,
+      "wd": "N",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5538"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 12:00:00",
+      "t": 30,
+      "hu": 72,
+      "weather_desc": "Berawan",
+      "ws": 3.5,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5539"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 15:00:00",
+      "t": 28,
+      "hu": 81,
+      "weather_desc": "Berawan",
+      "ws": 7.2,
+      "wd": "SW",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc553a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 18:00:00",
+      "t": 26,
+      "hu": 90,
+      "weather_desc": "Berawan",
+      "ws": 5.7,
+      "wd": "SE",
+      "tcc": 91,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc553b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 21:00:00",
+      "t": 25,
+      "hu": 94,
+      "weather_desc": "Berawan",
+      "ws": 2.6,
+      "wd": "S",
+      "tcc": 94,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc553c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 00:00:00",
+      "t": 25,
+      "hu": 94,
+      "weather_desc": "Berawan",
+      "ws": 6.4,
+      "wd": "S",
+      "tcc": 98,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc553d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 03:00:00",
+      "t": 24,
+      "hu": 94,
+      "weather_desc": "Berawan",
+      "ws": 6,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc553e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 06:00:00",
+      "t": 25,
+      "hu": 92,
+      "weather_desc": "Berawan",
+      "ws": 6.6,
+      "wd": "S",
+      "tcc": 97,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc553f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 09:00:00",
+      "t": 28,
+      "hu": 80,
+      "weather_desc": "Berawan",
+      "ws": 6.6,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5540"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 12:00:00",
+      "t": 30,
+      "hu": 74,
+      "weather_desc": "Berawan",
+      "ws": 6.7,
+      "wd": "SW",
+      "tcc": 90,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5541"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 15:00:00",
+      "t": 28,
+      "hu": 82,
+      "weather_desc": "Cerah Berawan",
+      "ws": 6.7,
+      "wd": "SW",
+      "tcc": 69,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5542"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 18:00:00",
+      "t": 26,
+      "hu": 89,
+      "weather_desc": "Cerah Berawan",
+      "ws": 5.5,
+      "wd": "S",
+      "tcc": 64,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5543"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 21:00:00",
+      "t": 26,
+      "hu": 90,
+      "weather_desc": "Berawan",
+      "ws": 5.5,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1ce69b8299760cc5544"
+      }
+    }
+  ],
+  "nama_gampong": "Mon Ikeun",
+  "updatedAt": {
+    "$date": "2025-05-19T07:46:22.448Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "682ae1cff0da4ba1ec1c50a1"
+  },
+  "tanggal_data": "2025-05-19",
+  "kode_gampong": "11.06.02.2002",
+  "__v": 0,
+  "analysis_date": {
+    "$date": "2025-05-19T07:46:23.121Z"
+  },
+  "createdAt": {
+    "$date": "2025-05-19T07:46:23.123Z"
+  },
+  "data": [
+    {
+      "local_datetime": "2025-05-19 15:00:00",
+      "t": 30,
+      "hu": 74,
+      "weather_desc": "Cerah",
+      "ws": 1.2,
+      "wd": "W",
+      "tcc": 52,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5559"
+      }
+    },
+    {
+      "local_datetime": "2025-05-19 18:00:00",
+      "t": 27,
+      "hu": 88,
+      "weather_desc": "Berawan",
+      "ws": 2.7,
+      "wd": "SE",
+      "tcc": 95,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc555a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-19 21:00:00",
+      "t": 26,
+      "hu": 93,
+      "weather_desc": "Cerah Berawan",
+      "ws": 1.7,
+      "wd": "E",
+      "tcc": 68,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc555b"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 00:00:00",
+      "t": 26,
+      "hu": 93,
+      "weather_desc": "Cerah",
+      "ws": 3.1,
+      "wd": "SW",
+      "tcc": 50,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc555c"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 03:00:00",
+      "t": 26,
+      "hu": 91,
+      "weather_desc": "Cerah Berawan",
+      "ws": 1.9,
+      "wd": "SE",
+      "tcc": 65,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc555d"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 06:00:00",
+      "t": 25,
+      "hu": 90,
+      "weather_desc": "Udara Kabur",
+      "ws": 5.5,
+      "wd": "E",
+      "tcc": 55,
+      "vs_text": "< 5 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc555e"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 09:00:00",
+      "t": 30,
+      "hu": 70,
+      "weather_desc": "Berawan",
+      "ws": 7.1,
+      "wd": "NE",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc555f"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 12:00:00",
+      "t": 32,
+      "hu": 66,
+      "weather_desc": "Berawan",
+      "ws": 5.8,
+      "wd": "N",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5560"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 15:00:00",
+      "t": 30,
+      "hu": 74,
+      "weather_desc": "Berawan",
+      "ws": 4.3,
+      "wd": "W",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5561"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 18:00:00",
+      "t": 27,
+      "hu": 85,
+      "weather_desc": "Cerah Berawan",
+      "ws": 4.4,
+      "wd": "E",
+      "tcc": 88,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5562"
+      }
+    },
+    {
+      "local_datetime": "2025-05-20 21:00:00",
+      "t": 26,
+      "hu": 92,
+      "weather_desc": "Berawan",
+      "ws": 3.2,
+      "wd": "S",
+      "tcc": 91,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5563"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 00:00:00",
+      "t": 25,
+      "hu": 94,
+      "weather_desc": "Berawan",
+      "ws": 5.6,
+      "wd": "S",
+      "tcc": 97,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5564"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 03:00:00",
+      "t": 25,
+      "hu": 94,
+      "weather_desc": "Berawan",
+      "ws": 4.1,
+      "wd": "S",
+      "tcc": 99,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5565"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 06:00:00",
+      "t": 26,
+      "hu": 90,
+      "weather_desc": "Berawan",
+      "ws": 4.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5566"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 09:00:00",
+      "t": 29,
+      "hu": 75,
+      "weather_desc": "Berawan",
+      "ws": 4.5,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5567"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 12:00:00",
+      "t": 31,
+      "hu": 70,
+      "weather_desc": "Cerah Berawan",
+      "ws": 9.1,
+      "wd": "SW",
+      "tcc": 82,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5568"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 15:00:00",
+      "t": 29,
+      "hu": 76,
+      "weather_desc": "Cerah",
+      "ws": 9.1,
+      "wd": "SW",
+      "tcc": 39,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc5569"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 18:00:00",
+      "t": 28,
+      "hu": 85,
+      "weather_desc": "Cerah",
+      "ws": 4.2,
+      "wd": "S",
+      "tcc": 34,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc556a"
+      }
+    },
+    {
+      "local_datetime": "2025-05-21 21:00:00",
+      "t": 27,
+      "hu": 87,
+      "weather_desc": "Berawan",
+      "ws": 4.2,
+      "wd": "S",
+      "tcc": 100,
+      "vs_text": "> 10 km",
+      "_id": {
+        "$oid": "682ae1cf69b8299760cc556b"
+      }
+    }
+  ],
+  "nama_gampong": "Nusa",
+  "updatedAt": {
+    "$date": "2025-05-19T07:46:23.123Z"
+  }
+}]

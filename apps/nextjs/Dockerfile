@@ -26,4 +26,4 @@ COPY . .
 EXPOSE 3000
 
 # Start the server
-CMD ["pnpm", "run", "dev"]
+CMD ["sh", "-c", "pnpm run dev & while ! nc -z localhost 3000; do sleep 1; done; tail -f /dev/null"]

@@ -21,7 +21,9 @@ bmkgFetcherRoute.get("/", async (c) => {
 
     // Loop untuk fetch data dari BMKG per kode wilayah
     for (const kodeGampong of gampongList) {
-      const response = await axios.get(`https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${kodeGampong}`);
+      const response = await axios.get(`https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${kodeGampong}`, {
+        timeout: 10000, // 10 detik
+      });
 
       const data = response.data; // Data dari BMKG
       console.log("Data from BMKG:", data);
@@ -30,7 +32,7 @@ bmkgFetcherRoute.get("/", async (c) => {
       const cuacaNested = data.data?.[0]?.cuaca ?? [];
       const cuacaData = cuacaNested.flat();
       const tanggalHariIni = new Date().toISOString().split("T")[0];
-
+      //FIXME : Replace 'any' type with a proper TypeScript interface for cuacaData mapping
       const mappedCuaca = cuacaData
         .filter((item: any) => item.local_datetime && item.t && item.hu && item.weather_desc && item.ws && item.wd && item.tcc && item.vs_text)
         .map((item: any) => ({

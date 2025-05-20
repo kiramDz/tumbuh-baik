@@ -13,3 +13,8 @@ flask/venv/
 *.env
 *.env.local
 docker-compose.override.yml
+
+
+docker-compose.yml
+
+PENJELASAN.txt
