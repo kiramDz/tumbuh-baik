@@ -10,19 +10,12 @@
     "npm": ">=6.14.8"
   },
   "scripts": {
-    "analyze": "cd apps/nextjs && npm run analyze",
-    "build": "npm run stop && npm run destroy && npm run start:clean",
-    "start": "docker-compose up",
-    "start:clean": "rm -rf apps/nextjs/.next && docker-compose up --build",
-    "stop": "docker-compose stop",
-    "test": "npm run test:python:flask:curl && npm run test:python:flask && npm run test:nextjs",
-    "test:nextjs": "docker exec -it explore-docker-python-flask-nextjs-typescript_nextjs_1 npm test",
-    "test:nextjs:coverage": "docker exec -it explore-docker-python-flask-nextjs-typescript_nextjs_1 npm run test:coverage",
-    "test:nextjs:watch": "docker exec -it explore-docker-python-flask-nextjs-typescript_nextjs_1 npm run test:watchAll",
-    "test:python:flask": "docker exec -it explore-docker-python-flask-nextjs-typescript_python-flask_1 python -m unittest discover ./",
-    "test:python:flask:curl": "docker exec -it explore-docker-python-flask-nextjs-typescript_python-flask_1 python curl.py",
-    "destroy": "docker-compose rm -f -v",
-    "destroy:global": "docker system prune -f --volumes && docker image prune -a -f"
+    "start:flask": "docker start flask",
+    "start:nextjs": "docker start my-nextjs-app",
+    "start": "concurrently \"npm run start:flask\" \"npm run start:my-nextjs-app\"",
+    "stop:flask": "docker stop flask",
+    "stop:nextjs": "docker stop my-nextjs-app",
+    "stop": "concurrently \"npm run stop:flask\" \"npm run stop:my-nextjs-app\""
   },
   "repository": {
     "type": "git",
@@ -31,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/TheRobBrennan/explore-docker-python-flask-nextjs-typescript/issues"
   },
-  "homepage": "https://github.com/TheRobBrennan/explore-docker-python-flask-nextjs-typescript#readme"
+  "homepage": "https://github.com/TheRobBrennan/explore-docker-python-flask-nextjs-typescript#readme",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
 }
