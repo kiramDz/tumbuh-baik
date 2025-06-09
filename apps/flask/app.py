@@ -13,24 +13,6 @@ app = Flask(__name__)
 def home():
     return jsonify({"message": "Flask Holt-Winter API is running!"})
 
-@app.route("/test-db", methods=["GET"])
-def test_db():
-    try:
-        from pymongo import MongoClient
-        client = MongoClient("mongodb://mongodb:27017/")
-        db = client["tugas_akhir"]
-        collection = db["bmkg-api"]
-        
-        count = collection.count_documents({})
-        sample = list(collection.find({}).limit(1))
-        
-        return jsonify({
-            "status": "connected", 
-            "document_count": count,
-            "sample_document": sample
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # by deepseek
 @app.route("/check-mongodb")
