@@ -3,7 +3,10 @@
 # repo 2 : https://github.com/martindavid/flask-nextjs-user-management-example
 
 from flask import Flask, jsonify
-from holt_winter.hw_analysis import run_hw_analysis
+from holt_winter.hw_deepseek import run_hw_analysis
+from helpers.objectid_converter import convert_objectid
+from holt_winter.summary.bmkg_tanam_summary import generate_tanam_summary
+
 from pymongo import MongoClient
 
 app = Flask(__name__)
@@ -14,7 +17,6 @@ def home():
     return jsonify({"message": "Flask Holt-Winter API is running!"})
 
 
-# by deepseek
 @app.route("/check-mongodb")
 def check_mongodb():
     try:
@@ -28,11 +30,23 @@ def check_mongodb():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/run-analysis", methods=["GET"])
 def run_analysis():
     try:
-        run_hw_analysis()
-        return jsonify({"message": "Holt-Winter analysis completed and saved to database."})
+        result = run_hw_analysis()
+        return jsonify({
+            "message": "Holt-Winter analysis completed and saved to database.",
+            "forecast": convert_objectid(result)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/generate-tanam-summary", methods=["GET"])
+def generate_summary():
+    try:
+        result = generate_tanam_summary()
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
