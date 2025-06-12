@@ -23,6 +23,7 @@ export async function getRecentFiles() {
   }
 }
 
+//bmkg api 
 export const getBmkgApi = async () => {
   try {
     const response = await axios.get("/api/v1/bmkg-api/all");
@@ -33,6 +34,18 @@ export const getBmkgApi = async () => {
   }
 };
 
+//for monthly calender
+export const getBmkgSummary = async () => {
+  try {
+    const response = await axios.get("/api/v1/bmkg-summary/all");
+    return response.data.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG Summary:", error);
+    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG summary data");
+  }
+};
+
+//for dahsboard 
 export async function getBmkgData(page = 1) {
   try {
     const res = await axios.get(`/api/v1/bmkg?page=${page}`);

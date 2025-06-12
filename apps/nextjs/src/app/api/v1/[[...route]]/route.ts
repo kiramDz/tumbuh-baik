@@ -6,7 +6,7 @@ import visualizationRoute from "../_routes/visualization.route";
 import bmkgRoute from "../_routes/bmkg.route";
 import bmkgApiRoute from "../_routes/bmkgApi.route";
 import bmkgFetcherRoute from "../_routes/bmkgFetcher.route";
-
+import bmkgSummaryRoute from "../_routes/bmkg-summary.route";
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
@@ -17,10 +17,15 @@ app.route("/webhook", paddleRoute);
 
 app.route("/visualization", visualizationRoute);
 
+// TODO: Review and remove this route if unused
 app.route("/bmkg", bmkgRoute);
+// TODO: Review and remove this route if unused
 app.route("/bmkg-api", bmkgApiRoute);
+
+
 //fetch : http://localhost:3000/api/v1/bmkg-fetch
 app.route("/bmkg-fetch", bmkgFetcherRoute);
+app.route("/bmkg-summary", bmkgSummaryRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);
