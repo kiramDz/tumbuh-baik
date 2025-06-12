@@ -1,30 +1,140 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { YearlyOption } from "./year-option";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { getBmkgSummary } from "@/lib/fetch/files.fetch";
 
-const items = [
-  {
-    feature: "Rice",
-    musim1: [
-      { month: "Jan", status: "tanam", note: "Musim hujan" },
-      { month: "Feb", status: "tanam", note: "Musim hujan" },
-      { month: "Mar", status: "istirahat", note: "Paska tanam" },
-      { month: "Apr", status: "panen", note: "Panen" },
-    ],
-    musim2: [
-      { month: "May", status: "istirahat", note: "" },
-      { month: "Jun", status: "istirahat", note: "" },
-      { month: "Jul", status: "tanam", note: "Musim tanam ke-2" },
-      { month: "Aug", status: "tanam", note: "Musim tanam ke-2" },
-      { month: "Sep", status: "panen", note: "Panen" },
-      { month: "Oct", status: "panen", note: "Panen" },
-      { month: "Nov", status: "panen", note: "" },
-      { month: "Dec", status: "panen", note: "" },
-    ],
-  },
-];
+interface PlantSummaryData {
+  _id: string;
+  month: string; // format: YYYY-MM
+  curah_hujan_total: number;
+  kelembapan_avg: number;
+  status: string;
+  timestamp: string;
+}
 
 function YearlyCalender() {
+  const {
+    data: summaryData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["bmkg-summary"],
+    queryFn: getBmkgSummary,
+  });
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="text-red-500 p-4 border border-red-200 rounded">Error loading data: {error instanceof Error ? error.message : "Unknown error"}</div>
+      </div>
+    );
+  }
+
+  // Process data untuk membuat struktur bulan
+  const processMonthlyData = (data: PlantSummaryData[]) => {
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    // Buat map data berdasarkan bulan
+    const dataMap = new Map<string, PlantSummaryData>();
+    data?.forEach((item) => {
+      const monthKey = item.month.split("-")[1]; // ambil MM dari YYYY-MM
+      dataMap.set(monthKey, item);
+    });
+
+    // Buat array lengkap 12 bulan
+    const processedData = monthNames.map((monthName, index) => {
+      const monthNumber = String(index + 1).padStart(2, "0");
+      const monthData = dataMap.get(monthNumber);
+
+      return {
+        month: monthName,
+        monthNumber,
+        status: monthData?.status || "no data",
+        curah_hujan: monthData?.curah_hujan_total || 0,
+        kelembapan: monthData?.kelembapan_avg || 0,
+        hasData: !!monthData,
+      };
+    });
+
+    return processedData;
+  };
+
+  const monthlyData = processMonthlyData(summaryData || []);
+
+  // Tentukan musim tanam berdasarkan status yang ada
+  const getPlantingSeasons = () => {
+    const seasons = [];
+    let currentSeason: any[] = [];
+    let seasonNumber = 1;
+
+    monthlyData.forEach((month, index) => {
+      if (month.status === "cocok tanam" || month.status === "tanam") {
+        currentSeason.push(month);
+      } else {
+        if (currentSeason.length > 0) {
+          seasons.push({
+            name: `Musim Tanam ${seasonNumber}`,
+            months: [...currentSeason],
+          });
+          currentSeason = [];
+          seasonNumber++;
+        }
+      }
+    });
+
+    // Jika masih ada season yang belum di-push
+    if (currentSeason.length > 0) {
+      seasons.push({
+        name: `Musim Tanam ${seasonNumber}`,
+        months: [...currentSeason],
+      });
+    }
+
+    // Jika tidak ada musim tanam yang terdeteksi, bagi menjadi 2 periode
+    if (seasons.length === 0) {
+      const firstHalf = monthlyData.slice(0, 6);
+      const secondHalf = monthlyData.slice(6);
+
+      return [
+        { name: "Periode 1", months: firstHalf },
+        { name: "Periode 2", months: secondHalf },
+      ];
+    }
+
+    return seasons;
+  };
+
+  const plantingSeasons = getPlantingSeasons();
+
+  // Status color mapping
+  const getStatusColor = (status: string, hasData: boolean) => {
+    if (!hasData) return "bg-gray-100 text-gray-400";
+
+    const statusColorMap: Record<string, string> = {
+      "cocok tanam": "bg-emerald-100 text-emerald-800",
+      tanam: "bg-emerald-500 text-white",
+      "tidak cocok tanam": "bg-red-100 text-red-800",
+      panen: "bg-yellow-100 text-yellow-800",
+      istirahat: "bg-gray-100 text-gray-600",
+    };
+
+    return statusColorMap[status.toLowerCase()] || "bg-gray-100 text-gray-600";
+  };
+
   return (
     <div className="spaye-y-4">
       <div className="flex items-center w-full justify-between">
@@ -32,7 +142,7 @@ function YearlyCalender() {
           <Badge className="rounded-md bg-green-300">Tanam</Badge>
           <Badge className="rounded-md bg-yellow-500">Panen</Badge>
           <Badge variant="destructive" className="rounded-md">
-            Rehat
+            Tidak Cocok tanam
           </Badge>
         </div>
         <YearlyOption />
@@ -41,52 +151,43 @@ function YearlyCalender() {
         <TableHeader>
           <TableRow className="border-y-0 *:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
             <TableCell></TableCell>
-            <TableHead className="border-b border-border text-center" colSpan={5}>
-              <span>Musim Tanam 1</span>
-            </TableHead>
-            <TableHead className="border-b border-border text-center" colSpan={5}>
-              <span>Musim Tanam 2</span>
-            </TableHead>
+            {plantingSeasons.map((season, index) => (
+              <TableHead key={index} className="border-b border-border text-center" colSpan={season.months.length}>
+                <span>{season.name}</span>
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableHeader>
           <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
             <TableCell></TableCell>
-            {items[0].musim1.map((calender) => (
-              <TableHead key={calender.month} className="h-auto rotate-180 py-3 text-foreground [writing-mode:vertical-lr]">
-                {calender.month}
-              </TableHead>
-            ))}
-            {items[0].musim2.map((calender) => (
-              <TableHead key={calender.month} className="h-auto rotate-180 py-3 text-foreground [writing-mode:vertical-lr]">
-                {calender.month}
+            {monthlyData.map((month) => (
+              <TableHead key={month.month} className="h-auto rotate-180 py-3 text-foreground [writing-mode:vertical-lr]">
+                {month.month}
               </TableHead>
             ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => (
-            <TableRow key={item.feature} className="*:border-border [&>:not(:last-child)]:border-r">
-              <TableHead className="font-medium text-foreground">{item.feature}</TableHead>
-              {[...item.musim1, ...item.musim2].map((calender, index) => {
-                const statusColorMap: Record<"tanam" | "panen" | "istirahat", string> = {
-                  tanam: "emerald-500",
-                  panen: "yellow-400",
-                  istirahat: "red-500",
-                };
-
-                const color = statusColorMap[calender.status as "tanam" | "panen" | "istirahat"] ?? "gray-300";
-
-                return (
-                  <TableCell key={`${calender.month}-${index}`} className={`space-y-1 text-center bg-${color}`}>
-                    <div className="text-xs font-medium text-muted-foreground capitalize">{calender.status}</div>
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          ))}
+          <TableRow className="*:border-border [&>:not(:last-child)]:border-r">
+            <TableHead className="font-medium text-foreground">Padi</TableHead>
+            {monthlyData.map((month, index) => (
+              <TableCell
+                key={`${month.month}-${index}`}
+                className={`space-y-1 text-center p-2 ${getStatusColor(month.status, month.hasData)}`}
+                title={month.hasData ? `Curah Hujan: ${month.curah_hujan.toFixed(1)}mm\nKelembapan: ${month.kelembapan.toFixed(1)}%` : "Data tidak tersedia"}
+              >
+                <div className="text-xs font-medium">{month.hasData ? month.status : "No Data"}</div>
+                {month.hasData && <div className="text-xs opacity-75">{month.curah_hujan.toFixed(0)}mm</div>}
+              </TableCell>
+            ))}
+          </TableRow>
         </TableBody>
       </Table>
+      <div className="text-sm text-gray-600 mt-4">
+        <p>Data yang tersedia: {summaryData?.length || 0} bulan</p>
+        <p>Hover pada cell untuk melihat detail curah hujan dan kelembapan</p>
+      </div>
     </div>
   );
 }
