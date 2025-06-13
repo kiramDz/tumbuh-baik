@@ -7,6 +7,7 @@ import bmkgRoute from "../_routes/bmkg.route";
 import bmkgApiRoute from "../_routes/bmkgApi.route";
 import bmkgFetcherRoute from "../_routes/bmkgFetcher.route";
 import bmkgSummaryRoute from "../_routes/bmkg-summary.route";
+import bmkgDailyRoute from "../_routes/bmkg-daily.route";
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
@@ -26,6 +27,7 @@ app.route("/bmkg-api", bmkgApiRoute);
 //fetch : http://localhost:3000/api/v1/bmkg-fetch
 app.route("/bmkg-fetch", bmkgFetcherRoute);
 app.route("/bmkg-summary", bmkgSummaryRoute);
+app.route("/bmkg-daily", bmkgDailyRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);

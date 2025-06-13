@@ -3,7 +3,7 @@ import { YearlyOption } from "./year-option";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { getBmkgSummary } from "@/lib/fetch/files.fetch";
-
+import CalendarSeedPlanner from "./daily-calender";
 interface PlantSummaryData {
   _id: string;
   month: string; // format: YYYY-MM
@@ -137,6 +137,7 @@ function YearlyCalender() {
 
   return (
     <div className="spaye-y-4">
+
       <div className="flex items-center w-full justify-between">
         <div className="flex gap-2">
           <Badge className="rounded-md bg-green-300">Tanam</Badge>
@@ -187,6 +188,9 @@ function YearlyCalender() {
       <div className="text-sm text-gray-600 mt-4">
         <p>Data yang tersedia: {summaryData?.length || 0} bulan</p>
         <p>Hover pada cell untuk melihat detail curah hujan dan kelembapan</p>
+      </div>
+      <div>
+        <CalendarSeedPlanner />
       </div>
     </div>
   );
