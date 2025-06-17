@@ -6,17 +6,19 @@ import { getFiles } from "@/lib/fetch/files.fetch";
 import { RiLoader3Fill } from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useInView } from "react-intersection-observer";
 import { toast } from "sonner";
 import MainTable from "./table/main-table";
+import { Shell } from "@/components/shell";
+import { DataTableSkeleton } from "@/app/(dashboard)/_components/data-table-skeleton";
 
 interface PageFilesProps {
   category: string;
 }
 
 const PageFiles = ({ category }: PageFilesProps) => {
-  const { ref, inView } = useInView();
+  const {  inView } = useInView();
   const [currentPage, setCurrentPage] = useState(1);
   const [isPageFull, setIsPageFull] = useState(false);
   const queryClient = useQueryClient();
@@ -98,15 +100,13 @@ const PageFiles = ({ category }: PageFilesProps) => {
 
   return (
     <>
-      <div className="container mx-auto p-0">
-        <MainTable />
-      </div>
-
-      {!isLoading && !isPageFull && (
-        <div ref={ref} className="w-full flex h-fit items-center justify-center">
-          <div className="py-3">{inView && <RiLoader3Fill className="animate-spin" />}</div>
-        </div>
-      )}
+      <Shell className="gap-2">
+        <Suspense fallback={<DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />}>
+          <MainTable />
+        </Suspense>
+      </Shell>
+      {/* <div className="container mx-auto p-0">
+      </div> */}
     </>
   );
 };

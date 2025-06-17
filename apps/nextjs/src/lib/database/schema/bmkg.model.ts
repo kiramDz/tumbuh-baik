@@ -2,7 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const BmkgDataSchema = new Schema(
   {
-    Date: { type: String, required: true },
+    Date: { type: Date, required: true },
     Year: { type: Number, required: true },
     Month: { type: String, required: true },
     Day: { type: Number, required: true },

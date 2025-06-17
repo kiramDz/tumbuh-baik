@@ -5,6 +5,8 @@ import db from "@/lib/database/db";
 import { parseError } from "@/lib/utils";
 import cron from "node-cron";
 
+//INI YG FETCH DATA DARI WEB BMKG KE MONGODB
+
 // Daftar kode wilayah gampong Aceh Besar (misalnya)
 const gampongList = [
   "11.06.02.2001", // Mon Ikeun

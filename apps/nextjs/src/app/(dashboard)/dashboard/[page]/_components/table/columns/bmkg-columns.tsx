@@ -3,49 +3,47 @@ import { ColumnDef } from "@tanstack/react-table";
 import { BmkgDataType } from "@/types/table-schema";
 import { format } from "date-fns";
 
+
 export const bmkgColumns: ColumnDef<BmkgDataType>[] = [
-  // {
-  //   id: "select",
-  //   header: ({ table }) => <Checkbox checked={table.getIsAllPageRowsSelected()} onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)} aria-label="Select all" />,
-  //   cell: ({ row }) => <Checkbox checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} aria-label="Select row" />,
-  //   enableSorting: false,
-  //   enableHiding: false,
-  // },
   {
-    accessorKey: "timestamp",
-    header: "Waktu",
+    accessorKey: "Date",
+    header: "Tanggal",
     cell: ({ row }) => {
-      const timestamp = row.getValue("timestamp") as string; 
-      const date = new Date(timestamp); 
-      return format(date, "dd/MM/yyyy HH:mm"); 
+      const val = row.getValue("Date") as string;
+      const date = new Date(val);
+      return format(date, "dd/MM/yyyy");
     },
   },
   {
-    accessorKey: "city",
-    header: "Lokasi",
+    accessorKey: "TAVG",
+    header: "Suhu Rata-rata (°C)",
   },
   {
-    accessorKey: "temperature",
-    header: "Suhu (°C)",
+    accessorKey: "TN",
+    header: "Suhu Minimum (°C)",
   },
   {
-    accessorKey: "humidity",
+    accessorKey: "TX",
+    header: "Suhu Maksimum (°C)",
+  },
+  {
+    accessorKey: "RH_AVG",
     header: "Kelembaban (%)",
   },
   {
-    accessorKey: "windSpeed",
+    accessorKey: "RR",
+    header: "Curah Hujan (mm)",
+  },
+  {
+    accessorKey: "FF_AVG",
     header: "Kecepatan Angin (km/h)",
   },
   {
-    accessorKey: "lat",
-    header: "Lattitude",
+    accessorKey: "DDD_X",
+    header: "Arah Angin Maks (°)",
   },
   {
-    accessorKey: "lon",
-    header: "Longitude",
-  },
-  {
-    accessorKey: "pressure",
-    header: "Tekanan",
+    accessorKey: "Season",
+    header: "Musim",
   },
 ];

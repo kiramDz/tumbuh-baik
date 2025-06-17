@@ -11,14 +11,15 @@ bmkgRoute.get("/", async (c) => {
     await db();
 
     const page = Number(c.req.query("page")) || 1;
-    const PAGE_SIZE = 10;
+    // const PAGE_SIZE = 10;
+    const pageSize = Number(c.req.query("pageSize") || "10");
 
     const totalData = await BmkgData.countDocuments();
 
     const data = await BmkgData.find()
-      .skip((page - 1) * PAGE_SIZE)
-      .limit(PAGE_SIZE)
-      .sort({ timestamp: -1 }) // urut terbaru dulu
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ Date: -1 }) // urut terbaru dulu
       .lean();
 
     return c.json(
@@ -29,7 +30,8 @@ bmkgRoute.get("/", async (c) => {
           items: data,
           total: totalData,
           currentPage: page,
-          totalPages: Math.ceil(totalData / PAGE_SIZE),
+          totalPages: Math.ceil(totalData / pageSize),
+          pageSize
         },
       },
       { status: 200 }

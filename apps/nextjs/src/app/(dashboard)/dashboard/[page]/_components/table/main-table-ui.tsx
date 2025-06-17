@@ -17,9 +17,7 @@ import {
 } from "@tanstack/react-table";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-// import { DataTablePagination } from "./pagination";
-import { DataTablePaginationCopy } from "./pagination-copy";
-// import { DataTableToolbar } from "./data-table-toolbar";
+import { DataTablePagination } from "./data-table-pagination";
 import { DataTableViewOptions } from "./data-table-view-option";
 
 interface DataTableProps<TData, TValue> {
@@ -29,7 +27,9 @@ interface DataTableProps<TData, TValue> {
     currentPage: number;
     totalPages: number;
     total: number;
+    pageSize: number;
     onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
   };
 }
 
@@ -41,11 +41,18 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
   const table = useReactTable({
     data,
     columns,
+    manualPagination: true,
+    rowCount: pagination.total,
+    pageCount: pagination.totalPages,
     state: {
       sorting,
       columnVisibility,
       rowSelection,
       columnFilters,
+      pagination: {
+        pageIndex: pagination.currentPage - 1,
+        pageSize: pagination.pageSize || 10,
+      },
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
@@ -60,10 +67,29 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
+  // Handle page changes
+  React.useEffect(() => {
+    console.log("🔄 Table internal pageIndex:", table.getState().pagination.pageIndex + 1);
+    console.log("🧭 External currentPage:", pagination.currentPage);
+    if (table.getState().pagination.pageIndex + 1 !== pagination.currentPage) {
+      pagination.onPageChange(table.getState().pagination.pageIndex + 1);
+    }
+  }, [table.getState().pagination.pageIndex]);
+
+  React.useEffect(() => {
+    console.log("📏 Table internal pageSize:", table.getState().pagination.pageSize);
+    console.log("📐 External pageSize:", pagination.pageSize);
+    if (table.getState().pagination.pageSize !== pagination.pageSize) {
+      pagination.onPageSizeChange(table.getState().pagination.pageSize);
+    }
+  }, [table.getState().pagination.pageSize]);
+  
+
   return (
     <div className="space-y-4">
       {/* <DataTableToolbar table={table} /> */}
       <div className="w-full flex items-center justify-end">
+        {/* <Sort onChange={(val) => setSorting([{ id: "Date", desc: val === "desc" }])} /> */}
         <DataTableViewOptions table={table} />
       </div>
       <div className="rounded-md border">
@@ -96,7 +122,7 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
           </TableBody>
         </Table>
       </div>
-      <DataTablePaginationCopy pagination={pagination} />
+      <DataTablePagination table={table} totalItems={pagination.total} onPageChange={pagination.onPageChange} />
     </div>
   );
 }

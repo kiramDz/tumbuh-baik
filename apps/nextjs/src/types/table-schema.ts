@@ -18,19 +18,29 @@ export const statusSchmea = z.object({
   }),
 });
 
+
 export const BmkgSchema = z.object({
-  _id: z.string(),
-  timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), {
+  _id: z.union([z.string(), z.object({ $oid: z.string() })]), // tergantung dari loader Mongo
+  Date: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date string",
   }),
-  city: z.string(),
-  temperature: z.number(),
-  humidity: z.number(),
-  windSpeed: z.number(),
-  lat: z.number(),
-  lon: z.number(),
-  pressure: z.number(),
+  Year: z.number(),
+  Month: z.string(),
+  Day: z.number(),
+  TN: z.number(), // Suhu minimum
+  TX: z.number(), // Suhu maksimum
+  TAVG: z.number(), // Suhu rata-rata
+  RH_AVG: z.number(), // Kelembapan rata-rata
+  RR: z.number(), // Curah hujan
+  SS: z.number(), // Lama penyinaran matahari
+  FF_X: z.union([z.string(), z.number()]), // Bisa kosong string atau numeric
+  DDD_X: z.number(), // Arah angin maksimum
+  FF_AVG: z.number(), // Kecepatan angin rata-rata
+  DDD_CAR: z.string(), // Arah angin utama
+  Season: z.string(), // Musim
+  is_RR_missing: z.number(), // Penanda apakah data RR missing
 });
+
 
 export const BMKGDataItemSchema = z.object({
   local_datetime: z.string(),

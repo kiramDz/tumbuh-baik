@@ -2,9 +2,9 @@ import PageContainer from "@/components/page-container";
 import { Card } from "@/components/ui/card";
 
 import Link from "next/link";
-import MainTable from "./_components/main-table";
+import MainTable from "../_components/main-table";
 import { LifeBuoy, Satellite, CloudSunRain, Earth } from "lucide-react";
-export default function StorageLayout() {
+export default function DashboardLayout() {
   return (
     <>
       <PageContainer>

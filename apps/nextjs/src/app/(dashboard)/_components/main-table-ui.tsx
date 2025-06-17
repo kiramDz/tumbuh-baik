@@ -38,6 +38,7 @@ export function MainTableUI<TData, TValue>({ columns, data }: DataTableProps<TDa
       columnVisibility,
       rowSelection,
       columnFilters,
+      
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,

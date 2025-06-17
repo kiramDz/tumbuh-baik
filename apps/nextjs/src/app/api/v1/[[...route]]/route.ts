@@ -20,12 +20,12 @@ app.route("/visualization", visualizationRoute);
 
 // TODO: Review and remove this route if unused
 app.route("/bmkg", bmkgRoute);
-// TODO: Review and remove this route if unused
-app.route("/bmkg-api", bmkgApiRoute);
 
+app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d UI
 
 //fetch : http://localhost:3000/api/v1/bmkg-fetch
-app.route("/bmkg-fetch", bmkgFetcherRoute);
+
+app.route("/bmkg-fetch", bmkgFetcherRoute); //api untuk ambik dari bmkg api dan masukin ke mongodb
 app.route("/bmkg-summary", bmkgSummaryRoute);
 app.route("/bmkg-daily", bmkgDailyRoute);
 

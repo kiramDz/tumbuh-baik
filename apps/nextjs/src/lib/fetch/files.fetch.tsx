@@ -55,20 +55,37 @@ export const getBmkgDaily = async () => {
   }
 };
 //for dahsboard
-export async function getBmkgData(page = 1) {
+export async function getBmkgData(page = 1, pageSize = 10) {
   try {
-    const res = await axios.get(`/api/v1/bmkg?page=${page}`);
+    const res = await axios.get("/api/v1/bmkg", {
+      params: { page, pageSize },
+    });
+
     console.log("Raw API response:", res);
     if (res.status === 200) {
-      console.log("BMKG API Response:", res.data);
-      console.log("Items specifically:", res.data.data?.items);
-      return res.data.data || { items: [], total: 0, currentPage: 1, totalPages: 1 };
+      console.log("✅ BMKG API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
     }
   } catch (error) {
-    console.error("Error fetching BMKG data:", error);
-    return { items: [], total: 0, currentPage: 1, totalPages: 1 };
+    console.error("❌ Error fetching BMKG data:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
   }
 }
+
 
 export const searchFiles = async (search: string) => {
   if (!search) return [];
