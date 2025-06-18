@@ -2,7 +2,7 @@ import PageContainer from "@/components/ui/page-container";
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
 import { DataTableSkeleton } from "../_components/data-table-skeleton";
-
+import KaltamTable from "../_components/kaltam/kaltam-table";
 import { Suspense } from "react";
 
 export const metadata = {
@@ -21,6 +21,7 @@ export default async function Page() {
           // key={key}
           fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}
         >
+          <KaltamTable />
           {/* <ProductListingPage /> */}
         </Suspense>
       </div>

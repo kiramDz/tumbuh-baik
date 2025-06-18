@@ -61,7 +61,38 @@ export const BMKGApi = z.object({
   data: z.array(BMKGDataItemSchema),
 });
 
+
+//show holt winter daily data in dashboard
+export const HoltWinterDataSchema = z.object({
+  _id: z.union([z.string(), z.object({ $oid: z.string() })]),
+  timestamp: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid timestamp",
+  }),
+  forecast_date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid forecast_date",
+  }),
+  parameters: z.object({
+    RR: z.object({
+      forecast_value: z.number(),
+      model_metadata: z.object({
+        alpha: z.number(),
+        beta: z.number().nullable(),
+        gamma: z.number(),
+      }),
+    }),
+    RH_AVG: z.object({
+      forecast_value: z.number(),
+      model_metadata: z.object({
+        alpha: z.number(),
+        beta: z.number().nullable(),
+        gamma: z.number(),
+      }),
+    }),
+  }),
+});
+
 export type BmkgDataType = z.infer<typeof BmkgSchema>
+export type HoltWinterDataType = z.infer<typeof HoltWinterDataSchema>;
 export type PaymentType = z.infer<typeof paymentSchmea>;
 export type Statustype = z.infer<typeof statusSchmea>
 export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;

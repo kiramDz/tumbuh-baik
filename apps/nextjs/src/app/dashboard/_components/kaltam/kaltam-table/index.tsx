@@ -1,23 +1,23 @@
+//act as maintable
+'use client'
 import { useState } from "react";
-import { bmkgColumns } from "./columns/bmkg-columns";
-import { MainTableUI } from "./main-table-ui";
-import { getBmkgData } from "@/lib/fetch/files.fetch";
+import { holtWinterColumns } from "./column";
 import { useQuery } from "@tanstack/react-query";
+import { getBmkgDaily } from "@/lib/fetch/files.fetch";
 import { toast } from "sonner";
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
+import { KaltamTableUI } from "./kaltam-table";
 
-export default function MainTable() {
+
+const KaltamTable = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["bmkgData", page, pageSize],
-    queryFn: () => getBmkgData(page, pageSize),
+    queryKey: ["bmkg-daily", page, pageSize],
+    queryFn: getBmkgDaily,
     refetchOnWindowFocus: false,
   });
-
-  console.log("Query data received:", data);
-  console.log("Items to display:", data?.items);
 
   if (isLoading) return <DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />;
 
@@ -28,9 +28,9 @@ export default function MainTable() {
 
   return (
     <>
-      <MainTableUI
+      <KaltamTableUI
         data={data?.items || []}
-        columns={bmkgColumns}
+        columns={holtWinterColumns}
         pagination={{
           currentPage: data?.currentPage || 1,
           totalPages: data?.totalPages || 1,
@@ -42,4 +42,6 @@ export default function MainTable() {
       />
     </>
   );
-}
+};
+
+export default KaltamTable;
