@@ -3,7 +3,7 @@ import axios from "axios";
 import { BMKGApi } from "@/lib/database/schema/bmkgApi.model";
 import db from "@/lib/database/db";
 import { parseError } from "@/lib/utils";
-import cron from "node-cron";
+// import cron from "node-cron";
 
 //INI YG FETCH DATA DARI WEB BMKG KE MONGODB
 
@@ -79,16 +79,16 @@ bmkgFetcherRoute.get("/", async (c) => {
 });
 
 //update setiap 48 jam (2 hari sekli)
-cron.schedule("0 7 */2 * *", async () => {
-  console.log("=== [CRON] Scheduled fetch BMKG API ===");
+// cron.schedule("0 7 */2 * *", async () => {
+//   console.log("=== [CRON] Scheduled fetch BMKG API ===");
 
-  try {
-    const fetchUrl = `http://localhost:3000/api/v1/bmkg-fetch`; // Ganti dengan full URL jika perlu
-    await axios.get(fetchUrl);
-    console.log("[CRON] BMKG fetch success.");
-  } catch (error) {
-    console.error("[CRON] Error fetching BMKG:", error);
-  }
-});
+//   try {
+//     const fetchUrl = `http://localhost:3000/api/v1/bmkg-fetch`; // Ganti dengan full URL jika perlu
+//     await axios.get(fetchUrl);
+//     console.log("[CRON] BMKG fetch success.");
+//   } catch (error) {
+//     console.error("[CRON] Error fetching BMKG:", error);
+//   }
+// });
 
 export default bmkgFetcherRoute;

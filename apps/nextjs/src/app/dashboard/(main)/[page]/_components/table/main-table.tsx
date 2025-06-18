@@ -4,6 +4,7 @@ import { MainTableUI } from "./main-table-ui";
 import { getBmkgData } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
 
 export default function MainTable() {
   const [page, setPage] = useState(1);
@@ -18,7 +19,7 @@ export default function MainTable() {
   console.log("Query data received:", data);
   console.log("Items to display:", data?.items);
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />;
 
   if (error) {
     toast("Failed to load BMKG data");

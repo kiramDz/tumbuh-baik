@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpCircleIcon, BarChartIcon, CameraIcon, ClipboardListIcon, DatabaseIcon, FileCodeIcon, FileIcon, FileTextIcon, HelpCircleIcon, LayoutDashboardIcon, SearchIcon, Trash, SettingsIcon } from "lucide-react";
+import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, HelpCircleIcon, LayoutDashboardIcon, SearchIcon, Trash, SettingsIcon } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -17,66 +17,28 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "/dashboard/",
+      url: "/dashboard",
       icon: LayoutDashboardIcon,
     },
     {
       title: "Kalender Tanam",
-      url: "#",
+      url: "/kaltam",
       icon: BarChartIcon,
+      items: [
+        {
+          title: "Jadwal Tanam  ",
+          url: "/kaltam",
+        },
+        {
+          title: "Data Bibit",
+          url: "/kaltam/bibit",
+        },
+      ],
     },
     {
-      title: "Trash",
-      url: "#",
+      title: "Sampah",
+      url: "/sampah",
       icon: Trash,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: CameraIcon,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: FileTextIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: FileCodeIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
     },
   ],
   navSecondary: [

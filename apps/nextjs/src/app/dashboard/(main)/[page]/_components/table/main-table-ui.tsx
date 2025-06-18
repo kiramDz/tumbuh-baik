@@ -30,6 +30,7 @@ interface DataTableProps<TData, TValue> {
     pageSize: number;
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
+    // onPaginationChange: (size: number) => void;
   };
 }
 
@@ -44,6 +45,16 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
     manualPagination: true,
     rowCount: pagination.total,
     pageCount: pagination.totalPages,
+    onPaginationChange: (updater) => {
+      const newPagination = typeof updater === "function" ? updater(table.getState().pagination) : updater;
+
+      // Trigger perubahan page dan pageSize
+      if (newPagination.pageSize !== table.getState().pagination.pageSize) {
+        pagination.onPageSizeChange(newPagination.pageSize);
+      } else {
+        pagination.onPageChange(newPagination.pageIndex + 1);
+      }
+    },
     state: {
       sorting,
       columnVisibility,
@@ -83,17 +94,16 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
       pagination.onPageSizeChange(table.getState().pagination.pageSize);
     }
   }, [table.getState().pagination.pageSize]);
-  
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 ">
       {/* <DataTableToolbar table={table} /> */}
       <div className="w-full flex items-center justify-end">
         {/* <Sort onChange={(val) => setSorting([{ id: "Date", desc: val === "desc" }])} /> */}
         <DataTableViewOptions table={table} />
       </div>
       <div className="rounded-md border">
-        <Table>
+        <Table className="rounded-md">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>

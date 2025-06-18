@@ -1,9 +1,6 @@
 "use server";
 
-import {
-  TRenameFileForm,
-  TShareFileForm,
-} from "@/app/(dashboard)/_components/file-card/menu";
+import { TRenameFileForm, TShareFileForm } from "@/app/dashboard/_components/file-card/menu";
 import { FIVE_MINUTES } from "@/lib/contants";
 import db from "@/lib/database/db";
 import { File, IFile } from "@/lib/database/schema/file.model";
@@ -38,10 +35,7 @@ export async function deleteFile(file: IFile) {
   return { status: 200, category, fileId: _id };
 }
 
-export async function updateFilePermissions(
-  file: IFile,
-  values: TShareFileForm
-) {
+export async function updateFilePermissions(file: IFile, values: TShareFileForm) {
   try {
     await db();
 
@@ -56,9 +50,7 @@ export async function updateFilePermissions(
 
     const { sharedWith } = dbFiles;
 
-    const allPermission = sharedWith.filter(
-      ({ email }) => email !== values.email
-    );
+    const allPermission = sharedWith.filter(({ email }) => email !== values.email);
 
     const permissionToSave = [...allPermission, newPermission];
 
@@ -89,13 +81,7 @@ export async function updateFilePermissions(
   }
 }
 
-export async function renameFile({
-  file,
-  values,
-}: {
-  file: IFile;
-  values: TRenameFileForm;
-}) {
+export async function renameFile({ file, values }: { file: IFile; values: TRenameFileForm }) {
   try {
     await db();
 

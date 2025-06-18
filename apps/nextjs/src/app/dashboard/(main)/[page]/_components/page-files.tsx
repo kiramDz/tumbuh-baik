@@ -3,27 +3,25 @@
 import { P } from "@/components/custom/p";
 import { IFile } from "@/lib/database/schema/file.model";
 import { getFiles } from "@/lib/fetch/files.fetch";
-import { RiLoader3Fill } from "@remixicon/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { toast } from "sonner";
 import MainTable from "./table/main-table";
-import { Shell } from "@/components/shell";
-import { DataTableSkeleton } from "@/app/(dashboard)/_components/data-table-skeleton";
+
+import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
 
 interface PageFilesProps {
   category: string;
 }
 
 const PageFiles = ({ category }: PageFilesProps) => {
-  const {  inView } = useInView();
+  const { inView } = useInView();
   const [currentPage, setCurrentPage] = useState(1);
   const [isPageFull, setIsPageFull] = useState(false);
   const queryClient = useQueryClient();
 
-  // fetch data sesuai page (nengok params.page in [page]/page.tsx)
   const { data, isLoading, error } = useQuery({
     queryKey: ["files", category, currentPage],
     queryFn: async () => await getFiles({ category, currentPage }),
@@ -78,7 +76,7 @@ const PageFiles = ({ category }: PageFilesProps) => {
     }
   }, [inView, data]);
 
-  if (isLoading) return <RiLoader3Fill className="animate-spin mx-auto" />;
+  if (isLoading) return <DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />;
 
   if (error)
     return (
@@ -87,7 +85,6 @@ const PageFiles = ({ category }: PageFilesProps) => {
       </P>
     );
 
-  //data yg sd di fetch, nntinya akan dipage oleh FileCard
   const files = data.files as IFile[];
 
   if (files?.length === 0)
@@ -100,13 +97,9 @@ const PageFiles = ({ category }: PageFilesProps) => {
 
   return (
     <>
-      <Shell className="gap-2">
-        <Suspense fallback={<DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />}>
-          <MainTable />
-        </Suspense>
-      </Shell>
-      {/* <div className="container mx-auto p-0">
-      </div> */}
+      <div className="container mx-auto p-0">
+        <MainTable />
+      </div>
     </>
   );
 };
