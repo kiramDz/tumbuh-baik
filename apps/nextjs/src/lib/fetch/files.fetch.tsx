@@ -1,0 +1,119 @@
+import axios from "axios";
+
+export async function getFiles({ currentPage, category }: { category: string; currentPage: number }) {
+  const res = await axios.get(`/api/v1/files/${category}`, {
+    params: {
+      page: currentPage,
+    },
+  });
+
+  return res.status === 200 ? res.data.data : { files: [] };
+}
+
+export async function getRecentFiles() {
+  try {
+    const res = await axios.get("/api/v1/files/recent");
+    if (res.status === 200) {
+      console.log("API Response:", res.data);
+      return res.data.data || { files: [] };
+    }
+  } catch (error) {
+    console.error("Error fetching recent files:", error);
+    return { files: [] };
+  }
+}
+
+//bmkg api
+export const getBmkgApi = async () => {
+  try {
+    const response = await axios.get("/api/v1/bmkg-api/all");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG API data:", error);
+    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG data");
+  }
+};
+
+//for monthly calender
+export const getBmkgSummary = async () => {
+  try {
+    const response = await axios.get("/api/v1/bmkg-summary/all");
+    return response.data.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG Summary:", error);
+    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG summary data");
+  }
+};
+
+export const getBmkgDaily = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/bmkg-daily", {
+      params: { page, pageSize },
+    });
+    if (res.status === 200) {
+      console.log("✅ BMKG API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching BMKG Daily:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+
+//for dahsboard
+export async function getBmkgData(page = 1, pageSize = 10) {
+  try {
+    const res = await axios.get("/api/v1/bmkg", {
+      params: { page, pageSize },
+    });
+
+    console.log("Raw API response:", res);
+    if (res.status === 200) {
+      console.log("✅ BMKG API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("❌ Error fetching BMKG data:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+}
+
+export const searchFiles = async (search: string) => {
+  if (!search) return [];
+
+  const res = await axios.get("/api/v1/files", {
+    params: {
+      search,
+    },
+  });
+
+  return res.data.data;
+};

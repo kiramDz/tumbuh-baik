@@ -1,0 +1,36 @@
+[{
+  "_id": {
+    "$oid": "67a49689bed08b95d66eda7a"
+  },
+  "name": "Dzulkiram Hilmi",
+  "email": "yastrasw@gmail.com",
+  "emailVerified": true,
+  "image": "https://lh3.googleusercontent.com/a/ACg8ocL2XL5FR86rbS3wzmzWESNCmXG3jADWcWER9JtyO_uQHSx8kI4=s96-c",
+  "createdAt": {
+    "$date": "2025-02-06T11:01:29.884Z"
+  },
+  "updatedAt": {
+    "$date": "2025-02-06T11:01:29.884Z"
+  },
+  "subscription": {
+    "$oid": "67a4968abed08b95d66eda7e"
+  }
+},
+{
+  "_id": {
+    "$oid": "681867c1f390f71a25f4b54a"
+  },
+  "name": "paolo escobar",
+  "email": "paolo@gmail.com",
+  "emailVerified": false,
+  "image": "",
+  "createdAt": {
+    "$date": "2025-05-05T07:24:49.450Z"
+  },
+  "updatedAt": {
+    "$date": "2025-05-05T07:24:49.450Z"
+  },
+  "subscription": {
+    "$oid": "681867c2f390f71a25f4b54e"
+  }
+}]
