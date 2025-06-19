@@ -8,7 +8,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import { toast } from "sonner";
-import MainTable from "./table/main-table";
+import MainTable from "../../../_components/table/main-table";
 
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
 
@@ -16,7 +16,7 @@ interface PageFilesProps {
   category: string;
 }
 
-const PageFiles = ({ category }: PageFilesProps) => {
+const PageCategory = ({ category }: PageFilesProps) => {
   const { inView } = useInView();
   const [currentPage, setCurrentPage] = useState(1);
   const [isPageFull, setIsPageFull] = useState(false);
@@ -104,4 +104,4 @@ const PageFiles = ({ category }: PageFilesProps) => {
   );
 };
 
-export default PageFiles;
+export default PageCategory;

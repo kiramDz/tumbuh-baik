@@ -3,7 +3,7 @@
 // tambar theme dari : https://shadcn-dashboard.kiranism.dev/dashboard/overview
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import DashboardBreadcrumb from "./breadcrumb";
+import DashboardBreadcrumb from "./dashboard-breadcrumb";
 // import UploadButton from "./uplaod-button";
 import HeaderProfile from "./header-profile";
 import { Separator } from "@/components/ui/separator";

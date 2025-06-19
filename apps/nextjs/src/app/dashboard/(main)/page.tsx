@@ -1,6 +1,5 @@
 import PageContainer from "@/components/ui/page-container";
 
-import MainTable from "../_components/main-table";
 import { LifeBuoy, Satellite, CloudSunRain, Earth } from "lucide-react";
 import DashboardCard from "../_components/dashboard-card";
 
@@ -50,9 +49,7 @@ export default function Page() {
             />
           </div>
 
-          <div className="w-full mx-auto py-4">
-            <MainTable />
-          </div>
+          <div className="w-full mx-auto py-4"></div>
         </div>
       </PageContainer>
     </>

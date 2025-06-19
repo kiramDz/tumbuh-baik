@@ -15,7 +15,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DataTablePagination } from "@/app/dashboard/(main)/[page]/_components/table/data-table-pagination";
+import { DataTablePagination } from "@/app/dashboard/_components/table/data-table-pagination";
 
 //data
 interface DataTableProps<TData, TValue> {

@@ -1,6 +1,6 @@
 import { Children } from "@/props/types";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import DashboardHeader from "./_components/header";
+import DashboardHeader from "./_components/dashboard-header";
 import { AppSidebar } from "@/components/app-sidebar";
 
 const Layout = ({ children }: Children) => {
