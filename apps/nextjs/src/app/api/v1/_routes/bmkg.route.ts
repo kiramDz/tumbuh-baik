@@ -9,11 +9,8 @@ bmkgRoute.get("/", async (c) => {
   try {
     console.log("=== Endpoint BMKG Data terpanggil ===");
     await db();
-
     const page = Number(c.req.query("page")) || 1;
-    // const PAGE_SIZE = 10;
     const pageSize = Number(c.req.query("pageSize") || "10");
-
     const totalData = await BmkgData.countDocuments();
 
     const data = await BmkgData.find()
@@ -31,7 +28,7 @@ bmkgRoute.get("/", async (c) => {
           total: totalData,
           currentPage: page,
           totalPages: Math.ceil(totalData / pageSize),
-          pageSize
+          pageSize,
         },
       },
       { status: 200 }

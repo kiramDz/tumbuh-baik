@@ -1,5 +1,5 @@
 //act as maintable
-'use client'
+"use client";
 import { useState } from "react";
 import { holtWinterColumns } from "./column";
 import { useQuery } from "@tanstack/react-query";
@@ -8,14 +8,13 @@ import { toast } from "sonner";
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
 import { KaltamTableUI } from "./kaltam-table";
 
-
 const KaltamTable = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["bmkg-daily", page, pageSize],
-    queryFn: getBmkgDaily,
+    queryFn: () => getBmkgDaily(page, pageSize),
     refetchOnWindowFocus: false,
   });
 

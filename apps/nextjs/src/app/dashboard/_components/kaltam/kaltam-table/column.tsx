@@ -8,7 +8,8 @@ export const holtWinterColumns: ColumnDef<HoltWinterDataType>[] = [
     header: "Tanggal Prediksi",
     cell: ({ row }) => {
       const val = row.getValue("forecast_date") as string;
-      return format(new Date(val), "dd/MM/yyyy");
+      const date = new Date(val);
+      return format(date, "dd/MM/yyyy");
     },
   },
   {

@@ -45,8 +45,6 @@ export function KaltamTableUI<TData, TValue>({ columns, data, pagination }: Data
     pageCount: pagination.totalPages,
     onPaginationChange: (updater) => {
       const newPagination = typeof updater === "function" ? updater(table.getState().pagination) : updater;
-
-      // Trigger perubahan page dan pageSize
       if (newPagination.pageSize !== table.getState().pagination.pageSize) {
         pagination.onPageSizeChange(newPagination.pageSize);
       } else {
