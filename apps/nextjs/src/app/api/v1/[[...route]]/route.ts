@@ -8,9 +8,12 @@ import bmkgApiRoute from "../_routes/bmkgApi.route";
 import bmkgFetcherRoute from "../_routes/bmkgFetcher.route";
 import bmkgSummaryRoute from "../_routes/bmkg-summary.route";
 import bmkgDailyRoute from "../_routes/bmkg-daily.route";
+import seedRoute from "../_routes/seed.route";
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
+
+// dont forget to integrate to app
 
 app.route("/files", fileRoute);
 
@@ -28,6 +31,8 @@ app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d 
 app.route("/bmkg-fetch", bmkgFetcherRoute); //api untuk ambik dari bmkg api dan masukin ke mongodb
 app.route("/bmkg-summary", bmkgSummaryRoute);
 app.route("/bmkg-daily", bmkgDailyRoute);
+app.route("/seeds", seedRoute);
+
 
 export const GET = handle(app);
 export const POST = handle(app);

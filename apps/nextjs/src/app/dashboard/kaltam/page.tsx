@@ -5,6 +5,7 @@ import { DataTableSkeleton } from "../_components/data-table-skeleton";
 import KaltamTable from "../_components/kaltam/kaltam-table";
 import { Suspense } from "react";
 
+
 export const metadata = {
   title: "Dashboard: Kalender Tanam",
 };

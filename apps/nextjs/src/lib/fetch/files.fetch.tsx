@@ -117,3 +117,46 @@ export const searchFiles = async (search: string) => {
 
   return res.data.data;
 };
+
+export const getSeeds = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/seeds", {
+      params: { page, pageSize },
+    });
+
+    if (res.status === 200) {
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Get seeds error:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+
+export const createSeed = async (data: { name: string; duration: number }) => {
+  try {
+    const res = await axios.post("/api/v1/seeds", data);
+    return res.data.data;
+  } catch (error) {
+    console.error("Create seed error:", error);
+    throw error;
+  }
+};
+
+export const deleteSeed = async (id: string) => {
+  await axios.delete(`/api/v1/seeds/${id}`);
+};

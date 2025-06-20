@@ -18,7 +18,6 @@ export const statusSchmea = z.object({
   }),
 });
 
-
 export const BmkgSchema = z.object({
   _id: z.union([z.string(), z.object({ $oid: z.string() })]), // tergantung dari loader Mongo
   Date: z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -41,16 +40,15 @@ export const BmkgSchema = z.object({
   is_RR_missing: z.number(), // Penanda apakah data RR missing
 });
 
-
 export const BMKGDataItemSchema = z.object({
   local_datetime: z.string(),
-  t: z.number(), 
-  hu: z.number(), 
-  weather_desc: z.string(), 
-  ws: z.number(), 
-  wd: z.string(), 
-  tcc: z.number(), 
-  vs_text: z.string(), 
+  t: z.number(),
+  hu: z.number(),
+  weather_desc: z.string(),
+  ws: z.number(),
+  wd: z.string(),
+  tcc: z.number(),
+  vs_text: z.string(),
 });
 
 export const BMKGApi = z.object({
@@ -60,7 +58,6 @@ export const BMKGApi = z.object({
   analysis_date: z.date(),
   data: z.array(BMKGDataItemSchema),
 });
-
 
 //show holt winter daily data in dashboard
 export const HoltWinterDataSchema = z.object({
@@ -91,9 +88,22 @@ export const HoltWinterDataSchema = z.object({
   }),
 });
 
-export type BmkgDataType = z.infer<typeof BmkgSchema>
+export const SeedSchema = z.object({
+  _id: z.union([z.string(), z.object({ $oid: z.string() })]),
+  name: z.string(),
+  duration: z.number(),
+  createdAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid createdAt date",
+  }),
+  updatedAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid updatedAt date",
+  }),
+});
+
+export type BmkgDataType = z.infer<typeof BmkgSchema>;
 export type HoltWinterDataType = z.infer<typeof HoltWinterDataSchema>;
 export type PaymentType = z.infer<typeof paymentSchmea>;
-export type Statustype = z.infer<typeof statusSchmea>
+export type Statustype = z.infer<typeof statusSchmea>;
 export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;
 export type BMKGApiData = z.infer<typeof BMKGApi>;
+export type SeedType = z.infer<typeof SeedSchema>;
