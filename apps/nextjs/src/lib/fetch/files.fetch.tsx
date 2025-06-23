@@ -160,3 +160,42 @@ export const createSeed = async (data: { name: string; duration: number }) => {
 export const deleteSeed = async (id: string) => {
   await axios.delete(`/api/v1/seeds/${id}`);
 };
+
+export const getUsers = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/user", {
+      params: { page, pageSize },
+    });
+
+    if (res.status === 200) {
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Get users error:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+
+export const updateUserRole = async (userId: string, role: "user" | "admin") => {
+  try {
+    const res = await axios.put(`/api/v1/user/${userId}/role`, { role });
+    return res.data.data;
+  } catch (error) {
+    console.error("Update user role error:", error);
+    throw error;
+  }
+};

@@ -1,4 +1,4 @@
-  import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import axios from "axios";
 import { Session } from "./lib/better-auth/auth-types";
 
