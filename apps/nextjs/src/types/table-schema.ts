@@ -100,6 +100,19 @@ export const SeedSchema = z.object({
   }),
 });
 
+export const UserSchema = z.object({
+  _id: z.union([z.string(), z.object({ $oid: z.string() })]),
+  name: z.string(),
+  email: z.string().email(),
+  emailVerified: z.boolean(),
+  image: z.string().optional(),
+  role: z.enum(["user", "admin"]),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+
+
 export type BmkgDataType = z.infer<typeof BmkgSchema>;
 export type HoltWinterDataType = z.infer<typeof HoltWinterDataSchema>;
 export type PaymentType = z.infer<typeof paymentSchmea>;
@@ -107,3 +120,4 @@ export type Statustype = z.infer<typeof statusSchmea>;
 export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;
 export type BMKGApiData = z.infer<typeof BMKGApi>;
 export type SeedType = z.infer<typeof SeedSchema>;
+export type UserType = z.infer<typeof UserSchema>;

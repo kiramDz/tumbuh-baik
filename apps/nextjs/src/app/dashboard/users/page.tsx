@@ -4,21 +4,19 @@ import { Separator } from "@/components/ui/separator";
 import { DataTableSkeleton } from "../_components/data-table-skeleton";
 import { Suspense } from "react";
 import { withAdminPage } from "../_components/auth-hoc";
+import type { SearchParams } from "nuqs/server";
+import { usersTableParamsSchema } from "@/server/admin/user/schema";
 
 export const metadata = {
   title: "Dashboard: User Mangement",
 };
 
 type UsersPageProps = {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<SearchParams>;
 };
 
 const UsersPage = async ({ searchParams }: UsersPageProps) => {
-  const search = {
-    q: searchParams.q ?? "",
-    page: Number(searchParams.page ?? 1),
-    // dst...
-  };
+  const search = usersTableParamsSchema.parse(Object.fromEntries(await searchParams));
 
   const usersPromise = findUsers(search);
 
@@ -37,4 +35,4 @@ const UsersPage = async ({ searchParams }: UsersPageProps) => {
   );
 };
 
-export default withAdminPage(UsersPage); //pastiakan hanya user dengan role admin yg bs masuk keisini 
+export default withAdminPage(UsersPage); //pastiakan hanya user dengan role admin yg bs masuk keisini
