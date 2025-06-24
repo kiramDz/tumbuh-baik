@@ -11,6 +11,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import LogoSvg from "../../public/svg/logo";
 import { searchCities } from "@/action/weather-action";
 import { useRouter } from "next/navigation";
+import HeaderProfile from "@/app/dashboard/_components/header-profile";
 
 interface NavBarProps {
   onLocationChange: (lat: number, lon: number) => void;
@@ -255,7 +256,7 @@ const NavBar = ({ onLocationChange, onUseCurrentLocation, isUsingCurrentLocation
           </div>
 
           <div className="flex items-center">
-            <ModeToggle />
+            <HeaderProfile />
           </div>
         </div>
       </div>
