@@ -35,8 +35,6 @@ app.route("/bmkg-daily", bmkgDailyRoute);
 app.route("/seeds", seedRoute);
 app.route("/user", userRoute);
 
-
-
 export const GET = handle(app);
 export const POST = handle(app);
-
+export const PUT = handle(app);

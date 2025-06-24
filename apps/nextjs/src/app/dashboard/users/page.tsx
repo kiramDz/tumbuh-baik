@@ -2,8 +2,8 @@ import PageContainer from "@/components/ui/page-container";
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
 import { Suspense } from "react";
+import UserMangementTable from "../_components/user-tes/table";
 import { DataTableSkeleton } from "../_components/data-table-skeleton";
-import SeedTable from "../_components/kaltam/seed-table";
 export const metadata = {
   title: "Dashboard: Data Table",
 };
@@ -18,7 +18,7 @@ export default async function Page() {
           </div>
           <Separator />
           <Suspense fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}>
-            <SeedTable />
+            <UserMangementTable />
           </Suspense>
         </div>
       </PageContainer>
