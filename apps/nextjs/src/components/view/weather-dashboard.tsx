@@ -9,6 +9,7 @@ import CurrentWeatherCard from "./current-weather";
 import WindPressureCard from "./wind-pressure";
 import HourlyForecast from "./hourly-forecast";
 
+import MapSection from "./map";
 import { Banner } from "./banner";
 import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
@@ -85,7 +86,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
 
             <HourlyForecast forecast={forecastData} unit={unit} />
           </div>
-          <AirPollutionChart data={airPollution} />
+          {/* <AirPollutionChart data={airPollution} /> */}
+          <MapSection />
           {chartData.length === 0 ? (
             <p className="text-sm text-muted-foreground">Tidak ada data suhu/kelembapan untuk gampong ini dalam rentang waktu tersebut.</p>
           ) : (
