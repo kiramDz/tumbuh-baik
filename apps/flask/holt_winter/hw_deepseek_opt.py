@@ -18,62 +18,121 @@ def time_series_split(data, test_size=0.2):
     return data[:split_point], data[split_point:]
 
 def grid_search_hw_params(train_data, param_name):
+    """
+    Perform grid search for optimal Holt-Winters parameters
+    """
     print(f"\n--- Grid Search for {param_name} ---")
-
-    alpha_range = [0.1, 0.3, 0.5, 0.7, 0.9]
-    beta_range = [0.1, 0.3, 0.5, 0.7, 0.9]
-    gamma_range = [0.1, 0.3, 0.5, 0.7, 0.9]
-
+    print(f"Data shape: {len(train_data)} points")
+    print(f"Data range: {train_data.min():.3f} to {train_data.max():.3f}")
+    print(f"Zero values: {(train_data == 0).sum()} ({(train_data == 0).mean()*100:.1f}%)")
+    
+    # Define parameter grid - lebih fleksibel
+    alpha_range = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9]
+    beta_range = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9]
+    gamma_range = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9]
+    
     best_score = float('inf')
     best_params = None
     best_model = None
-
-    train_split, val_split = time_series_split(train_data, test_size=0.15)
-
+    valid_models = 0
+    
+    # Split data for validation - lebih besar untuk stability
+    train_split, val_split = time_series_split(train_data, test_size=0.2)
+    
+    print(f"Train split: {len(train_split)} points")
+    print(f"Validation split: {len(val_split)} points")
+    
     total_combinations = len(alpha_range) * len(beta_range) * len(gamma_range)
     current_combination = 0
-
+    
     print(f"Testing {total_combinations} parameter combinations...")
-
-    for alpha, beta, gamma in itertools.product(alpha_range, beta_range, gamma_range):
-        current_combination += 1
-        try:
-            model = ExponentialSmoothing(
-                train_split,
-                trend="add",
-                seasonal="add",
-                seasonal_periods=365
-            ).fit(
-                smoothing_level=alpha,
-                smoothing_trend=beta,
-                smoothing_seasonal=gamma,
-                optimized=False
-            )
-
-            forecast = model.forecast(steps=len(val_split))
-            rmse = np.sqrt(mean_squared_error(val_split, forecast))
-            mae = mean_absolute_error(val_split, forecast)
-            mape = calculate_mape(val_split, forecast)
-
-            if rmse < best_score:
-                best_score = rmse
-                best_params = {'alpha': alpha, 'beta': beta, 'gamma': gamma}
-                best_model = model
-                print(f"✓ New best: α={alpha}, β={beta}, γ={gamma} | RMSE={rmse:.3f}, MAE={mae:.3f}, MAPE={mape:.2f}%")
-        except Exception:
-            continue
-
-        if current_combination % 25 == 0:
-            print(f"Progress: {current_combination}/{total_combinations} ({(current_combination/total_combinations)*100:.1f}%)")
-
+    
+    # Coba beberapa seasonal periods
+    seasonal_periods_options = [365, 30, 7]  # tahunan, bulanan, mingguan
+    
+    for seasonal_periods in seasonal_periods_options:
+        print(f"\nTrying seasonal_periods = {seasonal_periods}")
+        
+        for alpha, beta, gamma in itertools.product(alpha_range, beta_range, gamma_range):
+            current_combination += 1
+            
+            try:
+                # Fit model with current parameters
+                model = ExponentialSmoothing(
+                    train_split,
+                    trend="add",
+                    seasonal="add",
+                    seasonal_periods=seasonal_periods
+                ).fit(
+                    smoothing_level=alpha,
+                    smoothing_trend=beta,
+                    smoothing_seasonal=gamma,
+                    optimized=False
+                )
+                
+                # Forecast for validation period
+                forecast = model.forecast(steps=len(val_split))
+                
+                # Calculate error metrics
+                mae = mean_absolute_error(val_split, forecast)
+                rmse = np.sqrt(mean_squared_error(val_split, forecast))
+                
+                # Skip if forecast contains NaN or infinite values
+                if np.isnan(forecast).any() or np.isinf(forecast).any():
+                    continue
+                
+                # Calculate MAPE carefully (avoid division by zero)
+                non_zero_mask = val_split != 0
+                if non_zero_mask.sum() > 0:
+                    mape = calculate_mape(val_split[non_zero_mask], forecast[non_zero_mask])
+                else:
+                    mape = float('inf')
+                
+                # Use RMSE as primary metric
+                score = rmse
+                valid_models += 1
+                
+                if score < best_score:
+                    best_score = score
+                    best_params = {
+                        'alpha': alpha, 
+                        'beta': beta, 
+                        'gamma': gamma,
+                        'seasonal_periods': seasonal_periods
+                    }
+                    best_model = model
+                    print(f"✓ New best: α={alpha}, β={beta}, γ={gamma}, SP={seasonal_periods} | RMSE={rmse:.3f}, MAE={mae:.3f}, MAPE={mape:.2f}%")
+            
+            except Exception as e:
+                # Skip problematic parameter combinations
+                continue
+            
+            # Progress indicator
+            if current_combination % 50 == 0:
+                progress = (current_combination / (total_combinations * len(seasonal_periods_options))) * 100
+                print(f"Progress: {current_combination}/{total_combinations * len(seasonal_periods_options)} ({progress:.1f}%) | Valid models: {valid_models}")
+        
+        # If we found good parameters, break early
+        if best_params is not None:
+            break
+    
     if best_params is None:
-        print(f"❌ No valid parameter combination found for {param_name}.")
+        print(f"❌ No valid parameter combination found for {param_name} after testing {current_combination} combinations.")
+        print("This might be due to:")
+        print("- Too many zero/missing values in the data")
+        print("- Insufficient seasonal patterns")
+        print("- Data quality issues")
         return None, None
-
-    print(f"\n✅ Best parameters for {param_name}:")
-    print(f"α={best_params['alpha']}, β={best_params['beta']}, γ={best_params['gamma']} | Best RMSE={best_score:.3f}")
+    
+    print(f"\n✓ Final best parameters for {param_name}:")
+    print(f"Alpha (level): {best_params['alpha']}")
+    print(f"Beta (trend): {best_params['beta']}")
+    print(f"Gamma (seasonal): {best_params['gamma']}")
+    print(f"Seasonal periods: {best_params['seasonal_periods']}")
+    print(f"Best RMSE: {best_score:.3f}")
+    print(f"Valid models found: {valid_models}")
+    
     return best_params, best_model
-
 
 def calculate_forecast_horizon(start_date, end_date):
     """Calculate number of days between two dates"""
@@ -82,9 +141,7 @@ def calculate_forecast_horizon(start_date, end_date):
 def run_optimized_hw_analysis():
     print("=== Start Optimized Holt-Winter Analysis ===")
     
-    # Connect to MongoDB via docker
-    # client = MongoClient("mongodb://host.docker.internal:27017/")
-    # Connect to MongoDB no docker
+    # Connect to MongoDB
     client = MongoClient("mongodb://localhost:27017/")
     db = client["tugas_akhir"]
     
@@ -127,19 +184,62 @@ def run_optimized_hw_analysis():
         # Grid search for optimal parameters
         best_params, _ = grid_search_hw_params(param_data, param)
         
+        # Check if grid search was successful
+        if best_params is None:
+            print(f"⚠️ Grid search failed for {param}. Using fallback approach...")
+            
+            # Fallback: Try simple exponential smoothing or basic parameters
+            try:
+                # Try without seasonal component first
+                fallback_model = ExponentialSmoothing(
+                    param_data,
+                    trend="add",
+                    seasonal=None
+                ).fit()
+                
+                best_params = {
+                    'alpha': 0.3,
+                    'beta': 0.1, 
+                    'gamma': 0.1,
+                    'seasonal_periods': 365,
+                    'use_seasonal': False
+                }
+                print(f"✓ Using fallback parameters for {param} (no seasonal)")
+                
+            except Exception as fallback_error:
+                print(f"❌ Fallback also failed for {param}: {str(fallback_error)}")
+                continue
+        
         # Fit final model with best parameters on full dataset
         print(f"\nFitting final model for {param} with optimal parameters...")
-        final_model = ExponentialSmoothing(
-            param_data,
-            trend="add",
-            seasonal="add",
-            seasonal_periods=365
-        ).fit(
-            smoothing_level=best_params['alpha'],
-            smoothing_trend=best_params['beta'],
-            smoothing_seasonal=best_params['gamma'],
-            optimized=False
-        )
+        
+        try:
+            if best_params.get('use_seasonal', True):
+                final_model = ExponentialSmoothing(
+                    param_data,
+                    trend="add",
+                    seasonal="add", 
+                    seasonal_periods=best_params.get('seasonal_periods', 365)
+                ).fit(
+                    smoothing_level=best_params['alpha'],
+                    smoothing_trend=best_params['beta'],
+                    smoothing_seasonal=best_params['gamma'],
+                    optimized=False
+                )
+            else:
+                # No seasonal component
+                final_model = ExponentialSmoothing(
+                    param_data,
+                    trend="add",
+                    seasonal=None
+                ).fit(
+                    smoothing_level=best_params['alpha'],
+                    smoothing_trend=best_params['beta'],
+                    optimized=False
+                )
+        except Exception as model_error:
+            print(f"❌ Failed to fit final model for {param}: {str(model_error)}")
+            continue
         
         # Generate forecast
         print(f"Generating {forecast_days}-day forecast for {param}...")
@@ -181,15 +281,10 @@ def run_optimized_hw_analysis():
             }
         
         forecast_docs.append(doc)
-    if forecast_docs:
-        inserted = db["bmkg-hw"].insert_many(forecast_docs)
-        print(f"✓ Inserted {len(inserted.inserted_ids)} forecast records")
-    else:
-        print("⚠️ No forecast data inserted.")
     
     # Insert forecast documents
-    # insert_result = db["bmkg-hw"].insert_many(forecast_docs)
-    # print(f"✓ Inserted {len(insert_result.inserted_ids)} forecast documents into 'bmkg-hw' collection")
+    insert_result = db["bmkg-hw"].insert_many(forecast_docs)
+    print(f"✓ Inserted {len(insert_result.inserted_ids)} forecast documents into 'bmkg-hw' collection")
     
     # Summary
     print(f"\n{'='*60}")
@@ -204,7 +299,8 @@ def run_optimized_hw_analysis():
         print(f"{param}: α={params['alpha']}, β={params['beta']}, γ={params['gamma']}")
     
     client.close()
-    print("\n✓ Analysis completed !")
+    print("\n✓ Analysis completed successfully!")
     return forecast_docs
 
-
+if __name__ == "__main__":
+    run_optimized_hw_analysis()

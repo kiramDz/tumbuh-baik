@@ -18,33 +18,26 @@ def time_series_split(data, test_size=0.2):
     return data[:split_point], data[split_point:]
 
 def grid_search_hw_params(train_data, param_name):
-    """
-    Perform grid search for optimal Holt-Winters parameters
-    """
     print(f"\n--- Grid Search for {param_name} ---")
-    
-    # Define parameter grid
+
     alpha_range = [0.1, 0.3, 0.5, 0.7, 0.9]
     beta_range = [0.1, 0.3, 0.5, 0.7, 0.9]
     gamma_range = [0.1, 0.3, 0.5, 0.7, 0.9]
-    
+
     best_score = float('inf')
     best_params = None
     best_model = None
-    
-    # Split data for validation
+
     train_split, val_split = time_series_split(train_data, test_size=0.15)
-    
+
     total_combinations = len(alpha_range) * len(beta_range) * len(gamma_range)
     current_combination = 0
-    
+
     print(f"Testing {total_combinations} parameter combinations...")
-    
+
     for alpha, beta, gamma in itertools.product(alpha_range, beta_range, gamma_range):
         current_combination += 1
-        
         try:
-            # Fit model with current parameters
             model = ExponentialSmoothing(
                 train_split,
                 trend="add",
@@ -56,41 +49,31 @@ def grid_search_hw_params(train_data, param_name):
                 smoothing_seasonal=gamma,
                 optimized=False
             )
-            
-            # Forecast for validation period
-            forecast_steps = len(val_split)
-            forecast = model.forecast(steps=forecast_steps)
-            
-            # Calculate error metrics
-            mae = mean_absolute_error(val_split, forecast)
+
+            forecast = model.forecast(steps=len(val_split))
             rmse = np.sqrt(mean_squared_error(val_split, forecast))
+            mae = mean_absolute_error(val_split, forecast)
             mape = calculate_mape(val_split, forecast)
-            
-            # Use RMSE as primary metric (you can change this)
-            score = rmse
-            
-            if score < best_score:
-                best_score = score
+
+            if rmse < best_score:
+                best_score = rmse
                 best_params = {'alpha': alpha, 'beta': beta, 'gamma': gamma}
                 best_model = model
-                print(f"New best params for {param_name}: α={alpha}, β={beta}, γ={gamma} | RMSE={rmse:.3f}, MAE={mae:.3f}, MAPE={mape:.2f}%")
-        
-        except Exception as e:
-            # Skip problematic parameter combinations
+                print(f"✓ New best: α={alpha}, β={beta}, γ={gamma} | RMSE={rmse:.3f}, MAE={mae:.3f}, MAPE={mape:.2f}%")
+        except Exception:
             continue
-        
-        # Progress indicator
+
         if current_combination % 25 == 0:
-            progress = (current_combination / total_combinations) * 100
-            print(f"Progress: {progress:.1f}% ({current_combination}/{total_combinations})")
-    
-    print(f"\nFinal best parameters for {param_name}:")
-    print(f"Alpha (level): {best_params['alpha']}")
-    print(f"Beta (trend): {best_params['beta']}")
-    print(f"Gamma (seasonal): {best_params['gamma']}")
-    print(f"Best RMSE: {best_score:.3f}")
-    
+            print(f"Progress: {current_combination}/{total_combinations} ({(current_combination/total_combinations)*100:.1f}%)")
+
+    if best_params is None:
+        print(f"❌ No valid parameter combination found for {param_name}.")
+        return None, None
+
+    print(f"\n✅ Best parameters for {param_name}:")
+    print(f"α={best_params['alpha']}, β={best_params['beta']}, γ={best_params['gamma']} | Best RMSE={best_score:.3f}")
     return best_params, best_model
+
 
 def calculate_forecast_horizon(start_date, end_date):
     """Calculate number of days between two dates"""
@@ -99,8 +82,10 @@ def calculate_forecast_horizon(start_date, end_date):
 def run_optimized_hw_analysis():
     print("=== Start Optimized Holt-Winter Analysis ===")
     
-    # Connect to MongoDB
-    client = MongoClient("mongodb://host.docker.internal:27017/")
+    # Connect to MongoDB via docker
+    # client = MongoClient("mongodb://host.docker.internal:27017/")
+    # Connect to MongoDB no docker
+    client = MongoClient("mongodb://localhost:27017/")
     db = client["tugas_akhir"]
     
     # Clear existing forecasts
@@ -167,13 +152,7 @@ def run_optimized_hw_analysis():
         
         results[param] = {
             "forecast_values": forecast.tolist(),
-            "confidence_upper": (forecast + confidence_interval).tolist(),
-            "confidence_lower": (forecast - confidence_interval).tolist(),
-            "optimal_params": best_params,
-            "model_performance": {
-                "residual_std": float(forecast_std),
-                "training_data_points": len(param_data)
-            }
+            "optimal_params": best_params
         }
         
         print(f"✓ {param} forecast completed successfully")
@@ -188,24 +167,29 @@ def run_optimized_hw_analysis():
         doc = {
             "timestamp": datetime.now().isoformat(),
             "forecast_date": forecast_date.isoformat(),
-            "forecast_day": i + 1,
             "parameters": {}
         }
         
         for param in parameters:
             doc["parameters"][param] = {
                 "forecast_value": results[param]["forecast_values"][i],
-                "confidence_upper": results[param]["confidence_upper"][i],
-                "confidence_lower": results[param]["confidence_lower"][i],
-                "optimal_params": results[param]["optimal_params"],
-                "model_metadata": results[param]["model_performance"]
+                "model_metadata": {
+                    "alpha": results[param]["optimal_params"]["alpha"],
+                    "beta": results[param]["optimal_params"]["beta"],
+                    "gamma": results[param]["optimal_params"]["gamma"]
+                }
             }
         
         forecast_docs.append(doc)
+    if forecast_docs:
+        inserted = db["bmkg-hw"].insert_many(forecast_docs)
+        print(f"✓ Inserted {len(inserted.inserted_ids)} forecast records")
+    else:
+        print("⚠️ No forecast data inserted.")
     
     # Insert forecast documents
-    insert_result = db["bmkg-hw"].insert_many(forecast_docs)
-    print(f"✓ Inserted {len(insert_result.inserted_ids)} forecast documents into 'bmkg-hw' collection")
+    # insert_result = db["bmkg-hw"].insert_many(forecast_docs)
+    # print(f"✓ Inserted {len(insert_result.inserted_ids)} forecast documents into 'bmkg-hw' collection")
     
     # Summary
     print(f"\n{'='*60}")
@@ -220,5 +204,7 @@ def run_optimized_hw_analysis():
         print(f"{param}: α={params['alpha']}, β={params['beta']}, γ={params['gamma']}")
     
     client.close()
-    print("\n✓ Analysis completed successfully!")
-    return results
+    print("\n✓ Analysis completed !")
+    return forecast_docs
+
+
