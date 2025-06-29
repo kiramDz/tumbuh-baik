@@ -1,11 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription,  CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { Loader2} from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { signUp } from "@/lib/better-auth/auth-client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -107,14 +107,6 @@ export function AdminSignUp() {
           </Button>
         </div>
       </CardContent>
-      <CardFooter>
-        <div className="flex justify-center w-full border-t py-4">
-          <p className="text-center text-xs text-neutral-500">
-            Secured by <span className="text-orange-400">better-auth.</span>
-          </p>
-        </div>
-      </CardFooter>
     </Card>
   );
 }
-

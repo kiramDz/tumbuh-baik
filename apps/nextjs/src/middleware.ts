@@ -1,54 +1,93 @@
 import { NextResponse, type NextRequest } from "next/server";
-import axios from "axios";
-import { Session } from "./lib/better-auth/auth-types";
+import { getSessionCookie } from "better-auth/cookies";
 
-async function getMiddlewareSession(req: NextRequest) {
-  const { data: session } = await axios.get<Session>("/api/auth/get-session", {
-    baseURL: req.nextUrl.origin,
-    headers: {
-      //get the cookie from the request
-      cookie: req.headers.get("cookie") || "",
-    },
-  });
+// Helper function to get user role from database
+async function getUserRole(req: NextRequest, sessionCookie: any) {
+  try {
+    const response = await fetch(`${req.nextUrl.origin}/api/auth/get-session`, {
+      headers: {
+        cookie: req.headers.get("cookie") || "",
+      },
+    });
 
-  return session;
+    if (!response.ok) return null;
+
+    const session = await response.json();
+    return session?.user?.role || null;
+  } catch (error) {
+    console.error("Error getting user role:", error);
+    return null;
+  }
 }
 
-export default async function authMiddleware(req: NextRequest) {
-  const session = await getMiddlewareSession(req);
-  const pathname = req.nextUrl.pathname;
-  const url = req.url;
+export const config = {
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/sign-in", "/sign-up"],
+};
 
-  // Halaman root tetap publik
+export default async function authMiddleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+  const sessionCookie = getSessionCookie(req);
+
+  // Public routes - always allow
   if (pathname === "/") {
     return NextResponse.next();
   }
 
-  // untuk masuk ke dashboard harus ke /sign-in dlu
-  if (pathname.startsWith("/dashboard")) {
-    if (session) {
-      return NextResponse.next();
+  // Handle sign-up page
+  if (pathname === "/sign-up") {
+    if (sessionCookie) {
+      // Already logged in, redirect based on role
+      const userRole = await getUserRole(req, sessionCookie);
+      if (userRole === "admin") {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      } else {
+        return NextResponse.redirect(new URL("/", req.url));
+      }
     }
-
-    return NextResponse.redirect(new URL("/sign-in", url));
+    return NextResponse.next();
   }
 
-  if (pathname.startsWith("/sign-")) {
-    if (!session) {
-      return NextResponse.next();
+  // Handle sign-in page
+  if (pathname === "/sign-in") {
+    if (sessionCookie) {
+      // Already logged in, redirect based on role
+      const userRole = await getUserRole(req, sessionCookie);
+      if (userRole === "admin") {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      } else {
+        return NextResponse.redirect(new URL("/", req.url));
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // Protected routes - require authentication
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/admin")) {
+    if (!sessionCookie) {
+      // Not logged in, redirect to sign-in
+      return NextResponse.redirect(new URL(`/sign-in?next=${pathname}${search}`, req.url));
     }
 
-    return NextResponse.redirect(new URL("/dashboard", url));
+    // Get user role for authorization
+    const userRole = await getUserRole(req, sessionCookie);
+
+    // Dashboard access - only admins
+    if (pathname.startsWith("/dashboard")) {
+      if (userRole !== "admin") {
+        // Regular user trying to access dashboard, redirect to home
+        return NextResponse.redirect(new URL("/", req.url));
+      }
+    }
+
+    // Admin routes - only admins (if you have /admin routes)
+    if (pathname.startsWith("/admin")) {
+      if (userRole !== "admin") {
+        return NextResponse.redirect(new URL("/", req.url));
+      }
+    }
+
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
-    "/(api|trpc)(.*)",
-  ],
-};

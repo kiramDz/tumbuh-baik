@@ -1,12 +1,9 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { magicLink, admin } from "better-auth/plugins";
 import client from "./db";
 import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from "../env";
-import { createAuthMiddleware } from "better-auth/api";
-import db from "../database/db";
-import { Subscription } from "../database/schema/subscription.model";
-import { ObjectId } from "mongodb";
 
 const dbClient = client.db();
 
@@ -21,43 +18,19 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  hooks: {
-    after: createAuthMiddleware(async (c) => {
-      const newSession = c.context.newSession;
-      const user = newSession?.user;
-
-      if (newSession && user) {
-        try {
-          await db();
-
-          const isSubAvil = await Subscription.findOne({ subscriber: user.id });
-
-          if (isSubAvil) {
-            return;
-          }
-
-          const subs = await Subscription.create({
-            subscriber: user.id,
-            status: "activated",
-          });
-
-          const userCollection = dbClient.collection("user");
-
-          await userCollection.updateOne(
-            {
-              _id: new ObjectId(subs.subscriber),
-            },
-            {
-              $set: { subscription: subs._id },
-            }
-          );
-        } catch (error) {
-          console.log("Error in creating subscription in auth before hook: ", error);
-
-          throw c.redirect("/sign-in");
-        }
-      }
-    }),
+  session: {
+    cookieCache: {
+      enabled: true,
+    },
   },
-  plugins: [nextCookies()],
+  plugins: [
+    magicLink({
+      sendMagicLink: async ({ email, url }) => {
+        console.log(`Send login link to ${email}: ${url}`);
+        // TODO: implement email sender
+      },
+    }),
+    admin(),
+    nextCookies(),
+  ],
 });

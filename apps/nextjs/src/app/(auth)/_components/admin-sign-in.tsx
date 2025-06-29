@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signIn, authClient } from "@/lib/better-auth/auth-client";
+import { signIn } from "@/lib/better-auth/auth-client";
 
 export const metadata: Metadata = {
   title: "Authentication",
@@ -110,7 +110,7 @@ export default function AdminSignIn() {
                     variant="outline"
                     className={cn("w-full gap-2")}
                     onClick={async () => {
-                      await authClient.signIn.social({
+                      await signIn.social({
                         provider: "google",
                         callbackURL: "/dashboard",
                       });

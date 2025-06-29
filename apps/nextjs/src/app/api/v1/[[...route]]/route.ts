@@ -9,6 +9,7 @@ import bmkgFetcherRoute from "../_routes/bmkgFetcher.route";
 import bmkgSummaryRoute from "../_routes/bmkg-summary.route";
 import bmkgDailyRoute from "../_routes/bmkg-daily.route";
 import seedRoute from "../_routes/seed.route";
+import userRoute from "../_routes/user.route";
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
@@ -32,8 +33,8 @@ app.route("/bmkg-fetch", bmkgFetcherRoute); //api untuk ambik dari bmkg api dan 
 app.route("/bmkg-summary", bmkgSummaryRoute);
 app.route("/bmkg-daily", bmkgDailyRoute);
 app.route("/seeds", seedRoute);
-
+app.route("/user", userRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);
-
+export const PUT = handle(app);

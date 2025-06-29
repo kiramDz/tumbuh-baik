@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, HelpCircleIcon, LayoutDashboardIcon, SearchIcon, Trash, SettingsIcon } from "lucide-react";
+import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, HelpCircleIcon, LayoutDashboardIcon, SearchIcon, Trash, SettingsIcon, Users } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -34,6 +34,11 @@ const data = {
           url: "/dashboard/bibit", // Lengkapi path
         },
       ],
+    },
+    {
+      title: "User Management",
+      url: "dashboard/users",
+      icon: Users,
     },
     {
       title: "Sampah",
