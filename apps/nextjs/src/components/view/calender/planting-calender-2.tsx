@@ -1,9 +1,10 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { YearlyOption } from "./year-option";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { getBmkgSummary } from "@/lib/fetch/files.fetch";
 import CalendarSeedPlanner from "./daily-calender";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
 interface PlantSummaryData {
   _id: string;
   month: string; // format: YYYY-MM
@@ -11,6 +12,15 @@ interface PlantSummaryData {
   kelembapan_avg: number;
   status: string;
   timestamp: string;
+}
+
+interface MonthSummaryData {
+  month: string; 
+  monthNumber: string; // Format: "01", "02"
+  status: string;
+  curah_hujan: number;
+  kelembapan: number;
+  hasData: boolean;
 }
 
 function YearlyCalender() {
@@ -44,18 +54,20 @@ function YearlyCalender() {
     );
   }
 
+  const currentYear = new Date().getFullYear();
+
   // Process data untuk membuat struktur bulan
   const processMonthlyData = (data: PlantSummaryData[]) => {
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    // Buat map data berdasarkan bulan
     const dataMap = new Map<string, PlantSummaryData>();
     data?.forEach((item) => {
-      const monthKey = item.month.split("-")[1]; // ambil MM dari YYYY-MM
-      dataMap.set(monthKey, item);
+      const [year, month] = item.month.split("-");
+      if (Number(year) === currentYear) {
+        dataMap.set(month, item);
+      }
     });
 
-    // Buat array lengkap 12 bulan
     const processedData = monthNames.map((monthName, index) => {
       const monthNumber = String(index + 1).padStart(2, "0");
       const monthData = dataMap.get(monthNumber);
@@ -75,14 +87,13 @@ function YearlyCalender() {
 
   const monthlyData = processMonthlyData(summaryData || []);
 
-  // Tentukan musim tanam berdasarkan status yang ada
   const getPlantingSeasons = () => {
     const seasons = [];
-    let currentSeason: any[] = [];
+    let currentSeason: MonthSummaryData[] = [];
     let seasonNumber = 1;
 
-    monthlyData.forEach((month, index) => {
-      if (month.status === "cocok tanam" || month.status === "tanam") {
+    monthlyData.forEach((month) => {
+      if (month.status === "sangat cocok tanam") {
         currentSeason.push(month);
       } else {
         if (currentSeason.length > 0) {
@@ -96,7 +107,6 @@ function YearlyCalender() {
       }
     });
 
-    // Jika masih ada season yang belum di-push
     if (currentSeason.length > 0) {
       seasons.push({
         name: `Musim Tanam ${seasonNumber}`,
@@ -104,7 +114,6 @@ function YearlyCalender() {
       });
     }
 
-    // Jika tidak ada musim tanam yang terdeteksi, bagi menjadi 2 periode
     if (seasons.length === 0) {
       const firstHalf = monthlyData.slice(0, 6);
       const secondHalf = monthlyData.slice(6);
@@ -120,12 +129,12 @@ function YearlyCalender() {
 
   const plantingSeasons = getPlantingSeasons();
 
-  // Status color mapping
   const getStatusColor = (status: string, hasData: boolean) => {
     if (!hasData) return "bg-gray-100 text-gray-400";
 
     const statusColorMap: Record<string, string> = {
       "cocok tanam": "bg-emerald-100 text-emerald-800",
+      "sangat cocok tanam": "bg-emerald-500 text-white",
       tanam: "bg-emerald-500 text-white",
       "tidak cocok tanam": "bg-red-100 text-red-800",
       panen: "bg-yellow-100 text-yellow-800",
@@ -134,10 +143,8 @@ function YearlyCalender() {
 
     return statusColorMap[status.toLowerCase()] || "bg-gray-100 text-gray-600";
   };
-
   return (
     <div className="spaye-y-4">
-
       <div className="flex items-center w-full justify-between">
         <div className="flex gap-2">
           <Badge className="rounded-md bg-green-300">Tanam</Badge>
@@ -146,45 +153,47 @@ function YearlyCalender() {
             Tidak Cocok tanam
           </Badge>
         </div>
-        <YearlyOption />
       </div>
-      <Table className="bg-background mt-6">
-        <TableHeader>
-          <TableRow className="border-y-0 *:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
-            <TableCell></TableCell>
-            {plantingSeasons.map((season, index) => (
-              <TableHead key={index} className="border-b border-border text-center" colSpan={season.months.length}>
-                <span>{season.name}</span>
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableHeader>
-          <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
-            <TableCell></TableCell>
-            {monthlyData.map((month) => (
-              <TableHead key={month.month} className="h-auto rotate-180 py-3 text-foreground [writing-mode:vertical-lr]">
-                {month.month}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow className="*:border-border [&>:not(:last-child)]:border-r">
-            <TableHead className="font-medium text-foreground">Padi</TableHead>
-            {monthlyData.map((month, index) => (
-              <TableCell
-                key={`${month.month}-${index}`}
-                className={`space-y-1 text-center p-2 ${getStatusColor(month.status, month.hasData)}`}
-                title={month.hasData ? `Curah Hujan: ${month.curah_hujan.toFixed(1)}mm\nKelembapan: ${month.kelembapan.toFixed(1)}%` : "Data tidak tersedia"}
-              >
-                <div className="text-xs font-medium">{month.hasData ? month.status : "No Data"}</div>
-                {month.hasData && <div className="text-xs opacity-75">{month.curah_hujan.toFixed(0)}mm</div>}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableBody>
-      </Table>
+      <ScrollArea className="w-full overflow-auto whitespace-nowrap ">
+        <Table className="bg-background mt-6 min-w-[900px]">
+          <TableHeader>
+            <TableRow className="border-y-0 *:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
+              <TableCell></TableCell>
+              {plantingSeasons.map((season, index) => (
+                <TableHead key={index} className="border-b border-border text-center" colSpan={season.months.length}>
+                  <span>{season.name}</span>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableHeader>
+            <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
+              <TableCell></TableCell>
+              {monthlyData.map((month) => (
+                <TableHead key={month.month} className="h-auto rotate-180 py-3 text-foreground [writing-mode:vertical-lr]">
+                  {month.month}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="*:border-border [&>:not(:last-child)]:border-r">
+              <TableHead className="font-medium text-foreground">Padi</TableHead>
+              {monthlyData.map((month, index) => (
+                <TableCell
+                  key={`${month.month}-${index}`}
+                  className={`space-y-1 text-center p-2 ${getStatusColor(month.status, month.hasData)}`}
+                  title={month.hasData ? `Curah Hujan: ${month.curah_hujan.toFixed(1)}mm\nKelembapan: ${month.kelembapan.toFixed(1)}%` : "Data tidak tersedia"}
+                >
+                  <div className="text-xs font-medium">{month.hasData ? month.status : "No Data"}</div>
+                  {month.hasData && <div className="text-xs opacity-75">{month.curah_hujan.toFixed(0)}mm</div>}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableBody>
+        </Table>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
       <div className="text-sm text-gray-600 mt-4">
         <p>Data yang tersedia: {summaryData?.length || 0} bulan</p>
         <p>Hover pada cell untuk melihat detail curah hujan dan kelembapan</p>
