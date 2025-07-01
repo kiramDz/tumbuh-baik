@@ -59,6 +59,15 @@ export const BMKGApi = z.object({
   data: z.array(BMKGDataItemSchema),
 });
 
+//  untuk bmkg-summary (tanam)
+export const PlantSummaryDataSchema = z.object({
+  month: z.string(), // YYYY-MM
+  curah_hujan_total: z.number(),
+  kelembapan_avg: z.number(),
+  status: z.string(),
+  timestamp: z.string(),
+});
+
 //show holt winter daily data in dashboard
 export const HoltWinterDataSchema = z.object({
   _id: z.union([z.string(), z.object({ $oid: z.string() })]),
@@ -121,3 +130,4 @@ export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;
 export type BMKGApiData = z.infer<typeof BMKGApi>;
 export type SeedType = z.infer<typeof SeedSchema>;
 export type UserType = z.infer<typeof UserSchema>;
+export type PlantSummaryData = z.infer<typeof PlantSummaryDataSchema>;
