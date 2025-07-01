@@ -1,12 +1,15 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
+import Image from "next/image";
 import type { MDXComponents } from "mdx/types";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import MdxLayout from "./mdx-layout";
 import DataTable from "./data-table";
 import MathFormula from "./math-formula";
+import { Callout } from "./callout";
+import ClippedGoeyGallery from "./clipped-image";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
@@ -21,6 +24,9 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     MdxLayout,
     DataTable,
     MathFormula,
+    Callout,
+    Image,
+    ClippedGoeyGallery,
     h1: ({ children }) => <h1 style={{ color: "red", fontSize: "48px" }}>{children}</h1>,
     h2: ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 className={cn("font-heading mt-16 scroll-m-20 border-b pb-4 text-xl font-semibold tracking-tight first:mt-0", className)} {...props} />,
     h3: ({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h3 className={cn("font-heading mt-8 scroll-m-20 text-lg font-semibold tracking-tight", className)} {...props} />,
@@ -44,6 +50,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         <table className={cn("relative w-full overflow-hidden border-none text-sm", className)} {...props} />
       </div>
     ),
+    pre: ({ className, ...props }) => <pre className={cn("mb-4 mt-6 overflow-x-auto rounded-lg border bg-black py-4", className)} {...props} />,
+    code: ({ className, ...props }) => <code className={cn("relative rounded border px-[0.3rem] py-[0.2rem] font-mono text-sm", className)} {...props} />,
     tr: ({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) => <tr className={cn("last:border-b-none m-0 border-b", className)} {...props} />,
     th: ({ className, ...props }: React.HTMLAttributes<HTMLTableCellElement>) => <th className={cn("px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right", className)} {...props} />,
     td: ({ className, ...props }: React.HTMLAttributes<HTMLTableCellElement>) => <td className={cn("px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right", className)} {...props} />,

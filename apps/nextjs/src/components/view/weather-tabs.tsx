@@ -6,6 +6,7 @@ import { YearlyCalender } from "./calender/planting-calender-2";
 
 import { CloudSun, CalendarDays, Pi, ChartNoAxesGantt } from "lucide-react";
 import Formula from "@/content/formula/aceh-besar.mdx";
+import Overview from "@/content/overview/aceh-besar.mdx";
 interface ProjectTabsProps {
   defaultTab?: string;
   children: ReactNode;
@@ -26,10 +27,10 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
             <CalendarDays />
             Calender
           </TabsTrigger>
-          <TabsTrigger value="calculation" className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-green-600 data-[state=active]:bg-transparent">
+          {/* <TabsTrigger value="calculation" className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-green-600 data-[state=active]:bg-transparent">
             <Pi />
             Calculation
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="overview" className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-green-600 data-[state=active]:bg-transparent">
             <ChartNoAxesGantt />
             Overview
@@ -44,17 +45,14 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
           <YearlyCalender />
         </TabsContent>
 
-        <TabsContent value="calculation" className="mt-6">
+        {/* <TabsContent value="calculation" className="mt-6">
           <div className="prose max-w-none dark:prose-invert">
             <Formula />
           </div>
-        </TabsContent>
+        </TabsContent> */}
 
-        <TabsContent value="overview" className="mt-6">
-          <div className="rounded-lg border p-6">
-            <h3 className="text-lg font-medium">Documents Content</h3>
-            <p className="text-gray-500">Documents information will be displayed here.</p>
-          </div>
+        <TabsContent value="overview" className="mt-6 mx-24">
+          <Overview />
         </TabsContent>
       </Tabs>
     </div>

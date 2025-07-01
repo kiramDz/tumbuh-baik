@@ -2,7 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { getBmkgSummary } from "@/lib/fetch/files.fetch";
-import CalendarSeedPlanner from "./daily-calender";
+import CalendarSeedPlanner from "./seed-planner";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface PlantSummaryData {

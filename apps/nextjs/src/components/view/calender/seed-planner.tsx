@@ -6,23 +6,32 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { getSeeds } from "@/lib/fetch/files.fetch";
+import { useQuery } from "@tanstack/react-query";
 
 type SeedType = {
+  _id: string;
   name: string;
-  growDuration: number; // dalam hari
+  duration: number; // dalam hari
+  createdAt: string;
+  updatedAt: string;
 };
-
-const dummySeeds: SeedType[] = [
-  { name: "Padi IR64", growDuration: 100 },
-  { name: "Padi Inpari 32", growDuration: 105 },
-  { name: "Padi Ciherang", growDuration: 95 },
-];
 
 export default function CalendarSeedPlanner() {
   const [selectedSeed, setSelectedSeed] = useState<SeedType | null>(null);
   const [startDate, setStartDate] = useState<string>("");
-
   const [showGrid, setShowGrid] = useState(false);
+
+  // Fetch seeds data from API
+  const {
+    data: seedsData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["get-seeds-planner"],
+    queryFn: () => getSeeds(1, 100), // ambil semua data untuk dropdown
+    refetchOnWindowFocus: false,
+  });
 
   const handleSubmit = () => {
     if (!selectedSeed || !startDate) return;
@@ -33,7 +42,7 @@ export default function CalendarSeedPlanner() {
     if (!selectedSeed || !startDate) return null;
 
     const start = new Date(startDate);
-    const totalDays = selectedSeed.growDuration;
+    const totalDays = selectedSeed.duration;
     const gridDays = Array.from({ length: totalDays }, (_, i) => {
       const date = new Date(start);
       date.setDate(date.getDate() + i);
@@ -56,6 +65,24 @@ export default function CalendarSeedPlanner() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 bg-white rounded-xl shadow">
+        <div className="text-center">Loading seeds data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 bg-white rounded-xl shadow">
+        <div className="text-center text-red-500">Error loading seeds data</div>
+      </div>
+    );
+  }
+
+  const seeds = seedsData?.items || [];
+
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-xl shadow">
       <h2 className="text-xl font-semibold mb-4">Perencanaan Tanam Harian</h2>
@@ -65,7 +92,7 @@ export default function CalendarSeedPlanner() {
           <Label>Jenis Benih</Label>
           <Select
             onValueChange={(val) => {
-              const seed = dummySeeds.find((s) => s.name === val);
+              const seed = seeds.find((s: SeedType) => s._id === val);
               if (seed) setSelectedSeed(seed);
             }}
           >
@@ -73,9 +100,9 @@ export default function CalendarSeedPlanner() {
               <SelectValue placeholder="Pilih benih..." />
             </SelectTrigger>
             <SelectContent>
-              {dummySeeds.map((seed) => (
-                <SelectItem key={seed.name} value={seed.name}>
-                  {seed.name}
+              {seeds.map((seed: SeedType) => (
+                <SelectItem key={seed._id} value={seed._id}>
+                  {seed.name} ({seed.duration} hari)
                 </SelectItem>
               ))}
             </SelectContent>
