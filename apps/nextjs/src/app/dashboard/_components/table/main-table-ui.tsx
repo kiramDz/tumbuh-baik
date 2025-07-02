@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
-  SortingState,
   VisibilityState,
   flexRender,
   getCoreRowModel,
@@ -19,6 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "./data-table-pagination";
 import { DataTableViewOptions } from "./data-table-view-option";
+import { DataTableSort } from "./data-table-sort";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -30,19 +30,24 @@ interface DataTableProps<TData, TValue> {
     pageSize: number;
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
-    // onPaginationChange: (size: number) => void;
+  };
+  sorting: {
+    sortBy: string;
+    sortOrder: "asc" | "desc";
+    onSortChange: (sortBy: string, sortOrder: "asc" | "desc") => void;
   };
 }
 
-export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+export function MainTableUI<TData, TValue>({ columns, data, pagination, sorting }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+
   const table = useReactTable({
     data,
     columns,
     manualPagination: true,
+    manualSorting: true, // PENTING: Enable manual sorting
     rowCount: pagination.total,
     pageCount: pagination.totalPages,
     onPaginationChange: (updater) => {
@@ -55,8 +60,16 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
         pagination.onPageChange(newPagination.pageIndex + 1);
       }
     },
+    onSortingChange: (updater) => {
+      const newSorting = typeof updater === "function" ? updater(table.getState().sorting) : updater;
+
+      if (newSorting.length > 0 && sorting) {
+        const { id, desc } = newSorting[0];
+        sorting.onSortChange(id, desc ? "desc" : "asc");
+      }
+    },
     state: {
-      sorting,
+      sorting: sorting ? [{ id: sorting.sortBy, desc: sorting.sortOrder === "desc" }] : [],
       columnVisibility,
       rowSelection,
       columnFilters,
@@ -67,7 +80,6 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
@@ -99,7 +111,7 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination }: DataTa
     <div className="space-y-4 ">
       {/* <DataTableToolbar table={table} /> */}
       <div className="w-full flex items-center justify-end">
-        {/* <Sort onChange={(val) => setSorting([{ id: "Date", desc: val === "desc" }])} /> */}
+        <DataTableSort currentSortOrder={sorting.sortOrder} onSortChange={(order) => sorting.onSortChange(sorting.sortBy, order)} />
         <DataTableViewOptions table={table} />
       </div>
       <div className="rounded-md border">

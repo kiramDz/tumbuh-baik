@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import db from "@/lib/database/db";
-import { DailySummary } from "@/lib/database/schema/plantSummary.model";
+import { DailySummary } from "@/lib/database/schema/model/plantSummary.model";
 import { parseError } from "@/lib/utils";
 
 const bmkgDailyRoute = new Hono();
@@ -15,7 +15,7 @@ bmkgDailyRoute.get("/", async (c) => {
     const data = await DailySummary.find()
       .skip((page - 1) * pageSize)
       .limit(pageSize)
-      .sort({ forecast_date: -1 }) 
+      .sort({ forecast_date: -1 })
       .lean();
 
     return c.json({

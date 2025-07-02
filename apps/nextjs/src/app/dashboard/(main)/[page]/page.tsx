@@ -3,7 +3,7 @@ import PageCategory from "./_components/page-category";
 
 interface Props {
   params: Promise<{
-    page: "citra-satelit" | "temperatur-laut" | "daily-weather" | "hello";
+    page: "satelit" | "buoys" | "bmkg";
   }>;
 }
 

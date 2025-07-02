@@ -1,22 +1,7 @@
 import { z } from "zod";
 
-export const paymentSchmea = z.object({
-  id: z.number(),
-  amount: z.number(),
-  status: z.enum(["backlog", "todo", "in progress", "done", "canceled"]),
-  email: z.string(),
-  fullName: z.string(),
-});
 
-export const statusSchmea = z.object({
-  id: z.number(),
-  source: z.string(),
-  status: z.enum(["backlog", "todo", "in progress", "done", "canceled"]),
-  record: z.number(),
-  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date string",
-  }),
-});
+
 
 export const BmkgSchema = z.object({
   _id: z.union([z.string(), z.object({ $oid: z.string() })]), // tergantung dari loader Mongo
@@ -38,6 +23,36 @@ export const BmkgSchema = z.object({
   DDD_CAR: z.string(), // Arah angin utama
   Season: z.string(), // Musim
   is_RR_missing: z.number(), // Penanda apakah data RR missing
+});
+
+export const BuoysSchema = z.object({
+  _id: z.union([z.string(), z.object({ $oid: z.string() })]),
+  Date: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date string",
+  }),
+  Year: z.number(),
+  Month: z.number(),
+  Day: z.number(),
+  RAD: z.union([z.number(), z.string()]).optional(), // Menambahkan RAD dengan handling string kosong
+  RAIN: z.union([z.number(), z.string()]).optional(), // Bisa kosong (string '') atau number
+  RH: z.union([z.number(), z.string()]).optional(), // Menambahkan RH
+  SST: z.number(),
+  UWND: z.union([z.number(), z.string()]).optional(), // Bisa kosong
+  VWND: z.union([z.number(), z.string()]).optional(), // Bisa kosong
+  WSPD: z.union([z.number(), z.string()]).optional(), // Bisa kosong
+  WDIR: z.union([z.number(), z.string()]).optional(), // Bisa kosong
+  Location: z.string(),
+  "TEMP_10.0m": z.number(),
+  "TEMP_20.0m": z.number(),
+  "TEMP_40.0m": z.number(),
+  "TEMP_60.0m": z.number(),
+  "TEMP_80.0m": z.number(),
+  "TEMP_100.0m": z.number(),
+  "TEMP_120.0m": z.number(),
+  "TEMP_140.0m": z.number(),
+  "TEMP_180.0m": z.number(),
+  "TEMP_300.0m": z.number(),
+  "TEMP_500.0m": z.number(),
 });
 
 export const BMKGDataItemSchema = z.object({
@@ -123,9 +138,8 @@ export const UserSchema = z.object({
 
 
 export type BmkgDataType = z.infer<typeof BmkgSchema>;
+export type BuoysDataType = z.infer<typeof BuoysSchema>;
 export type HoltWinterDataType = z.infer<typeof HoltWinterDataSchema>;
-export type PaymentType = z.infer<typeof paymentSchmea>;
-export type Statustype = z.infer<typeof statusSchmea>;
 export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;
 export type BMKGApiData = z.infer<typeof BMKGApi>;
 export type SeedType = z.infer<typeof SeedSchema>;

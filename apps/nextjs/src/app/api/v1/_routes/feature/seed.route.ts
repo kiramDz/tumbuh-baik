@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { Seed } from "@/lib/database/schema/seed.model";
+import { Seed } from "@/lib/database/schema/feature/seed.model";
 import db from "@/lib/database/db";
 import { parseError } from "@/lib/utils";
 

@@ -1,4 +1,4 @@
-// component.tsx
+
 import React from "react";
 
 interface MediaItem {

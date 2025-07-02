@@ -1,7 +1,6 @@
-
 import { Hono } from "hono";
 import db from "@/lib/database/db";
-import { PlantSummary } from "@/lib/database/schema/plantSummary.model";
+import { PlantSummary } from "@/lib/database/schema/model/plantSummary.model";
 import { parseError } from "@/lib/utils";
 
 const bmkgSummaryRoute = new Hono();

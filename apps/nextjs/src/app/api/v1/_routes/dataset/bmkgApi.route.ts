@@ -1,8 +1,7 @@
 import { Hono } from "hono";
-import { BMKGApi } from "@/lib/database/schema/bmkgApi.model";
+import { BMKGApi } from "@/lib/database/schema/dataset/bmkgApi.model";
 import db from "@/lib/database/db";
 import { parseError } from "@/lib/utils";
-
 
 const bmkgApiRoute = new Hono();
 

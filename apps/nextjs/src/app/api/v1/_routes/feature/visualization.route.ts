@@ -6,15 +6,12 @@ import { parseCSV } from "@/lib/utils";
 
 const visualizationRoute = new Hono();
 
-// Endpoint untuk fetch data daily-weather
-// cara tes => localhost:3000/api/v1/visualization/daily-weather
+
 visualizationRoute.get("/daily-weather", async (c) => {
-  await db(); // Pastikan koneksi ke database
+  await db(); 
 
   console.log("=== Endpoint /daily-weatjer terpanggil ===");
-  // Ambil semua file dengan kategori 'daily-weather'
-
-  // console.log(await File.find({ category: "Daily Weather" }));
+  
   const files = await File.find({ category: "Daily Weather" }).lean();
 
   if (!files.length) return c.json({ error: "No files found" }, 404);

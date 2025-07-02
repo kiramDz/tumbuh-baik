@@ -34,7 +34,7 @@ export const getBmkgApi = async () => {
   }
 };
 
-//for monthly calender
+//for monthly calender in public
 export const getBmkgSummary = async () => {
   try {
     const response = await axios.get("/api/v1/bmkg-summary/all");
@@ -74,11 +74,11 @@ export const getBmkgDaily = async (page = 1, pageSize = 10) => {
   }
 };
 
-//for dahsboard
-export async function getBmkgData(page = 1, pageSize = 10) {
+//display bmkg in dahsboard
+export async function getBmkgData(page = 1, pageSize = 10, sortBy = "Date", sortOrder = "desc") {
   try {
     const res = await axios.get("/api/v1/bmkg", {
-      params: { page, pageSize },
+      params: { page, pageSize, sortBy, sortOrder },
     });
 
     console.log("Raw API response:", res);
@@ -91,6 +91,8 @@ export async function getBmkgData(page = 1, pageSize = 10) {
           currentPage: 1,
           totalPages: 1,
           pageSize,
+          sortBy,
+          sortOrder,
         }
       );
     }
@@ -102,6 +104,49 @@ export async function getBmkgData(page = 1, pageSize = 10) {
       currentPage: 1,
       totalPages: 1,
       pageSize,
+      sortBy,
+      sortOrder,
+    };
+  }
+}
+
+export async function getBuoysData(page = 1, pageSize = 10, sortBy = "Date", sortOrder = "desc") {
+  console.log("[Client] Fetching buoys:", { page, pageSize, sortBy, sortOrder });
+  try {
+    const res = await axios.get("/api/v1/buoys", {
+      params: {
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+      },
+    });
+
+    console.log("Raw API response:", res);
+    if (res.status === 200) {
+      console.log("✅ Buoys API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+          sortBy,
+          sortOrder,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("❌ Error fetching Buoys data:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+      sortBy,
+      sortOrder,
     };
   }
 }
