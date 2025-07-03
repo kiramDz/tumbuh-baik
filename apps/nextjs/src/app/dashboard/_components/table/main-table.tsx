@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
+import { exportToCsv } from "@/lib/fetch/files.fetch";
 
 interface MainTableProps {
   category: string;
@@ -20,6 +21,7 @@ export default function MainTable({ category }: MainTableProps) {
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState("Date");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [isExporting, setIsExporting] = useState(false);
 
   const fetchFunction = {
     bmkg: getBmkgData,
@@ -39,7 +41,23 @@ export default function MainTable({ category }: MainTableProps) {
     refetchOnWindowFocus: false,
     enabled: !!fetchFunction,
   });
-  
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const result = await exportToCsv(category, sortBy, sortOrder);
+      if (result.success) {
+        toast.success("Data exported successfully!");
+      } else {
+        toast.error(result.message || "Failed to export data");
+      }
+    } catch (error) {
+      toast.error("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (isLoading) return <DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />;
 
   if (error) {
@@ -67,6 +85,10 @@ export default function MainTable({ category }: MainTableProps) {
             setSortBy(newSortBy);
             setSortOrder(newSortOrder);
           },
+        }}
+        export={{
+          onExport: handleExport,
+          isExporting,
         }}
       />
     </>

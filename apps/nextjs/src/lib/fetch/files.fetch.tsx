@@ -23,6 +23,49 @@ export async function getRecentFiles() {
   }
 }
 
+export async function exportToCsv(category: string, sortBy = "Date", sortOrder = "desc") {
+  try {
+    const response = await axios.get("/api/v1/export-csv", {
+      params: { category, sortBy, sortOrder },
+      responseType: "blob", // Important untuk file download
+    });
+
+    if (response.status === 200) {
+      // Create download link
+      const blob = new Blob([response.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      // Extract filename from Content-Disposition header atau buat default
+      const contentDisposition = response.headers["content-disposition"];
+      let filename = `${category}_data_${new Date().toISOString().split("T")[0]}.csv`;
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+
+      return { success: true, message: "File downloaded successfully" };
+    }
+  } catch (error) {
+    console.error("Error exporting CSV:", error);
+    return { success: false, message: "Failed to export CSV" };
+  }
+}
+
 //bmkg api
 export const getBmkgApi = async () => {
   try {

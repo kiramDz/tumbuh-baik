@@ -1,25 +1,13 @@
 // main UI table
 
 import * as React from "react";
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-
+import { ColumnDef, ColumnFiltersState, VisibilityState, flexRender, getCoreRowModel, getFacetedRowModel, getFacetedUniqueValues, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
+import { Loader2, Download } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "./data-table-pagination";
 import { DataTableViewOptions } from "./data-table-view-option";
 import { DataTableSort } from "./data-table-sort";
-
+import { Button } from "@/components/ui/button";
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -36,9 +24,13 @@ interface DataTableProps<TData, TValue> {
     sortOrder: "asc" | "desc";
     onSortChange: (sortBy: string, sortOrder: "asc" | "desc") => void;
   };
+  export?: {
+    onExport: () => void;
+    isExporting: boolean;
+  };
 }
 
-export function MainTableUI<TData, TValue>({ columns, data, pagination, sorting }: DataTableProps<TData, TValue>) {
+export function MainTableUI<TData, TValue>({ columns, data, pagination, sorting, export: exportProps }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
@@ -111,6 +103,21 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination, sorting 
     <div className="space-y-4 ">
       {/* <DataTableToolbar table={table} /> */}
       <div className="w-full flex items-center justify-end">
+        {exportProps && (
+          <Button variant="outline" size="sm" onClick={exportProps.onExport} disabled={exportProps.isExporting} className="h-8">
+            {exportProps.isExporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </>
+            )}
+          </Button>
+        )}
         <DataTableSort currentSortOrder={sorting.sortOrder} onSortChange={(order) => sorting.onSortChange(sorting.sortBy, order)} />
         <DataTableViewOptions table={table} />
       </div>

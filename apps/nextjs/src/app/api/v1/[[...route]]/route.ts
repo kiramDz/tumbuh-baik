@@ -9,6 +9,8 @@ import bmkgSummaryRoute from "../_routes/model/bmkg-summary.route";
 import bmkgDailyRoute from "../_routes/model/bmkg-daily.route";
 import seedRoute from "../_routes/feature/seed.route";
 import userRoute from "../_routes/user.route";
+import exportRoute from "../_routes/feature/export-csv.route";
+
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
@@ -19,7 +21,7 @@ app.route("/visualization", visualizationRoute);
 
 // TODO: Review and remove this route if unused
 app.route("/bmkg", bmkgRoute);
-app.route("/buoys", buoysRoute)
+app.route("/buoys", buoysRoute);
 
 app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d UI
 
@@ -30,6 +32,7 @@ app.route("/bmkg-summary", bmkgSummaryRoute);
 app.route("/bmkg-daily", bmkgDailyRoute);
 app.route("/seeds", seedRoute);
 app.route("/user", userRoute);
+app.route("/export-csv", exportRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);
