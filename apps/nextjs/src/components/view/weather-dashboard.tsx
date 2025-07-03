@@ -35,41 +35,16 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
   const now = new Date();
   const end = new Date();
 
-  // Fetch BMKG API data
-  const {
-    data: bmkgApiResponse,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data: bmkgApiResponse } = useQuery({
     queryKey: ["bmkg-api"],
     queryFn: getBmkgApi,
   });
 
-  // Fetch BMKG Summary (ringkasan musim tanam)
-  const {
-    data: bmkgSummary,
-    isLoading: isSummaryLoading,
-    error: summaryError,
-  } = useQuery({
+  const { data: bmkgSummary } = useQuery({
     queryKey: ["bmkg-summary"],
     queryFn: getBmkgSummary,
   });
 
-  const debugCurrentMonthStatus = (bmkgSummary: PlantSummaryData[]) => {
-    const today = new Date();
-    const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-    const summary = bmkgSummary.find((item) => item.month === currentMonth);
-
-    console.log("🌾 Current Month:", currentMonth);
-    console.log("📊 Status:", summary?.status || "Tidak ditemukan");
-  };
-  useEffect(() => {
-    if (bmkgSummary && bmkgSummary.length > 0) {
-      debugCurrentMonthStatus(bmkgSummary);
-    }
-  }, [bmkgSummary]);
-
-  // Ambil status tanam bulan ini dari summary
   const today = new Date();
   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
@@ -79,11 +54,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
   const selected = bmkgData?.find((item: BMKGApiData) => item.kode_gampong === selectedGampong);
   const todayOnlyData = getTodayWeatherConlusion(selected?.data || []);
   const conclusion = getWeatherConclusionFromDailyData(todayOnlyData);
-  console.log("conclusion:", conclusion);
   const finalConclusion = getFinalConclusion(conclusion, currentSummary?.status ?? "tidak cocok tanam");
-
-  console.log("season conc:", finalConclusion);
-  console.log("✅ Current Summary Used:", currentSummary);
 
   const latestData = selected?.data ? getTodayWeather(selected.data) : null;
 
@@ -99,11 +70,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
     }
   }, [bmkgData]);
 
-
-
-  if (isLoading) return <div>Loading...</div>;
-
-  if (error || !bmkgData) return <div>Error loading BMKG data.</div>;
+  if (!bmkgApiResponse || !bmkgSummary) return <div>Loading...</div>;
 
   end.setDate(now.getDate() + 1);
   end.setHours(23, 59, 59);
@@ -123,7 +90,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
 
             <HourlyForecast forecast={forecastData} unit={unit} />
           </div>
-          <WeatherConclusion conclusion={finalConclusion} />
+          <WeatherConclusion conclusion={finalConclusion} tcc={latestData?.t ?? 0} />
 
           {chartData.length === 0 ? (
             <p className="text-sm text-muted-foreground">Tidak ada data suhu/kelembapan untuk gampong ini dalam rentang waktu tersebut.</p>
@@ -150,3 +117,17 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
 };
 
 export default WeatherDashboard;
+
+// const debugCurrentMonthStatus = (bmkgSummary: PlantSummaryData[]) => {
+//   const today = new Date();
+//   const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+//   const summary = bmkgSummary.find((item) => item.month === currentMonth);
+
+//   console.log("🌾 Current Month:", currentMonth);
+//   console.log("📊 Status:", summary?.status || "Tidak ditemukan");
+// };
+// useEffect(() => {
+//   if (bmkgSummary && bmkgSummary.length > 0) {
+//     debugCurrentMonthStatus(bmkgSummary);
+//   }
+// }, [bmkgSummary]);

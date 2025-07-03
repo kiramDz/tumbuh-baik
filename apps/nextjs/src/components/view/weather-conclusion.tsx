@@ -12,10 +12,11 @@ interface WeatherConclusionProps {
   conclusion: WeatherConclusionResult & {
     seasonalStatus: string;
   };
+  tcc: number;
 }
 
 
-const WeatherConclusion: React.FC<WeatherConclusionProps> = ({ conclusion }) => {
+const WeatherConclusion: React.FC<WeatherConclusionProps> = ({ conclusion, tcc }) => {
   const isCocok = conclusion.status === "cocok" && conclusion.seasonalStatus !== "tidak cocok tanam";
   const isWaspada = conclusion.status === "cocok" && conclusion.seasonalStatus === "tidak cocok tanam";
 
@@ -23,17 +24,18 @@ const WeatherConclusion: React.FC<WeatherConclusionProps> = ({ conclusion }) => 
   const subtitle = conclusion.reason;
 
   const getBackgroundImage = (cloud: number) => {
-    if (cloud < 30) return "/image/sunny.png";
-    if (cloud < 70) return "/image/cloudy.png";
-    return "/image/rainy.png";
+    if (cloud >= 70) return "/image/rainy.png";
+    if (cloud >= 30) return "/image/cloudy.png";
+    return "/image/sunny.png";
   };
+  
 
   return (
     <Card className="relative overflow-hidden ">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url('${getBackgroundImage(conclusion.avg.cloud)}')`,
+          backgroundImage: `url('${getBackgroundImage(tcc)}')`,
         }}
       />
       <CardHeader className="pb-0 relative z-10">

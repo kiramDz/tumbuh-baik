@@ -1,6 +1,4 @@
-import { Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 export function Banner() {
   return (
@@ -52,11 +50,6 @@ export function Banner() {
           </div>
         </div>
       </div>
-
-      {/* Edit Button */}
-      <Button variant="outline" size="sm" className="absolute right-8 top-4 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20">
-        <Edit className="mr-2 h-4 w-4" /> Edit cover
-      </Button>
     </div>
   );
 }

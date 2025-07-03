@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getBmkgSummary } from "@/lib/fetch/files.fetch";
 import CalendarSeedPlanner from "./seed-planner";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-
+import { Separator } from "@/components/ui/separator";
 interface PlantSummaryData {
   _id: string;
   month: string; // format: YYYY-MM
@@ -15,7 +15,7 @@ interface PlantSummaryData {
 }
 
 interface MonthSummaryData {
-  month: string; 
+  month: string;
   monthNumber: string; // Format: "01", "02"
   status: string;
   curah_hujan: number;
@@ -144,7 +144,7 @@ function YearlyCalender() {
     return statusColorMap[status.toLowerCase()] || "bg-gray-100 text-gray-600";
   };
   return (
-    <div className="spaye-y-4">
+    <div className="spaye-y-8 p-6">
       <div className="flex items-center w-full justify-between">
         <div className="flex gap-2">
           <Badge className="rounded-md bg-green-300">Tanam</Badge>
@@ -196,8 +196,8 @@ function YearlyCalender() {
       </ScrollArea>
       <div className="text-sm text-gray-600 mt-4">
         <p>Data yang tersedia: {summaryData?.length || 0} bulan</p>
-        <p>Hover pada cell untuk melihat detail curah hujan dan kelembapan</p>
       </div>
+      <Separator className="my-4" />
       <div>
         <CalendarSeedPlanner />
       </div>

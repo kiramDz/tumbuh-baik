@@ -16,7 +16,7 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   return (
-    <div className="px-6 ">
+    <div>
       <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start border-b bg-transparent p-0">
           <TabsTrigger value="weather" className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-green-600 data-[state=active]:bg-transparent">
@@ -37,11 +37,11 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="weather" className="mt-6">
+        <TabsContent value="weather" className="mt-6 mx-6">
           {children}
         </TabsContent>
 
-        <TabsContent value="calender" className="mt-6">
+        <TabsContent value="calender" className="mt-6 mx-6">
           <YearlyCalender />
         </TabsContent>
 
