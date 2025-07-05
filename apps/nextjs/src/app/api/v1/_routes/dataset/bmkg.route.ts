@@ -23,7 +23,7 @@ bmkgRoute.get("/", async (c) => {
     const data = await BmkgData.find()
       .skip((page - 1) * pageSize)
       .limit(pageSize)
-      .sort(sortQuery) 
+      .sort(sortQuery)
       .lean();
 
     return c.json(
@@ -44,6 +44,54 @@ bmkgRoute.get("/", async (c) => {
     );
   } catch (error) {
     console.error("Error fetching BMKG data:", error);
+    return c.json(
+      {
+        message: "Error",
+        description: parseError(error),
+        data: null,
+      },
+      { status: 500 }
+    );
+  }
+});
+
+// Di dalam file bmkg.route.ts
+bmkgRoute.post("/", async (c) => {
+  try {
+    await db();
+
+    const body = await c.req.json();
+
+    const requiredFields = ["Date", "Year", "Month", "Day", "TN", "TX", "TAVG", "RH_AVG", "RR", "SS", "FF_X", "DDD_X", "FF_AVG", "DDD_CAR", "Season", "is_RR_missing"];
+
+    // Validasi semua field ada
+    for (const field of requiredFields) {
+      if (body[field] === undefined) {
+        return c.json(
+          {
+            message: "Validation Error",
+            description: `Field ${field} is required.`,
+            data: null,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Simpan ke database
+    const newData = new BmkgData(body);
+    await newData.save();
+
+    return c.json(
+      {
+        message: "Success",
+        description: "BMKG data inserted successfully.",
+        data: newData,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Error inserting BMKG data:", error);
     return c.json(
       {
         message: "Error",

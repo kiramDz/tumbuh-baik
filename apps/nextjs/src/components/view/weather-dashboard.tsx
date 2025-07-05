@@ -8,7 +8,6 @@ import TemperatureHumidityChart from "./temp-humidity";
 import CurrentWeatherCard from "./current-weather";
 import WindPressureCard from "./wind-pressure";
 import HourlyForecast from "./hourly-forecast";
-
 import { Banner } from "./banner";
 import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";

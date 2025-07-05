@@ -1,17 +1,14 @@
-
 import { ArrowDownAZ, ArrowUpZA } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface DataTableSortProps{
+interface DataTableSortProps {
   currentSortOrder: "asc" | "desc";
   onSortChange: (sortOrder: "asc" | "desc") => void;
 }
 
-export function DataTableSort({  currentSortOrder, onSortChange }: DataTableSortProps) {
-
+export function DataTableSort({ currentSortOrder, onSortChange }: DataTableSortProps) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm">Urutkan Tanggal:</span>
       <Select value={currentSortOrder} onValueChange={onSortChange}>
         <SelectTrigger className="w-[120px] h-8">
           <SelectValue />

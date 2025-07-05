@@ -8,6 +8,7 @@ import { DataTablePagination } from "./data-table-pagination";
 import { DataTableViewOptions } from "./data-table-view-option";
 import { DataTableSort } from "./data-table-sort";
 import { Button } from "@/components/ui/button";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -102,7 +103,7 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination, sorting,
   return (
     <div className="space-y-4 ">
       {/* <DataTableToolbar table={table} /> */}
-      <div className="w-full flex items-center justify-end">
+      <div className="w-full flex items-center gap-2 justify-end">
         {exportProps && (
           <Button variant="outline" size="sm" onClick={exportProps.onExport} disabled={exportProps.isExporting} className="h-8">
             {exportProps.isExporting ? (

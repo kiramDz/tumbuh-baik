@@ -1,28 +1,5 @@
 import axios from "axios";
 
-export async function getFiles({ currentPage, category }: { category: string; currentPage: number }) {
-  const res = await axios.get(`/api/v1/files/${category}`, {
-    params: {
-      page: currentPage,
-    },
-  });
-
-  return res.status === 200 ? res.data.data : { files: [] };
-}
-
-export async function getRecentFiles() {
-  try {
-    const res = await axios.get("/api/v1/files/recent");
-    if (res.status === 200) {
-      console.log("API Response:", res.data);
-      return res.data.data || { files: [] };
-    }
-  } catch (error) {
-    console.error("Error fetching recent files:", error);
-    return { files: [] };
-  }
-}
-
 export async function exportToCsv(category: string, sortBy = "Date", sortOrder = "desc") {
   try {
     const response = await axios.get("/api/v1/export-csv", {
@@ -152,6 +129,11 @@ export async function getBmkgData(page = 1, pageSize = 10, sortBy = "Date", sort
     };
   }
 }
+
+export const createBmkgData = async (data: any) => {
+  const res = await axios.post("/api/v1/bmkg", data);
+  return res.data.data;
+};
 
 export async function getBuoysData(page = 1, pageSize = 10, sortBy = "Date", sortOrder = "desc") {
   console.log("[Client] Fetching buoys:", { page, pageSize, sortBy, sortOrder });
@@ -284,6 +266,27 @@ export const updateUserRole = async (userId: string, role: "user" | "admin") => 
     return res.data.data;
   } catch (error) {
     console.error("Update user role error:", error);
+    throw error;
+  }
+};
+
+
+export const AddDatasetMeta = async (data: {
+  name: string;
+  source: string;
+  filename: string;
+  fileType: "csv" | "json";
+  filePath?: string;
+  collectionTarget: string;
+  month: string; // format: YYYY-MM
+  timestamp: string; // ISO string
+  description?: string;
+}) => {
+  try {
+    const res = await axios.post("/api/v1/dataset-meta", data);
+    return res.data.data;
+  } catch (error) {
+    console.error("Add dataset meta error:", error);
     throw error;
   }
 };
