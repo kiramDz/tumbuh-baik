@@ -1,29 +1,30 @@
 import { parse } from "csv-parse/sync";
-import mongoose from "mongoose";
 
-export async function parseAndSaveFile({ fileBuffer, fileType, collectionTarget }: { fileBuffer: Buffer; fileType: "csv" | "json"; collectionTarget: string }) {
-  let parsedData: any[];
+export async function parseFile({ fileBuffer, fileType }: { fileBuffer: Buffer; fileType: "csv" | "json" }): Promise<Record<string, any>[]> {
+  let parsedData: Record<string, any>[];
 
-  // Parse file sesuai jenisnya
-  if (fileType === "csv") {
-    parsedData = parse(fileBuffer.toString(), {
-      columns: true,
-      skip_empty_lines: true,
-    });
-  } else if (fileType === "json") {
-    parsedData = JSON.parse(fileBuffer.toString());
-    if (!Array.isArray(parsedData)) {
-      throw new Error("Format JSON tidak valid, harus berupa array of objects.");
+  try {
+    if (fileType === "csv") {
+      parsedData = parse(fileBuffer.toString(), {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      });
+    } else if (fileType === "json") {
+      parsedData = JSON.parse(fileBuffer.toString());
+      if (!Array.isArray(parsedData)) {
+        throw new Error("Format JSON tidak valid, harus berupa array of objects.");
+      }
+    } else {
+      throw new Error("Tipe file tidak didukung.");
     }
-  } else {
-    throw new Error("Tipe file tidak didukung.");
+  } catch (err) {
+    throw new Error("Gagal memparsing file: " + (err as Error).message);
   }
 
-  // Simpan ke MongoDB ke collection dynamic
-  const DynamicModel = mongoose.model(collectionTarget, new mongoose.Schema({}, { strict: false }), collectionTarget);
-  await DynamicModel.insertMany(parsedData);
+  if (!Array.isArray(parsedData) || parsedData.length === 0) {
+    throw new Error("Data kosong atau format tidak valid.");
+  }
 
-  return {
-    message: `Berhasil menyimpan ${parsedData.length} data ke ${collectionTarget}`,
-  };
+  return parsedData;
 }

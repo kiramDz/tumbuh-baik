@@ -270,20 +270,27 @@ export const updateUserRole = async (userId: string, role: "user" | "admin") => 
   }
 };
 
-
 export const AddDatasetMeta = async (data: {
   name: string;
   source: string;
-  filename: string;
   fileType: "csv" | "json";
-  filePath?: string;
-  collectionTarget: string;
-  month: string; // format: YYYY-MM
-  timestamp: string; // ISO string
+  filename?: string;
+  collectionName?: string;
+  status?: string;
   description?: string;
+  records: Record<string, any>[]; // hasil parsing CSV atau JSON
 }) => {
   try {
-    const res = await axios.post("/api/v1/dataset-meta", data);
+    const res = await axios.post("/api/v1/dataset-meta", {
+      name: data.name,
+      source: data.source,
+      fileType: data.fileType,
+      filename: data.filename || `${data.name}.${data.fileType}`,
+      collectionName: data.collectionName,
+      description: data.description || "",
+      status: data.status || "raw",
+      data: data.records,
+    });
     return res.data.data;
   } catch (error) {
     console.error("Add dataset meta error:", error);

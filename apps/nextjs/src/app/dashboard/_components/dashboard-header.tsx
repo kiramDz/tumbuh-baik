@@ -16,7 +16,7 @@ const DashboardHeader = () => {
         <DashboardBreadcrumb />
       </div>
       <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
-      <div className="w-full h-fit flex items-center gap-4 justify-end flex-1">
+      <div className="w-full h-fit flex itemsq-center gap-4 justify-end flex-1">
         <AddDatasetDialog />
         <HeaderProfile />
       </div>
