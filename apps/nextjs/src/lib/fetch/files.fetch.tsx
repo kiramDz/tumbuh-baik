@@ -188,6 +188,7 @@ export const searchFiles = async (search: string) => {
   return res.data.data;
 };
 
+//
 export const getSeeds = async (page = 1, pageSize = 10) => {
   try {
     const res = await axios.get("/api/v1/seeds", {

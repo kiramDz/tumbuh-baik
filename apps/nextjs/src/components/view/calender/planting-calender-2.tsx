@@ -5,6 +5,8 @@ import { getBmkgSummary } from "@/lib/fetch/files.fetch";
 import CalendarSeedPlanner from "./seed-planner";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import SeasonalCalendarTabs from "./season-calender";
+
 interface PlantSummaryData {
   _id: string;
   month: string; // format: YYYY-MM
@@ -197,6 +199,9 @@ function YearlyCalender() {
       <div className="text-sm text-gray-600 mt-4">
         <p>Data yang tersedia: {summaryData?.length || 0} bulan</p>
       </div>
+
+      {/*  Kalender Tanam Musiman (KT)  */}
+      <SeasonalCalendarTabs />
       <Separator className="my-4" />
       <div>
         <CalendarSeedPlanner />
