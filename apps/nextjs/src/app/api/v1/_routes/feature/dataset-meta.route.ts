@@ -6,6 +6,20 @@ import mongoose from "mongoose";
 
 const datasetMetaRoute = new Hono();
 
+// GET - Ambil semua metadata dataset
+datasetMetaRoute.get("/", async (c) => {
+  try {
+    await db();
+    const datasets = await DatasetMeta.find().sort({ uploadDate: -1 }).lean();
+    return c.json({ data: datasets }, 200);
+  } catch (error) {
+    console.error("Get dataset meta error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+
 // POST - Upload dataset metadata + records
 datasetMetaRoute.post("/", async (c) => {
   try {

@@ -1,13 +1,17 @@
+"use client";
+
 import PageContainer from "@/components/ui/page-container";
 
-import { LifeBuoy,Earth } from "lucide-react";
-import DashboardCard from "../_components/dashboard-card";
-
-export const metadata = {
-  title: "Dashboard",
-};
+import { LifeBuoy, Earth, FileText } from "lucide-react";
+import { DashboardCard, DashboardCardSkeleton } from "../_components/dashboard-card";
+import { GetAllDatasetMeta } from "@/lib/fetch/files.fetch";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Page() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["datasets"],
+    queryFn: GetAllDatasetMeta,
+  });
   return (
     <>
       <PageContainer>
@@ -16,18 +20,19 @@ export default function Page() {
             <h2 className="text-2xl font-bold tracking-tight">Hi, Welcome back 👋</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {isLoading && [...Array(4)].map((_, i) => <DashboardCardSkeleton key={i} />)}
             <DashboardCard
               href="/dashboard/bmkg"
               icon={Earth} // Pass the icon component itself
               title="BMKG"
               description="Data cuaca dari stasiun BMKG Aceh Besar"
             />
-            <DashboardCard
-              href="/dashboard/buoys" 
-              icon={LifeBuoy}
-              title="BUOYS"
-              description="Informasi suhu permukaan dari website buoys"
-            />
+            <DashboardCard href="/dashboard/buoys" icon={LifeBuoy} title="BUOYS" description="Informasi suhu permukaan dari website buoys" />
+
+            {data &&
+              data.map((dataset: any) => (
+                <DashboardCard key={dataset.collectionName} href={`/dashboard/data/${dataset.collectionName}`} title={dataset.name} description={dataset.description || `Dataset dari collcetion ${dataset.collectionName}`} icon={FileText} />
+              ))}
           </div>
 
           <div className="w-full mx-auto py-4"></div>

@@ -1,5 +1,14 @@
 import axios from "axios";
 
+export interface DatasetMetaType {
+  name: string;
+  source: string;
+  collectionName: string;
+  description?: string;
+  status: string;
+  uploadDate: string;
+}
+
 export async function exportToCsv(category: string, sortBy = "Date", sortOrder = "desc") {
   try {
     const response = await axios.get("/api/v1/export-csv", {
@@ -267,6 +276,16 @@ export const updateUserRole = async (userId: string, role: "user" | "admin") => 
     return res.data.data;
   } catch (error) {
     console.error("Update user role error:", error);
+    throw error;
+  }
+};
+
+export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
+  try {
+    const res = await axios.get("/api/v1/dataset-meta");
+    return res.data.data;
+  } catch (error) {
+    console.error("Get all dataset meta error:", error);
     throw error;
   }
 };
