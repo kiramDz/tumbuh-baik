@@ -14,6 +14,7 @@ flask/venv/
 *.env.local
 docker-compose.override.yml
 
+.DS_Store
 
 PENJELASAN.txt
 
