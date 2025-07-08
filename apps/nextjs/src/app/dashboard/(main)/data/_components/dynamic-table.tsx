@@ -7,6 +7,7 @@ import { getDynamicDatasetData } from "@/lib/fetch/files.fetch";
 import { MainTableUI } from "@/app/dashboard/_components/table/main-table-ui";
 import { ColumnDef } from "@tanstack/react-table";
 import { exportToCsv } from "@/lib/fetch/files.fetch";
+
 interface DynamicMainTableProps {
   collectionName: string; // slug
   columns: string[]; // from dataset_meta
@@ -48,6 +49,12 @@ export default function DynamicMainTable({ collectionName, columns }: DynamicMai
     header: col,
     cell: ({ row }) => {
       const value = row.getValue(col);
+      if (value instanceof Date) {
+        return value.toISOString().split("T")[0]; // Format jadi YYYY-MM-DD
+      }
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+        return value.split("T")[0]; // Format string ISO → ambil bagian tanggal
+      }
       return typeof value === "object" ? JSON.stringify(value) : String(value ?? "-");
     },
   }));

@@ -16,7 +16,7 @@ interface HourlyForecastProps {
 }
 
 // ini icon payah diganti case denagn weather_desc, klo g icon yg muncl to clear
-const HourlyForecast: React.FC<HourlyForecastProps> = ({ forecast, unit }) => {
+const HourlyForecast: React.FC<HourlyForecastProps> = ({ forecast }) => {
   const getWeatherIcon = (weather: string) => {
     switch (weather.toLowerCase()) {
       case "clear":
@@ -45,8 +45,7 @@ const HourlyForecast: React.FC<HourlyForecastProps> = ({ forecast, unit }) => {
                 <p className="text-xs sm:text-sm font-medium">{hour.time}</p>
                 {getWeatherIcon(hour.weather)}
                 <p className=" text-xs sm:text-sm">
-                  {Math.round(hour.temperature)}°
-                  {/* {unit === "metric" ? "C" : "F"} */}
+                  {Math.round(hour.temperature)}°{/* {unit === "metric" ? "C" : "F"} */}
                 </p>
               </div>
             ))}

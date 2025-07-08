@@ -30,13 +30,17 @@ const KaltamTable = () => {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const result = await exportToCsv(category, sortBy, sortOrder);
-      if (result.success) {
+      const collectionName = "bmkg-hw"; // atau apapun nama koleksi yang kamu gunakan di backend
+      const sortBy = "forecast_date"; // sesuaikan dengan field yang ada di database
+      const sortOrder = "desc";
+
+      const result = await exportToCsv(collectionName, sortBy, sortOrder); // ganti `category` ➜ `collectionName`
+      if (result?.success) {
         toast.success("Data exported successfully!");
       } else {
-        toast.error(result.message || "Failed to export data");
+        toast.error(result?.message || "Failed to export data");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to export data");
     } finally {
       setIsExporting(false);

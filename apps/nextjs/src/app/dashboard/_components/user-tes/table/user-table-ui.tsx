@@ -72,21 +72,14 @@ export function UserTableUI<TData, TValue>({ columns, data, pagination }: DataTa
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
-  React.useEffect(() => {
-    console.log("🔄 User Table internal pageIndex:", table.getState().pagination.pageIndex + 1);
-    console.log("🧭 External currentPage:", pagination.currentPage);
-    if (table.getState().pagination.pageIndex + 1 !== pagination.currentPage) {
-      pagination.onPageChange(table.getState().pagination.pageIndex + 1);
-    }
-  }, [table.getState().pagination.pageIndex]);
+  const { onPageChange, currentPage } = pagination;
+  const pageIndex = table.getState().pagination.pageIndex;
 
   React.useEffect(() => {
-    console.log("📏 User Table internal pageSize:", table.getState().pagination.pageSize);
-    console.log("📐 External pageSize:", pagination.pageSize);
-    if (table.getState().pagination.pageSize !== pagination.pageSize) {
-      pagination.onPageSizeChange(table.getState().pagination.pageSize);
+    if (pageIndex + 1 !== currentPage) {
+      onPageChange(pageIndex + 1);
     }
-  }, [table.getState().pagination.pageSize]);
+  }, [pageIndex, currentPage, onPageChange]);
 
   return (
     <>

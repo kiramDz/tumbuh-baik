@@ -4,8 +4,7 @@ import { type ReactNode, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { YearlyCalender } from "./calender/planting-calender-2";
 
-import { CloudSun, CalendarDays, Pi, ChartNoAxesGantt } from "lucide-react";
-import Formula from "@/content/formula/aceh-besar.mdx";
+import { CloudSun, CalendarDays, ChartNoAxesGantt } from "lucide-react";
 import Overview from "@/content/overview/aceh-besar.mdx";
 interface ProjectTabsProps {
   defaultTab?: string;

@@ -50,7 +50,7 @@ export function DataTablePagination<TData>({ table, totalItems, onPageChange, on
           <Button
             variant="outline"
             className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => onPageChange(table.getState().pagination.pageIndex)} // first page = 0
+            onClick={() => onPageChange(1)} // First page should be 1 (not pageIndex)
             disabled={!table.getCanPreviousPage()}
           >
             <span className="sr-only">Go to first page</span>

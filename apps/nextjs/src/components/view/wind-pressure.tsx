@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Wind, Compass, Gauge, Waves, Mountain } from "lucide-react";
+import { Wind, Gauge } from "lucide-react";
 import type { BMKGDataItem } from "@/types/table-schema";
 import { getWindCondition } from "@/lib/bmkg-utils";
 

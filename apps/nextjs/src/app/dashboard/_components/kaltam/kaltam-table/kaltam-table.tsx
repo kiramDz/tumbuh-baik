@@ -5,7 +5,7 @@ import { Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/app/dashboard/_components/table/data-table-pagination";
-import { DataTableSort } from "../../table/data-table-sort";
+
 //data
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -82,21 +82,15 @@ export function KaltamTableUI<TData, TValue>({ columns, data, pagination, sortin
   });
 
   // Handle page changes
-  React.useEffect(() => {
-    console.log("🔄 Table internal pageIndex:", table.getState().pagination.pageIndex + 1);
-    console.log("🧭 External currentPage:", pagination.currentPage);
-    if (table.getState().pagination.pageIndex + 1 !== pagination.currentPage) {
-      pagination.onPageChange(table.getState().pagination.pageIndex + 1);
-    }
-  }, [table.getState().pagination.pageIndex]);
+  const { onPageChange, currentPage } = pagination;
+  const pageIndex = table.getState().pagination.pageIndex;
 
   React.useEffect(() => {
-    console.log("📏 Table internal pageSize:", table.getState().pagination.pageSize);
-    console.log("📐 External pageSize:", pagination.pageSize);
-    if (table.getState().pagination.pageSize !== pagination.pageSize) {
-      pagination.onPageSizeChange(table.getState().pagination.pageSize);
+    if (pageIndex + 1 !== currentPage) {
+      onPageChange(pageIndex + 1);
     }
-  }, [table.getState().pagination.pageSize]);
+  }, [pageIndex, currentPage, onPageChange]);
+
   return (
     <>
       <div className="space-y-4 ">

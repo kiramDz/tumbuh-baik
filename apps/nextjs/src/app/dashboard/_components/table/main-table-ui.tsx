@@ -84,21 +84,14 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination, sorting,
   });
 
   // Handle page changes
-  React.useEffect(() => {
-    console.log("🔄 Table internal pageIndex:", table.getState().pagination.pageIndex + 1);
-    console.log("🧭 External currentPage:", pagination.currentPage);
-    if (table.getState().pagination.pageIndex + 1 !== pagination.currentPage) {
-      pagination.onPageChange(table.getState().pagination.pageIndex + 1);
-    }
-  }, [table.getState().pagination.pageIndex]);
-
-  React.useEffect(() => {
-    console.log("📏 Table internal pageSize:", table.getState().pagination.pageSize);
-    console.log("📐 External pageSize:", pagination.pageSize);
-    if (table.getState().pagination.pageSize !== pagination.pageSize) {
-      pagination.onPageSizeChange(table.getState().pagination.pageSize);
-    }
-  }, [table.getState().pagination.pageSize]);
+  const { onPageChange, currentPage } = pagination;
+    const pageIndex = table.getState().pagination.pageIndex;
+  
+    React.useEffect(() => {
+      if (pageIndex + 1 !== currentPage) {
+        onPageChange(pageIndex + 1);
+      }
+    }, [pageIndex, currentPage, onPageChange]);
 
   return (
     <div className="space-y-4 ">

@@ -16,7 +16,7 @@ interface MongooseCache {
 
 // Add the cache object to the global type to prevent TypeScript errors
 declare global {
-  // eslint-disable-next-line no-var
+   
   var mongoose: MongooseCache | undefined;
 }
 
