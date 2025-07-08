@@ -9,22 +9,20 @@ export interface DatasetMetaType {
   uploadDate: string;
 }
 
-export async function exportToCsv(category: string, sortBy = "Date", sortOrder = "desc") {
+export async function exportToCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
   try {
     const response = await axios.get("/api/v1/export-csv", {
-      params: { category, sortBy, sortOrder },
-      responseType: "blob", // Important untuk file download
+      params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
+      responseType: "blob",
     });
 
     if (response.status === 200) {
-      // Create download link
       const blob = new Blob([response.data], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      // Extract filename from Content-Disposition header atau buat default
       const contentDisposition = response.headers["content-disposition"];
-      let filename = `${category}_data_${new Date().toISOString().split("T")[0]}.csv`;
+      let filename = `${collectionName}_data_${new Date().toISOString().split("T")[0]}.csv`;
 
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -40,15 +38,13 @@ export async function exportToCsv(category: string, sortBy = "Date", sortOrder =
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
-      // Cleanup
       window.URL.revokeObjectURL(url);
 
       return { success: true, message: "File downloaded successfully" };
     }
   } catch (error) {
     console.error("Error exporting CSV:", error);
-    return { success: false, message: "Failed to export CSV" };
+    return { success: false, message: "Export failed" };
   }
 }
 
@@ -103,101 +99,6 @@ export const getBmkgDaily = async (page = 1, pageSize = 10) => {
   }
 };
 
-//display bmkg in dahsboard
-export async function getBmkgData(page = 1, pageSize = 10, sortBy = "Date", sortOrder = "desc") {
-  try {
-    const res = await axios.get("/api/v1/bmkg", {
-      params: { page, pageSize, sortBy, sortOrder },
-    });
-
-    console.log("Raw API response:", res);
-    if (res.status === 200) {
-      console.log("✅ BMKG API response:", res.data.data);
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-          sortBy,
-          sortOrder,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("❌ Error fetching BMKG data:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-      sortBy,
-      sortOrder,
-    };
-  }
-}
-
-export const createBmkgData = async (data: any) => {
-  const res = await axios.post("/api/v1/bmkg", data);
-  return res.data.data;
-};
-
-export async function getBuoysData(page = 1, pageSize = 10, sortBy = "Date", sortOrder = "desc") {
-  console.log("[Client] Fetching buoys:", { page, pageSize, sortBy, sortOrder });
-  try {
-    const res = await axios.get("/api/v1/buoys", {
-      params: {
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      },
-    });
-
-    console.log("Raw API response:", res);
-    if (res.status === 200) {
-      console.log("✅ Buoys API response:", res.data.data);
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-          sortBy,
-          sortOrder,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("❌ Error fetching Buoys data:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-      sortBy,
-      sortOrder,
-    };
-  }
-}
-
-export const searchFiles = async (search: string) => {
-  if (!search) return [];
-
-  const res = await axios.get("/api/v1/files", {
-    params: {
-      search,
-    },
-  });
-
-  return res.data.data;
-};
-
-//
 export const getSeeds = async (page = 1, pageSize = 10) => {
   try {
     const res = await axios.get("/api/v1/seeds", {

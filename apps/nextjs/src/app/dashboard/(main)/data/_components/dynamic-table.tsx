@@ -29,13 +29,13 @@ export default function DynamicMainTable({ collectionName, columns }: DynamicMai
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const result = await exportToCsv(category, sortBy, sortOrder);
-      if (result.success) {
+      const result = await exportToCsv(collectionName, sortBy, sortOrder); // ganti `category` ➜ `collectionName`
+      if (result?.success) {
         toast.success("Data exported successfully!");
       } else {
-        toast.error(result.message || "Failed to export data");
+        toast.error(result?.message || "Failed to export data");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to export data");
     } finally {
       setIsExporting(false);

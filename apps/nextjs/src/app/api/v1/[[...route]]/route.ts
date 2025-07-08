@@ -1,7 +1,5 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
-import bmkgRoute from "../_routes/dataset/bmkg.route";
-import buoysRoute from "../_routes/dataset/buoys.route";
 import bmkgApiRoute from "../_routes/dataset/bmkgApi.route";
 import bmkgFetcherRoute from "../_routes/dataset/bmkgFetcher.route";
 import bmkgSummaryRoute from "../_routes/model/bmkg-summary.route";
@@ -17,9 +15,6 @@ const app = new Hono().basePath("/api/v1");
 
 // dont forget to integrate to app
 
-// TODO: Review and remove this route if unused
-app.route("/bmkg", bmkgRoute);
-app.route("/buoys", buoysRoute);
 
 app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d UI
 
