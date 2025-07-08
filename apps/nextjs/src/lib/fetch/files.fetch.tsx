@@ -280,6 +280,7 @@ export const updateUserRole = async (userId: string, role: "user" | "admin") => 
   }
 };
 
+// for dataset card
 export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
   try {
     const res = await axios.get("/api/v1/dataset-meta");
@@ -289,6 +290,54 @@ export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
     throw error;
   }
 };
+
+//for dataset detail page
+export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items: any[] }> => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}`, {
+    cache: "no-store", // optional jika ingin real-time
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch dataset");
+
+  const json = await res.json();
+  return json.data;
+};
+
+// for dataset table
+// lib/fetch/files.fetch.ts
+export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "desc") {
+  try {
+    const res = await axios.get(`/api/v1/dataset-meta/${slug}`, {
+      params: { page, pageSize, sortBy, sortOrder },
+    });
+
+    if (res.status === 200) {
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+          sortBy,
+          sortOrder,
+        }
+      );
+    }
+  } catch (error) {
+    console.error(`❌ Error fetching dataset ${slug}:`, error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+      sortBy,
+      sortOrder,
+    };
+  }
+}
 
 export const AddDatasetMeta = async (data: {
   name: string;

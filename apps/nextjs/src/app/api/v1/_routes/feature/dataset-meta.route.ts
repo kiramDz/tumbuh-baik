@@ -19,6 +19,59 @@ datasetMetaRoute.get("/", async (c) => {
   }
 });
 
+// GET - Buat slug untuk setiap dataset baru
+datasetMetaRoute.get("/:slug", async (c) => {
+  try {
+    await db();
+    const { slug } = c.req.param();
+    console.log("[DEBUG] API dataset-meta called with slug:", slug);
+    const page = Number(c.req.query("page")) || 1;
+    const pageSize = Number(c.req.query("pageSize")) || 10;
+    const sortBy = c.req.query("sortBy") || "Date";
+    const sortOrder = c.req.query("sortOrder") || "desc";
+
+    const meta = await DatasetMeta.findOne({ collectionName: slug }).lean();
+    if (!meta) return c.json({ message: "Dataset not found" }, 404);
+
+    let Model;
+    try {
+      Model = mongoose.model(slug);
+    } catch {
+      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+    }
+
+    const sortQuery: Record<string, 1 | -1> = {
+      [sortBy]: sortOrder === "desc" ? -1 : 1,
+    };
+    const totalData = await Model.countDocuments();
+
+    const data = await Model.find()
+      .sort(sortQuery)
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
+
+    return c.json(
+      {
+        message: "Success",
+        data: {
+          meta,
+          items: data,
+          total: totalData,
+          currentPage: page,
+          totalPages: Math.ceil(totalData / pageSize),
+          pageSize,
+          sortBy,
+          sortOrder,
+        },
+      },
+      200
+    );
+  } catch (error) {
+    console.error("Error fetching dynamic dataset:", error);
+    return c.json({ message: "Server error" }, 500);
+  }
+});
 
 // POST - Upload dataset metadata + records
 datasetMetaRoute.post("/", async (c) => {
