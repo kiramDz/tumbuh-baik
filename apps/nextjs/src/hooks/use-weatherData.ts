@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { WeatherData } from "@/types/weather";
 import { fetchWeatherData } from "@/action/weather-action";
 
-export const useWeatherData = (coordinates: { lat: number; lon: number }, locationLoading: boolean, hasInitialLoad: boolean) => {
+export const useWeatherData = (coordinates: { lat: number; lon: number }) => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!coordinates || (locationLoading && !hasInitialLoad)) return;
+    if (!coordinates) return;
 
     const controller = new AbortController();
     setIsLoading(true);
@@ -35,7 +35,7 @@ export const useWeatherData = (coordinates: { lat: number; lon: number }, locati
       });
 
     return () => controller.abort();
-  }, [coordinates, locationLoading, hasInitialLoad]);
+  }, [coordinates]);
 
   return { weatherData, error, isLoading, setError };
 };

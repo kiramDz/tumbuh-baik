@@ -1,6 +1,7 @@
 //kolom apa saja yg mau ditampilkan
 
 // import { Icons } from "@/components/icons";
+import { Columns3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
@@ -14,9 +15,9 @@ export function DataTableViewOptions<TData>({ table }: DataTableViewOptionsProps
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="ml-auto hidden h-8 lg:flex">
-          {/* <Icons.options className="mr-2 h-4 w-4" /> */}
-          View
+        <Button variant="outline" size="sm" className=" hidden h-8 lg:flex">
+          <Columns3 />
+          Columns
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[150px]">

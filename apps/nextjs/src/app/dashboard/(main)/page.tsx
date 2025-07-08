@@ -1,13 +1,17 @@
+"use client";
+
 import PageContainer from "@/components/ui/page-container";
 
-import { LifeBuoy, Satellite, CloudSunRain, Earth } from "lucide-react";
-import DashboardCard from "../_components/dashboard-card";
-
-export const metadata = {
-  title: "Dashboard",
-};
+import {  FileText } from "lucide-react";
+import { DashboardCard, DashboardCardSkeleton } from "../_components/dashboard-card";
+import { GetAllDatasetMeta } from "@/lib/fetch/files.fetch";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Page() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["datasets"],
+    queryFn: GetAllDatasetMeta,
+  });
   return (
     <>
       <PageContainer>
@@ -16,37 +20,12 @@ export default function Page() {
             <h2 className="text-2xl font-bold tracking-tight">Hi, Welcome back 👋</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {/* BMKG Card */}
-            <DashboardCard
-              href="/dashboard/bmkg-station"
-              icon={Earth} // Pass the icon component itself
-              title="BMKG"
-              description="Data cuaca dari stasiun BMKG Aceh Besar"
-            />
+            {isLoading && [...Array(4)].map((_, i) => <DashboardCardSkeleton key={i} />)}
 
-            {/* Daily Weather Card */}
-            <DashboardCard
-              href="/dashboard/daily-weather" // Adjusted href for clarity, assuming a different path
-              icon={CloudSunRain}
-              title="DAILY WEATHER"
-              description="Perkiraan cuaca harian dari OpenWeather"
-            />
-
-            {/* Satellite Card */}
-            <DashboardCard
-              href="/dashboard/satellite" // Adjusted href for clarity
-              icon={Satellite}
-              title="SATELITE"
-              description="Gambaran kondisi lahan dan vegetasi berbasis citra satelit"
-            />
-
-            {/* Buoys Card */}
-            <DashboardCard
-              href="/dashboard/buoys" // Adjusted href for clarity
-              icon={LifeBuoy}
-              title="BUOYS"
-              description="Informasi suhu permukaan dari website buoys"
-            />
+            {data &&
+              data.map((dataset: any) => (
+                <DashboardCard key={dataset.collectionName} href={`/dashboard/data/${dataset.collectionName}`} title={dataset.name} description={dataset.description || `Dataset dari collcetion ${dataset.collectionName}`} icon={FileText} />
+              ))}
           </div>
 
           <div className="w-full mx-auto py-4"></div>

@@ -7,10 +7,12 @@ import { getBmkgDaily } from "@/lib/fetch/files.fetch";
 import { toast } from "sonner";
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
 import { KaltamTableUI } from "./kaltam-table";
+import { exportToCsv } from "@/lib/fetch/files.fetch";
 
 const KaltamTable = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["bmkg-daily", page, pageSize],
@@ -25,6 +27,22 @@ const KaltamTable = () => {
     return <div>Error loading data.</div>;
   }
 
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const result = await exportToCsv(category, sortBy, sortOrder);
+      if (result.success) {
+        toast.success("Data exported successfully!");
+      } else {
+        toast.error(result.message || "Failed to export data");
+      }
+    } catch (error) {
+      toast.error("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <>
       <KaltamTableUI
@@ -37,6 +55,10 @@ const KaltamTable = () => {
           pageSize,
           onPageChange: setPage,
           onPageSizeChange: setPageSize,
+        }}
+        export={{
+          onExport: handleExport,
+          isExporting,
         }}
       />
     </>

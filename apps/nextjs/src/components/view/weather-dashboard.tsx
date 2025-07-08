@@ -3,20 +3,18 @@
 import React, { useEffect, useState } from "react";
 import { WeatherData } from "@/types/weather";
 import DayDuration from "./day-duration";
-import AirPollutionChart from "./air-pollution";
+import WeatherConclusion from "./weather-conclusion";
 import TemperatureHumidityChart from "./temp-humidity";
 import CurrentWeatherCard from "./current-weather";
 import WindPressureCard from "./wind-pressure";
 import HourlyForecast from "./hourly-forecast";
-
-import MapSection from "./map";
 import { Banner } from "./banner";
 import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
-import { getBmkgApi } from "@/lib/fetch/files.fetch";
+import { getBmkgApi, getBmkgSummary } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
-import { getTodayWeather, getChartData, getHourlyForecastData } from "@/lib/bmkg-utils";
-import type { BMKGApiData } from "@/types/table-schema";
+import { getTodayWeather, getChartData, getHourlyForecastData, getWeatherConclusionFromDailyData, getTodayWeatherConlusion, getFinalConclusion } from "@/lib/bmkg-utils";
+import type { BMKGApiData, PlantSummaryData } from "@/types/table-schema";
 
 interface ChartDataPoint {
   time: string;
@@ -30,23 +28,32 @@ interface WeatherDashboardProps {
 }
 
 const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }) => {
-  const { currentWeather, airPollution } = weatherData;
+  const { currentWeather } = weatherData;
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
   const now = new Date();
   const end = new Date();
-  // Fetch BMKG data
-  const {
-    data: bmkgApiResponse,
-    isLoading,
-    error,
-  } = useQuery({
+
+  const { data: bmkgApiResponse } = useQuery({
     queryKey: ["bmkg-api"],
     queryFn: getBmkgApi,
   });
 
+  const { data: bmkgSummary } = useQuery({
+    queryKey: ["bmkg-summary"],
+    queryFn: getBmkgSummary,
+  });
+
+  const today = new Date();
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+
+  const currentSummary = bmkgSummary?.find((item: PlantSummaryData) => item.month === currentMonth);
+
   const bmkgData = bmkgApiResponse?.data;
   const selected = bmkgData?.find((item: BMKGApiData) => item.kode_gampong === selectedGampong);
+  const todayOnlyData = getTodayWeatherConlusion(selected?.data || []);
+  const conclusion = getWeatherConclusionFromDailyData(todayOnlyData);
+  const finalConclusion = getFinalConclusion(conclusion, currentSummary?.status ?? "tidak cocok tanam");
 
   const latestData = selected?.data ? getTodayWeather(selected.data) : null;
 
@@ -62,11 +69,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
     }
   }, [bmkgData]);
 
-  console.log("🚀 ~ chartData:", chartData);
-
-  if (isLoading) return <div>Loading...</div>;
-
-  if (error || !bmkgData) return <div>Error loading BMKG data.</div>;
+  if (!bmkgApiResponse || !bmkgSummary) return <div>Loading...</div>;
 
   end.setDate(now.getDate() + 1);
   end.setHours(23, 59, 59);
@@ -86,8 +89,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
 
             <HourlyForecast forecast={forecastData} unit={unit} />
           </div>
-          {/* <AirPollutionChart data={airPollution} /> */}
-          <MapSection />
+          <WeatherConclusion conclusion={finalConclusion} tcc={latestData?.t ?? 0} />
+
           {chartData.length === 0 ? (
             <p className="text-sm text-muted-foreground">Tidak ada data suhu/kelembapan untuk gampong ini dalam rentang waktu tersebut.</p>
           ) : (

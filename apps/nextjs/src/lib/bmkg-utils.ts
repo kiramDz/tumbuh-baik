@@ -1,5 +1,128 @@
 import type { BMKGDataItem, BMKGApiData } from "@/types/table-schema";
 
+export interface WeatherConclusionResult {
+  status: "cocok" | "waspada" | "tidak dianjurkan";
+  reason: string;
+  badge: string[];
+  avg: {
+    temperature: number;
+    humidity: number;
+    wind: number;
+    cloud: number;
+  };
+}
+
+
+
+export const getFinalConclusion = (
+  dailyConclusion: WeatherConclusionResult,
+  seasonalStatus: string
+): WeatherConclusionResult & {
+  seasonalStatus: string;
+  finalStatus: string;
+  note: string;
+} => {
+  let finalStatus = "";
+  let note = "";
+
+  if (seasonalStatus === "sangat cocok tanam" || seasonalStatus === "cocok tanam") {
+    finalStatus = "Cocok Tanam";
+    note = "Musim tanam dan cuaca mendukung.";
+  } else if (seasonalStatus === "tidak cocok tanam") {
+    finalStatus = "Belum Disarankan Tanam";
+    note = "Cuaca bagus, tapi ini bukan musim tanam.";
+  } else {
+    finalStatus = "Perlu Dipertimbangkan";
+    note = "Belum ada data musiman yang jelas.";
+  }
+
+  return {
+    ...dailyConclusion,
+    status: finalStatus.toLowerCase().includes("cocok") ? "cocok" : "tidak dianjurkan",
+    seasonalStatus,
+    finalStatus,
+    note,
+  };
+};
+
+
+
+export function getWeatherConclusionFromDailyData(todayData: BMKGDataItem[]): WeatherConclusionResult {
+  if (!todayData || todayData.length === 0) {
+    return {
+      status: "waspada",
+      reason: "Data cuaca hari ini tidak tersedia.",
+      badge: ["Data Tidak Ada"],
+      avg: { temperature: 0, humidity: 0, wind: 0, cloud: 0 },
+    };
+  }
+
+  const tempSum = todayData.reduce((sum, d) => sum + d.t, 0);
+  const humSum = todayData.reduce((sum, d) => sum + d.hu, 0);
+  const windSum = todayData.reduce((sum, d) => sum + d.ws, 0);
+  const cloudSum = todayData.reduce((sum, d) => sum + d.tcc, 0);
+
+  const avgTemp = tempSum / todayData.length;
+  const avgHum = humSum / todayData.length;
+  const avgWind = windSum / todayData.length;
+  const avgCloud = cloudSum / todayData.length;
+
+  const weatherDescriptions = todayData.map((d) => d.weather_desc.toLowerCase());
+  const hasExtremeWeather = weatherDescriptions.some((desc) => desc.includes("hujan lebat") || desc.includes("petir") || desc.includes("badai"));
+  const hasStrongWind = todayData.some((d) => d.ws > 25);
+  const hasExtremeTemp = todayData.some((d) => d.t > 35 || d.t < 20);
+
+  const badges: string[] = [];
+  if (avgTemp >= 24 && avgTemp <= 34) badges.push("Suhu Ideal");
+  else badges.push("Suhu Tidak Stabil");
+
+  if (avgHum >= 60 && avgHum <= 90) badges.push("Kelembapan Ideal");
+  else badges.push("Kelembapan Tidak Stabil");
+
+  if (avgWind <= 25) badges.push("Angin Normal");
+  else badges.push("Angin Kencang");
+
+  const dominantWeather = weatherDescriptions.filter((d) => d.includes("cerah")).length;
+  if (dominantWeather >= todayData.length / 2) badges.push("Cerah");
+
+  let status: WeatherConclusionResult["status"];
+  let reason: string;
+
+  if (hasExtremeWeather) {
+    status = "tidak dianjurkan";
+    reason = "Terdeteksi cuaca ekstrem seperti hujan lebat atau badai.";
+  } else if (hasExtremeTemp || hasStrongWind) {
+    status = "waspada";
+    reason = hasExtremeTemp ? "Suhu hari ini terlalu ekstrem." : "Angin kencang terdeteksi hari ini.";
+  } else {
+    status = "cocok";
+    reason = "Cuaca stabil dan mendukung aktivitas pertanian.";
+  }
+
+  return {
+    status,
+    reason,
+    badge: badges,
+    avg: {
+      temperature: Number(avgTemp.toFixed(1)),
+      humidity: Number(avgHum.toFixed(1)),
+      wind: Number(avgWind.toFixed(1)),
+      cloud: Number(avgCloud.toFixed(1)),
+    },
+  };
+}
+
+// untuk kartu kesimpula
+export function getTodayWeatherConlusion(data: BMKGDataItem[]): BMKGDataItem[] {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10); // format: 'YYYY-MM-DD'
+
+  return data.filter((item) => {
+    const datePart = item.local_datetime.slice(0, 10); // ambil 'YYYY-MM-DD'
+    return datePart === todayStr;
+  });
+}
+
 export const getTodayWeather = (data: BMKGDataItem[]) => {
   const now = new Date();
   return data.reduce((closest: BMKGDataItem, item: BMKGDataItem) => {

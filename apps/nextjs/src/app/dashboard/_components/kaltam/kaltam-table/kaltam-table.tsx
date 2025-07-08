@@ -1,22 +1,11 @@
 //act as main-table-ui
 import * as React from "react";
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import { ColumnDef, ColumnFiltersState, VisibilityState, flexRender, getCoreRowModel, getFacetedRowModel, getFacetedUniqueValues, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
+import { Loader2, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/app/dashboard/_components/table/data-table-pagination";
-
+import { DataTableSort } from "../../table/data-table-sort";
 //data
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -28,31 +17,50 @@ interface DataTableProps<TData, TValue> {
     pageSize: number;
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
-    // onPaginationChange: (size: number) => void;
+  };
+  sorting?: {
+    sortBy: string;
+    sortOrder: "asc" | "desc";
+    onSortChange: (sortBy: string, sortOrder: "asc" | "desc") => void;
+  };
+  export?: {
+    onExport: () => void;
+    isExporting: boolean;
   };
 }
 
-export function KaltamTableUI<TData, TValue>({ columns, data, pagination }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+export function KaltamTableUI<TData, TValue>({ columns, data, pagination, sorting, export: exportProps }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+
   const table = useReactTable({
     data,
     columns,
     manualPagination: true,
+    manualSorting: true, // PENTING: Enable manual sorting
     rowCount: pagination.total,
     pageCount: pagination.totalPages,
     onPaginationChange: (updater) => {
       const newPagination = typeof updater === "function" ? updater(table.getState().pagination) : updater;
+
+      // Trigger perubahan page dan pageSize
       if (newPagination.pageSize !== table.getState().pagination.pageSize) {
         pagination.onPageSizeChange(newPagination.pageSize);
       } else {
         pagination.onPageChange(newPagination.pageIndex + 1);
       }
     },
+    onSortingChange: (updater) => {
+      const newSorting = typeof updater === "function" ? updater(table.getState().sorting) : updater;
+
+      if (newSorting.length > 0 && sorting) {
+        const { id, desc } = newSorting[0];
+        sorting.onSortChange(id, desc ? "desc" : "asc");
+      }
+    },
     state: {
-      sorting,
+      sorting: sorting ? [{ id: sorting.sortBy, desc: sorting.sortOrder === "desc" }] : [],
       columnVisibility,
       rowSelection,
       columnFilters,
@@ -63,7 +71,6 @@ export function KaltamTableUI<TData, TValue>({ columns, data, pagination }: Data
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
@@ -73,6 +80,8 @@ export function KaltamTableUI<TData, TValue>({ columns, data, pagination }: Data
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
+
+  // Handle page changes
   React.useEffect(() => {
     console.log("🔄 Table internal pageIndex:", table.getState().pagination.pageIndex + 1);
     console.log("🧭 External currentPage:", pagination.currentPage);
@@ -92,7 +101,22 @@ export function KaltamTableUI<TData, TValue>({ columns, data, pagination }: Data
     <>
       <div className="space-y-4 ">
         <div className="w-full flex items-center justify-end"></div>
-        <div className="rounded-md border"></div>
+        {exportProps && (
+          <Button variant="outline" size="sm" onClick={exportProps.onExport} disabled={exportProps.isExporting} className="h-8">
+            {exportProps.isExporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </>
+            )}
+          </Button>
+        )}
+        {/* <DataTableSort currentSortOrder={sorting.sortOrder} onSortChange={(order) => sorting.onSortChange(sorting.sortBy, order)} /> */}
         <div className="rounded-md border">
           <Table className="rounded-md">
             <TableHeader>

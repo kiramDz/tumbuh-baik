@@ -1,23 +1,62 @@
 import { useState } from "react";
 import { bmkgColumns } from "./columns/bmkg-columns";
+import { buoysColumns } from "./columns/buoys-columns";
 import { MainTableUI } from "./main-table-ui";
 import { getBmkgData } from "@/lib/fetch/files.fetch";
+import { getBuoysData } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
+import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
+import { exportToCsv } from "@/lib/fetch/files.fetch";
 
-export default function MainTable() {
+interface MainTableProps {
+  category: string;
+}
+
+type DatasetKey = "bmkg" | "buoys"; // tambahkan jika ada dataset baru
+
+export default function MainTable({ category }: MainTableProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState("Date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetchFunction = {
+    bmkg: getBmkgData,
+    buoys: getBuoysData,
+  }[category];
+
+  const columnMap: Record<DatasetKey, ColumnDef<any, any>[]> = {
+    bmkg: bmkgColumns,
+    buoys: buoysColumns,
+  };
+
+  const selectedColumns = columnMap[category as DatasetKey];
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["bmkgData", page, pageSize],
-    queryFn: () => getBmkgData(page, pageSize),
+    queryKey: [category, page, pageSize, sortBy, sortOrder], // trigger by all state
+    queryFn: () => (fetchFunction ? fetchFunction(page, pageSize, sortBy, sortOrder) : Promise.resolve(null)),
     refetchOnWindowFocus: false,
+    enabled: !!fetchFunction,
   });
 
-  console.log("Query data received:", data);
-  console.log("Items to display:", data?.items);
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const result = await exportToCsv(category, sortBy, sortOrder);
+      if (result.success) {
+        toast.success("Data exported successfully!");
+      } else {
+        toast.error(result.message || "Failed to export data");
+      }
+    } catch (error) {
+      toast.error("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   if (isLoading) return <DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />;
 
@@ -30,7 +69,7 @@ export default function MainTable() {
     <>
       <MainTableUI
         data={data?.items || []}
-        columns={bmkgColumns}
+        columns={selectedColumns}
         pagination={{
           currentPage: data?.currentPage || 1,
           totalPages: data?.totalPages || 1,
@@ -38,6 +77,18 @@ export default function MainTable() {
           pageSize,
           onPageChange: setPage,
           onPageSizeChange: setPageSize,
+        }}
+        sorting={{
+          sortBy,
+          sortOrder,
+          onSortChange: (newSortBy, newSortOrder) => {
+            setSortBy(newSortBy);
+            setSortOrder(newSortOrder);
+          },
+        }}
+        export={{
+          onExport: handleExport,
+          isExporting,
         }}
       />
     </>

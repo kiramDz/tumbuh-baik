@@ -1,29 +1,20 @@
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
-import fileRoute from "../_routes/file.route";
-import paddleRoute from "../_routes/paddle.route";
-import visualizationRoute from "../_routes/visualization.route";
-import bmkgRoute from "../_routes/bmkg.route";
-import bmkgApiRoute from "../_routes/bmkgApi.route";
-import bmkgFetcherRoute from "../_routes/bmkgFetcher.route";
-import bmkgSummaryRoute from "../_routes/bmkg-summary.route";
-import bmkgDailyRoute from "../_routes/bmkg-daily.route";
-import seedRoute from "../_routes/seed.route";
+import bmkgApiRoute from "../_routes/dataset/bmkgApi.route";
+import bmkgFetcherRoute from "../_routes/dataset/bmkgFetcher.route";
+import bmkgSummaryRoute from "../_routes/model/bmkg-summary.route";
+import bmkgDailyRoute from "../_routes/model/bmkg-daily.route";
+import seedRoute from "../_routes/feature/seed.route";
 import userRoute from "../_routes/user.route";
+import exportRoute from "../_routes/feature/export-csv.route";
+import datasetMetaRoute from "../_routes/feature/dataset-meta.route";
+
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
 
 // dont forget to integrate to app
 
-app.route("/files", fileRoute);
-
-app.route("/webhook", paddleRoute);
-
-app.route("/visualization", visualizationRoute);
-
-// TODO: Review and remove this route if unused
-app.route("/bmkg", bmkgRoute);
 
 app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d UI
 
@@ -34,6 +25,8 @@ app.route("/bmkg-summary", bmkgSummaryRoute);
 app.route("/bmkg-daily", bmkgDailyRoute);
 app.route("/seeds", seedRoute);
 app.route("/user", userRoute);
+app.route("/export-csv", exportRoute);
+app.route("/dataset-meta", datasetMetaRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);
