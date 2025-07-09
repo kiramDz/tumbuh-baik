@@ -207,7 +207,7 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
 
 // for dataset table
 // lib/fetch/files.fetch.ts
-export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "desc") {
+export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "asc" | "desc" = "desc") {
   try {
     const res = await axios.get(`/api/v1/dataset-meta/${slug}`, {
       params: { page, pageSize, sortBy, sortOrder },
