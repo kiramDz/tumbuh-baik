@@ -3,21 +3,24 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { adminProcedure } from "@/lib/safe-actions";
-import { UserSchema } from "@/types/table-schema";
 import db from "@/lib/database/db";
 import { User } from "@/lib/database/schema/users.model";
 
 export const updateUser = adminProcedure
   .createServerAction()
-  .input(UserSchema.extend({ id: z.string() }))
-  .handler(async ({ input: { id, ...input } }) => {
-    // Pastikan koneksi MongoDB aktif
-    await db(); // Panggil fungsi koneksi Anda
+  .input(
+    z.object({
+      id: z.string(),
+      role: z.enum(["user", "admin"]),
+    })
+  )
+  .handler(async ({ input: { id, role } }) => {
+    await db(); // koneksi ke database
 
     const user = await User.findByIdAndUpdate(
       id,
-      input,
-      { new: true } // Return data terbaru
+      { role },
+      { new: true }
     );
 
     if (!user) throw new Error("User not found");

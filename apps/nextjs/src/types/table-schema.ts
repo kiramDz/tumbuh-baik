@@ -1,8 +1,5 @@
 import { z } from "zod";
 
-
-
-
 export const BmkgSchema = z.object({
   _id: z.union([z.string(), z.object({ $oid: z.string() })]), // tergantung dari loader Mongo
   Date: z.string().refine((val) => !isNaN(Date.parse(val)), {

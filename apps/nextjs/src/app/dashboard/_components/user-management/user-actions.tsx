@@ -62,7 +62,7 @@ export const UserActions = ({ user, className, ...props }: UserActionsProps) => 
                   toast.promise(
                     async () =>
                       await updateUser({
-                        id: user._id,
+                        id: typeof user._id === "string" ? user._id : user._id.$oid,
                         role: value as (typeof roles)[number],
                       }),
                     {
