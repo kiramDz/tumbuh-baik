@@ -13,7 +13,7 @@ import { DataTableColumnHeader } from "./data-table/data-tabe-column-header";
 export const getColumns = (): ColumnDef<UserType>[] => {
   const roleBadges: Record<"admin" | "user", ComponentProps<typeof Badge>> = {
     admin: {
-      variant: "info",
+      variant: "default",
       className: "capitalize",
     },
     user: {
