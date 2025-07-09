@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo, memo } from "react";
-import { ForecastResponse } from "@/types/weather";
 import { Thermometer, Droplets } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, TooltipProps } from "recharts";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +8,15 @@ import { ChartConfig, ChartContainer, ChartTooltip } from "@/components/ui/chart
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface TemperatureHumidityChartProps {
-  data: ForecastResponse;
+  data: {
+    list: {
+      dt: number;
+      main: {
+        temp: number;
+        humidity: number;
+      };
+    }[];
+  };
   unit: "metric" | "imperial";
 }
 

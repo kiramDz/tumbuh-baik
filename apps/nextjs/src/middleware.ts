@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 // Helper function to get user role from database
-async function getUserRole(req: NextRequest, sessionCookie: any) {
+async function getUserRole(req: NextRequest) {
   try {
     const response = await fetch(`${req.nextUrl.origin}/api/auth/get-session`, {
       headers: {
@@ -37,7 +37,7 @@ export default async function authMiddleware(req: NextRequest) {
   if (pathname === "/sign-up") {
     if (sessionCookie) {
       // Already logged in, redirect based on role
-      const userRole = await getUserRole(req, sessionCookie);
+      const userRole = await getUserRole(req);
       if (userRole === "admin") {
         return NextResponse.redirect(new URL("/dashboard", req.url));
       } else {
@@ -51,7 +51,7 @@ export default async function authMiddleware(req: NextRequest) {
   if (pathname === "/sign-in") {
     if (sessionCookie) {
       // Already logged in, redirect based on role
-      const userRole = await getUserRole(req, sessionCookie);
+      const userRole = await getUserRole(req);
       if (userRole === "admin") {
         return NextResponse.redirect(new URL("/dashboard", req.url));
       } else {
@@ -69,7 +69,7 @@ export default async function authMiddleware(req: NextRequest) {
     }
 
     // Get user role for authorization
-    const userRole = await getUserRole(req, sessionCookie);
+    const userRole = await getUserRole(req);
 
     // Dashboard access - only admins
     if (pathname.startsWith("/dashboard")) {

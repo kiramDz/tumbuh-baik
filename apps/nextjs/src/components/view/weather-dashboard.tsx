@@ -58,16 +58,18 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
   const latestData = selected?.data ? getTodayWeather(selected.data) : null;
 
   useEffect(() => {
-    if (!selected?.data) return;
-    const mapped = getChartData(selected.data);
-    setChartData(mapped);
-  }, [selected]);
-
-  useEffect(() => {
     if (bmkgData && !selectedGampong) {
       setSelectedGampong(bmkgData[0]?.kode_gampong);
     }
-  }, [bmkgData]);
+  }, [bmkgData, selectedGampong]);
+
+  useEffect(() => {
+    if (!selectedGampong || !bmkgData) return;
+    const selected = bmkgData.find((item: any) => item.kode_gampong === selectedGampong);
+    if (!selected?.data) return;
+    const mapped = getChartData(selected.data);
+    setChartData(mapped);
+  }, [bmkgData, selectedGampong]);
 
   if (!bmkgApiResponse || !bmkgSummary) return <div>Loading...</div>;
 
@@ -80,7 +82,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
     <div className="bg-inherit min-h-screen flex flex-col">
       <Banner />
       <WeatherTabs defaultTab="weather">
-        <WeatherHeader bmkgData={bmkgData} selectedCode={selectedGampong} onGampongChange={setSelectedGampong} />
+        {selectedGampong && <WeatherHeader bmkgData={bmkgData} selectedCode={selectedGampong} onGampongChange={setSelectedGampong} />}
         <div className=" grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
           {latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData, nama_gampong: selected.nama_gampong }} unit={unit} />}
 
