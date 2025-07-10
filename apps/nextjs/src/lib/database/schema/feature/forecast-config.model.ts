@@ -1,15 +1,17 @@
 import mongoose, { Schema } from "mongoose";
 
+// Schema untuk multiple dokumen terpisah
 const ForecastConfigSchema = new Schema(
   {
-    name: { type: String, required: true }, // ✅ baru
-    collectionName: { type: String, required: true },
-    columnName: { type: String, required: true },
-    status: {
-      type: String,
-      required: true,
-      enum: ["pending", "running", "done", "failed"],
-    },
+    name: { type: String, required: true },
+    columns: [
+      // Array of columns - ini yang kita mau
+      {
+        collectionName: { type: String, required: true },
+        columnName: { type: String, required: true },
+      },
+    ],
+    status: { type: String, required: true, enum: ["pending", "running", "done", "failed"] },
     forecastResultCollection: { type: String },
     errorMessage: { type: String },
   },
@@ -18,6 +20,4 @@ const ForecastConfigSchema = new Schema(
     timestamps: true,
   }
 );
-  
-
 export const ForecastConfig = mongoose.models.ForecastConfig || mongoose.model("ForecastConfig", ForecastConfigSchema, "forecast_configs");
