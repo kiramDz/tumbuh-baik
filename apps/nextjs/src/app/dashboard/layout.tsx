@@ -3,6 +3,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import DashboardHeader from "./_components/dashboard-header";
 import { AppSidebar } from "@/components/app-sidebar";
 
+
 const Layout = ({ children }: Children) => {
   return (
     <main className="bg-[#f9f9f9]">

@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { DataTableSkeleton } from "../_components/data-table-skeleton";
 import KaltamTable from "../_components/kaltam/kaltam-table";
 import { Suspense } from "react";
-
+import { ForecastDialog } from "../_components/kaltam-dialog";
 
 export const metadata = {
   title: "Dashboard: Kalender Tanam",
@@ -18,6 +18,7 @@ export default async function Page() {
           <Heading title="Kalender Tanam" description="Manage products (Server side table functionalities.)" />
         </div>
         <Separator />
+        <ForecastDialog />
         <Suspense fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}>
           <KaltamTable />
         </Suspense>

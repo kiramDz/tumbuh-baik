@@ -267,3 +267,35 @@ export const AddDatasetMeta = async (data: {
     throw error;
   }
 };
+
+// forecast config :
+export const createForecastConfig = async (payload: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
+  try {
+    console.log("🔍 Sending payload to /api/v1/forecast-config:", payload);
+
+    const res = await axios.post("/api/v1/forecast-config", payload);
+
+    console.log("✅ Server response:", res.data);
+
+    return res.data.data;
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
+      console.error("❌ Axios error response:", error.response?.data);
+      console.error("❌ Axios status:", error.response?.status);
+    } else {
+      console.error("❌ Unknown error:", error);
+    }
+
+    throw error;
+  }
+};
+
+// export const createForecastConfig = async (payload: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
+//   try {
+//     const res = await axios.post("/api/v1/forecast-config", payload);
+//     return res.data.data;
+//   } catch (error) {
+//     console.error("Create forecast config error:", error);
+//     throw error;
+//   }
+// };

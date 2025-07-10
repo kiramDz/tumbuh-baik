@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   description: "Basic dashboard with Next.js and Shadcn",
 };
 
+//TODO : Mash lambat kli login diawal, lalu kok ada tulisaj "loading padhl udh ada skeleton"
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
