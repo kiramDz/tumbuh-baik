@@ -5,7 +5,7 @@ import { DataTableSkeleton } from "../_components/data-table-skeleton";
 import KaltamTable from "../_components/kaltam/kaltam-table";
 import { Suspense } from "react";
 import { ForecastDialog } from "../_components/kaltam-dialog";
-
+import RunForecastButton from "../_components/forecast-button";
 export const metadata = {
   title: "Dashboard: Kalender Tanam",
 };
@@ -19,6 +19,7 @@ export default async function Page() {
         </div>
         <Separator />
         <ForecastDialog />
+        <RunForecastButton />
         <Suspense fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}>
           <KaltamTable />
         </Suspense>

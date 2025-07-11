@@ -3,19 +3,24 @@
 # repo 2 : https://github.com/martindavid/flask-nextjs-user-management-example
 
 from flask import Flask, jsonify
+from flask_cors import CORS
 from holt_winter.hw_deepseek_opt import run_optimized_hw_analysis
 from helpers.objectid_converter import convert_objectid
 from holt_winter.summary.bmkg_tanam_summary import generate_tanam_summary, debug_forecast_data
-
+from jobs.run_forecast_from_config import run_forecast_from_config
 from pymongo import MongoClient
 
 app = Flask(__name__)
+CORS(app, origins="http://localhost:3000") 
 
 
 @app.route("/")
 def home():
     return jsonify({"message": "Flask Holt-Winter API is running!"})
 
+@app.route("/run-forecast", methods=["POST"])
+def run_forecast():
+    return run_forecast_from_config()
 
 @app.route("/run_optimized_hw_analysis", methods=["GET"])
 def run_analysis():
@@ -32,7 +37,7 @@ def run_analysis():
 @app.route("/check-mongodb")
 def check_mongodb():
     try:
-        client = MongoClient("mongodb://localhost:27017/")
+        client = MongoClient("mongodb+srv://hilmi0:8ZqtGJVyMiF8x7YN@cluster0.uuonyyb.mongodb.net/tugas_akhir?retryWrites=true&w=majority&appName=Cluster0")
         # client = MongoClient("mongodb://host.docker.internal:27017/")
         db = client["tugas_akhir"]
         collections = db.list_collection_names()
