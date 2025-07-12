@@ -1,28 +1,32 @@
-# jobs/run_forecast_from_config.py
-
+from pymongo import MongoClient
+from datetime import datetime
+import time
+import traceback
 import os
 from flask import jsonify
-from pymongo import MongoClient
-from bson import ObjectId
 from dotenv import load_dotenv
-import traceback
-import time
-
 from holt_winter.hw_dynamic import run_optimized_hw_analysis
-from helpers.objectid_converter import convert_objectid
 
-# Ganti sesuai URL MongoDB Atlas kamu
-# Load environment variables from .env file
 load_dotenv()
 
-# Get MongoDB URI from environment variable
 MONGO_URI = os.getenv("MONGODB_URI")
-
 if not MONGO_URI:
     raise ValueError("No MONGODB_URI set in environment variables!")
 
 client = MongoClient(MONGO_URI)
-db = client["tugas_akhir"] 
+db = client["tugas_akhir"]
+
+def convert_objectid(obj):
+    """Convert ObjectId to string for JSON serialization"""
+    if isinstance(obj, list):
+        return [convert_objectid(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: convert_objectid(value) for key, value in obj.items()}
+    elif hasattr(obj, '__dict__'):
+        return convert_objectid(obj.__dict__)
+    else:
+        return obj
+
 
 def run_forecast_from_config():
     try:
@@ -31,33 +35,58 @@ def run_forecast_from_config():
             {"$set": {"status": "running"}},
             return_document=True
         )
-
+        
         if not config:
             return jsonify({"message": "No pending forecast config found."}), 404
-
+        
         # Ambil info kolom yang akan dianalisis
         name = config.get("name", f"forecast_{int(time.time())}")
         columns = config.get("columns", [])
         forecast_coll = config.get("forecastResultCollection")
-
+        config_id = str(config["_id"])
+        
         results = []
-
+        forecast_data = {}  # Untuk menyimpan semua forecast berdasarkan tanggal
+        
         for item in columns:
             collection = item["collectionName"]
             column = item["columnName"]
-
+            
             print(f"[INFO] Processing {collection} - {column}")
-
+            
             try:
+                # Jalankan analisis Holt-Winter
                 result = run_optimized_hw_analysis(
-                collection_name=collection,
-                target_column=column,
-                save_collection="holt-winter",  # atau tetap dari config
-                config_id=str(config["_id"]),
-                append_column_id=True
+                    collection_name=collection,
+                    target_column=column,
+                    save_collection="temp-hw",  # Simpan sementara
+                    config_id=config_id,
+                    append_column_id=True,
+                    client=client
                 )
                 results.append(result)
-
+                
+                # Ambil hasil forecast untuk digabung
+                temp_forecasts = list(db["temp-hw"].find({"config_id": config_id}))
+                
+                for forecast_doc in temp_forecasts:
+                    forecast_date = forecast_doc["forecast_date"]
+                    
+                    # Inisialisasi struktur jika belum ada
+                    if forecast_date not in forecast_data:
+                        forecast_data[forecast_date] = {
+                            "forecast_date": forecast_date,
+                            "timestamp": datetime.now().isoformat(),
+                            "config_id": config_id,
+                            "parameters": {}
+                        }
+                    
+                    # Tambahkan parameter ke struktur gabungan
+                    if "parameters" in forecast_doc:
+                        forecast_data[forecast_date]["parameters"].update(
+                            forecast_doc["parameters"]
+                        )
+                
             except Exception as e:
                 error_msg = f"Holt-Winter failed for {collection}:{column} → {str(e)}"
                 db.forecast_configs.update_one(
@@ -66,18 +95,34 @@ def run_forecast_from_config():
                 )
                 traceback.print_exc()
                 return jsonify({"error": error_msg}), 500
-
+        
+        # Simpan hasil gabungan ke collection final
+        if forecast_data:
+            # Hapus data lama untuk config ini
+            db["holt-winter"].delete_many({"config_id": config_id})
+            
+            # Insert data gabungan
+            combined_docs = list(forecast_data.values())
+            db["holt-winter"].insert_many(combined_docs)
+            
+            print(f"✓ Inserted {len(combined_docs)} combined forecast documents")
+        
+        # Bersihkan collection temporary
+        db["temp-hw"].delete_many({"config_id": config_id})
+        
+        # Update status config
         db.forecast_configs.update_one(
             {"_id": config["_id"]},
             {"$set": {"status": "done"}}
         )
-
+        
         return jsonify({
             "message": f"Forecasting completed for config: {name}",
             "forecastResultCollection": forecast_coll,
-            "results": convert_objectid(results)
+            "results": convert_objectid(results),
+            "total_forecast_dates": len(forecast_data)
         }), 200
-
+        
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
