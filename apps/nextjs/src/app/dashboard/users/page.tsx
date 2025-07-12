@@ -2,7 +2,7 @@ import PageContainer from "@/components/ui/page-container";
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
 import { Suspense } from "react";
-import UserMangementTable from "../_components/user-tes/table";
+import UserMangementTable from "../_components/user-managements/table";
 import { DataTableSkeleton } from "../_components/data-table-skeleton";
 export const metadata = {
   title: "Dashboard: Data Table",

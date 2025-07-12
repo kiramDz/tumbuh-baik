@@ -85,17 +85,16 @@ export function MainTableUI<TData, TValue>({ columns, data, pagination, sorting,
 
   // Handle page changes
   const { onPageChange, currentPage } = pagination;
-    const pageIndex = table.getState().pagination.pageIndex;
-  
-    React.useEffect(() => {
-      if (pageIndex + 1 !== currentPage) {
-        onPageChange(pageIndex + 1);
-      }
-    }, [pageIndex, currentPage, onPageChange]);
+  const pageIndex = table.getState().pagination.pageIndex;
+
+  React.useEffect(() => {
+    if (pageIndex + 1 !== currentPage) {
+      onPageChange(pageIndex + 1);
+    }
+  }, [pageIndex, currentPage, onPageChange]);
 
   return (
     <div className="space-y-4 ">
-      {/* <DataTableToolbar table={table} /> */}
       <div className="w-full flex items-center gap-2 justify-end">
         {exportProps && (
           <Button variant="outline" size="sm" onClick={exportProps.onExport} disabled={exportProps.isExporting} className="h-8">

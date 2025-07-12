@@ -137,28 +137,3 @@ export interface WeatherData {
   airPollution: AirPollutionResponse;
 }
 
-export interface TemperatureMetric {
-  temp: number; // in Celsius
-  feels_like: number; // in Celsius
-  temp_min: number; // in Celsius
-  temp_max: number; // in Celsius
-}
-
-export interface TemperatureImperial {
-  temp: number; // in Fahrenheit
-  feels_like: number; // in Fahrenheit
-  temp_min: number; // in Fahrenheit
-  temp_max: number; // in Fahrenheit
-}
-
-export interface WindMetric {
-  speed: number; // in meters/sec
-  deg: number;
-  gust?: number; // in meters/sec
-}
-
-export interface WindImperial {
-  speed: number; // in miles/hour
-  deg: number;
-  gust?: number; // in miles/hour
-}
