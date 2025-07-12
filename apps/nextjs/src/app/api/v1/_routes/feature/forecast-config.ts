@@ -47,33 +47,16 @@ forecastConfigRoute.post("/", async (c) => {
 });
 
 
+forecastConfigRoute.get("/", async (c) => {
+  try {
+    await db();
+    const data = await ForecastConfig.find().sort({ createdAt: -1 });
+    return c.json({ data });
+  } catch (error) {
+    console.error("Error fetching forecast configs:", error);
+    return c.json({ message: "Failed to fetch configs" }, 500);
+  }
+});
 
-// forecastConfigRoute.post("/", async (c) => {
-//   try {
-//     await db();
-//     const { name, columns } = await c.req.json();
-
-//     if (!name || !Array.isArray(columns) || columns.length === 0) {
-//       return c.json({ message: "Invalid request" }, 400);
-//     }
-
-//     const docs = columns.map((item) => ({
-//       name,
-//       collectionName: item.collectionName,
-//       columnName: item.columnName,
-//       status: "pending",
-//       forecastResultCollection: `forecast_${item.collectionName}_${item.columnName}`,
-//       createdAt: new Date(),
-//     }));
-
-//     await ForecastConfig.insertMany(docs);
-
-//     return c.json({ message: "Config saved", data: docs });
-//   } catch (error) {
-//     console.error("Forecast config error:", error);
-//     const { message, status } = parseError(error);
-//     return c.json({ message }, status);
-//   }
-// });
 
 export default forecastConfigRoute;

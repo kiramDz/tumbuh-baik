@@ -9,7 +9,7 @@ export default function PageContainer({ children, scrollable = true }: { childre
           <div className="flex flex-1 p-4 md:px-6">{children}</div>
         </ScrollArea>
       ) : (
-        <div className="flex flex-1 p-4 md:px-6">{children}</div>
+        <div className="flex flex-1 p-4 md:px-6 ">{children}</div>
       )}
     </>
   );

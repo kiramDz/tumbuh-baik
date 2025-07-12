@@ -1,9 +1,9 @@
-import PageContainer from "@/components/ui/page-container";
 import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
 import { DataTableSkeleton } from "../_components/data-table-skeleton";
 import KaltamTable from "../_components/kaltam/kaltam-table";
 import { Suspense } from "react";
+import { ForecastConfigList } from "../_components/forecastConfig-list";
 import { ForecastDialog } from "../_components/kaltam-dialog";
 import RunForecastButton from "../_components/forecast-button";
 export const metadata = {
@@ -12,18 +12,19 @@ export const metadata = {
 
 export default async function Page() {
   return (
-    <PageContainer scrollable={false}>
-      <div className="flex flex-1 flex-col space-y-4">
-        <div className="flex items-start justify-start">
-          <Heading title="Kalender Tanam" description="Manage products (Server side table functionalities.)" />
-        </div>
-        <Separator />
+    <div className="flex flex-col space-y-4 p-4 md:px-6">
+      <div className="flex items-start justify-start">
+        <Heading title="Kalender Tanam" description="Manage products (Server side table functionalities.)" />
+      </div>
+      <Separator />
+      <div className="w-full flex gap-4">
         <ForecastDialog />
         <RunForecastButton />
-        <Suspense fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}>
-          <KaltamTable />
-        </Suspense>
       </div>
-    </PageContainer>
+      <ForecastConfigList />
+      <Suspense fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}>
+        <KaltamTable />
+      </Suspense>
+    </div>
   );
 }

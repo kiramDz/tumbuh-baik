@@ -6,6 +6,7 @@ import DayDuration from "./day-duration";
 import WeatherConclusion from "./weather-conclusion";
 import TemperatureHumidityChart from "./temp-humidity";
 import CurrentWeatherCard from "./current-weather";
+import WeatherDashboardSkeleton from "../dashboard-skeleton";
 import WindPressureCard from "./wind-pressure";
 import HourlyForecast from "./hourly-forecast";
 import { Banner } from "./banner";
@@ -71,7 +72,12 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
     setChartData(mapped);
   }, [bmkgData, selectedGampong]);
 
-  if (!bmkgApiResponse || !bmkgSummary) return <div>Loading...</div>;
+  if (!bmkgApiResponse || !bmkgSummary)
+    return (
+      <div>
+        <WeatherDashboardSkeleton />
+      </div>
+    );
 
   end.setDate(now.getDate() + 1);
   end.setHours(23, 59, 59);

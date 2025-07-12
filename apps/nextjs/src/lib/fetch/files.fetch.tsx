@@ -269,6 +269,10 @@ export const AddDatasetMeta = async (data: {
 };
 
 // forecast config :
+export const getForecastConfigs = async () => {
+  const response = await axios.get("/api/v1/forecast-config");
+  return response.data.data;
+};
 
 export const createForecastConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
   const response = await axios.post("/api/v1/forecast-config", data);

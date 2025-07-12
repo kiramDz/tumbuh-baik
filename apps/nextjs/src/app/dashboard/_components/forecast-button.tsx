@@ -18,7 +18,7 @@ const RunForecastButton = () => {
 
   return (
     <Button onClick={handleClick} variant="outline">
-      Jalankan Holt-Winter Sekarang
+      Jalankan Holt-Winter
     </Button>
   );
 };
