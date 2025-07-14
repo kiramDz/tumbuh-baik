@@ -1,5 +1,5 @@
 import axios from "axios";
-
+// import { flattenForecastData } from "../flattenForecast-data";
 export interface DatasetMetaType {
   name: string;
   source: string;
@@ -9,9 +9,9 @@ export interface DatasetMetaType {
   uploadDate: string;
 }
 
-export async function exportToCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
+export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
   try {
-    const response = await axios.get("/api/v1/export-csv", {
+    const response = await axios.get("/api/v1/export-csv/dataset-meta", {
       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
       responseType: "blob",
     });
@@ -47,6 +47,35 @@ export async function exportToCsv(collectionName: string, sortBy = "Date", sortO
     return { success: false, message: "Export failed" };
   }
 }
+export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = "desc") {
+  try {
+    const response = await axios.get("/api/v1/export-csv/hw-daily", {
+      params: { sortBy, sortOrder },
+      responseType: "blob",
+    });
+
+    if (response.status === 200) {
+      const blob = new Blob([response.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const filename = `holt_winter_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      return { success: true, message: "File downloaded successfully" };
+    }
+  } catch (error: any) {
+    console.error("Export HW CSV failed:", error?.response?.data || error.message);
+    return { success: false, message: "Export failed" };
+  }
+}
 
 //bmkg api
 export const getBmkgApi = async () => {
@@ -67,6 +96,35 @@ export const getBmkgSummary = async () => {
   } catch (error: any) {
     console.error("Error fetching BMKG Summary:", error);
     throw new Error(error?.response?.data?.description || "Failed to fetch BMKG summary data");
+  }
+};
+
+export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/hw-daily", {
+      params: { page, pageSize },
+    });
+    if (res.status === 200) {
+      console.log("✅ HW API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching HW Daily:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
   }
 };
 

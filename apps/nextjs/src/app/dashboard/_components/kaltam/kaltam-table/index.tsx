@@ -1,13 +1,12 @@
 //act as maintable
 "use client";
 import { useState } from "react";
-import { holtWinterColumns } from "./column";
 import { useQuery } from "@tanstack/react-query";
-import { getBmkgDaily } from "@/lib/fetch/files.fetch";
+import { getHoltWinterDaily, exportHoltWinterCsv } from "@/lib/fetch/files.fetch";
 import { toast } from "sonner";
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
 import { KaltamTableUI } from "./kaltam-table";
-import { exportToCsv } from "@/lib/fetch/files.fetch";
+import { ColumnDef } from "@tanstack/react-table";
 
 const KaltamTable = () => {
   const [page, setPage] = useState(1);
@@ -15,8 +14,8 @@ const KaltamTable = () => {
   const [isExporting, setIsExporting] = useState(false);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["bmkg-daily", page, pageSize],
-    queryFn: () => getBmkgDaily(page, pageSize),
+    queryKey: ["hw-daily", page, pageSize],
+    queryFn: () => getHoltWinterDaily(page, pageSize),
     refetchOnWindowFocus: false,
   });
 
@@ -26,15 +25,46 @@ const KaltamTable = () => {
     toast("Failed to load BMKG data");
     return <div>Error loading data.</div>;
   }
+  const flattenForecastData = (data: any[]) => {
+    return data.map((item) => {
+      const result: Record<string, any> = {
+        forecast_date: item.forecast_date,
+      };
+
+      for (const [param, val] of Object.entries(item.parameters || {})) {
+        // Type guard
+        if (val && typeof val === "object" && "forecast_value" in val) {
+          result[param] = (val as { forecast_value: number }).forecast_value;
+        } else {
+          result[param] = "-";
+        }
+      }
+
+      console.log("🧪 Flattened row:", result);
+      return result;
+    });
+  };
+  const flattenedData = flattenForecastData(data?.items || []);
+  const columns = flattenedData.length ? Object.keys(flattenedData[0]) : [];
+
+  const dynamicColumns: ColumnDef<any, any>[] = columns.map((col) => ({
+    accessorKey: col,
+    header: col,
+    cell: ({ row }) => {
+      const value = row.getValue(col);
+      if (typeof value === "number") return value.toFixed(2);
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.split("T")[0];
+      return value != null ? String(value) : "-";
+    },
+  }));
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const collectionName = "bmkg-hw"; // atau apapun nama koleksi yang kamu gunakan di backend
       const sortBy = "forecast_date"; // sesuaikan dengan field yang ada di database
       const sortOrder = "desc";
 
-      const result = await exportToCsv(collectionName, sortBy, sortOrder); // ganti `category` ➜ `collectionName`
+      const result = await exportHoltWinterCsv(sortBy, sortOrder); // ganti `category` ➜ `collectionName`
       if (result?.success) {
         toast.success("Data exported successfully!");
       } else {
@@ -50,8 +80,8 @@ const KaltamTable = () => {
   return (
     <>
       <KaltamTableUI
-        data={data?.items || []}
-        columns={holtWinterColumns}
+        data={flattenedData}
+        columns={dynamicColumns}
         pagination={{
           currentPage: data?.currentPage || 1,
           totalPages: data?.totalPages || 1,

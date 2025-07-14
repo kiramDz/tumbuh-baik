@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { getDynamicDatasetData } from "@/lib/fetch/files.fetch";
 import { MainTableUI } from "@/app/dashboard/_components/table/main-table-ui";
 import { ColumnDef } from "@tanstack/react-table";
-import { exportToCsv } from "@/lib/fetch/files.fetch";
+import { exportDatasetCsv } from "@/lib/fetch/files.fetch";
 
 interface DynamicMainTableProps {
   collectionName: string; // slug
@@ -30,7 +30,7 @@ export default function DynamicMainTable({ collectionName, columns }: DynamicMai
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const result = await exportToCsv(collectionName, sortBy, sortOrder); // ganti `category` ➜ `collectionName`
+      const result = await exportDatasetCsv(collectionName, sortBy, sortOrder); // ganti `category` ➜ `collectionName`
       if (result?.success) {
         toast.success("Data exported successfully!");
       } else {
