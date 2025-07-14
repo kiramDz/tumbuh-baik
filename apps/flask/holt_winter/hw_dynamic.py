@@ -394,19 +394,17 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         forecast_docs = []
         
         try:
-            for i in range(len(forecast)):  # Gunakan len(forecast) instead of forecast_days
-                forecast_date = df.index[-1] + pd.Timedelta(days=i+1)
-                forecast_date_str = forecast_date.strftime('%Y-%m-%d')
+            for i in range(len(forecast)):
+                forecast_date = df.index[-1] + pd.Timedelta(days=i + 1)
+                forecast_date_only = datetime.strptime(forecast_date.strftime('%Y-%m-%d'), '%Y-%m-%d')
                 
-                # Validasi forecast value
                 forecast_value = float(forecast[i])
                 if np.isnan(forecast_value) or np.isinf(forecast_value):
                     print(f"Warning: Skipping invalid forecast value at index {i}")
                     continue
-                
-                # Struktur dokumen untuk upsert
+
                 doc = {
-                    "forecast_date": forecast_date_str,
+                    "forecast_date": forecast_date_only,  # ⬅️ disimpan sebagai datetime tanpa jam
                     "timestamp": datetime.now().isoformat(),
                     "source_collection": collection_name,
                     "config_id": config_id,
@@ -423,12 +421,12 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                         }
                     }
                 }
-                
+
                 if append_column_id:
                     doc["column_id"] = f"{collection_name}_{target_column}"
-                
+
                 forecast_docs.append(doc)
-                
+            
         except Exception as e:
             raise ValueError(f"Error preparing forecast documents: {str(e)}")
         

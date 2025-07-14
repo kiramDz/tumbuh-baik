@@ -6,6 +6,7 @@ import os
 from flask import jsonify
 from dotenv import load_dotenv
 from holt_winter.hw_dynamic import run_optimized_hw_analysis
+from holt_winter.summary.monthly_summary import generate_monthly_summary
 
 load_dotenv()
 
@@ -110,17 +111,21 @@ def run_forecast_from_config():
         # Bersihkan collection temporary
         db["temp-hw"].delete_many({"config_id": config_id})
         
+        # Panggil function generate_monthly_summary langsung
+        summary_result = generate_monthly_summary(config_id, client)
+
         # Update status config
         db.forecast_configs.update_one(
             {"_id": config["_id"]},
             {"$set": {"status": "done"}}
         )
-        
+
         return jsonify({
             "message": f"Forecasting completed for config: {name}",
             "forecastResultCollection": forecast_coll,
             "results": convert_objectid(results),
-            "total_forecast_dates": len(forecast_data)
+            "total_forecast_dates": len(forecast_data),
+            "summary_result": summary_result
         }), 200
         
     except Exception as e:
