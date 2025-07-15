@@ -55,7 +55,7 @@ exportRoute.get("/dataset-meta", async (c) => {
 // ────────────────
 // 2. Export Holt-Winter Collection
 // ────────────────
-exportRoute.get("/hw-daily", async (c) => {
+exportRoute.get("/hw/daily", async (c) => {
   try {
     console.log("=== Export CSV via Holt-Winter Daily ===");
     await db();

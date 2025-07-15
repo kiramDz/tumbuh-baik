@@ -30,7 +30,7 @@ app.route("/user", userRoute);
 app.route("/export-csv", exportRoute);
 app.route("/dataset-meta", datasetMetaRoute);
 app.route("/forecast-config", forecastConfigRoute);
-app.route("/hw-daily", holtWinterDailyRoute);
+app.route("/hw", holtWinterDailyRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);

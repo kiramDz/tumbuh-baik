@@ -1,5 +1,4 @@
 import axios from "axios";
-// import { flattenForecastData } from "../flattenForecast-data";
 export interface DatasetMetaType {
   name: string;
   source: string;
@@ -99,9 +98,10 @@ export const getBmkgSummary = async () => {
   }
 };
 
+// holt winter
 export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
   try {
-    const res = await axios.get("/api/v1/hw-daily", {
+    const res = await axios.get("/api/v1/hw/daily", {
       params: { page, pageSize },
     });
     if (res.status === 200) {
@@ -127,6 +127,37 @@ export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
     };
   }
 };
+
+export const getHoltWinterSummary = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/hw/summary", {
+      params: { page, pageSize },
+    });
+
+    if (res.status === 200) {
+      console.log("✅ HW Summary API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching HW Summary:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+
 
 export const getBmkgDaily = async (page = 1, pageSize = 10) => {
   try {

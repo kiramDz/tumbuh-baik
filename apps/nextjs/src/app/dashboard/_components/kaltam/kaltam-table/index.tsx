@@ -22,7 +22,7 @@ const KaltamTable = () => {
   if (isLoading) return <DataTableSkeleton columnCount={7} filterCount={2} cellWidths={["10rem", "30rem", "10rem", "10rem", "6rem", "6rem", "6rem"]} shrinkZero />;
 
   if (error) {
-    toast("Failed to load BMKG data");
+    toast("Failed to load holt winter data");
     return <div>Error loading data.</div>;
   }
   const flattenForecastData = (data: any[]) => {
@@ -40,7 +40,6 @@ const KaltamTable = () => {
         }
       }
 
-      console.log("🧪 Flattened row:", result);
       return result;
     });
   };
