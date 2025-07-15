@@ -6,7 +6,7 @@ import os
 from flask import jsonify
 from dotenv import load_dotenv
 from holt_winter.hw_dynamic import run_optimized_hw_analysis
-from holt_winter.summary.monthly_summary import generate_monthly_summary
+from holt_winter.summary.monthly_summary_rev3 import generate_monthly_summary
 
 load_dotenv()
 
@@ -31,6 +31,10 @@ def convert_objectid(obj):
 
 def run_forecast_from_config():
     try:
+
+        # Kosongkan collection temp-hw di awal
+        db["temp-hw"].delete_many({})
+
         config = db.forecast_configs.find_one_and_update(
             {"status": "pending"},
             {"$set": {"status": "running"}},
@@ -39,6 +43,9 @@ def run_forecast_from_config():
         
         if not config:
             return jsonify({"message": "No pending forecast config found."}), 404
+        
+        # Kosongkan collection holt-winter di awal (tanpa perlu pengecekan)
+        db["holt-winter"].delete_many({})
         
         # Ambil info kolom yang akan dianalisis
         name = config.get("name", f"forecast_{int(time.time())}")
@@ -109,10 +116,24 @@ def run_forecast_from_config():
             print(f"✓ Inserted {len(combined_docs)} combined forecast documents")
         
         # Bersihkan collection temporary
-        db["temp-hw"].delete_many({"config_id": config_id})
+        db["temp-hw"].delete_many({})
         
         # Panggil function generate_monthly_summary langsung
         summary_result = generate_monthly_summary(config_id, client)
+
+        # Periksa apakah summary berhasil dibuat
+        if not isinstance(summary_result, dict):
+            raise ValueError("Invalid summary result format")
+    
+        # Update status config
+        update_data = {"status": "done"}
+        if summary_result.get("success"):
+            update_data.update({
+                "summary_generated": True,
+                "summary_months": summary_result.get("summaries_generated", 0)
+            })
+        else:
+            update_data["summary_error"] = summary_result.get("error", "Unknown error")
 
         # Update status config
         db.forecast_configs.update_one(
@@ -121,12 +142,12 @@ def run_forecast_from_config():
         )
 
         return jsonify({
-            "message": f"Forecasting completed for config: {name}",
-            "forecastResultCollection": forecast_coll,
-            "results": convert_objectid(results),
-            "total_forecast_dates": len(forecast_data),
-            "summary_result": summary_result
-        }), 200
+        "message": f"Forecasting completed for config: {name}",
+        "forecastResultCollection": forecast_coll,
+        "results": convert_objectid(results),
+        "total_forecast_dates": len(forecast_data),
+        "summary_result": summary_result  # Langsung passing dictionary
+         }), 200
         
     except Exception as e:
         traceback.print_exc()

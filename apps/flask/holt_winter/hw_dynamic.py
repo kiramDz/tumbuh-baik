@@ -350,16 +350,15 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             raise ValueError(f"Failed to fit final model for {target_column}")
         
         # Calculate forecast horizon (sampai akhir 2026)
-        target_end_date = pd.Timestamp('2026-12-31')
-        forecast_days = (target_end_date - df.index[-1]).days
-        
-        # Batasi forecast horizon maksimal 2 tahun untuk stabilitas
-        max_forecast_days = 730  # 2 tahun
-        if forecast_days > max_forecast_days:
-            forecast_days = max_forecast_days
-            print(f"Forecast horizon limited to {max_forecast_days} days for stability")
+        # Tentukan range forecast dinamis: 1 tahun sebelum hingga 1 tahun sesudah data terakhir
+        data_end_date = df.index[-1]
+        forecast_start_date = data_end_date - pd.DateOffset(years=1)
+        forecast_end_date = data_end_date + pd.DateOffset(years=1)
+        forecast_days = (forecast_end_date - forecast_start_date).days + 1
+
         
         print(f"Forecast horizon: {forecast_days} days")
+        
         
         # Generate forecast
         print(f"Generating forecast for {target_column}...")

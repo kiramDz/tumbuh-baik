@@ -166,21 +166,21 @@ def determine_planting_status(month, rainfall_avg, rainfall_total, kt_period):
     
     # Threshold curah hujan untuk Aceh Besar (mm/bulan)
     THRESHOLDS = {
-        "tanam_min": 200,      # Minimum untuk tanam
-        "tanam_optimal": 300,  # Optimal untuk tanam
-        "panen_max": 100       # Maksimal untuk panen
+        "tanam_min": 200,      
+        "tanam_optimal": 300,  
+        "panen_max": 100       
     }
     
-    # Logika berdasarkan KT period dan curah hujan
-    if kt_period == "KT-1":  # Sept-Jan (Musim Tanam Utama)
-        if month_num in [9, 10]:  # Sept-Oct: Periode tanam
+    
+    if kt_period == "KT-1": 
+        if month_num in [9, 10]: 
             if rainfall_avg >= THRESHOLDS["tanam_optimal"]:
                 return "tanam", f"Curah hujan {rainfall_avg}mm/bulan, optimal untuk tanam (≥{THRESHOLDS['tanam_optimal']}mm)", "normal"
             elif rainfall_avg >= THRESHOLDS["tanam_min"]:
                 return "tanam", f"Curah hujan {rainfall_avg}mm/bulan, cukup untuk tanam (≥{THRESHOLDS['tanam_min']}mm)", "normal"
             else:
                 return "tidak cocok tanam", f"Curah hujan {rainfall_avg}mm/bulan, di bawah threshold tanam ({THRESHOLDS['tanam_min']}mm)", "kekeringan"
-        elif month_num in [11, 12]:  # Nov-Dec: Periode pertumbuhan
+        elif month_num in [11, 12]:  
             if rainfall_avg >= THRESHOLDS["tanam_min"]:
                 return "tanam", f"Curah hujan {rainfall_avg}mm/bulan, mendukung pertumbuhan", "normal"
             else:
@@ -191,8 +191,8 @@ def determine_planting_status(month, rainfall_avg, rainfall_total, kt_period):
             else:
                 return "tidak cocok tanam", f"Curah hujan {rainfall_avg}mm/bulan, terlalu tinggi untuk panen", "hujan berlebih"
     
-    elif kt_period == "KT-2":  # Feb-Jun (Musim Tanam Kedua)
-        if month_num in [2, 3]:  # Feb-Mar: Periode tanam
+    elif kt_period == "KT-2":  
+        if month_num in [2, 3]:  
             if rainfall_avg >= THRESHOLDS["tanam_optimal"]:
                 return "tanam", f"Curah hujan {rainfall_avg}mm/bulan, optimal untuk tanam (≥{THRESHOLDS['tanam_optimal']}mm)", "normal"
             elif rainfall_avg >= THRESHOLDS["tanam_min"]:
