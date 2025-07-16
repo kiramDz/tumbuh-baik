@@ -69,6 +69,7 @@ seedRoute.post("/", async (c) => {
     return c.json({ message }, status);
   }
 });
+
 seedRoute.delete("/:id", async (c) => {
   try {
     await db();
