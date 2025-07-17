@@ -7,7 +7,6 @@ function YearlyCalender() {
   return (
     <div className="spaye-y-8 p-6">
       <MonthCalendar />
-
       <SeasonalCalendarTabs />
       <Separator className="my-4" />
       <div>

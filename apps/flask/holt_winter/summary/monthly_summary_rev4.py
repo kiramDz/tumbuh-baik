@@ -56,22 +56,22 @@ def generate_monthly_summary(config_id, client=None):
                 summaries.append({
                     "month": ideal_date.strftime("%Y-%m"),
                     "start_date": ideal_date,
-                    "end_date": ideal_date + timedelta(days=120),
-                    "kt_period": f"{kt_label}-{year}",
+                    "end_date": ideal_date + timedelta(days=160),  # PERBAIKAN: 160 hari (minimal siklus padi)
+                    "kt_period": f"{kt_label}-{kt_year}",
                     "status": "cocok",
                     "reason": f"Curah hujan cukup (total: {rr_sum:.2f} mm, rata-rata: {rr_avg:.2f} mm) dari {ideal_date.date()} hingga {(ideal_date + timedelta(days=29)).date()}",
-                    "parameters": summarize_parameters_avg(grouped, ideal_date),
+                    "parameters": summarize_parameters_monthly(grouped, ideal_date),
                     "config_id": config_id,     
                 })
             else:
                 summaries.append({
                     "month": start_range.strftime("%Y-%m"),
                     "start_date": start_range,
-                    "end_date": end_range,
-                    "kt_period": f"{kt_label}-{year}",
+                    "end_date": start_range + timedelta(days=160),
+                    "kt_period": f"{kt_label}-{kt_year}",
                     "status": "rehat",
-                    "reason": f"Curah hujan tidak mencukupi >50mm dalam 30 hari berturut-turut yang dimulai antara {start_range.date()} sampai {end_range.date()}",
-                    "parameters": {},
+                    "reason": f"Curah hujan tidak mencukupi 130-150mm dalam 30 hari berturut-turut yang dimulai antara {start_range.date()} sampai {end_range.date()}",  # PERBAIKAN: threshold yang benar
+                    "parameters": summarize_parameters_monthly(grouped, start_range),
                     "config_id": config_id,
                 })
 
@@ -110,7 +110,7 @@ def group_forecast_by_date(forecast_data):
 
 def find_ideal_planting_date(grouped, start_date, end_date):
     """
-    Cari tanggal mulai tanam dengan akumulasi RR > 50mm dalam 30 hari berturut-turut
+    Cari tanggal mulai tanam dengan akumulasi RR 130-150mm dalam 30 hari berturut-turut
     yang dimulai dari rentang KT (start_date sampai end_date)
     
     Contoh KT-1: 20 Sep - 10 Okt
@@ -135,8 +135,8 @@ def find_ideal_planting_date(grouped, start_date, end_date):
                 total_rr += rr_value
                 valid_days += 1
         
-        # Jika total curah hujan > 50mm dalam 30 hari, ini adalah tanggal ideal
-        if total_rr > 50 and valid_days >= 25:  # Minimal 25 hari ada data
+        # PERBAIKAN: Cari total curah hujan 130-150mm dalam 30 hari (bukan rata-rata)
+        if total_rr >= 130 and total_rr <= 300 and valid_days >= 25:  # Minimal 25 hari ada data, max 300mm untuk hindari banjir
             return datetime.combine(current_date, datetime.min.time())
         
         # Lanjut ke tanggal berikutnya
@@ -144,17 +144,44 @@ def find_ideal_planting_date(grouped, start_date, end_date):
     
     return None
 
-def summarize_parameters_avg(grouped, start_date):
+def summarize_parameters_monthly(grouped, start_date):
+    """
+    Buat summary parameter per bulan selama 4 bulan (160 hari)
+    Dinamis untuk semua parameter yang ada
+    """
+    if start_date is None:
+        return {}
+    
+    # Convert datetime ke date jika perlu
+    if hasattr(start_date, 'date'):
+        start_date = start_date.date()
+    
     result = {}
-    for param in next(iter(grouped.values())).keys():
-        total = 0
-        count = 0
-        for i in range(30):
-            date = start_date.date() + timedelta(days=i)
-            val = grouped.get(date, {}).get(param)
-            if val is not None:
-                total += val
-                count += 1
-        if count:
-            result[param] = round(total / count, 2)
+    
+    # Ambil semua parameter yang tersedia (dinamis)
+    all_params = set()
+    for date_data in grouped.values():
+        all_params.update(date_data.keys())
+    
+    # Hitung per bulan selama 4 bulan
+    for month_offset in range(4):
+        month_start_date = start_date + timedelta(days=month_offset * 30)
+        month_label = f"month_{month_offset + 1}"
+        
+        month_data = {}
+        for param in all_params:
+            total = 0
+            count = 0
+            for i in range(30):
+                date = month_start_date + timedelta(days=i)
+                val = grouped.get(date, {}).get(param)
+                if val is not None:
+                    total += val
+                    count += 1
+            
+            if count > 0:
+                month_data[param] = round(total / count, 2)
+        
+        result[month_label] = month_data
+    
     return result

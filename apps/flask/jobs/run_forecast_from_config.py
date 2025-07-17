@@ -6,7 +6,7 @@ import os
 from flask import jsonify
 from dotenv import load_dotenv
 from holt_winter.hw_dynamic import run_optimized_hw_analysis
-from holt_winter.summary.monthly_summary_rev3 import generate_monthly_summary
+from holt_winter.summary.monthly_summary_rev4 import generate_monthly_summary
 
 load_dotenv()
 
