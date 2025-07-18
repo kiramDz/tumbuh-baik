@@ -44,18 +44,15 @@ holtWinter.get("/summary", async (c) => {
     await db();
     const page = Number(c.req.query("page")) || 1;
     const pageSize = Number(c.req.query("pageSize")) || 10;
-    const totalData = await HoltWinterSummary.countDocuments();
 
-    console.log("Collection name:", HoltWinterSummary.collection.name);
-    console.log("🟡 Total documents:", totalData);
-
-    const data = await HoltWinterSummary.find()
-      .skip((page - 1) * pageSize)
-      .limit(pageSize)
-      .sort({ month: -1 }) // sort by newest month
-      .lean();
-
-    console.log("🟢 Retrieved summary documents:", data.length);
+    const [totalData, data] = await Promise.all([
+      HoltWinterSummary.countDocuments(),
+      HoltWinterSummary.find()
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .sort({ start_date: -1 }) // lebih logis pakai start_date, bukan month
+        .lean(),
+    ]);
 
     return c.json({
       message: "Success",
