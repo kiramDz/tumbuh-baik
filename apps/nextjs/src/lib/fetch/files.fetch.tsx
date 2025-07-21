@@ -356,6 +356,15 @@ export const AddDatasetMeta = async (data: {
     throw error;
   }
 };
+export async function getRainfallSummary() {
+  const res = await fetch("/api/v1/dataset-meta/rainfall-summary", {
+    cache: "no-store",
+  });
+
+  const json = await res.json();
+  return json.data || [];
+}
+
 
 // forecast config :
 export const getForecastConfigs = async () => {

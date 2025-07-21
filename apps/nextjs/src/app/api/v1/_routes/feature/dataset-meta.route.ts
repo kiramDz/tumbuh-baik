@@ -73,6 +73,43 @@ datasetMetaRoute.get("/:slug", async (c) => {
   }
 });
 
+
+datasetMetaRoute.get("/rainfall-summary", async (c) => {
+  try {
+    await db();
+    const Model = mongoose.models["rainfall"] || mongoose.model("rainfall", new mongoose.Schema({}, { strict: false }), "rainfall");
+
+    const summary = await Model.aggregate([
+      {
+        $group: {
+          _id: "$Year",
+          avgRainfall: { $avg: "$RR_imputed" },
+          minRainfall: { $min: "$RR_imputed" },
+          maxRainfall: { $max: "$RR_imputed" },
+          totalDays: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+      {
+        $project: {
+          year: "$_id",
+          avgRainfall: 1,
+          minRainfall: 1,
+          maxRainfall: 1,
+          totalDays: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    return c.json({ message: "Success", data: summary }, 200);
+  } catch (error) {
+    console.error("Error in rainfall-summary route:", error);
+    return c.json({ message: "Server error" }, 500);
+  }
+});
+
+
 // POST - Upload dataset metadata + records
 datasetMetaRoute.post("/", async (c) => {
   try {
