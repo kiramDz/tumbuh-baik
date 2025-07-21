@@ -2,10 +2,11 @@
 
 import PageContainer from "@/components/ui/page-container";
 
-import {  FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { DashboardCard, DashboardCardSkeleton } from "../_components/dashboard-card";
 import { GetAllDatasetMeta } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
+import {RainfallAreaChart} from "../_components/chart/rainfall-chart";
 
 export default function Page() {
   const { data, isLoading } = useQuery({
@@ -28,7 +29,9 @@ export default function Page() {
               ))}
           </div>
 
-          <div className="w-full mx-auto py-4"></div>
+          <div className="w-full mx-auto py-4">
+            <RainfallAreaChart collectionName="rainfall" />
+          </div>
         </div>
       </PageContainer>
     </>
