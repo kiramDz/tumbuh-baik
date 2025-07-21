@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { WeatherData } from "@/types/weather";
 import DayDuration from "./day-duration";
 import WeatherConclusion from "./weather-conclusion";
@@ -15,13 +15,7 @@ import { WeatherTabs } from "./weather-tabs";
 import { getBmkgApi, getBmkgSummary } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
 import { getTodayWeather, getChartData, getHourlyForecastData, getWeatherConclusionFromDailyData, getTodayWeatherConlusion, getFinalConclusion } from "@/lib/bmkg-utils";
-import type { BMKGApiData, PlantSummaryData } from "@/types/table-schema";
-
-interface ChartDataPoint {
-  time: string;
-  temperature: number;
-  humidity: number;
-}
+import type { PlantSummaryData } from "@/types/table-schema";
 
 interface WeatherDashboardProps {
   weatherData: WeatherData;
@@ -30,7 +24,6 @@ interface WeatherDashboardProps {
 
 const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }) => {
   const { currentWeather } = weatherData;
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
   const now = new Date();
   const end = new Date();
@@ -45,32 +38,42 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
     queryFn: getBmkgSummary,
   });
 
-  const today = new Date();
-  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-
-  const currentSummary = bmkgSummary?.find((item: PlantSummaryData) => item.month === currentMonth);
-
   const bmkgData = bmkgApiResponse?.data;
-  const selected = bmkgData?.find((item: BMKGApiData) => item.kode_gampong === selectedGampong);
-  const todayOnlyData = getTodayWeatherConlusion(selected?.data || []);
-  const conclusion = getWeatherConclusionFromDailyData(todayOnlyData);
-  const finalConclusion = getFinalConclusion(conclusion, currentSummary?.status ?? "tidak cocok tanam");
-
-  const latestData = selected?.data ? getTodayWeather(selected.data) : null;
 
   useEffect(() => {
-    if (bmkgData && !selectedGampong) {
-      setSelectedGampong(bmkgData[0]?.kode_gampong);
+    if (!selectedGampong && bmkgData?.length) {
+      setSelectedGampong(bmkgData[0].kode_gampong);
     }
   }, [bmkgData, selectedGampong]);
 
-  useEffect(() => {
-    if (!selectedGampong || !bmkgData) return;
-    const selected = bmkgData.find((item: any) => item.kode_gampong === selectedGampong);
-    if (!selected?.data) return;
-    const mapped = getChartData(selected.data);
-    setChartData(mapped);
+  const selected = useMemo(() => {
+    return bmkgData?.find((item: any) => item.kode_gampong === selectedGampong) ?? null;
   }, [bmkgData, selectedGampong]);
+
+  const selectedData = selected?.data ?? [];
+
+  const chartData = useMemo(() => getChartData(selectedData), [selectedData]);
+
+  const latestData = useMemo(() => getTodayWeather(selectedData), [selectedData]);
+
+  const forecastData = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);
+
+  const todayOnlyData = useMemo(() => getTodayWeatherConlusion(selectedData), [selectedData]);
+
+  const conclusion = useMemo(() => getWeatherConclusionFromDailyData(todayOnlyData), [todayOnlyData]);
+
+  const currentMonth = useMemo(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
+  const currentSummary = useMemo(() => {
+    return bmkgSummary?.find((item: PlantSummaryData) => item.month === currentMonth);
+  }, [bmkgSummary, currentMonth]);
+
+  const finalConclusion = useMemo(() => {
+    return getFinalConclusion(conclusion, currentSummary?.status ?? "tidak cocok tanam");
+  }, [conclusion, currentSummary?.status]);
 
   if (!bmkgApiResponse || !bmkgSummary)
     return (
@@ -81,8 +84,6 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ weatherData, unit }
 
   end.setDate(now.getDate() + 1);
   end.setHours(23, 59, 59);
-
-  const forecastData = selected?.data ? getHourlyForecastData(selected.data) : [];
 
   return (
     <div className="bg-inherit min-h-screen flex flex-col">

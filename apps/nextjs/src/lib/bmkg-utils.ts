@@ -12,8 +12,6 @@ export interface WeatherConclusionResult {
   };
 }
 
-
-
 export const getFinalConclusion = (
   dailyConclusion: WeatherConclusionResult,
   seasonalStatus: string
@@ -44,8 +42,6 @@ export const getFinalConclusion = (
     note,
   };
 };
-
-
 
 export function getWeatherConclusionFromDailyData(todayData: BMKGDataItem[]): WeatherConclusionResult {
   if (!todayData || todayData.length === 0) {
@@ -124,6 +120,7 @@ export function getTodayWeatherConlusion(data: BMKGDataItem[]): BMKGDataItem[] {
 }
 
 export const getTodayWeather = (data: BMKGDataItem[]) => {
+  if (data.length === 0) return null;
   const now = new Date();
   return data.reduce((closest: BMKGDataItem, item: BMKGDataItem) => {
     const itemDate = new Date(item.local_datetime.replace(" ", "T"));
