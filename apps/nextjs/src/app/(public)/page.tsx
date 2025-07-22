@@ -7,7 +7,7 @@ import WeatherDashboardSkeleton from "@/components/dashboard-skeleton";
 import { useWeatherData } from "@/hooks/use-weatherData";
 
 // Lazy loaded component
-const WeatherDashboard = lazy(() => import("@/components/view/weather-dashboard"));
+const WeatherDashboard = lazy(() => import("@/components/view/weather-dashboard-new"));
 
 export default function PublicPage() {
   const [coordinates] = useState({ lat: 0, lon: 0 });
