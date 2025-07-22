@@ -1,4 +1,6 @@
 import type { BMKGDataItem, BMKGApiData } from "@/types/table-schema";
+import { format, addDays } from "date-fns";
+import { id } from "date-fns/locale";
 
 export interface WeatherConclusionResult {
   status: "cocok" | "waspada" | "tidak dianjurkan";
@@ -194,7 +196,7 @@ export function getWindCondition(ws: number, wd: string): string {
   return "Data angin tidak tersedia atau tidak valid.";
 }
 
-export const getHourlyForecastData = (data: BMKGDataItem[]) => {
+export const getHourlyForecastData = (data: BMKGDataItem[], unit: "metric" | "imperial" = "metric") => {
   const now = new Date();
   const end = new Date();
   end.setDate(end.getDate() + 1);
@@ -210,7 +212,63 @@ export const getHourlyForecastData = (data: BMKGDataItem[]) => {
         hour: "2-digit",
         hour12: false,
       }),
-      temperature: item.t,
+      temperature: unit === "imperial" ? (item.t * 9) / 5 + 32 : item.t, // Convert to Fahrenheit if imperial
       weather: item.weather_desc?.toLowerCase() || "clear",
     }));
 };
+
+export type ForecastDay = {
+  day: string;
+  condition: string;
+  temperature: number;
+  icon: string;
+};
+export const getDailyForecastData = (data: BMKGDataItem[]): ForecastDay[] => {
+  const now = new Date();
+  const days = [0, 1, 2]; // hari ini sampai 2 hari ke depan
+
+  return days.map((offset) => {
+    const date = addDays(now, offset);
+    const dayName = format(date, "EEEE", { locale: id });
+
+    const filtered = (data ?? []).filter((item) => {
+      if (!item?.local_datetime) return false; // tambahkan ini
+      const itemDate = new Date(item.local_datetime.replace(" ", "T"));
+      return itemDate >= now && itemDate <= end;
+    });
+
+    const avgTemp = filtered.reduce((sum, item) => sum + (item.t || 0), 0) / (filtered.length || 1);
+
+    const conditions = filtered.map((item) => item.weather_desc?.toLowerCase() || "");
+    const mostFrequent = getMostFrequent(conditions);
+
+    return {
+      day: dayName,
+      condition: capitalizeFirstLetter(mostFrequent),
+      temperature: Math.round(avgTemp),
+      icon: getWeatherEmoji(mostFrequent),
+    };
+  });
+};
+
+function getWeatherEmoji(desc: string) {
+  if (desc.includes("hujan")) return "🌧️";
+  if (desc.includes("berawan")) return "☁️";
+  if (desc.includes("cerah")) return "☀️";
+  return "☀️"; // default
+}
+
+// Fungsi bantu: cari yang paling sering muncul
+function getMostFrequent(arr: string[]): string {
+  const freq: Record<string, number> = {};
+  arr.forEach((item) => {
+    freq[item] = (freq[item] || 0) + 1;
+  });
+
+  return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
+// Fungsi bantu: kapitalisasi
+function capitalizeFirstLetter(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}

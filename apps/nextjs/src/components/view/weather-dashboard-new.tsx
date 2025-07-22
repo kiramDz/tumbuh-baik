@@ -9,11 +9,11 @@ import { WeatherTabs } from "./weather-tabs";
 import WeatherIcon from "./weather-icon";
 import CurrentWeatherCard from "./current-weather";
 import WeatherForecast from "./weather-forecast";
-import { ChartLineInteractive } from "../chart-tes";
+import { WeatherChart } from "../chart-tes";
 
 import { WeatherData } from "@/types/weather";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
-import { getTodayWeather } from "@/lib/bmkg-utils";
+import { getTodayWeather, getDailyForecastData, getHourlyForecastData } from "@/lib/bmkg-utils";
 
 interface WeatherDashboardProps {
   weatherData: WeatherData;
@@ -40,6 +40,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit, weatherData }
 
   const selectedData = selected?.data ?? [];
   const latestData = useMemo(() => getTodayWeather(selectedData), [selectedData]);
+  const dailyForecast = getDailyForecastData(bmkgData);
+  const hourlyForecast = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);
   return (
     <>
       <div className="bg-inherit min-h-screen flex flex-col space-y-6">
@@ -48,14 +50,12 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit, weatherData }
           {selectedGampong && <WeatherHeader bmkgData={bmkgData} selectedCode={selectedGampong} onGampongChange={setSelectedGampong} />}
           <div className="w-full flex justify-between mx-auto">
             <div className="flex-1">{latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData }} unit={unit} />}</div>
-            <div className="flex-1 flex justify-center">
-              <WeatherIcon />
-            </div>
-            <div className="flex-1 flex justify-end">
-              <WeatherForecast />
+            <div className="flex-1 flex justify-center">{latestData && selected && <WeatherIcon description={latestData.weather_desc} />}</div>
+            <div className="flex-1 flex justify-end items-center">
+              <WeatherForecast forecast={dailyForecast} />
             </div>
           </div>
-          <ChartLineInteractive />
+          {hourlyForecast.length > 0 ? <WeatherChart hourlyForecast={hourlyForecast} /> : <div>No forecast data available</div>}
         </WeatherTabs>
       </div>
     </>

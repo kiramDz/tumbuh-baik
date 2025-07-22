@@ -81,8 +81,8 @@ export const UserSchema = z.object({
 });
 
 export type HoltWinterDataType = z.infer<typeof HoltWinterDataSchema>;
-export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;
-export type BMKGApiData = z.infer<typeof BMKGApi>;
+  export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;
+  export type BMKGApiData = z.infer<typeof BMKGApi>;
 export type SeedType = z.infer<typeof SeedSchema>;
 export type UserType = z.infer<typeof UserSchema>;
 export type PlantSummaryData = z.infer<typeof PlantSummaryDataSchema>;
