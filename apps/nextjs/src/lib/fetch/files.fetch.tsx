@@ -98,7 +98,7 @@ export const getBmkgSummary = async () => {
   }
 };
 
-// holt winter
+// holt winter table
 export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
   try {
     const res = await axios.get("/api/v1/hw/daily", {
@@ -127,6 +127,21 @@ export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
     };
   }
 };
+
+export const getHoltWinterDailyGrid = async () => {
+  try {
+    const res = await axios.get("/api/v1/hw/daily/grid");
+    if (res.status === 200) {
+      console.log("✅ HW API all response:", res.data.data);
+      return res.data.data || [];
+    }
+  } catch (error) {
+    console.error("Error fetching HW Daily All:", error);
+    return [];
+  }
+};
+
+// holt winter grid
 
 export const getHoltWinterSummary = async (page = 1, pageSize = 10) => {
   try {

@@ -39,6 +39,25 @@ holtWinter.get("/daily", async (c) => {
   }
 });
 
+holtWinter.get("/daily/grid", async (c) => {
+  try {
+    await db();
+    const data = await HoltWinterDaily.find()
+      .sort({ forecast_date: 1 }) // Urutkan berdasarkan tanggal secara ascending
+      .lean();
+
+    console.log("🟢 Retrieved all documents:", data.length);
+
+    return c.json({
+      message: "Success",
+      data: data,
+    });
+  } catch (error) {
+    const err = parseError(error);
+    return c.json({ message: err.message }, 500);
+  }
+});
+
 holtWinter.get("/summary", async (c) => {
   try {
     await db();
