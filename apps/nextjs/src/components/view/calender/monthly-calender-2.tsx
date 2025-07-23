@@ -1,0 +1,142 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { getHoltWinterDaily } from "@/lib/fetch/files.fetch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useState, useMemo } from "react";
+import clsx from "clsx";
+import { format, parse, startOfDay, endOfDay, eachDayOfInterval, getDay } from "date-fns";
+import { id } from "date-fns/locale";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const KT_PERIODS = {
+  "KT-1": ["09-20-2025", "01-20-2026"],
+  "KT-2": ["01-21-2026", "06-20-2026"],
+  "KT-3": ["06-21-2026", "09-19-2026"],
+};
+
+const getWeatherColor = (forecastValue: number) => {
+  return forecastValue > 0 ? "bg-green-300" : "bg-gray-200";
+};
+
+const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
+  const days = eachDayOfInterval({ start: startDate, end: endDate });
+  const startOffset = getDay(startDate) === 0 ? 6 : getDay(startDate) - 1; // Mulai dari Senin (0-6 -> 6,0,1,2,3,4,5)
+
+  const grid: (any | null)[] = Array(startOffset).fill(null);
+  days.forEach((date) => {
+    const forecast = data.find((item) => format(new Date(item.forecast_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"));
+    if (forecast) grid.push(forecast);
+    else grid.push({ forecast_date: date.toISOString(), parameters: { RR_imputed: { forecast_value: 0 } } });
+  });
+
+  const rows: (any | null)[][] = [];
+  for (let i = 0; i < grid.length; i += 1) {
+    const rowIndex = i % 7;
+    if (!rows[rowIndex]) rows[rowIndex] = [];
+    rows[rowIndex].push(grid[i]);
+  }
+
+  return rows;
+};
+
+export default function PeriodCalendar() {
+  const {
+    data: forecastData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["holt-winter-period"],
+    queryFn: async () => {
+      const all = await getHoltWinterDaily(1, 731); // Ambil semua 731 dokumen
+      console.log("Fetched data:", all.items);
+      return all.items
+        .map((item: any) => ({
+          ...item,
+          forecast_date: new Date(item.forecast_date).toISOString(), // Pastikan format konsisten
+        }))
+        .sort((a: any, b: any) => new Date(a.forecast_date) - new Date(b.forecast_date)); // Urutkan kronologis
+    },
+  });
+
+  const periodRows = useMemo(() => {
+    if (!forecastData || forecastData.length === 0) return { "KT-1": [], "KT-2": [], "KT-3": [] };
+    const rows: Record<string, (any | null)[][]> = {};
+    Object.keys(KT_PERIODS).forEach((period) => {
+      const [startStr, endStr] = KT_PERIODS[period as keyof typeof KT_PERIODS];
+      const startDate = parse(startStr, "MM-dd-yyyy", new Date());
+      const endDate = parse(endStr, "MM-dd-yyyy", new Date());
+      rows[period] = getPeriodCalendarGrid(forecastData, startDate, endDate);
+    });
+    return rows;
+  }, [forecastData]);
+
+  const renderPeriodGrid = (period: keyof typeof KT_PERIODS) => (
+    <TabsContent value={period}>
+      <Table className="bg-background mt-6 min-w-[900px]">
+        <TableHeader>
+          <TableRow className="*:border-border">
+            {Array.from({ length: periodRows[period][0]?.length || 0 }).map((_, colIdx) => (
+              <TableHead key={colIdx} className="text-center">
+                {periodRows[period][0][colIdx] ? format(new Date(periodRows[period][0][colIdx].forecast_date), "dd MMM", { locale: id }) : ""}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day, rowIdx) => (
+            <TableRow key={day} className="*:border-border">
+              <TableCell className="text-center font-medium">{day}</TableCell>
+              {periodRows[period][rowIdx]?.map((dayData, colIdx) => (
+                <TableCell key={colIdx} className={clsx("text-center", getWeatherColor(dayData?.parameters?.RR_imputed?.forecast_value ?? 0))}>
+                  {dayData ? (
+                    <>
+                      <div className="text-xs">{format(new Date(dayData.forecast_date), "dd")}</div>
+                      <div className="text-xs">{dayData.parameters.RR_imputed.forecast_value.toFixed(2)} mm</div>
+                    </>
+                  ) : (
+                    <div className="text-xs">-</div>
+                  )}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TabsContent>
+  );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="text-red-500 p-4 border border-red-200 rounded">Error: {error instanceof Error ? error.message : "Unknown error"}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Tabs defaultValue="KT-1">
+        <TabsList className="mb-4">
+          <TabsTrigger value="KT-1">KT-1</TabsTrigger>
+          <TabsTrigger value="KT-2">KT-2</TabsTrigger>
+          <TabsTrigger value="KT-3">KT-3</TabsTrigger>
+        </TabsList>
+        {renderPeriodGrid("KT-1")}
+        {renderPeriodGrid("KT-2")}
+        {renderPeriodGrid("KT-3")}
+      </Tabs>
+    </div>
+  );
+}

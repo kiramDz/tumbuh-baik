@@ -3,16 +3,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { parseISO, isWithinInterval, startOfWeek, format, addDays, eachDayOfInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ThresholdKey, thresholds } from "@/config/tresholds";
-// import { EvaluateGridColor } from "@/lib/evaluate-gridColor";
 
-// Type untuk data harian Holt-Winters
 interface HoltWinterDaily {
   date: string;
   parameters: Record<ThresholdKey, { forecast_value: number }>;
 }
 
 type GridBoxProps = {
-  value: number; // forecast_value dari RR_imputed
+  value: number;
   parameter: string; // misalnya "RR_imputed"
 };
 
@@ -70,7 +68,7 @@ const GridBox = ({ value, parameter }: GridBoxProps) => {
     red: "bg-red-500",
   }[colorKey];
 
-  return <div className={cn("w-6 h-6 rounded", bgColor)} title={`${parameter}: ${value.toFixed(2)}`} />;
+  return <div className={cn("w-3 h-3 rounded", bgColor)} title={`${parameter}: ${value.toFixed(2)}`} />;
 };
 
 interface CalendarGridProps {
@@ -113,63 +111,74 @@ export default function PlantingCalendarGrid({ data, parameter, selectedYear, on
   const [tab, setTab] = useState<"KT-1" | "KT-2" | "KT-3">("KT-1");
 
   const grouped = useMemo(() => {
-    const map: Record<string, HoltWinterDaily[]> = {
-      "KT-1": [],
-      "KT-2": [],
-      "KT-3": [],
+    const periods = {
+      "KT-1": {
+        start: parseISO(`${selectedYear}-09-20`),
+        end: parseISO(`${selectedYear + 1}-01-20`),
+      },
+      "KT-2": {
+        start: parseISO(`${selectedYear}-01-21`),
+        end: parseISO(`${selectedYear}-06-20`),
+      },
+      "KT-3": {
+        start: parseISO(`${selectedYear}-06-21`),
+        end: parseISO(`${selectedYear}-09-19`),
+      },
     };
 
-    data.forEach((item) => {
-      const date = parseISO(item.date);
-      const year = date.getFullYear();
-      if (year !== selectedYear) return;
+    const result: Record<string, (HoltWinterDaily | null)[]> = {};
 
-      console.log(`Processing item: ${item.date}, year: ${year}, parameters:`, item.parameters);
+    Object.entries(periods).forEach(([key, { start, end }]) => {
+      // Filter data untuk periode ini
+      const periodData = data.filter((item) => {
+        const date = parseISO(item.date);
+        return isWithinInterval(date, { start, end });
+      });
 
-      if (
-        isWithinInterval(date, {
-          start: parseISO(`${selectedYear}-09-20`),
-          end: parseISO(`${selectedYear + 1}-01-20`),
-        })
-      ) {
-        map["KT-1"].push(item);
-      } else if (
-        isWithinInterval(date, {
-          start: parseISO(`${selectedYear}-01-21`),
-          end: parseISO(`${selectedYear}-06-20`),
-        })
-      ) {
-        map["KT-2"].push(item);
-      } else if (
-        isWithinInterval(date, {
-          start: parseISO(`${selectedYear}-06-21`),
-          end: parseISO(`${selectedYear}-09-19`),
-        })
-      ) {
-        map["KT-3"].push(item);
-      }
+      // Organisir ke dalam grid mingguan
+      result[key] = organizeDataIntoWeeklyGrid(periodData, start, end);
     });
 
-    console.log("Grouped data:", {
-      "KT-1": map["KT-1"].length,
-      "KT-2": map["KT-2"].length,
-      "KT-3": map["KT-3"].length,
-    });
-
-    return map;
+    return result;
   }, [data, selectedYear]);
 
-  // Hitung jumlah minggu untuk setiap periode
-  const getWeekCount = (period: "KT-1" | "KT-2" | "KT-3") => {
-    const dates = grouped[period].map((item) => parseISO(item.date));
-    if (dates.length === 0) return 0;
-    const start = dates[0]; // Hapus .date, gunakan langsung objek Date dari parseISO
-    const end = dates[dates.length - 1];
-    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.ceil(diffDays / 7);
-  };
+  const dates = useMemo(() => {
+    return data.map((d) => d.date).filter((date): date is string => date !== undefined && date !== null && !isNaN(Date.parse(date)));
+  }, [data]);
 
-  const daysOfWeek = ["Mon", "Wed", "Fri"]; // Label hari (contoh: Senin, Rabu, Jumat)
+  function getMonthLabels(dates: string[]) {
+    const result: { month: string; span: number }[] = [];
+    let prevMonth = "";
+    let count = 0;
+    for (let i = 0; i < dates.length; i += 7) {
+      const date = dates[i];
+      if (!date) continue; // Lewati jika tanggal tidak valid
+      const month = format(new Date(date), "MMM");
+      if (month !== prevMonth) {
+        if (count > 0) {
+          result.push({ month: prevMonth, span: Math.floor(count / 7) });
+        }
+        prevMonth = month;
+        count = 1;
+      } else {
+        count++;
+      }
+    }
+    if (count > 0) {
+      result.push({ month: prevMonth, span: Math.floor(count / 7) });
+    }
+    return result;
+  }
+  // Hitung jumlah kolom (minggu) untuk setiap periode
+  const getColumnsCount = (gridData: (HoltWinterDaily | null)[]) => {
+    return Math.ceil(gridData.length / 7);
+  };
+  const monthLabels = getMonthLabels(dates); // Gunakan dates yang sudah difilter
+
+  // Dalam render:
+
+  // Header hari untuk referensi
+  const dayLabels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
 
   return (
     <div>
@@ -178,6 +187,7 @@ export default function PlantingCalendarGrid({ data, parameter, selectedYear, on
         <option value={2026}>Periode 2026</option>
         <option value={2027}>Periode 2027</option>
       </select>
+
       <Tabs defaultValue="KT-1" value={tab} onValueChange={(v) => setTab(v as any)}>
         <TabsList className="mb-4">
           <TabsTrigger value="KT-1">KT-1</TabsTrigger>
@@ -185,54 +195,69 @@ export default function PlantingCalendarGrid({ data, parameter, selectedYear, on
           <TabsTrigger value="KT-3">KT-3</TabsTrigger>
         </TabsList>
 
-        {(["KT-1", "KT-2", "KT-3"] as const).map((key) => (
-          <TabsContent key={key} value={key}>
-            <div className="flex">
-              {/* Label Hari (kiri) */}
-              <div className="mr-2">
-                {daysOfWeek.map((day, index) => (
-                  <div key={index} className="text-center mb-1 text-gray-500">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              {/* Grid Utama */}
-              <div
-                className="grid"
-                style={{
-                  gridTemplateColumns: `repeat(${getWeekCount(key)}, minmax(10px, 1fr))`,
-                  gap: "1px",
-                }}
-              >
-                {/* Label Bulan (atas) - Placeholder, perlu dihitung berdasarkan tanggal */}
-                <div className="flex mb-1">
-                  {grouped[key]
-                    .reduce((months, item) => {
-                      const month = parseISO(item.date).toLocaleString("en-US", { month: "short" });
-                      if (!months.includes(month)) months.push(month);
-                      return months;
-                    }, [] as string[])
-                    .map((month, index) => (
-                      <div key={index} className="text-center text-gray-500 mx-2">
+        {(["KT-1", "KT-2", "KT-3"] as const).map((key) => {
+          const gridData = grouped[key];
+          const columnsCount = getColumnsCount(gridData);
+
+          return (
+            <TabsContent key={key} value={key}>
+              <div className="mb-4">
+                <div className="grid grid-cols-91 gap-1 mb-1">
+                  <div className="flex gap-1 mb-2 ml-[36px]">
+                    {monthLabels.map(({ month, span }, idx) => (
+                      <div key={idx} className={`col-span-${span} text-xs text-center text-black font-medium`}>
                         {month}
                       </div>
                     ))}
+                  </div>
                 </div>
-                {grouped[key].map((item, index) => {
-                  const date = parseISO(item.date);
-                  const weekIndex = Math.floor(index / 7); // Indeks minggu
-                  const dayIndex = index % 7; // Indeks hari dalam minggu
-                  if (dayIndex === 0 || dayIndex === 2 || dayIndex === 4) {
-                    // Hanya tampilkan Mon, Wed, Fri
-                    return <GridBox key={item.date} parameter={parameter} value={item.parameters[parameter]?.forecast_value ?? 0} />;
-                  }
-                  return null;
-                })}
+                {/* Header hari */}
+                <div className="flex mb-2">
+                  <div className="w-8"></div> {/* Spacer untuk label hari */}
+                  {Array.from({ length: columnsCount }, (_, weekIndex) => (
+                    <div key={weekIndex} className="w-3 mr-1 text-xs text-center">
+                      {/* Bisa tambahkan label minggu di sini jika perlu */}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Grid Calendar */}
+                <div className="flex">
+                  {/* Label hari di sebelah kiri */}
+                  <div className="flex flex-col mr-2">
+                    {dayLabels.map((day, index) => (
+                      <div key={day} className="h-3 mb-1 text-xs leading-3 text-right w-6">
+                        {index % 2 === 1 ? day : ""} {/* Tampilkan label bergantian agar tidak terlalu padat */}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Grid kotak-kotak */}
+                  <div
+                    className="grid gap-1"
+                    style={{
+                      gridTemplateRows: "repeat(7, 1fr)",
+                      gridTemplateColumns: `repeat(${columnsCount}, 1fr)`,
+                      gridAutoFlow: "column",
+                    }}
+                  >
+                    {gridData.map((item, index) => {
+                      if (!item) {
+                        // Kotak kosong untuk tanggal di luar range
+                        return <div key={index} className="w-3 h-3 bg-yellow-400 rounded" title="Data hilang" />;
+                      }
+
+                      const value = item.parameters[parameter]?.forecast_value ?? 0;
+                      return <GridBox key={item.date} parameter={parameter} value={value} date={item.date} />;
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
-            {grouped[key].length === 0 && <p className="text-center text-gray-500 mt-4">Data tidak tersedia untuk periode ini</p>}
-          </TabsContent>
-        ))}
+
+              {gridData.length === 0 && <p className="text-center text-gray-500 mt-4">Data tidak tersedia untuk periode ini</p>}
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );
