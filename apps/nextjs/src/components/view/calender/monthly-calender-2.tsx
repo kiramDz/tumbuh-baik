@@ -3,10 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { getHoltWinterDaily } from "@/lib/fetch/files.fetch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import clsx from "clsx";
-import { format, parse, startOfDay, endOfDay, eachDayOfInterval, getDay } from "date-fns";
+import { format, parse, eachDayOfInterval, getDay } from "date-fns";
 import { id } from "date-fns/locale";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const KT_PERIODS = {
@@ -73,36 +75,54 @@ export default function PeriodCalendar() {
 
   const renderPeriodGrid = (period: keyof typeof KT_PERIODS) => (
     <TabsContent value={period}>
-      <Table className="bg-background mt-6 min-w-[900px]">
-        <TableHeader>
-          <TableRow className="*:border-border">
-            {Array.from({ length: periodRows[period][0]?.length || 0 }).map((_, colIdx) => (
-              <TableHead key={colIdx} className="text-center">
-                {periodRows[period][0][colIdx] ? format(new Date(periodRows[period][0][colIdx].forecast_date), "dd MMM", { locale: id }) : ""}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day, rowIdx) => (
-            <TableRow key={day} className="*:border-border">
-              <TableCell className="text-center font-medium">{day}</TableCell>
-              {periodRows[period][rowIdx]?.map((dayData, colIdx) => (
-                <TableCell key={colIdx} className={clsx("text-center", getWeatherColor(dayData?.parameters?.RR_imputed?.forecast_value ?? 0))}>
-                  {dayData ? (
-                    <>
-                      <div className="text-xs">{format(new Date(dayData.forecast_date), "dd")}</div>
-                      <div className="text-xs">{dayData.parameters.RR_imputed.forecast_value.toFixed(2)} mm</div>
-                    </>
-                  ) : (
-                    <div className="text-xs">-</div>
-                  )}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <ScrollArea className="w-full overflow-auto">
+        <div className="min-w-[900px]">
+          <Table className="bg-background  ">
+            <TableHeader>
+              <TableRow className="*:border-border">
+                {Array.from({ length: periodRows[period][0]?.length || 0 }).map((_, colIdx) => (
+                  <TableHead key={colIdx} className="text-center">
+                    {periodRows[period][0][colIdx] ? format(new Date(periodRows[period][0][colIdx].forecast_date), " MMM", { locale: id }) : ""}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TooltipProvider>
+                {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day, rowIdx) => (
+                  <TableRow key={day} className="*:border-border">
+                    <TableCell className="text-center font-medium">{day}</TableCell>
+
+                    {periodRows[period][rowIdx]?.map((dayData, colIdx) => {
+                      if (dayData) {
+                        return (
+                          <Tooltip key={colIdx}>
+                            <TooltipTrigger asChild>
+                              <TableCell className={clsx("text-center relative h-20 w-20 border", getWeatherColor(dayData.parameters?.RR_imputed?.forecast_value ?? 0))}>
+                                <div className="text-[10px] absolute top-0 right-1">{format(new Date(dayData.forecast_date), "dd")}</div>
+                              </TableCell>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs">{dayData.parameters?.RR_imputed?.forecast_value.toFixed(2)} mm</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      } else {
+                        return (
+                          <TableCell key={colIdx} className="text-center h-20 w-20 text-xs">
+                            -
+                          </TableCell>
+                        );
+                      }
+                    })}
+                  </TableRow>
+                ))}
+              </TooltipProvider>
+            </TableBody>
+          </Table>
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </TabsContent>
   );
 

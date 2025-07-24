@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/combobox";
 import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
 
 export default function CalendarSeedPlanner() {
   const queryClient = useQueryClient();
@@ -145,21 +146,30 @@ export default function CalendarSeedPlanner() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Combobox label="Nama Benih" options={seedsData?.items.map((s) => s.name) || []} value={selectedSeedName} onValueChange={handleSeedChange} />
-
-        <Input type="number" placeholder="Durasi (hari)" value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
-
-        <Input type="date" placeholder="Tanggal Mulai Tanam" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-
-        <Select value={semaiStatus} onValueChange={setSemaiStatus}>
-          <SelectTrigger>
-            <SelectValue placeholder="Status Semai" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="belum">Belum Semai</SelectItem>
-            <SelectItem value="sudah">Sudah Semai</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="picture">Benih</Label>
+          <Combobox options={seedsData?.items.map((s) => s.name) || []} value={selectedSeedName} onValueChange={handleSeedChange} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="benih">Durasi Benih</Label>
+          <Input type="number" placeholder="Durasi (hari)" value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="tanggal">Tanggal Mulai</Label>
+          <Input type="date" placeholder="Tanggal Mulai Tanam" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="semai">Status semai</Label>
+          <Select value={semaiStatus} onValueChange={setSemaiStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="Status Semai" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="belum">Belum Semai</SelectItem>
+              <SelectItem value="sudah">Sudah Semai</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Button className="mt-2" onClick={handleSubmit} disabled={!selectedSeedName || !duration || !startDate}>
