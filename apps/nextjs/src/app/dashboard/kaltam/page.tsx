@@ -27,7 +27,6 @@ export default async function Page() {
       <ForecastConfigList />
       <Suspense fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}>
         <KaltamTable />
-        {/* <KaltamTableSummary /> */}
       </Suspense>
       <div className="w-full flex gap-2">
         <RoundedPieChart />

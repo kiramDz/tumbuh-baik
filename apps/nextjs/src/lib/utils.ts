@@ -20,20 +20,3 @@ export function parseError(error: unknown) {
 
   return JSON.stringify(error);
 }
-
-// stroage slug
-export function pageIdentifier(slug: string): string {
-  const categoryMap: Record<string, string> = {
-    bmkg: "bmkg",
-    satelit: "satelite",
-    buoys: "buoys",
-  };
-
-  return categoryMap[slug] || slug; // Default jika slug tidak dikenali
-}
-
-export function absoluteUrl(req: NextRequest) {
-  const protocol = req.headers.get("x-forwarded-proto") || "http";
-  const host = req.headers.get("host");
-  return `${protocol}://${host}`;
-}

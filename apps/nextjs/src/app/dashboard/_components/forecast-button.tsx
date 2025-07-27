@@ -3,16 +3,22 @@
 import { triggerForecastRun } from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const RunForecastButton = () => {
+  const queryClient = useQueryClient();
   const handleClick = async () => {
     toast.info("Menjalankan forecast...");
     try {
       const result = await triggerForecastRun();
       toast.success("Forecast berhasil dijalankan!");
+
+      // ⬅️ refetch data tabel
+      queryClient.invalidateQueries({ queryKey: ["hw-daily"] });
+
       console.log("Forecast result:", result);
-    } catch (err) {
-      toast.error("Gagal menjalankan forecast");
+    } catch (err: any) {
+      toast.error(`Gagal menjalankan forecast: ${err?.message || "Unknown error"}`);
     }
   };
 

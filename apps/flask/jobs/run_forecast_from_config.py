@@ -58,7 +58,7 @@ def run_forecast_from_config():
             return jsonify({"message": "No pending forecast config found."}), 404
         
         # Kosongkan collection holt-winter di awal (tanpa perlu pengecekan)
-        db["holt-winter"].delete_many({})
+       
         
         # Ambil info kolom yang akan dianalisis
         name = config.get("name", f"forecast_{int(time.time())}")

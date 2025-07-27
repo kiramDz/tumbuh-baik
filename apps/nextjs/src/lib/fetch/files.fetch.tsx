@@ -87,17 +87,6 @@ export const getBmkgApi = async () => {
   }
 };
 
-//for monthly calender in public
-export const getBmkgSummary = async () => {
-  try {
-    const response = await axios.get("/api/v1/bmkg-summary/all");
-    return response.data.data;
-  } catch (error: any) {
-    console.error("Error fetching BMKG Summary:", error);
-    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG summary data");
-  }
-};
-
 // holt winter table
 export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
   try {
@@ -118,81 +107,6 @@ export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
     }
   } catch (error) {
     console.error("Error fetching HW Daily:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-    };
-  }
-};
-
-export const getHoltWinterDailyGrid = async () => {
-  try {
-    const res = await axios.get("/api/v1/hw/daily/grid");
-    if (res.status === 200) {
-      console.log("✅ HW API all response:", res.data.data);
-      return res.data.data || [];
-    }
-  } catch (error) {
-    console.error("Error fetching HW Daily All:", error);
-    return [];
-  }
-};
-
-// holt winter grid
-
-export const getHoltWinterSummary = async (page = 1, pageSize = 10) => {
-  try {
-    const res = await axios.get("/api/v1/hw/summary", {
-      params: { page, pageSize },
-    });
-
-    if (res.status === 200) {
-      console.log("✅ HW Summary API response:", res.data.data);
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Error fetching HW Summary:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-    };
-  }
-};
-
-
-export const getBmkgDaily = async (page = 1, pageSize = 10) => {
-  try {
-    const res = await axios.get("/api/v1/bmkg-daily", {
-      params: { page, pageSize },
-    });
-    if (res.status === 200) {
-      console.log("✅ BMKG API response:", res.data.data);
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Error fetching BMKG Daily:", error);
     return {
       items: [],
       total: 0,
@@ -371,15 +285,6 @@ export const AddDatasetMeta = async (data: {
     throw error;
   }
 };
-export async function getRainfallSummary() {
-  const res = await fetch("/api/v1/dataset-meta/rainfall-summary", {
-    cache: "no-store",
-  });
-
-  const json = await res.json();
-  return json.data || [];
-}
-
 
 // forecast config :
 export const getForecastConfigs = async () => {
