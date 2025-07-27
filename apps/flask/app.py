@@ -1,7 +1,3 @@
-# link tutorial : https://youtu.be/OwxxCibSFKk?si=ogX9zwnWNzlFzfxp
-# repo 1 : https://github.com/TheRobBrennan/explore-docker-python-flask-nextjs-typescript/tree/main
-# repo 2 : https://github.com/martindavid/flask-nextjs-user-management-example
-
 from flask import Flask, jsonify
 from flask_cors import CORS
 from helpers.objectid_converter import convert_objectid

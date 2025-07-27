@@ -5,8 +5,8 @@ import traceback
 import os
 from flask import jsonify
 from dotenv import load_dotenv
-from holt_winter.hw_dynamic import run_optimized_hw_analysis
-from holt_winter.summary.monthly_summary_rev5 import generate_monthly_summary
+from holt_winter.mul_hw_dynamic import run_optimized_hw_analysis
+
 
 load_dotenv()
 
@@ -28,7 +28,20 @@ def convert_objectid(obj):
     else:
         return obj
 
-
+def is_valid_column(collection_name, column_name, client):
+    """Check if column is suitable for forecasting (not ID, date, etc.)"""
+    forbidden_keywords = ["id", "date", "time", "timestamp", "_id"]
+    if any(keyword in column_name.lower() for keyword in forbidden_keywords):
+        return False, f"Column {column_name} contains forbidden keyword for forecasting"
+    
+    # Optional: Check if column contains numeric data
+    try:
+        sample_doc = client["tugas_akhir"][collection_name].find_one({column_name: {"$exists": True}})
+        if sample_doc and not isinstance(sample_doc[column_name], (int, float)):
+            return False, f"Column {column_name} contains non-numeric data"
+        return True, None
+    except Exception as e:
+        return False, f"Error checking column {column_name}: {str(e)}"
 def run_forecast_from_config():
     try:
 
@@ -52,10 +65,22 @@ def run_forecast_from_config():
         columns = config.get("columns", [])
         forecast_coll = config.get("forecastResultCollection")
         config_id = str(config["_id"])
+
+        for item in columns:
+            collection = item["collectionName"]
+            column = item["columnName"]
+            is_valid, error_msg = is_valid_column(collection, column, client)
+            if not is_valid:
+                db.forecast_configs.update_one(
+                    {"_id": config["_id"]},
+                    {"$set": {"status": "failed", "errorMessage": error_msg}}
+                )
+                return jsonify({"error": error_msg}), 400
         
         results = []
         forecast_data = {}  # Untuk menyimpan semua forecast berdasarkan tanggal
-        
+        error_metrics_list = []
+
         for item in columns:
             collection = item["collectionName"]
             column = item["columnName"]
@@ -73,6 +98,19 @@ def run_forecast_from_config():
                     client=client
                 )
                 results.append(result)
+
+                # Simpan metrik evaluasi untuk kolom ini
+                if result.get("error_metrics"):
+                    error_metrics_list.append({
+                        "collectionName": collection,
+                        "columnName": column,
+                        "metrics": {
+                            "mae": result["error_metrics"].get("mae"),
+                            "rmse": result["error_metrics"].get("rmse"),
+                            "mape": result["error_metrics"].get("mape"),
+                            "mse": result["error_metrics"].get("mse")
+                        }
+                    })
                 
                 # Ambil hasil forecast untuk digabung
                 temp_forecasts = list(db["temp-hw"].find({"config_id": config_id}))
@@ -80,7 +118,6 @@ def run_forecast_from_config():
                 for forecast_doc in temp_forecasts:
                     forecast_date = forecast_doc["forecast_date"]
                     
-                    # Inisialisasi struktur jika belum ada
                     if forecast_date not in forecast_data:
                         forecast_data[forecast_date] = {
                             "forecast_date": forecast_date,
@@ -118,27 +155,16 @@ def run_forecast_from_config():
         # Bersihkan collection temporary
         db["temp-hw"].delete_many({})
         
-        # Panggil function generate_monthly_summary langsung
-        summary_result = generate_monthly_summary(config_id, client)
-
-        # Periksa apakah summary berhasil dibuat
-        if not isinstance(summary_result, dict):
-            raise ValueError("Invalid summary result format")
-    
-        # Update status config
-        update_data = {"status": "done"}
-        if summary_result.get("success"):
-            update_data.update({
-                "summary_generated": True,
-                "summary_months": summary_result.get("summaries_generated", 0)
-            })
-        else:
-            update_data["summary_error"] = summary_result.get("error", "Unknown error")
+        # Update status config dan simpan error metrics
+        update_data = {
+            "status": "done",
+            "error_metrics": error_metrics_list
+        }
 
         # Update status config
         db.forecast_configs.update_one(
             {"_id": config["_id"]},
-            {"$set": {"status": "done"}}
+            {"$set": update_data}
         )
 
         return jsonify({
@@ -146,9 +172,14 @@ def run_forecast_from_config():
         "forecastResultCollection": forecast_coll,
         "results": convert_objectid(results),
         "total_forecast_dates": len(forecast_data),
-        "summary_result": summary_result  # Langsung passing dictionary
+        "error_metrics": error_metrics_list
          }), 200
         
     except Exception as e:
+        error_msg = f"Internal server error: {str(e)}"
+        db.forecast_configs.update_one(
+            {"_id": config["_id"]},
+            {"$set": {"status": "failed", "errorMessage": error_msg}}
+        )
         traceback.print_exc()
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+        return jsonify({"error": error_msg}), 500
