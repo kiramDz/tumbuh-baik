@@ -10,17 +10,14 @@ import WeatherIcon from "./weather-icon";
 import CurrentWeatherCard from "./current-weather";
 import WeatherForecast from "./weather-forecast";
 import { WeatherChart } from "../chart-tes";
-
-import { WeatherData } from "@/types/weather";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
 import { getTodayWeather, getDailyForecastData, getHourlyForecastData } from "@/lib/bmkg-utils";
 
 interface WeatherDashboardProps {
-  weatherData: WeatherData;
   unit: "metric" | "imperial";
 }
 
-const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit, weatherData }) => {
+const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
   const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
   const { data: bmkgApiResponse } = useQuery({
     queryKey: ["bmkg-api"],

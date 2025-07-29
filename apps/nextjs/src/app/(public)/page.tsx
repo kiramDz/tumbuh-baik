@@ -31,7 +31,7 @@ export default function PublicPage() {
 
     return (
       <Suspense fallback={<WeatherDashboardSkeleton />}>
-        <WeatherDashboard weatherData={weatherData} unit={unit} />
+        <WeatherDashboard unit={unit} />
       </Suspense>
     );
   }, [error, weatherData, isLoading, unit]);
