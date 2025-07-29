@@ -9,20 +9,15 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
-# Copy only pnpm files first for faster caching
+
 COPY pnpm-lock.yaml ./
 COPY package.json ./
 
-# Install deps
 RUN pnpm install
 
-# Copy the rest of the app
 COPY . .
 
-# Build Next.js app
-# RUN pnpm build
 
-# Expose port
 EXPOSE 3000
 
 # Start the server

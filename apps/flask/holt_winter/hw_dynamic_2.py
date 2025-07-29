@@ -268,7 +268,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # Pastikan indeks harian tanpa duplikasi
         df = df[~df.index.duplicated(keep='first')]
         date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq='D')
-        df = df.reindex(date_range, method='ffill')
+        df = df.reindex(date_range, method=0)
         
         print(f"Data range: {df.index[0]} to {df.index[-1]}")
         

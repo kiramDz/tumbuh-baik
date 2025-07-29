@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, HelpCircleIcon, LayoutDashboardIcon, SearchIcon, Trash, SettingsIcon, Users } from "lucide-react";
+import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, HelpCircleIcon, LayoutDashboardIcon, SearchIcon, Trash, SettingsIcon, Users, Bean } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
@@ -26,14 +26,19 @@ const data = {
       icon: BarChartIcon,
       items: [
         {
-          title: "Jadwal Tanam",
+          title: "Holt Winter",
           url: "/dashboard/kaltam", // Lengkapi path
         },
         {
-          title: "Data Bibit",
-          url: "/dashboard/bibit", // Lengkapi path
+          title: "lstm",
+          url: "/dashboard/kaltam", // Lengkapi path
         },
       ],
+    },
+    {
+      title: "Data bibit",
+      url: "/dashboard/bibit",
+      icon: Bean,
     },
     {
       title: "User Management",

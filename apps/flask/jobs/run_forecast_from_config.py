@@ -5,7 +5,7 @@ import traceback
 import os
 from flask import jsonify
 from dotenv import load_dotenv
-from holt_winter.mul_hw_dynamic import run_optimized_hw_analysis
+from holt_winter.hw_dynamic import run_optimized_hw_analysis
 
 
 load_dotenv()
@@ -42,6 +42,7 @@ def is_valid_column(collection_name, column_name, client):
         return True, None
     except Exception as e:
         return False, f"Error checking column {column_name}: {str(e)}"
+
 def run_forecast_from_config():
     try:
 
@@ -58,7 +59,7 @@ def run_forecast_from_config():
             return jsonify({"message": "No pending forecast config found."}), 404
         
         # Kosongkan collection holt-winter di awal (tanpa perlu pengecekan)
-       
+        db["holt-winter"].delete_many({})
         
         # Ambil info kolom yang akan dianalisis
         name = config.get("name", f"forecast_{int(time.time())}")

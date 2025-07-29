@@ -14,11 +14,10 @@ export const BMKGDataItemSchema = z.object({
 export const BMKGApi = z.object({
   kode_gampong: z.string(),
   nama_gampong: z.string(),
-  tanggal_data: z.string(), // format: YYYY-MM-DD
+  tanggal_data: z.string(),
   analysis_date: z.date(),
   data: z.array(BMKGDataItemSchema),
 });
-
 
 export const SeedSchema = z.object({
   _id: z.union([z.string(), z.object({ $oid: z.string() })]),

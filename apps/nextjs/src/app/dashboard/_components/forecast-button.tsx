@@ -13,7 +13,6 @@ const RunForecastButton = () => {
       const result = await triggerForecastRun();
       toast.success("Forecast berhasil dijalankan!");
 
-      // ⬅️ refetch data tabel
       queryClient.invalidateQueries({ queryKey: ["hw-daily"] });
 
       console.log("Forecast result:", result);
