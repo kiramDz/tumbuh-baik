@@ -4,9 +4,10 @@ import React, { useCallback, memo } from "react";
 import { City } from "@/types/weather";
 import LogoSvg from "../../public/svg/logo";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/better-auth/auth-client";
 import HeaderProfile from "@/app/dashboard/_components/header-profile";
+import { Button } from "./ui/button";
 
-// Memoize the logo component since it doesn't change
 const Logo = memo(({ onClick }: { onClick: () => void }) => (
   <div
     className="flex-shrink-0 flex flex-row items-center justify-between gap-2 cursor-pointer hover:opacity-80 transition-opacity mr-4 md:mr-0"
@@ -22,7 +23,6 @@ const Logo = memo(({ onClick }: { onClick: () => void }) => (
 ));
 Logo.displayName = "Logo";
 
-// Memoize the search suggestions list
 const SearchSuggestions = memo(({ suggestions, selectedIndex, onSelect, onMouseEnter }: { suggestions: City[]; selectedIndex: number; onSelect: (city: City) => void; onMouseEnter: (index: number) => void }) => (
   <div className="absolute left-0 right-0 top-full mt-1">
     <ul className="w-full bg-background shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm" role="listbox" aria-label="City suggestions" tabIndex={-1}>
@@ -51,6 +51,7 @@ SearchSuggestions.displayName = "SearchSuggestions";
 
 const NavBar = () => {
   const router = useRouter();
+  const { isPending, data } = useSession();
 
   // Memoize handlers
   const handleLogoClick = useCallback(() => {
@@ -62,10 +63,7 @@ const NavBar = () => {
       <div className="container px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Logo onClick={handleLogoClick} />
-
-          <div className="flex items-center">
-            <HeaderProfile />
-          </div>
+          <div className="flex items-center">{isPending ? null : data?.user ? <HeaderProfile /> : <Button onClick={() => router.push("/sign-in")}>Login</Button>}</div>
         </div>
       </div>
     </nav>

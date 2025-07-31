@@ -73,7 +73,6 @@ datasetMetaRoute.get("/:slug", async (c) => {
   }
 });
 
-
 datasetMetaRoute.get("/rainfall-summary", async (c) => {
   try {
     await db();
@@ -108,7 +107,6 @@ datasetMetaRoute.get("/rainfall-summary", async (c) => {
     return c.json({ message: "Server error" }, 500);
   }
 });
-
 
 // POST - Upload dataset metadata + records
 datasetMetaRoute.post("/", async (c) => {
@@ -193,6 +191,32 @@ datasetMetaRoute.post("/", async (c) => {
     );
   } catch (error) {
     console.error("Upload dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+// DELETE - Hapus dataset (metadata + collection)
+datasetMetaRoute.delete("/:collectionName", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    // 1. Hapus metadata
+    await DatasetMeta.deleteOne({ collectionName });
+
+    // 2. Drop koleksi MongoDB
+    const connection = mongoose.connection;
+    const collections = await connection.db.listCollections().toArray();
+    const exists = collections.some((col) => col.name === collectionName);
+
+    if (exists) {
+      await connection.db.dropCollection(collectionName);
+    }
+
+    return c.json({ message: "Dataset deleted successfully" }, 200);
+  } catch (error) {
+    console.error("Delete dataset error:", error);
     const { message, status } = parseError(error);
     return c.json({ message }, status);
   }

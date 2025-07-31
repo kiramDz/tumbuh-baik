@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, HelpCircleIcon, LayoutDashboardIcon, SearchIcon, Trash, SettingsIcon, Users, Bean } from "lucide-react";
+import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, LayoutDashboardIcon, Trash, Users, Bean } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
-import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 
@@ -22,16 +21,16 @@ const data = {
     },
     {
       title: "Kalender Tanam",
-      url: "/dashboard/kaltam", // Tambahkan /dashboard di awal
+      url: "/dashboard/kaltam", 
       icon: BarChartIcon,
       items: [
         {
           title: "Holt Winter",
-          url: "/dashboard/kaltam", // Lengkapi path
+          url: "/dashboard/kaltam",
         },
         {
           title: "lstm",
-          url: "/dashboard/kaltam", // Lengkapi path
+          url: "/dashboard/kaltam",
         },
       ],
     },
@@ -51,23 +50,7 @@ const data = {
       icon: Trash,
     },
   ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: SettingsIcon,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: HelpCircleIcon,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: SearchIcon,
-    },
-  ],
+
   documents: [
     {
       name: "Data Library",
@@ -104,7 +87,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />

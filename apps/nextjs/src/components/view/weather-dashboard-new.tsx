@@ -2,14 +2,13 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-
 import { Banner } from "./banner";
 import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
 import WeatherIcon from "./weather-icon";
 import CurrentWeatherCard from "./current-weather";
 import WeatherForecast from "./weather-forecast";
-import { WeatherChart } from "../chart-tes";
+import { RainbowGlowGradientLineChart } from "./chart/weather-rainbow-chart";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
 import { getTodayWeather, getDailyForecastData, getHourlyForecastData } from "@/lib/bmkg-utils";
 
@@ -52,7 +51,8 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
               <WeatherForecast forecast={dailyForecast} />
             </div>
           </div>
-          {hourlyForecast.length > 0 ? <WeatherChart hourlyForecast={hourlyForecast} /> : <div>No forecast data available</div>}
+
+          {hourlyForecast.length > 0 ? <RainbowGlowGradientLineChart hourlyForecast={hourlyForecast} /> : <div>No forecast data available</div>}
         </WeatherTabs>
       </div>
     </>
