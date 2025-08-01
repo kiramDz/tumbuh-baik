@@ -9,7 +9,7 @@ import itertools
 import warnings
 warnings.filterwarnings('ignore')
 
-def fit_robust_model(data, best_params):
+def fit_robust_model(data, best_params, param_name="NDVI"):
     """
     Fit model dengan error handling yang lebih baik
     """
@@ -17,17 +17,7 @@ def fit_robust_model(data, best_params):
     print(f"📦 Params received: {best_params}")
     try:
         default_period = 23 if param_name == "NDVI" else 365
-        model = ExponentialSmoothing(
-            data,
-            trend="add",
-            seasonal="add",
-            seasonal_periods=best_params.get('seasonal_periods', default_period)
-        ).fit(
-            smoothing_level=best_params['alpha'],
-            smoothing_trend=best_params['beta'],
-            smoothing_seasonal=best_params['gamma'],
-            optimized=False
-        )
+        model = ExponentialSmoothing(...).fit(optimized=True)
         forecast_raw = model.forecast(steps=30)
         print("📈 Raw forecast (30 hari):")
         print(forecast_raw.round(2).to_list())
@@ -85,7 +75,7 @@ def grid_search_hw_params(train_data, param_name):
     seasonal_periods_options = []
     if is_ndvi:
         if len(train_data) >= 46:  # 2 tahun
-            seasonal_periods_options.append(23)  # 1 tahun
+            seasonal_periods_options = [4, 6, 8]   # 1 tahun
         if len(train_data) >= 24:  # 1 tahun
             seasonal_periods_options.append(12)  # 6 bulan
         if len(train_data) >= 12:  # 6 bulan
@@ -112,7 +102,10 @@ def grid_search_hw_params(train_data, param_name):
     valid_models = 0
     
    
-    val_size = min(46 if is_ndvi else 365*2, int(len(train_data) * 0.2))
+    if is_ndvi:
+     val_size = max(4, min(int(len(train_data) * 0.2), len(train_data) // 3))
+    else:
+     val_size = min(365, int(len(train_data) * 0.2))
     split_point = len(train_data) - val_size
     
     train_split = train_data[:split_point]
@@ -284,9 +277,10 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # forecast_days = (forecast_end_date - forecast_start_date).days + 1
 
         forecast_start_date = pd.Timestamp("2025-09-20")
-        forecast_end_date = forecast_start_date + pd.Timedelta(days=29) 
+        forecast_end_date = pd.Timestamp("2026-09-19")
         forecast_days = (forecast_end_date - forecast_start_date).days + 1
-        forecast_steps = int(forecast_days / 16) + 1 if is_ndvi else forecast_days
+        forecast_steps = (forecast_days // 16) + (1 if forecast_days % 16 > 0 else 0)
+        forecast_steps = max(forecast_steps, 2)
 
         
         print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
