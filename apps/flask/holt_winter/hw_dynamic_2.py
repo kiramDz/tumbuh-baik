@@ -90,7 +90,10 @@ def detect_seasonal_period(data, param_name):
         return best_period
     else:
         return 180  # Paksa periode 180 hari untuk curah hujan
-def grid_search_hw_params(train_data, param_name):
+    
+
+
+def grid_search_hw_params(train_data, param_name, validation_ratio=0.25):
     """
     Grid search disesuaikan untuk pola curah hujan Indonesia
     """
@@ -99,7 +102,7 @@ def grid_search_hw_params(train_data, param_name):
     # Tentukan frekuensi dan panjang minimum berdasarkan parameter
     is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
     min_data_length = 46 if is_ndvi else 365  # 2 tahun untuk NDVI (~46 pengukuran), 1 tahun untuk lainnya
-    seasonal_base = 23 if is_ndvi else 365    # 1 tahun: 23 pengukuran untuk NDVI, 365 hari untuk lainnya
+
 
     if len(train_data) < min_data_length:
         print(f"❌ Insufficient data (need at least {min_data_length} {'pengukuran' if is_ndvi else 'hari'})")
@@ -126,11 +129,13 @@ def grid_search_hw_params(train_data, param_name):
     
    # atur proporsi data train dan validasi data
     if is_ndvi:
-     val_size = max(4, int(len(train_data) * 0.25))
+            val_size = max(4, int(len(train_data) * validation_ratio))
     else:
-     val_size = min(365, int(len(train_data) * 0.20))
-    split_point = len(train_data) - val_size
-    
+        val_size = int(len(train_data) * validation_ratio)
+            # Opsional: tetap beri batasan minimum untuk memastikan validasi yang bermakna
+        val_size = max(30, val_size)  # minimal 30 hari untuk validasi
+
+    split_point = len(train_data) - val_size    
     train_split = train_data[:split_point]
     val_split = train_data[split_point:]
     
