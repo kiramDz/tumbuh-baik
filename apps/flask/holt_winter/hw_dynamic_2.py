@@ -54,9 +54,9 @@ def post_process_forecast(forecast, param_name, lam=None):
         forecast = np.clip(forecast, 0, 300)
     elif param_name == "NDVI":  
         forecast = np.clip(forecast, -1, 1)  # Rentang NDVI
-    elif param_name == "RH_AVG":  
+    elif param_name in ["RH_AVG", "RH_AVG_preprocessed"]:  
         forecast = np.clip(forecast, 0, 100)  
-    elif param_name in ["T_AVG", "T_MAX", "T_MIN"]:  
+    elif param_name in ["TAVG", "TMAX", "TMIN"]:  
         forecast = np.clip(forecast, -10, 50)  # Celsius, rentang realistis
     else:
         print(f"Warning: No post-processing defined for {param_name}")
@@ -128,13 +128,17 @@ def grid_search_hw_params(train_data, param_name):
     if is_ndvi:
      val_size = max(4, int(len(train_data) * 0.25))
     else:
-     val_size = min(365, int(len(train_data) * 0.25))
+     val_size = min(365, int(len(train_data) * 0.20))
     split_point = len(train_data) - val_size
     
     train_split = train_data[:split_point]
     val_split = train_data[split_point:]
     
     print(f"Train: {len(train_split)} days, Validation: {len(val_split)} days")
+    print(f"Train size: {len(train_split)}")
+    print(f"Val size: {len(val_split)}")
+    print(f"Train sample: {train_split[:5].to_list()}")
+    print(f"Val sample: {val_split[:5].to_list()}")
     
     for seasonal_periods in seasonal_periods_options:
         if len(train_split) < seasonal_periods * 2:
@@ -270,11 +274,6 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # Get data (tanpa preprocessing karena data sudah bersih)
         param_data = df[target_column].dropna()
 
-        # if target_column in ["RR", "RR_imputed"]:
-        #     param_data, lam = boxcox(param_data + 1)
-        #     param_data = pd.Series(param_data, index=df.index)
-        # else:
-        #     lam = None
         lam = None
         
         if len(param_data) < 100:
@@ -303,10 +302,6 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
         
-        # Calculate forecast horizon (sampai akhir 2026)
-        # forecast_start_date = pd.Timestamp("2025-09-20")
-        # forecast_end_date = pd.Timestamp("2026-09-19")
-        # forecast_days = (forecast_end_date - forecast_start_date).days + 1
 
         forecast_start_date = pd.Timestamp("2025-09-20")
         forecast_end_date = pd.Timestamp("2026-09-19")
