@@ -93,7 +93,7 @@ def detect_seasonal_period(data, param_name):
     
 
 
-def grid_search_hw_params(train_data, param_name, validation_ratio=0.25):
+def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     """
     Grid search disesuaikan untuk pola curah hujan Indonesia
     """
