@@ -37,7 +37,12 @@ datasetMetaRoute.get("/:slug", async (c) => {
     try {
       Model = mongoose.model(slug);
     } catch {
-      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+      Model = (mongoose.models[slug] ||
+        mongoose.model(
+          slug,
+          new mongoose.Schema({}, { strict: false }),
+          slug
+        )) as mongoose.Model<any>;
     }
 
     const sortQuery: Record<string, 1 | -1> = {
@@ -76,7 +81,13 @@ datasetMetaRoute.get("/:slug", async (c) => {
 datasetMetaRoute.get("/rainfall-summary", async (c) => {
   try {
     await db();
-    const Model = mongoose.models["rainfall"] || mongoose.model("rainfall", new mongoose.Schema({}, { strict: false }), "rainfall");
+    const Model =
+      mongoose.models["rainfall"] ||
+      mongoose.model(
+        "rainfall",
+        new mongoose.Schema({}, { strict: false }),
+        "rainfall"
+      );
 
     const summary = await Model.aggregate([
       {
@@ -152,8 +163,16 @@ datasetMetaRoute.post("/", async (c) => {
     const columns = data[0] ? Object.keys(data[0]) : [];
 
     // Insert data ke collection dinamis
-    const dynamicModel = mongoose.model(collectionName, new mongoose.Schema({}, { strict: false }), collectionName);
-    await dynamicModel.insertMany(data);
+    const parsedData = data.map((item) => ({
+      ...item,
+      Date: item.Date ? new Date(item.Date) : null, // konversi ke tipe Date
+    }));
+    const dynamicModel = mongoose.model(
+      collectionName,
+      new mongoose.Schema({}, { strict: false }),
+      collectionName
+    );
+    await dynamicModel.insertMany(parsedData);
 
     // Simpan metadata
     const newDataset = await DatasetMeta.create({
