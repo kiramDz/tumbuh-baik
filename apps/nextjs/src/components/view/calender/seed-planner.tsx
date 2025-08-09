@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/combobox";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
+interface SeedItem {
+  name: string;
+  duration: number;
+}
 
 export default function CalendarSeedPlanner() {
   const queryClient = useQueryClient();
@@ -32,14 +36,14 @@ export default function CalendarSeedPlanner() {
 
   const handleSeedChange = (name: string) => {
     setSelectedSeedName(name);
-    const match = seedsData?.items.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    const match = seedsData?.items.find((s: SeedItem) => s.name.toLowerCase() === name.toLowerCase());
     if (match) setDuration(match.duration);
   };
 
   const handleSubmit = async () => {
     if (!selectedSeedName || !duration || !startDate) return;
 
-    const exists = seedsData?.items.find((s) => s.name.toLowerCase() === selectedSeedName.toLowerCase() && s.duration === duration);
+    const exists = seedsData?.items.find((s: SeedItem) => s.name.toLowerCase() === selectedSeedName.toLowerCase() && s.duration === duration);
     if (!exists) {
       await createSeedMutation.mutateAsync({ name: selectedSeedName, duration });
     }
@@ -148,7 +152,7 @@ export default function CalendarSeedPlanner() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="picture">Benih</Label>
-          <Combobox options={seedsData?.items.map((s) => s.name) || []} value={selectedSeedName} onValueChange={handleSeedChange} />
+          <Combobox options={seedsData?.items.map((s: SeedItem) => s.name) || []} value={selectedSeedName} onValueChange={handleSeedChange} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="benih">Durasi Benih</Label>
