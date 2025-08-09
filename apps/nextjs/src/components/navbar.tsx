@@ -63,7 +63,6 @@ const NavBar = () => {
           <div className="flex items-center">
             <HeaderProfile />
           </div>
-          {/* <div className="flex items-center">{isPending ? null : data?.user ? <HeaderProfile /> : <Button onClick={() => router.push("/sign-in")}>Login</Button>}</div> */}
         </div>
       </div>
     </nav>
