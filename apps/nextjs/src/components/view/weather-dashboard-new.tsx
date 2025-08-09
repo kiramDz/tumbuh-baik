@@ -34,7 +34,10 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
     return bmkgData?.find((item: any) => item.kode_gampong === selectedGampong) ?? null;
   }, [bmkgData, selectedGampong]);
 
-  const selectedData = selected?.data ?? [];
+  const selectedData = useMemo(() => {
+    return selected?.data ?? [];
+  }, [selected]);
+
   const latestData = useMemo(() => getTodayWeather(selectedData), [selectedData]);
   const dailyForecast = getDailyForecastData(bmkgData);
   const hourlyForecast = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);

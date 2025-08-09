@@ -24,7 +24,7 @@ export function ForecastConfigList() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              <p className="mb-2">Kolom: {item.columns?.map((col) => `${col.columnName}`).join(", ")}</p>
+              <p className="mb-2">Kolom: {item.columns?.map((col: { collectionName: string; columnName: string }) => col.columnName).join(", ")}</p>
               <p className="text-xs text-destructive">{item.errorMessage && `Error: ${item.errorMessage}`}</p>
             </CardContent>
           </Card>

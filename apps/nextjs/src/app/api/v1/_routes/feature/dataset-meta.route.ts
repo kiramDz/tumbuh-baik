@@ -202,11 +202,15 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
     await db();
     const { collectionName } = c.req.param();
 
-    // 1. Hapus metadata
+    // Hapus metadata
     await DatasetMeta.deleteOne({ collectionName });
 
-    // 2. Drop koleksi MongoDB
     const connection = mongoose.connection;
+
+    if (!connection.db) {
+      throw new Error("Database connection is not established");
+    }
+
     const collections = await connection.db.listCollections().toArray();
     const exists = collections.some((col) => col.name === collectionName);
 
