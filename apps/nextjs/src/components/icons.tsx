@@ -1,3 +1,5 @@
+//components/icons
+
 import {
   AlertTriangle,
   ArrowRight,
@@ -121,7 +123,6 @@ export const Icons = {
       </g>
       <foreignObject width={338} height={261} x={0} y={67}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#g)",
@@ -147,7 +148,6 @@ export const Icons = {
       </g>
       <foreignObject width={272} height={216.353} x={132} y={67}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#l)",
@@ -243,7 +243,6 @@ export const Icons = {
     <svg xmlns="http://www.w3.org/2000/svg" width={444} height={296} fill="none">
       <foreignObject width={272} height={216.353} x={0} y={0}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#a)",
@@ -275,7 +274,6 @@ export const Icons = {
       </g>
       <foreignObject width={338} height={261} x={40} y={35}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#f)",
@@ -307,7 +305,6 @@ export const Icons = {
       </g>
       <foreignObject width={272} height={216.353} x={172} y={35}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#k)",
@@ -420,7 +417,6 @@ export const Icons = {
     <svg xmlns="http://www.w3.org/2000/svg" width={404} height={314} fill="none">
       <foreignObject width={338} height={261} x={0} y={0}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#a)",
@@ -452,7 +448,6 @@ export const Icons = {
       </g>
       <foreignObject width={272} height={216.353} x={132} y={0}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#f)",
@@ -621,7 +616,6 @@ export const Icons = {
     <svg xmlns="http://www.w3.org/2000/svg" width={444} height={403} fill="none">
       <foreignObject width={272} height={216.353} x={0} y={0}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#a)",
@@ -653,7 +647,6 @@ export const Icons = {
       </g>
       <foreignObject width={338} height={261} x={40} y={35}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#f)",
@@ -685,7 +678,6 @@ export const Icons = {
       </g>
       <foreignObject width={241.161} height={305.265} x={202.369} y={97}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#k)",
@@ -707,7 +699,6 @@ export const Icons = {
       </g>
       <foreignObject width={272} height={216.353} x={172} y={35}>
         <div
-          xmlns="http://www.w3.org/1999/xhtml"
           style={{
             backdropFilter: "blur(7px)",
             clipPath: "url(#o)",

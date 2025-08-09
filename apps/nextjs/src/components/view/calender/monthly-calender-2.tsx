@@ -57,7 +57,7 @@ export default function PeriodCalendar() {
           ...item,
           forecast_date: new Date(item.forecast_date).toISOString(), // Pastikan format konsisten
         }))
-        .sort((a: any, b: any) => new Date(a.forecast_date) - new Date(b.forecast_date)); // Urutkan kronologis
+        .sort((a: any, b: any) => new Date(a.forecast_date).getTime() - new Date(b.forecast_date).getTime());
     },
   });
 
