@@ -25,13 +25,19 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
+import { useSession } from "@/lib/better-auth/auth-client";
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { isPending, data } = useSession();
+
+  // Ambil data user dari session
+  const userData = {
+    name: data?.user?.name || "",
+    email: data?.user?.email || "",
+    avatar: data?.user?.image || "", // pastikan backend mengirim field ini
+  };
+
+  const navMain = [
     {
       title: "Dashboard",
       url: "/dashboard",
@@ -42,53 +48,21 @@ const data = {
       url: "/dashboard/kaltam",
       icon: BarChartIcon,
       items: [
-        {
-          title: "Holt Winter",
-          url: "/dashboard/kaltam",
-        },
-        {
-          title: "lstm",
-          url: "/dashboard/kaltam",
-        },
+        { title: "Holt Winter", url: "/dashboard/kaltam" },
+        { title: "lstm", url: "/dashboard/kaltam" },
       ],
     },
-    {
-      title: "Data bibit",
-      url: "/dashboard/bibit",
-      icon: Bean,
-    },
-    {
-      title: "User Management",
-      url: "dashboard/users",
-      icon: Users,
-    },
-    {
-      title: "Sampah",
-      url: "/sampah",
-      icon: Trash,
-    },
-  ],
+    { title: "Data bibit", url: "/dashboard/bibit", icon: Bean },
+    { title: "User Management", url: "dashboard/users", icon: Users },
+    { title: "Sampah", url: "/sampah", icon: Trash },
+  ];
 
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: DatabaseIcon,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: ClipboardListIcon,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: FileIcon,
-    },
-  ],
-};
+  const documents = [
+    { name: "Data Library", url: "#", icon: DatabaseIcon },
+    { name: "Reports", url: "#", icon: ClipboardListIcon },
+    { name: "Word Assistant", url: "#", icon: FileIcon },
+  ];
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" className="pl-4" {...props}>
       <SidebarHeader>
@@ -107,10 +81,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        {/* ⬇ Kirim data user yang sudah di-fetch */}
+        <NavUser user={userData} />
       </SidebarFooter>
     </Sidebar>
   );

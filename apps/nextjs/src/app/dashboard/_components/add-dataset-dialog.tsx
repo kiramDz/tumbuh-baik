@@ -89,7 +89,12 @@ export default function AddDatasetDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Tambah Dataset</Button>
+        <Button
+          variant="outline"
+          className="border-green-600 text-green-700 hover:bg-green-50 hover:border-green-700 font-semibold px-5 py-2 rounded-lg shadow-sm transition-colors"
+        >
+          Dataset Baru
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
