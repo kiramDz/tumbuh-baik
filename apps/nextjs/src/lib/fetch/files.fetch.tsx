@@ -297,9 +297,19 @@ export const createForecastConfig = async (data: { name: string; columns: { coll
   return response.data;
 };
 
+// export const triggerForecastRun = async () => {
+//   try {
+//     const res = await axios.post("http://localhost:5001/run-forecast"); // ganti host jika deploy
+//     return res.data;
+//   } catch (error) {
+//     console.error("Trigger forecast run failed:", error);
+//     throw error;
+//   }
+// };
+
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post("http://localhost:5001/run-forecast"); // ganti host jika deploy
+    const res = await axios.post("https://8c880c6a307c.ngrok-free.app/run-forecast");
     return res.data;
   } catch (error) {
     console.error("Trigger forecast run failed:", error);

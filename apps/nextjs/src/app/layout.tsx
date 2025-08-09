@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { fontMono, fontSans } from "@/lib/font";
 import { cn } from "@/lib/utils";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import QueryProvider from "@/context/query-provider";
 export const metadata: Metadata = {

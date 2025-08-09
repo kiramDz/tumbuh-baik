@@ -4,9 +4,7 @@ import React, { useCallback, memo } from "react";
 import { City } from "@/types/weather";
 import LogoSvg from "../../public/svg/logo";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/better-auth/auth-client";
 import HeaderProfile from "@/app/dashboard/_components/header-profile";
-import { Button } from "./ui/button";
 
 const Logo = memo(({ onClick }: { onClick: () => void }) => (
   <div
@@ -51,7 +49,6 @@ SearchSuggestions.displayName = "SearchSuggestions";
 
 const NavBar = () => {
   const router = useRouter();
-  const { isPending, data } = useSession();
 
   // Memoize handlers
   const handleLogoClick = useCallback(() => {
