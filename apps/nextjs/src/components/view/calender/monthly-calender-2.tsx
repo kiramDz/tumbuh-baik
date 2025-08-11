@@ -17,8 +17,20 @@ const KT_PERIODS = {
   "KT-3": ["06-21-2026", "09-19-2026"],
 };
 
-const getWeatherColor = (forecastValue: number) => {
-  return forecastValue > 0 ? "bg-green-300" : "bg-gray-200";
+const getWeatherColor = (rain: number, temp: number, humidity: number) => {
+  const rainLow = rain < 5.7;
+  const rainHigh = rain > 16.7;
+  const tempLow = temp < 24;
+  const tempHigh = temp > 29;
+  const humLow = humidity < 33;
+  const humHigh = humidity > 90;
+
+  const allOK = !rainLow && !rainHigh && !tempLow && !tempHigh && !humLow && !humHigh;
+
+  if (allOK) return "bg-green-300";
+  if (rainHigh || tempHigh || humHigh) return "bg-red-300"; // 🔴 Ekstrem tinggi
+  if (rainLow || tempLow || humLow) return "bg-green-100"; // 🟠 Kurang dari target
+  return "bg-gray-200"; // Tidak cocok tapi tidak ekstrem tinggi
 };
 
 const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
@@ -98,12 +110,21 @@ export default function PeriodCalendar() {
                         return (
                           <Tooltip key={colIdx}>
                             <TooltipTrigger asChild>
-                              <TableCell className={clsx("text-center relative h-20 w-20 border", getWeatherColor(dayData.parameters?.RR_imputed?.forecast_value ?? 0))}>
+                              <TableCell
+                                className={clsx(
+                                  "text-center relative h-20 w-20 border",
+                                  getWeatherColor(dayData.parameters?.RR_imputed?.forecast_value ?? 0, dayData.parameters?.TAVG?.forecast_value ?? 0, dayData.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0)
+                                )}
+                              >
                                 <div className="text-[10px] absolute top-0 right-1">{format(new Date(dayData.forecast_date), "dd")}</div>
                               </TableCell>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                              <p className="text-xs">{dayData.parameters?.RR_imputed?.forecast_value.toFixed(2)} mm</p>
+                              <div className="text-xs">
+                                <p>Hujan: {dayData.parameters?.RR_imputed?.forecast_value.toFixed(2)} mm</p>
+                                <p>Suhu: {dayData.parameters?.TAVG?.forecast_value.toFixed(2)} °C</p>
+                                <p>Kelembaban: {dayData.parameters?.RH_AVG_preprocessed?.forecast_value.toFixed(2)} %</p>
+                              </div>
                             </TooltipContent>
                           </Tooltip>
                         );
@@ -157,6 +178,20 @@ export default function PeriodCalendar() {
         {renderPeriodGrid("KT-2")}
         {renderPeriodGrid("KT-3")}
       </Tabs>
+      <div className="flex flex-col gap-2 mt-4 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-4 bg-green-300 border" />
+          <span>Cocok tanam</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-4 bg-green-100 border" />
+          <span>Tanam dengan peringatan (ada parameter rendah)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-4 bg-red-300 border" />
+          <span>Tidak cocok tanam</span>
+        </div>
+      </div>
     </div>
   );
 }
