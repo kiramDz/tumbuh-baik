@@ -1,16 +1,28 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSeeds, createSeed } from "@/lib/fetch/files.fetch";
+import { getSeeds, createSeed, getHoltWinterDaily } from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/combobox";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+
 interface SeedItem {
   name: string;
   duration: number;
 }
+
+const RAIN_MIN = 5.7;
+const RAIN_MAX = 16.7;
+const TEMP_MIN = 24;
+const TEMP_MAX = 29;
+const HUM_MIN = 33;
+const HUM_MAX = 90;
+
+const GARAP_DURATION = 5;
+const SEMAI_DURATION = 20;
 
 export default function CalendarSeedPlanner() {
   const queryClient = useQueryClient();
@@ -26,13 +38,15 @@ export default function CalendarSeedPlanner() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: forecastData } = useQuery({
+    queryKey: ["holt-winter-all"],
+    queryFn: () => getHoltWinterDaily(1, 731), // Ambil semua data 2 tahun
+  });
+
   const createSeedMutation = useMutation({
     mutationFn: createSeed,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["get-seeds-planner"] }),
   });
-
-  const GARAP_DURATION = 5;
-  const SEMAI_DURATION = 20;
 
   const handleSeedChange = (name: string) => {
     setSelectedSeedName(name);
@@ -59,6 +73,18 @@ export default function CalendarSeedPlanner() {
     return actualStartDate;
   };
 
+  const getWeatherColor = (rain: number, temp: number, hum: number) => {
+    const isRainExtreme = rain < RAIN_MIN || rain > RAIN_MAX;
+    const isTempExtreme = temp < TEMP_MIN || temp > TEMP_MAX;
+    const isHumExtreme = hum < HUM_MIN || hum > HUM_MAX;
+
+    const extremeCount = [isRainExtreme, isTempExtreme, isHumExtreme].filter(Boolean).length;
+
+    if (extremeCount === 0) return "bg-green-300"; // semua sesuai
+    if (extremeCount >= 2) return "bg-red-300"; // ada 2+ ekstrem → bahaya
+    return "bg-green-100"; // ada 1 ekstrem → bisa tanam tapi hati-hati
+  };
+
   const renderGrid = () => {
     if (!selectedSeedName || !duration || !startDate) return null;
     const actualStartDate = calculateActualStartDate();
@@ -73,22 +99,35 @@ export default function CalendarSeedPlanner() {
 
       let type = "";
       let bgColor = "";
+      let rain = 0,
+        temp = 0,
+        hum = 0;
 
       if (i < preparationDays) {
         if (semaiStatus === "belum") {
-          type = i < GARAP_DURATION ? "garap" : "semai";
+          type = i < GARAP_DURATION ? "Garap" : "Semai";
           bgColor = i < GARAP_DURATION ? "bg-orange-200" : "bg-blue-200";
         } else {
-          type = "garap";
+          type = "Garap";
           bgColor = "bg-orange-200";
         }
       } else {
-        const dayInCycle = i - preparationDays;
-        if (dayInCycle < duration - 20) {
-          type = "masa tanam";
-          bgColor = "bg-green-300";
+        type = "Masa Tanam";
+        const forecastDay = forecastData.items.find((f: any) => format(new Date(f.forecast_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"));
+
+        if (forecastDay) {
+          rain = forecastDay.parameters?.RR_imputed?.forecast_value ?? 0;
+          temp = forecastDay.parameters?.TAVG?.forecast_value ?? 0;
+          hum = forecastDay.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
+          bgColor = getWeatherColor(rain, temp, hum);
         } else {
-          type = "panen";
+          bgColor = "bg-gray-200";
+        }
+
+        // Panen warna kuning
+        const dayInCycle = i - preparationDays;
+        if (dayInCycle >= duration - 20) {
+          type = "Panen";
           bgColor = "bg-yellow-300";
         }
       }
@@ -98,6 +137,9 @@ export default function CalendarSeedPlanner() {
         date: format(date, "MMM d"),
         type,
         bgColor,
+        rain,
+        temp,
+        hum,
       };
     });
 
@@ -121,15 +163,27 @@ export default function CalendarSeedPlanner() {
             <span>Panen</span>
           </div>
         </div>
-
-        <div className="grid grid-cols-6 gap-2 text-sm">
-          {gridDays.map((item, idx) => (
-            <div key={idx} className={`p-2 rounded-lg text-center ${item.bgColor}`}>
-              <div className="font-semibold">{item.date}</div>
-              <div className="text-xs">{item.type}</div>
-            </div>
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="grid grid-cols-6 gap-2 text-sm">
+            {gridDays.map((item, idx) => (
+              <Tooltip key={idx}>
+                <TooltipTrigger asChild>
+                  <div className={`p-2 rounded-lg text-center ${item.bgColor}`}>
+                    <div className="font-semibold">{item.date}</div>
+                    <div className="text-xs">{item.type}</div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">
+                    Curah hujan: {item.rain.toFixed(2)} mm <br />
+                    Suhu: {item.temp.toFixed(2)} °C <br />
+                    Kelembaban: {item.hum.toFixed(2)} %
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </TooltipProvider>
 
         <div className="mt-4 p-4 bg-gray-50 rounded-lg">
           <h3 className="font-semibold mb-2">Ringkasan Jadwal:</h3>

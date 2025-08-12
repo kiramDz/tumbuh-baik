@@ -5,8 +5,6 @@ from datetime import datetime
 import numpy as np
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from statsmodels.tsa.seasonal import seasonal_decompose
-import itertools
-from scipy.stats import boxcox
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -67,7 +65,7 @@ def detect_seasonal_period(data, param_name):
     """
     Deteksi periode musiman menggunakan seasonal_decompose
     """
-    is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
+    is_ndvi = param_name in ["NDVI"]
     
     if is_ndvi:
         min_period = 4
@@ -89,7 +87,7 @@ def detect_seasonal_period(data, param_name):
                 continue
         return best_period
     else:
-        return 180  # Paksa periode 180 hari untuk curah hujan
+        return 180  
     
 
 
@@ -132,8 +130,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
             val_size = max(4, int(len(train_data) * validation_ratio))
     else:
         val_size = int(len(train_data) * validation_ratio)
-            # Opsional: tetap beri batasan minimum untuk memastikan validasi yang bermakna
-        val_size = max(30, val_size)  # minimal 30 hari untuk validasi
+        val_size = max(30, val_size) 
 
     split_point = len(train_data) - val_size    
     train_split = train_data[:split_point]
@@ -308,14 +305,12 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             raise ValueError(f"Failed to fit final model for {target_column}")
         
 
-        forecast_start_date = pd.Timestamp("2025-09-20")
+        forecast_start_date = pd.Timestamp("2025-06-01")
         forecast_end_date = pd.Timestamp("2026-09-19")
-        forecast_days = (forecast_end_date - forecast_start_date).days + 1
-        if is_ndvi:
-            forecast_steps = (forecast_days // 16) + (1 if forecast_days % 16 > 0 else 0)
-            forecast_steps = max(forecast_steps, 2)  # minimal 2 titik
-        else:
-         forecast_steps = forecast_days
+        date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
+
+        forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
+        forecast_steps = len(forecast_dates)  # jumlah langkah forecast
 
         
         print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
@@ -352,9 +347,8 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
         
         try:
-            for i in range(len(forecast)):
-                forecast_date = df.index[-1] + date_increment * (i + 1)
-                forecast_date_only = datetime.strptime(forecast_date.strftime('%Y-%m-%d'), '%Y-%m-%d')
+            for i, forecast_date in enumerate(forecast_dates):
+                forecast_value = float(forecast[i])
                 
                 forecast_value = float(forecast[i])
                 if np.isnan(forecast_value) or np.isinf(forecast_value):
@@ -362,7 +356,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                     continue
 
                 doc = {
-                    "forecast_date": forecast_date_only,
+                    "forecast_date": forecast_date.to_pydatetime(),
                     "timestamp": datetime.now().isoformat(),
                     "source_collection": collection_name,
                     "config_id": config_id,

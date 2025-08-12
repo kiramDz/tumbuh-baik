@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 from datetime import datetime
 import time
+import pandas as pd
 import traceback
 import os
 from flask import jsonify
@@ -112,12 +113,13 @@ def run_forecast_from_config():
                             "mse": result["error_metrics"].get("mse")
                         }
                     })
-                
+
                 # Ambil hasil forecast untuk digabung
                 temp_forecasts = list(db["temp-hw"].find({"config_id": config_id}))
                 
                 for forecast_doc in temp_forecasts:
-                    forecast_date = forecast_doc["forecast_date"]
+                    forecast_date = pd.to_datetime(forecast_doc["forecast_date"]).strftime("%Y-%m-%d")
+
                     
                     if forecast_date not in forecast_data:
                         forecast_data[forecast_date] = {
