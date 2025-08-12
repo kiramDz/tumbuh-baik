@@ -28,7 +28,7 @@ export default async function Page() {
       <Suspense fallback={<DataTableSkeleton columnCount={5} rowCount={8} filterCount={2} />}>
         <KaltamTable />
       </Suspense>
-      <div className="w-full flex gap-2">
+      <div className="w-full flex flex-col gap-2">
         <RoundedPieChart />
         <RainbowGlowGradientLineChart />
       </div>
