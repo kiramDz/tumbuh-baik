@@ -94,6 +94,7 @@ export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
       params: { page, pageSize },
     });
     if (res.status === 200) {
+      console.log("🟢 Retrieved documents:", res.data.length);
       console.log("✅ HW API response:", res.data.data);
       return (
         res.data.data || {
