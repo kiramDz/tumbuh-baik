@@ -5,6 +5,11 @@ if (!MONGODB_URI) {
   throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
 }
 
+// Validate MongoDB URI format
+if (!MONGODB_URI.startsWith("mongodb://") && !MONGODB_URI.startsWith("mongodb+srv://")) {
+  throw new Error('Invalid MongoDB URI format. Must start with "mongodb://" or "mongodb+srv://"');
+}
+
 const options = {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -17,8 +22,10 @@ let client: MongoClient | null = null;
 
 export async function getClient() {
   if (!client) {
+    console.log("Connecting to MongoDB...");
     client = new MongoClient(MONGODB_URI, options);
     await client.connect();
+    console.log("Connected to MongoDB successfully");
   }
   return client;
 }
