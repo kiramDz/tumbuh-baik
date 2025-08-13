@@ -6,9 +6,6 @@ import { useRouter } from "next/navigation";
 import Avatar from "boring-avatars";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-// import { cn } from "@/lib/utils";
-// import { paragraphVariants } from "@/components/custom/p";
-// import { RiLogoutCircleFill } from "@remixicon/react";
 
 const HeaderProfile = () => {
   const session = useSession();
