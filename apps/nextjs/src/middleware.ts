@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { auth } from "./lib/better-auth/auth";
 
 // Helper function to get user role from database
 async function getUserRole(req: NextRequest) {
@@ -9,13 +8,20 @@ async function getUserRole(req: NextRequest) {
       headers: {
         cookie: req.headers.get("cookie") || "",
       },
+      // Tambahkan cache: 'no-store' untuk memastikan tidak menggunakan cache
+      cache: "no-store",
     });
 
     if (!response.ok) return null;
 
-    const session = await auth.api.getSession({ headers: req.headers });
-    console.log("Session JSON:", session);
-    return session?.user?.role ?? null;
+    const session = await response.json();
+
+    // Pastikan session benar-benar valid dan memiliki user
+    if (!session || !session.user || !session.session) {
+      return null;
+    }
+
+    return session.user.role || null;
   } catch (error) {
     console.error("Error getting user role:", error);
     return null;
@@ -38,13 +44,15 @@ export default async function authMiddleware(req: NextRequest) {
   // Handle sign-up page
   if (pathname === "/sign-up") {
     if (sessionCookie) {
-      // Already logged in, redirect based on role
+      // Verify session is actually valid, not just cookie exists
       const userRole = await getUserRole(req);
       if (userRole === "admin") {
         return NextResponse.redirect(new URL("/dashboard", req.url));
-      } else {
+      } else if (userRole) {
+        // Valid user but not admin
         return NextResponse.redirect(new URL("/", req.url));
       }
+      // If userRole is null, session is invalid, continue to sign-up
     }
     return NextResponse.next();
   }
@@ -52,13 +60,15 @@ export default async function authMiddleware(req: NextRequest) {
   // Handle sign-in page
   if (pathname === "/sign-in") {
     if (sessionCookie) {
-      // Already logged in, redirect based on role
+      // Verify session is actually valid, not just cookie exists
       const userRole = await getUserRole(req);
       if (userRole === "admin") {
         return NextResponse.redirect(new URL("/dashboard", req.url));
-      } else {
+      } else if (userRole) {
+        // Valid user but not admin
         return NextResponse.redirect(new URL("/", req.url));
       }
+      // If userRole is null, session is invalid, continue to sign-in
     }
     return NextResponse.next();
   }
@@ -72,6 +82,11 @@ export default async function authMiddleware(req: NextRequest) {
 
     // Get user role for authorization
     const userRole = await getUserRole(req);
+
+    // If session is invalid (userRole is null), redirect to login
+    if (!userRole) {
+      return NextResponse.redirect(new URL(`/sign-in?next=${pathname}${search}`, req.url));
+    }
 
     // Dashboard access - only admins
     if (pathname.startsWith("/dashboard")) {
