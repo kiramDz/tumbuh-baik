@@ -1,4 +1,3 @@
-export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { auth } from "@/lib/better-auth/auth";

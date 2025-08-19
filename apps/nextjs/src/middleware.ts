@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { auth } from "./lib/better-auth/auth";
 
 // Helper function to get user role from database
 async function getUserRole(req: NextRequest) {
@@ -12,8 +13,9 @@ async function getUserRole(req: NextRequest) {
 
     if (!response.ok) return null;
 
-    const session = await response.json();
-    return session?.user?.role || null;
+    const session = await auth.api.getSession({ headers: req.headers });
+    console.log("Session JSON:", session);
+    return session?.user?.role ?? null;
   } catch (error) {
     console.error("Error getting user role:", error);
     return null;

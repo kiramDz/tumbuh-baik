@@ -6,7 +6,6 @@ if (!MONGODB_URI) {
 }
 
 // Validate MongoDB URI format
-console.log("MONGODB_URI:", MONGODB_URI);
 if (!MONGODB_URI.startsWith("mongodb://") && !MONGODB_URI.startsWith("mongodb+srv://")) {
   throw new Error('Invalid MongoDB URI format. Must start with "mongodb://" or "mongodb+srv://"');
 }
@@ -26,7 +25,6 @@ export async function getClient() {
     try {
       client = new MongoClient(MONGODB_URI, options);
       await client.connect();
-      console.log("Successfully connected to MongoDB");
     } catch (error) {
       console.error("Failed to connect to MongoDB:", error);
       throw error;

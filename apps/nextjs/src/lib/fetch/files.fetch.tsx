@@ -300,7 +300,7 @@ export const createForecastConfig = async (data: { name: string; columns: { coll
 
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post(" https://799714112b6e.ngrok-free.app/run-forecast");
+    const res = await axios.post("https://1b47fe2a888c.ngrok-free.app/run-forecast");
     return res.data;
   } catch (error) {
     console.error("Trigger forecast run failed:", error);
