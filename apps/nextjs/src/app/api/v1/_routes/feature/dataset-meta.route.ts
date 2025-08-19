@@ -119,6 +119,74 @@ datasetMetaRoute.get("/rainfall-summary", async (c) => {
   }
 });
 
+// PUT - Update dataset meta
+datasetMetaRoute.put("/:id", async (c) => {
+  try {
+    await db();
+
+    const { id } = c.req.param();
+
+    // Definisikan tipe data untuk body
+    let body: Record<string, any> = {}; // atau bisa menggunakan interface yang lebih spesifik
+
+    try {
+      const contentType = c.req.header("content-type") || "";
+
+      if (contentType.includes("application/json")) {
+        body = (await c.req.json()) as Record<string, any>;
+      } else {
+        // Gunakan query parameters
+        const queries = c.req.queries();
+        Object.keys(queries).forEach((key) => {
+          body[key] = queries[key][0]; // Ambil nilai pertama jika array
+        });
+      }
+    } catch (parseError) {
+      // Fallback ke query parameters jika parsing JSON gagal
+      const queries = c.req.queries();
+      Object.keys(queries).forEach((key) => {
+        body[key] = queries[key][0];
+      });
+    }
+
+    // Validasi bahwa ada data untuk di-update
+    if (Object.keys(body).length === 0) {
+      return c.json(
+        {
+          message:
+            "No data provided for update. Send data as JSON body or query parameters.",
+        },
+        400
+      );
+    }
+    if (body.name) {
+      body.collectionName = body.name.trim();
+    }
+    // Update metadata di MongoDB
+    const updatedDataset = await DatasetMeta.findByIdAndUpdate(
+      id,
+      { $set: body },
+      { new: true, runValidators: true, lean: true }
+    );
+
+    if (!updatedDataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
+    return c.json(
+      {
+        message: "Dataset metadata updated successfully",
+        data: updatedDataset,
+      },
+      200
+    );
+  } catch (error) {
+    console.error("Update dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
 // POST - Upload dataset metadata + records
 datasetMetaRoute.post("/", async (c) => {
   try {
@@ -224,13 +292,28 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
     // 1. Hapus metadata
     await DatasetMeta.deleteOne({ collectionName });
 
-    // 2. Drop koleksi MongoDB
-    const connection = mongoose.connection;
-    const collections = await connection.db.listCollections().toArray();
-    const exists = collections.some((col) => col.name === collectionName);
+    // 2. Drop koleksi MongoDB menggunakan model
+    try {
+      // Cek apakah model sudah ada
+      let Model;
+      if (mongoose.models[collectionName]) {
+        Model = mongoose.models[collectionName];
+      } else {
+        Model = mongoose.model(
+          collectionName,
+          new mongoose.Schema({}, { strict: false }),
+          collectionName
+        );
+      }
 
-    if (exists) {
-      await connection.db.dropCollection(collectionName);
+      // Drop collection menggunakan model
+      await Model.collection.drop();
+    } catch (dropError: any) {
+      // Jika collection tidak ada, abaikan error
+      if (dropError.code !== 26) {
+        // 26 = NamespaceNotFound
+        throw dropError;
+      }
     }
 
     return c.json({ message: "Dataset deleted successfully" }, 200);
@@ -240,5 +323,29 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
     return c.json({ message }, status);
   }
 });
+// datasetMetaRoute.delete("/:collectionName", async (c) => {
+//   try {
+//     await db();
+//     const { collectionName } = c.req.param();
+
+//     // 1. Hapus metadata
+//     await DatasetMeta.deleteOne({ collectionName });
+
+//     // 2. Drop koleksi MongoDB
+//     const connection = mongoose.connection;
+//     const collections = await connection.db.listCollections().toArray();
+//     const exists = collections.some((col) => col.name === collectionName);
+
+//     if (exists) {
+//       await connection.db.dropCollection(collectionName);
+//     }
+
+//     return c.json({ message: "Dataset deleted successfully" }, 200);
+//   } catch (error) {
+//     console.error("Delete dataset error:", error);
+//     const { message, status } = parseError(error);
+//     return c.json({ message }, status);
+//   }
+// });
 
 export default datasetMetaRoute;

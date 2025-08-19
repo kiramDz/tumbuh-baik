@@ -8,7 +8,11 @@ export interface DatasetMetaType {
   uploadDate: string;
 }
 
-export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
+export async function exportDatasetCsv(
+  collectionName: string,
+  sortBy = "Date",
+  sortOrder = "desc"
+) {
   try {
     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
@@ -21,7 +25,9 @@ export async function exportDatasetCsv(collectionName: string, sortBy = "Date", 
       const link = document.createElement("a");
 
       const contentDisposition = response.headers["content-disposition"];
-      let filename = `${collectionName}_data_${new Date().toISOString().split("T")[0]}.csv`;
+      let filename = `${collectionName}_data_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
 
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -46,7 +52,10 @@ export async function exportDatasetCsv(collectionName: string, sortBy = "Date", 
     return { success: false, message: "Export failed" };
   }
 }
-export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = "desc") {
+export async function exportHoltWinterCsv(
+  sortBy = "forecast_date",
+  sortOrder = "desc"
+) {
   try {
     const response = await axios.get("/api/v1/export-csv/hw-daily", {
       params: { sortBy, sortOrder },
@@ -58,7 +67,9 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      const filename = `holt_winter_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      const filename = `holt_winter_daily_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
       link.href = url;
       link.download = filename;
       link.style.display = "none";
@@ -71,7 +82,10 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
       return { success: true, message: "File downloaded successfully" };
     }
   } catch (error: any) {
-    console.error("Export HW CSV failed:", error?.response?.data || error.message);
+    console.error(
+      "Export HW CSV failed:",
+      error?.response?.data || error.message
+    );
     return { success: false, message: "Export failed" };
   }
 }
@@ -83,7 +97,9 @@ export const getBmkgApi = async () => {
     return response.data;
   } catch (error: any) {
     console.error("Error fetching BMKG API data:", error);
-    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG data");
+    throw new Error(
+      error?.response?.data?.description || "Failed to fetch BMKG data"
+    );
   }
 };
 
@@ -189,7 +205,10 @@ export const getUsers = async (page = 1, pageSize = 10) => {
   }
 };
 
-export const updateUserRole = async (userId: string, role: "user" | "admin") => {
+export const updateUserRole = async (
+  userId: string,
+  role: "user" | "admin"
+) => {
   try {
     const res = await axios.put(`/api/v1/user/${userId}/role`, { role });
     return res.data.data;
@@ -211,7 +230,9 @@ export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
 };
 
 //for dataset detail page
-export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items: any[] }> => {
+export const GetDatasetBySlug = async (
+  slug: string
+): Promise<{ meta: any; items: any[] }> => {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
   const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}`, {
     cache: "no-store", // optional jika ingin real-time
@@ -225,7 +246,13 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
 
 // for dataset table
 // lib/fetch/files.fetch.ts
-export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "asc" | "desc" = "desc") {
+export async function getDynamicDatasetData(
+  slug: string,
+  page = 1,
+  pageSize = 10,
+  sortBy = "Date",
+  sortOrder: "asc" | "desc" = "desc"
+) {
   try {
     const res = await axios.get(`/api/v1/dataset-meta/${slug}`, {
       params: { page, pageSize, sortBy, sortOrder },
@@ -286,13 +313,49 @@ export const AddDatasetMeta = async (data: {
   }
 };
 
+export const UpdateDatasetMeta = async (
+  id: string,
+  data: {
+    name?: string;
+    source?: string;
+    fileType?: "csv" | "json";
+    filename?: string;
+    collectionName?: string;
+    status?: string;
+    description?: string;
+    records?: Record<string, any>[];
+  }
+) => {
+  try {
+    // const res = await axios.put(`api/v1/dataset-meta/${id}`, data);
+    const res = await axios.put(`/api/v1/dataset-meta/${id}`, data);
+    return res.data.data;
+  } catch (error) {
+    console.error("Update dataset meta error:", error);
+    throw error;
+  }
+};
+
+export const DeleteDatasetMeta = async (id: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/dataset-meta/${id}`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Delete dataset meta error:", error);
+    throw error;
+  }
+};
+
 // forecast config :
 export const getForecastConfigs = async () => {
   const response = await axios.get("/api/v1/forecast-config");
   return response.data.data;
 };
 
-export const createForecastConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
+export const createForecastConfig = async (data: {
+  name: string;
+  columns: { collectionName: string; columnName: string }[];
+}) => {
   const response = await axios.post("/api/v1/forecast-config", data);
   return response.data;
 };
