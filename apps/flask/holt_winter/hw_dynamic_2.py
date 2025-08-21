@@ -90,7 +90,6 @@ def detect_seasonal_period(data, param_name):
         return 180  
     
 
-
 def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     """
     Grid search disesuaikan untuk pola curah hujan Indonesia
@@ -101,7 +100,6 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
     min_data_length = 46 if is_ndvi else 365  # 2 tahun untuk NDVI (~46 pengukuran), 1 tahun untuk lainnya
 
-
     if len(train_data) < min_data_length:
         print(f"❌ Insufficient data (need at least {min_data_length} {'pengukuran' if is_ndvi else 'hari'})")
         return None, None
@@ -111,7 +109,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     beta_range = [0.1, 0.3, 0.5]
     gamma_range = [0.3, 0.5, 0.7]
 
-    # Hapus logika penentuan seasonal_periods_options yang lama
+    # Seasonal periods
     best_period = detect_seasonal_period(train_data, param_name)
     seasonal_periods_options = [best_period]
     if is_ndvi:
@@ -125,9 +123,9 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     best_metrics = None
     valid_models = 0
     
-   # atur proporsi data train dan validasi data
+    # Atur proporsi data train/validasi
     if is_ndvi:
-            val_size = max(4, int(len(train_data) * validation_ratio))
+        val_size = max(4, int(len(train_data) * validation_ratio))
     else:
         val_size = int(len(train_data) * validation_ratio)
         val_size = max(30, val_size) 
@@ -171,10 +169,11 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                         # Calculate metrics
                         mae = mean_absolute_error(val_split, forecast)
                         mse = mean_squared_error(val_split, forecast)
-                        rmse = np.sqrt(mse)
+                        r2 = r2_score(val_split, forecast)
                         mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
                         
-                        score = mae * 0.7 + rmse * 0.3
+                        # Gunakan kombinasi MAE + (1 - R²) untuk scoring
+                        score = mae * 0.7 + (1 - r2) * 0.3
                         
                         if score < best_score:
                             best_score = score
@@ -186,9 +185,9 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                             }
                             best_metrics = {
                                 'mae': mae,
-                                'rmse': rmse,
                                 'mape': mape,
                                 'mse': mse,
+                                'r2': r2,
                                 'valid_models': valid_models + 1
                             }
                             print(f"✅ New best found! Score: {score:.4f}, Params: {best_params}")
@@ -203,7 +202,6 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
         print("❌ No valid model found.")
 
     return best_params, best_metrics
-
 
 
 def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None):
@@ -403,7 +401,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             "documents_processed": upsert_count,
             "save_collection": save_collection,
             "model_params": best_params,
-            "error_metrics": error_metrics,  # Menambahkan MAE, RMSE, MAPE, MSE
+            "error_metrics": error_metrics,  # Menambahkan MAE, R2, MAPE, MSE
             "forecast_range": {
                 "min": float(forecast.min()),
                 "max": float(forecast.max())
