@@ -87,7 +87,7 @@ def detect_seasonal_period(data, param_name):
                 continue
         return best_period
     else:
-        return 180  
+        return 365  
     
 
 
@@ -265,7 +265,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if is_ndvi:
             df = df.reindex(date_range).interpolate(method='linear')
         else:
-            df = df.reindex(date_range, fill_value=0)
+            df = df.reindex(date_range).interpolate(method='linear')
         
         print(f"Data range: {df.index[0]} to {df.index[-1]}")
         
