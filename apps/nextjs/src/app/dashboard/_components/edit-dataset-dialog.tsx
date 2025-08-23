@@ -25,31 +25,33 @@ interface EditDatasetDialogProps {
     _id: string;
     name: string;
     source: string;
-    collectionName?: string;
+    collectionName: string;
     description?: string;
     status: string;
   };
 }
 
 export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
-  console.log("🔍 Dataset received in EditDatasetDialog:", dataset);
   console.log("🔍 Dataset ID:", dataset?._id);
   console.log("🔍 Dataset name:", dataset?.name);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    name: dataset.name,
-    source: dataset.source,
-    // name: dataset.name || "",
-    // source: dataset.source || "",
-    collectionName: dataset.collectionName || "",
-    description: dataset.description || "",
-    status: dataset.status || "raw",
+    name: dataset?.name || "",
+    source: dataset?.source || "",
+    collectionName: dataset?.collectionName || "",
+    description: dataset?.description || "",
+    status: dataset?.status || "raw",
   });
   // Mutation update
   const { mutate: updateDataset, isPending: isUpdating } = useMutation({
     mutationKey: ["update-dataset", dataset._id],
-    mutationFn: (data: typeof form) => UpdateDatasetMeta(dataset._id, data),
+    mutationFn: (data: typeof form) => {
+      if (!dataset?._id) {
+        throw new Error("Dataset ID is missing");
+      }
+      return UpdateDatasetMeta(dataset._id, data);
+    },
     onSuccess: () => {
       toast.success("Dataset berhasil diperbarui");
       queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
@@ -59,17 +61,26 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
       toast.error("Gagal memperbarui dataset");
     },
   });
+
   // Mutation delete
   const { mutate: deleteDataset, isPending: isDeleting } = useMutation({
-    mutationKey: ["delete-dataset", dataset._id],
-    mutationFn: () => DeleteDatasetMeta(dataset._id),
+    mutationKey: ["delete-dataset", dataset.collectionName], // Update key juga
+    mutationFn: () => {
+      if (!dataset?.collectionName) {
+        throw new Error("Collection name is missing");
+      }
+      return DeleteDatasetMeta(dataset.collectionName);
+    },
     onSuccess: () => {
       toast.success("Dataset berhasil dihapus");
       queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
       setOpen(false);
     },
-    onError: () => {
-      toast.error("Gagal menghapus dataset");
+    onError: (error: any) => {
+      console.error("Delete error:", error);
+      const errorMessage =
+        error?.response?.data?.message || "Gagal menghapus dataset";
+      toast.error(errorMessage);
     },
   });
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

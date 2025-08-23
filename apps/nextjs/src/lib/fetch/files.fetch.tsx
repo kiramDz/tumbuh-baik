@@ -1,5 +1,6 @@
 import axios from "axios";
 export interface DatasetMetaType {
+  _id: string;
   name: string;
   source: string;
   collectionName: string;
@@ -336,9 +337,9 @@ export const UpdateDatasetMeta = async (
   }
 };
 
-export const DeleteDatasetMeta = async (id: string) => {
+export const DeleteDatasetMeta = async (collectionName: string) => {
   try {
-    const res = await axios.delete(`/api/v1/dataset-meta/${id}`);
+    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
     return res.data.data;
   } catch (error) {
     console.error("Delete dataset meta error:", error);
