@@ -9,18 +9,22 @@ import itertools
 import warnings
 warnings.filterwarnings('ignore')
 
-def fit_robust_model(data, best_params, param_name="NDVI"):
+def fit_robust_model(data, best_params):
     """
     Fit model dengan error handling yang lebih baik
     """
-    print(f"🧪 Received data length: {len(data)}")
-    print(f"📦 Params received: {best_params}")
     try:
-        default_period = 23 if param_name == "NDVI" else 365
-        model = ExponentialSmoothing(...).fit(optimized=True)
-        forecast_raw = model.forecast(steps=30)
-        print("📈 Raw forecast (30 hari):")
-        print(forecast_raw.round(2).to_list())
+        model = ExponentialSmoothing(
+            data,
+            trend="add",
+            seasonal="add",
+            seasonal_periods=best_params.get('seasonal_periods', 365)
+        ).fit(
+            smoothing_level=best_params['alpha'],
+            smoothing_trend=best_params['beta'],
+            smoothing_seasonal=best_params['gamma'],
+            optimized=False
+        )
         return model
     except Exception as e:
         print(f"Model fitting failed: {e}")
@@ -39,17 +43,22 @@ def post_process_forecast(forecast, param_name):
     """
     Post-processing untuk memastikan forecast masuk akal
     """
-    forecast = np.array(forecast)
-    if param_name in ["RR", "RR_imputed"]: 
-        forecast = np.clip(forecast, 0, 300)  
-    elif param_name == "NDVI":  
-        forecast = np.clip(forecast, -1, 1)  # Rentang NDVI
-    elif param_name == "RH_AVG":  
-        forecast = np.clip(forecast, 0, 100)  
-    elif param_name in ["T_AVG", "T_MAX", "T_MIN"]:  
-        forecast = np.clip(forecast, -10, 50)  # Celsius, rentang realistis
-    else:
-        print(f"Warning: No post-processing defined for {param_name}")
+    if param_name == "RR" or param_name == "RR_imputed":  # Curah Hujan
+        forecast = np.maximum(forecast, 0)
+        forecast = np.minimum(forecast, 300)
+        
+    elif param_name == "RH_AVG":  # Kelembapan
+        # Harus dalam range 0-100%
+        forecast = np.clip(forecast, 0, 100)
+    
+    elif param_name == "NDVI":  # Normalized Difference Vegetation Index
+        # NDVI harus dalam range -1 to 1
+        forecast = np.clip(forecast, -1, 1)
+    
+    elif "Suhu" in param_name or "Temperature" in param_name:  # Suhu
+        # Batasi suhu dalam range yang masuk akal (-50°C to 60°C)
+        forecast = np.clip(forecast, -50, 60)
+    
     return forecast
 
 def grid_search_hw_params(train_data, param_name):
@@ -58,41 +67,27 @@ def grid_search_hw_params(train_data, param_name):
     """
     print(f"\n--- Grid Search for Indonesian Rainfall Pattern: {param_name} ---")
     
-    # Tentukan frekuensi dan panjang minimum berdasarkan parameter
-    is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
-    min_data_length = 46 if is_ndvi else 365  # 2 tahun untuk NDVI (~46 pengukuran), 1 tahun untuk lainnya
-    seasonal_base = 23 if is_ndvi else 365    # 1 tahun: 23 pengukuran untuk NDVI, 365 hari untuk lainnya
-
-    if len(train_data) < min_data_length:
-        print(f"❌ Insufficient data (need at least {min_data_length} {'pengukuran' if is_ndvi else 'hari'})")
+    if len(train_data) < 365:  # Minimal 1 tahun
+        print("❌ Insufficient data (need at least 1 year)")
         return None, None
     
     # Parameter grid yang lebih konservatif untuk rainfall
-    alpha_range = [0.3, 0.5, 0.7]  
-    beta_range = [0.1, 0.3, 0.5]
-    gamma_range = [0.3, 0.5, 0.7]
+    alpha_range = [0.1, 0.2, 0.3, 0.5]  
+    beta_range = [0.05, 0.1, 0.2]       
+    gamma_range = [0.1, 0.2, 0.3]       
     
     seasonal_periods_options = []
-    if is_ndvi:
-        if len(train_data) >= 46:  # 2 tahun
-            seasonal_periods_options = [4, 6, 8]   # 1 tahun
-        if len(train_data) >= 24:  # 1 tahun
-            seasonal_periods_options.append(12)  # 6 bulan
-        if len(train_data) >= 12:  # 6 bulan
-            seasonal_periods_options.append(6)   # 3 bulan
-        if not seasonal_periods_options:
-            seasonal_periods_options = [4]      # Fallback: ~2 bulan
-    else:
-        if len(train_data) >= 365*2:
-            seasonal_periods_options.append(365)
-        if len(train_data) >= 180*2:
-            seasonal_periods_options.append(180)
-        if len(train_data) >= 90*2:
-            seasonal_periods_options.append(90)
-        if len(train_data) >= 30*3:
-            seasonal_periods_options.append(30)
-        if not seasonal_periods_options:
-            seasonal_periods_options = [7] 
+    if len(train_data) >= 365*2:  
+        seasonal_periods_options.append(365)  
+    if len(train_data) >= 180*2:  
+        seasonal_periods_options.append(180) 
+    if len(train_data) >= 90*2:  
+        seasonal_periods_options.append(90)   
+    if len(train_data) >= 30*3:  
+        seasonal_periods_options.append(30)  
+    
+    if not seasonal_periods_options:
+        seasonal_periods_options = [7]  
     
     print(f"Testing seasonal periods: {seasonal_periods_options}")
     
@@ -102,11 +97,8 @@ def grid_search_hw_params(train_data, param_name):
     valid_models = 0
     
    
-    if is_ndvi:
-     val_size = max(4, min(int(len(train_data) * 0.2), len(train_data) // 3))
-    else:
-     val_size = min(365, int(len(train_data) * 0.2))
-    split_point = len(train_data) - val_size
+    val_days = min(365*2, int(len(train_data) * 0.2))  
+    split_point = len(train_data) - val_days
     
     train_split = train_data[:split_point]
     val_split = train_data[split_point:]
@@ -121,7 +113,6 @@ def grid_search_hw_params(train_data, param_name):
             for beta in beta_range:
                 for gamma in gamma_range:
                     try:
-                        print(f"🔧 Trying: alpha={alpha}, beta={beta}, gamma={gamma}, season={seasonal_periods}")
                         # Fit model
                         model = ExponentialSmoothing(
                             train_split,
@@ -137,7 +128,7 @@ def grid_search_hw_params(train_data, param_name):
                         
                         # Forecast
                         forecast = model.forecast(len(val_split))
-                        forecast = post_process_forecast(forecast, param_name)
+                        forecast = np.maximum(forecast, 0)  # Non-negative
                         
                         # Calculate metrics
                         mae = mean_absolute_error(val_split, forecast)
@@ -162,17 +153,11 @@ def grid_search_hw_params(train_data, param_name):
                                 'mse': mse,
                                 'valid_models': valid_models + 1
                             }
-                            print(f"✅ New best found! Score: {score:.4f}, Params: {best_params}")
                             valid_models += 1
                             
                     except Exception as e:
                         continue
-    if best_params:
-        print(f"\n🎯 Best Params: {best_params}")
-        print(f"📈 Metrics: {best_metrics}")
-    else:
-        print("❌ No valid model found.")
-
+    
     return best_params, best_metrics
 
 def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None):
@@ -221,20 +206,11 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
 
         # Pastikan indeks harian tanpa duplikasi
         df = df[~df.index.duplicated(keep='first')]
-
-        # Tentukan frekuensi berdasarkan parameter
-        is_ndvi = target_column in ["NDVI", "NDVI_imputed"]
-        freq = '16D' if is_ndvi else 'D'
-
-        date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq=freq)
+        date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq='D')
         missing_dates = date_range.difference(df.index)
         print(f"Missing dates: {missing_dates}")
 
-         # Reindex dengan interpolasi untuk NDVI, fill_value=0 untuk lainnya
-        if is_ndvi:
-            df = df.reindex(date_range).interpolate(method='linear')
-        else:
-            df = df.reindex(date_range, fill_value=0)
+        df = df.reindex(date_range, fill_value=0)
         
         print(f"Data range: {df.index[0]} to {df.index[-1]}")
         
@@ -248,50 +224,30 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if len(param_data) < 100:
             raise ValueError(f"Insufficient data for {target_column}")
         
-        # Debug data
-        print(f"Data summary for {target_column}:")
-        print(f"Total values: {len(param_data)}")
-        print(f"Zero values: {(param_data == 0).sum()}")
-        print(f"Non-zero values: {(param_data > 0).sum()}")
-        print(f"Mean: {param_data.mean():.3f}, Std: {param_data.std():.3f}")
-
         # Grid search
         best_params, error_metrics = grid_search_hw_params(param_data, target_column)
         
         if best_params is None:
             raise ValueError(f"No valid model found for {target_column}")
-        print(f"🔎 param_data length: {len(param_data)}")
-        print(f"📊 Best params: {best_params}")
-
+        
         # Fit final model
         final_model = fit_robust_model(param_data, best_params)
-        fitted_values = final_model.fittedvalues
-        print(f"Fitted values range: {fitted_values.min():.3f} to {fitted_values.max():.3f}")
         
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
         
         # Calculate forecast horizon (sampai akhir 2026)
-        # forecast_start_date = pd.Timestamp("2025-09-20")
-        # forecast_end_date = pd.Timestamp("2026-09-19")
-        # forecast_days = (forecast_end_date - forecast_start_date).days + 1
-
         forecast_start_date = pd.Timestamp("2025-09-20")
         forecast_end_date = pd.Timestamp("2026-09-19")
         forecast_days = (forecast_end_date - forecast_start_date).days + 1
-        forecast_steps = (forecast_days // 16) + (1 if forecast_days % 16 > 0 else 0)
-        forecast_steps = max(forecast_steps, 2)
-
         
-        print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
+        print(f"Forecast horizon: {forecast_days} days")
         
         # Generate forecast
         print(f"Generating forecast for {target_column}...")
         try:
-            forecast = final_model.forecast(steps=forecast_steps)
-            print(f"Raw forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
-            print(f"First 10 raw forecast values: {forecast[:10].round(3).to_list()}")
-
+            forecast = final_model.forecast(steps=forecast_days)
+            
             if forecast is None or len(forecast) == 0:
                 raise ValueError("Forecast result is empty")
             
@@ -307,18 +263,17 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             forecast = post_process_forecast(forecast, target_column)
             
             print(f"✓ {target_column} forecast completed")
-            print(f"  Processed forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
+            print(f"  Forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
             
         except Exception as e:
             raise ValueError(f"Forecast generation failed: {str(e)}")
         
         # Prepare forecast documents
         forecast_docs = []
-        date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
         
         try:
             for i in range(len(forecast)):
-                forecast_date = df.index[-1] + date_increment * (i + 1)
+                forecast_date = df.index[-1] + pd.Timedelta(days=i + 1)
                 forecast_date_only = datetime.strptime(forecast_date.strftime('%Y-%m-%d'), '%Y-%m-%d')
                 
                 forecast_value = float(forecast[i])
@@ -339,7 +294,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                                 "beta": best_params["beta"],
                                 "gamma": best_params["gamma"],
                                 "use_seasonal": best_params.get("use_seasonal", True),
-                                "seasonal_periods": best_params.get("seasonal_periods", 23 if is_ndvi else 365)
+                                "seasonal_periods": best_params.get("seasonal_periods", 365)
                             }
                         }
                     }

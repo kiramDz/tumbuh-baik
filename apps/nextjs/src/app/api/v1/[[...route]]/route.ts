@@ -10,6 +10,8 @@ import exportRoute from "../_routes/feature/export-csv.route";
 import datasetMetaRoute from "../_routes/feature/dataset-meta.route";
 import forecastConfigRoute from "../_routes/feature/forecast-config";
 import holtWinter from "../_routes/model/holt-winter.route";
+import lstmConfigRoute from "../_routes/feature/lstm-config";
+import lstm from "../_routes/model/lstm.route";
 
 export const runtime = "nodejs";
 
@@ -31,6 +33,8 @@ app.route("/export-csv", exportRoute);
 app.route("/dataset-meta", datasetMetaRoute);
 app.route("/forecast-config", forecastConfigRoute);
 app.route("/hw", holtWinter);
+app.route("/lstm-config", lstmConfigRoute);
+app.route("/lstm", lstm);
 
 export const GET = handle(app);
 export const POST = handle(app);

@@ -76,6 +76,37 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
   }
 }
 
+export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder = "desc") {
+  try {
+    const response = await axios.get("/api/v1/export-csv/lstm-daily", {
+      params: { sortBy, sortOrder },
+      responseType: "blob",
+    });
+
+    if (response.status === 200) {
+      const blob = new Blob([response.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const filename = `lstm_forecast_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      return { success: true, message: "File downloaded successfully" };
+    }
+
+  } catch (error) {
+    console.error("Export LSTM Forecast CSV failed:", error);
+    return { success: false, message: "Export failed" };
+  }
+}
+
 //bmkg api
 export const getBmkgApi = async () => {
   try {
@@ -108,6 +139,36 @@ export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
     }
   } catch (error) {
     console.error("Error fetching HW Daily:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+
+export const getLSTMDaily = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/lstm/daily", {
+      params: { page, pageSize },
+    });
+    if (res.status === 200) {
+      console.log("🟢 Retrieved documents:", res.data.length);
+      console.log("✅ LSTM API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching LSTM Daily:", error);
     return {
       items: [],
       total: 0,
@@ -298,12 +359,32 @@ export const createForecastConfig = async (data: { name: string; columns: { coll
   return response.data;
 };
 
+export const getLSTMConfigs = async () => {
+  const response = await axios.get("/api/v1/lstm-config");
+  return response.data.data;
+};
+
+export const createLSTMConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
+  const response = await axios.post("/api/v1/lstm-config", data);
+  return response.data;
+};
+
 export const triggerForecastRun = async () => {
   try {
     const res = await axios.post("https://1b47fe2a888c.ngrok-free.app/run-forecast");
     return res.data;
   } catch (error) {
     console.error("Trigger forecast run failed:", error);
+    throw error;
+  }
+};
+
+export const triggerLSTMForecast = async () => {
+  try {
+    const res = await axios.post("https://1b47fe2a888c.ngrok-free.app/run-lstm-forecast");
+    return res.data;
+  } catch (error) {
+    console.error("Trigger LSTM forecast failed:", error);
     throw error;
   }
 };
