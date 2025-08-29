@@ -22,48 +22,60 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   dataset,
   showMenu = true, // Default to true if not provided
 }) => {
+  const encodedHref = dataset?.collectionName
+    ? `/dashboard/data/${encodeURIComponent(dataset.collectionName)}`
+    : href;
+  const handleCardClick = () => {
+    window.location.href = encodedHref;
+  };
   return (
     <>
-      <Link href={href} passHref>
-        <Card className="relative flex h-48 w-full flex-col overflow-hidden rounded-xl">
-          <div className="group relative h-full w-full cursor-pointer overflow-hidden bg-white px-6 pb-8 pt-6 transition-all duration-300">
-            {/* Blue hover effect background - positioned to fill entire card */}
-            <span className="absolute inset-0 z-0 bg-white transition-all duration-300 group-hover:bg-sky-500/10"></span>
+      <Card
+        className="relative flex h-48 w-full flex-col overflow-hidden rounded-xl cursor-pointer"
+        onClick={handleCardClick}
+      >
+        <div className="group relative h-full w-full cursor-pointer overflow-hidden bg-white px-6 pb-8 pt-6 transition-all duration-300">
+          {/* Blue hover effect background - positioned to fill entire card */}
+          <span className="absolute inset-0 z-0 bg-white transition-all duration-300 group-hover:bg-sky-500/10"></span>
 
-            {/* Blue accent circle that expands on hover */}
-            <span className="absolute top-6 left-6 z-0 h-10 w-10 rounded-full bg-sky-500 transition-all duration-500 group-hover:scale-[6] group-hover:opacity-70"></span>
+          {/* Blue accent circle that expands on hover */}
+          <span className="absolute top-6 left-6 z-0 h-10 w-10 rounded-full bg-sky-500 transition-all duration-500 group-hover:scale-[6] group-hover:opacity-70"></span>
 
-            {/* Edit menu button */}
-            <div className="absolute top-6 right-6 z-20">
-              {dataset && showMenu ? (
-                <EditDatasetDialog dataset={dataset} />
-              ) : showMenu ? (
-                <div className="text-xs text-gray-400">No menu</div>
-              ) : null}
+          <div
+            className="absolute top-6 right-6 z-20"
+            onClick={(e) => {
+              e.stopPropagation(); // This is still needed
+              e.preventDefault(); // Also prevent default behavior
+            }}
+          >
+            {dataset && showMenu ? (
+              <EditDatasetDialog dataset={dataset} />
+            ) : showMenu ? (
+              <div className="text-xs text-gray-400">No menu</div>
+            ) : null}
+          </div>
+
+          {/* Content */}
+          <div className="relative z-10 h-full flex flex-col">
+            {/* Icon */}
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 transition-all duration-300 group-hover:bg-sky-600">
+              <Icon className="h-5 w-5 text-white" />
+            </span>
+
+            {/* Title with line clamp */}
+            <div className="mt-4 line-clamp-1 font-medium text-gray-900 group-hover:text-sky-700 transition-colors duration-300">
+              {title}
             </div>
 
-            {/* Content */}
-            <div className="relative z-10 h-full flex flex-col">
-              {/* Icon */}
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 transition-all duration-300 group-hover:bg-sky-600">
-                <Icon className="h-5 w-5 text-white" />
-              </span>
-
-              {/* Title with line clamp */}
-              <div className="mt-4 line-clamp-1 font-medium text-gray-900 group-hover:text-sky-700 transition-colors duration-300">
-                {title}
-              </div>
-
-              {/* Description with fixed height and line clamp */}
-              <div className="mt-2 flex-grow">
-                <p className="text-sm text-gray-600 line-clamp-3 group-hover:text-gray-800 transition-colors duration-300">
-                  {description || "No description available"}
-                </p>
-              </div>
+            {/* Description with fixed height and line clamp */}
+            <div className="mt-2 flex-grow">
+              <p className="text-sm text-gray-600 line-clamp-3 group-hover:text-gray-800 transition-colors duration-300">
+                {description || "No description available"}
+              </p>
             </div>
           </div>
-        </Card>
-      </Link>
+        </div>
+      </Card>
     </>
   );
 };

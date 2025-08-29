@@ -159,9 +159,6 @@ datasetMetaRoute.put("/:id", async (c) => {
         400
       );
     }
-    if (body.name) {
-      body.collectionName = body.name.trim();
-    }
     // Update metadata di MongoDB
     const updatedDataset = await DatasetMeta.findByIdAndUpdate(
       id,

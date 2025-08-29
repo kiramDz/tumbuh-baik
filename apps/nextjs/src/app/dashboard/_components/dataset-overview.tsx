@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Database } from "lucide-react";
+import { Icons } from "./icons";
 import { GetAllDatasetMeta } from "@/lib/fetch/files.fetch";
 import { DashboardCard } from "./dashboard-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,13 +40,6 @@ export default function DatasetOverview() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
       {datasets.map((dataset, index) => {
-        // 🔍 DEBUG: Log before passing to DashboardCard
-        // console.log(`🔍 Passing to DashboardCard ${index}:`, {
-        //   dataset,
-        //   title: dataset.name,
-        //   href: `/dataset/${dataset.collectionName}`,
-        // });
-
         // Prepare a fixed-length description to prevent wrapping issues
         const formattedDescription = dataset.description
           ? dataset.description.length > 120
@@ -57,8 +50,10 @@ export default function DatasetOverview() {
         return (
           <DashboardCard
             key={dataset._id}
-            href={`/dataset/${dataset.collectionName}`}
-            icon={Database}
+            href={`/dashboard/data/${encodeURIComponent(
+              dataset.collectionName
+            )}`}
+            icon={Icons.database}
             title={dataset.name}
             description={formattedDescription}
             dataset={dataset}

@@ -95,7 +95,10 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="group/menu flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-all duration-200 hover:bg-black hover:scale-110">
+        <button
+          className="group/menu flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-all duration-200 hover:bg-black hover:scale-110"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Menu className="h-5 w-5 text-gray-600 transition-colors duration-200 group-hover/menu:text-white" />
         </button>
       </DialogTrigger>
