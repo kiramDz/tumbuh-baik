@@ -32,8 +32,6 @@ interface EditDatasetDialogProps {
 }
 
 export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
-  console.log("🔍 Dataset ID:", dataset?._id);
-  console.log("🔍 Dataset name:", dataset?.name);
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -44,21 +42,26 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     status: dataset?.status || "raw",
   });
   // Mutation update
-  const { mutate: updateDataset, isPending: isUpdating } = useMutation({
+  const { mutate: updateDataset, isPending: isPending } = useMutation({
     mutationKey: ["update-dataset", dataset._id],
     mutationFn: (data: typeof form) => {
       if (!dataset?._id) {
         throw new Error("Dataset ID is missing");
       }
+
       return UpdateDatasetMeta(dataset._id, data);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Dataset berhasil diperbarui");
       queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
       setOpen(false);
     },
-    onError: () => {
-      toast.error("Gagal memperbarui dataset");
+    onError: (error: any) => {
+      console.error("❌ Update failed, error:", error);
+      console.error("❌ Error response:", error.response?.data);
+      const errorMessage =
+        error?.response?.data?.message || "Gagal memperbarui dataset";
+      toast.error(errorMessage);
     },
   });
 
@@ -83,24 +86,28 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
       toast.error(errorMessage);
     },
   });
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    updateDataset(form);
-  };
   const handleDelete = () => {
     if (confirm("Yakin ingin menghapus dataset ini?")) {
       deleteDataset();
     }
   };
+  const handleSubmit = () => {
+    try {
+      updateDataset(form);
+    } catch (error) {
+      console.log("Error in handleSubmit:", error);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button
+        <Button
           className="group/menu flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-all duration-200 hover:bg-black hover:scale-110"
           onClick={(e) => e.stopPropagation()}
         >
           <Menu className="h-5 w-5 text-gray-600 transition-colors duration-200 group-hover/menu:text-white" />
-        </button>
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -109,24 +116,19 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
             Ubah metadata dataset atau hapus dataset.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+
+        {/* Main form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-2">
             <Label htmlFor="name">Nama Dataset</Label>
-            {/* <Input
+            <Input
               id="name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
-            /> */}
-            <Input
-              id="name"
-              value={form.name}
-              onChange={(e) => {
-                console.log("🔍 Name field changed:", e.target.value);
-                setForm({ ...form, name: e.target.value });
-              }}
             />
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="source">Sumber</Label>
             <select
@@ -148,6 +150,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               </option>
             </select>
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="collectionName">Nama Koleksi (Opsional)</Label>
             <Input
@@ -158,6 +161,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               }
             />
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="status">Status</Label>
             <select
@@ -171,6 +175,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               <option value="validated">Validated</option>
             </select>
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="description">Deskripsi</Label>
             <Input
@@ -181,26 +186,32 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               }
             />
           </div>
-          <DialogFooter className="flex justify-between">
+
+          {/* Action buttons */}
+          <div className="flex justify-between pt-4">
             <Button
               type="button"
               variant="destructive"
-              className="flex items-center gap-2"
               onClick={handleDelete}
               disabled={isDeleting}
+              className="flex items-center gap-2"
             >
               <Trash className="h-4 w-4" />
               {isDeleting ? "Menghapus..." : "Hapus"}
             </Button>
+
             <div className="flex gap-2">
               <DialogClose asChild>
-                <Button variant="outline">Batal</Button>
+                <Button type="button" variant="outline">
+                  Batal
+                </Button>
               </DialogClose>
-              <Button type="submit" disabled={isUpdating}>
-                {isUpdating ? "Menyimpan..." : "Simpan"}
+
+              <Button type="submit" disabled={isPending} onClick={handleSubmit}>
+                {isPending ? "Menyimpan..." : "Simpan"}
               </Button>
             </div>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

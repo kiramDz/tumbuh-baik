@@ -315,7 +315,7 @@ export const AddDatasetMeta = async (data: {
 };
 
 export const UpdateDatasetMeta = async (
-  id: string,
+  _id: string,
   data: {
     name?: string;
     source?: string;
@@ -324,15 +324,19 @@ export const UpdateDatasetMeta = async (
     collectionName?: string;
     status?: string;
     description?: string;
-    records?: Record<string, any>[];
   }
 ) => {
   try {
-    // const res = await axios.put(`api/v1/dataset-meta/${id}`, data);
-    const res = await axios.put(`/api/v1/dataset-meta/${id}`, data);
+    const res = await axios.put(`/api/v1/dataset-meta/${_id}`, data, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("API response:", res.data);
     return res.data.data;
   } catch (error) {
-    console.error("Update dataset meta error:", error);
+    console.error("❌ Update dataset meta error:", error);
     throw error;
   }
 };
