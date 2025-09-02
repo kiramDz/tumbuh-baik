@@ -1,8 +1,9 @@
+"use client";
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSeeds, createSeed, getHoltWinterDaily } from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/combobox";
 import { format } from "date-fns";
@@ -22,14 +23,15 @@ const HUM_MIN = 33;
 const HUM_MAX = 90;
 
 const GARAP_DURATION = 5;
-const SEMAI_DURATION = 20;
+// const SEMAI_DURATION = 20; // === DIHAPUS === Konstanta ini tidak lagi digunakan
 
 export default function CalendarSeedPlanner() {
   const queryClient = useQueryClient();
   const [selectedSeedName, setSelectedSeedName] = useState<string>("");
   const [duration, setDuration] = useState<number>(0);
   const [startDate, setStartDate] = useState<string>("");
-  const [semaiStatus, setSemaiStatus] = useState<string>("belum");
+  // === DIUBAH === State untuk durasi semai, default 20 hari
+  const [semaiDurationInput, setSemaiDurationInput] = useState<number>(20);
   const [showGrid, setShowGrid] = useState(false);
 
   const { data: seedsData } = useQuery({
@@ -64,25 +66,27 @@ export default function CalendarSeedPlanner() {
     setShowGrid(true);
   };
 
+  // === DIUBAH === Logika kalkulasi menggunakan input durasi semai
   const calculateActualStartDate = () => {
     if (!startDate) return null;
     const targetPlantDate = new Date(startDate);
-    const daysToSubtract = semaiStatus === "belum" ? GARAP_DURATION + SEMAI_DURATION : GARAP_DURATION;
+    // Jumlah hari mundur adalah Garap + Durasi Semai dari input
+    const daysToSubtract = GARAP_DURATION + semaiDurationInput;
     const actualStartDate = new Date(targetPlantDate);
     actualStartDate.setDate(actualStartDate.getDate() - daysToSubtract);
     return actualStartDate;
   };
 
   const getWeatherColor = (rain: number, temp: number, hum: number) => {
-    const isRainExtreme = rain < RAIN_MIN || rain > RAIN_MAX;
-    const isTempExtreme = temp < TEMP_MIN || temp > TEMP_MAX;
-    const isHumExtreme = hum < HUM_MIN || hum > HUM_MAX;
+    const isRainSesuai = rain >= RAIN_MIN && rain <= RAIN_MAX;
+    const isTempSesuai = temp >= TEMP_MIN && temp <= TEMP_MAX;
+    const isHumSesuai = hum >= HUM_MIN && hum <= HUM_MAX;
 
-    const extremeCount = [isRainExtreme, isTempExtreme, isHumExtreme].filter(Boolean).length;
+    const sesuaiCount = Number(isRainSesuai) + Number(isTempSesuai) + Number(isHumSesuai);
 
-    if (extremeCount === 0) return "bg-green-300"; // semua sesuai
-    if (extremeCount >= 2) return "bg-red-300"; // ada 2+ ekstrem → bahaya
-    return "bg-green-100"; // ada 1 ekstrem → bisa tanam tapi hati-hati
+    if (sesuaiCount === 3) return "bg-green-300"; // Sangat Cocok (3/3)
+    if (sesuaiCount === 2) return "bg-green-100"; // Cukup Cocok (2/3)
+    return "bg-red-300"; // Tidak Cocok (<2)
   };
 
   const renderGrid = () => {
@@ -90,7 +94,8 @@ export default function CalendarSeedPlanner() {
     const actualStartDate = calculateActualStartDate();
     if (!actualStartDate) return null;
 
-    const preparationDays = semaiStatus === "belum" ? GARAP_DURATION + SEMAI_DURATION : GARAP_DURATION;
+    // === DIUBAH === Logika hari persiapan menggunakan input durasi semai
+    const preparationDays = GARAP_DURATION + semaiDurationInput;
     const totalGridDays = preparationDays + duration;
 
     const gridDays = Array.from({ length: totalGridDays }, (_, i) => {
@@ -104,10 +109,13 @@ export default function CalendarSeedPlanner() {
         hum = 0;
 
       if (i < preparationDays) {
-        if (semaiStatus === "belum") {
+        // === DIUBAH === Kondisi untuk menampilkan fase Semai
+        if (semaiDurationInput > 0) {
+          // Jika ada durasi semai
           type = i < GARAP_DURATION ? "Garap" : "Semai";
           bgColor = i < GARAP_DURATION ? "bg-orange-200" : "bg-blue-200";
         } else {
+          // Jika tidak ada durasi semai (input = 0)
           type = "Garap";
           bgColor = "bg-orange-200";
         }
@@ -124,7 +132,6 @@ export default function CalendarSeedPlanner() {
           bgColor = "bg-gray-200";
         }
 
-        // Panen warna kuning
         const dayInCycle = i - preparationDays;
         if (dayInCycle >= duration - 20) {
           type = "Panen";
@@ -132,31 +139,34 @@ export default function CalendarSeedPlanner() {
         }
       }
 
-      return {
-        day: i + 1,
-        date: format(date, "MMM d"),
-        type,
-        bgColor,
-        rain,
-        temp,
-        hum,
-      };
+      return { day: i + 1, date: format(date, "MMM d"), type, bgColor, rain, temp, hum };
     });
 
     return (
       <div className="mt-6">
+        {/* === DIUBAH === Legenda Semai menjadi dinamis */}
         <div className="mb-4 flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-orange-200 rounded"></div>
             <span>Garap Sawah ({GARAP_DURATION} hari)</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-200 rounded"></div>
-            <span>Semai ({SEMAI_DURATION} hari)</span>
-          </div>
+          {semaiDurationInput > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-200 rounded"></div>
+              <span>Semai ({semaiDurationInput} hari)</span>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-300 rounded"></div>
-            <span>Masa Tanam</span>
+            <span>Sangat Cocok Tanam</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-green-100 rounded"></div>
+            <span>Cukup Cocok Tanam</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-red-300 rounded"></div>
+            <span>Tidak Cocok Tanam</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-yellow-300 rounded"></div>
@@ -216,17 +226,10 @@ export default function CalendarSeedPlanner() {
           <Label htmlFor="tanggal">Tanggal Mulai</Label>
           <Input type="date" placeholder="Tanggal Mulai Tanam" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
+        {/* === DIUBAH === Mengganti Select menjadi Input Angka */}
         <div className="flex flex-col gap-2">
-          <Label htmlFor="semai">Status semai</Label>
-          <Select value={semaiStatus} onValueChange={setSemaiStatus}>
-            <SelectTrigger>
-              <SelectValue placeholder="Status Semai" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="belum">Belum Semai</SelectItem>
-              <SelectItem value="sudah">Sudah Semai</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label htmlFor="semai">Durasi Semai (hari)</Label>
+          <Input type="number" placeholder="Contoh: 20 (isi 0 jika sudah)" value={semaiDurationInput} onChange={(e) => setSemaiDurationInput(Number(e.target.value))} min="0" />
         </div>
       </div>
 

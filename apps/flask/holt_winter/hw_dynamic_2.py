@@ -91,7 +91,7 @@ def detect_seasonal_period(data, param_name):
     
 
 
-def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
+def grid_search_hw_params(train_data, param_name, validation_ratio=0.30):
     """
     Grid search disesuaikan untuk pola curah hujan Indonesia
     """
@@ -170,10 +170,10 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                         
                         # Calculate metrics
                         mae = mean_absolute_error(val_split, forecast)
+                        mad = np.mean(np.abs(val_split - np.mean(val_split)))
                         mse = mean_squared_error(val_split, forecast)
-                        rmse = np.sqrt(mse)
                         mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
-                        
+                        rmse = np.sqrt(mse)
                         score = mae * 0.7 + rmse * 0.3
                         
                         if score < best_score:
@@ -186,7 +186,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                             }
                             best_metrics = {
                                 'mae': mae,
-                                'rmse': rmse,
+                                'mad': mad,
                                 'mape': mape,
                                 'mse': mse,
                                 'valid_models': valid_models + 1

@@ -19,10 +19,6 @@ const chartConfig = {
     label: "MAE",
     color: COLORS.mae,
   },
-  // R2: {
-  //   label: "R2",
-  //   color: COLORS.R2,
-  // },
   mape: {
     label: "MAPE",
     color: COLORS.mape,

@@ -17,25 +17,32 @@ const KT_PERIODS = {
   "KT-3": ["06-21-2026", "09-19-2026"],
 };
 
+// === FUNGSI INI DIUBAH ===
 const getWeatherColor = (rain: number, temp: number, humidity: number) => {
-  const rainLow = rain < 5.7;
-  const rainHigh = rain > 16.7;
-  const tempLow = temp < 24;
-  const tempHigh = temp > 29;
-  const humLow = humidity < 33;
-  const humHigh = humidity > 90;
+  // 1. Cek kesesuaian untuk setiap parameter
+  const isRainSesuai = rain >= 5.7 && rain <= 16.7;
+  const isTempSesuai = temp >= 24 && temp <= 29;
+  const isHumiditySesuai = humidity >= 33 && humidity <= 90;
 
-  const allOK = !rainLow && !rainHigh && !tempLow && !tempHigh && !humLow && !humHigh;
+  // 2. Hitung berapa banyak parameter yang "Sesuai"
+  // (Boolean diubah menjadi Angka: true=1, false=0)
+  const sesuaiCount = Number(isRainSesuai) + Number(isTempSesuai) + Number(isHumiditySesuai);
 
-  if (allOK) return "bg-green-300";
-  if (rainHigh || tempHigh || humHigh) return "bg-red-300"; // 🔴 Ekstrem tinggi
-  if (rainLow || tempLow || humLow) return "bg-green-100"; // 🟠 Kurang dari target
-  return "bg-gray-200"; // Tidak cocok tapi tidak ekstrem tinggi
+  // 3. Tentukan warna berdasarkan aturan "minimal 2 dari 3"
+  if (sesuaiCount === 3) {
+    return "bg-green-300"; // Sangat Cocok (3/3 parameter terpenuhi)
+  }
+  if (sesuaiCount === 2) {
+    return "bg-green-100"; // Cukup Cocok (2/3 parameter terpenuhi)
+  }
+
+  // Jika kurang dari 2 parameter yang sesuai (0 atau 1), maka Tidak Cocok
+  return "bg-red-300";
 };
 
 const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
   const days = eachDayOfInterval({ start: startDate, end: endDate });
-  const startOffset = getDay(startDate) === 0 ? 6 : getDay(startDate) - 1; // Mulai dari Senin (0-6 -> 6,0,1,2,3,4,5)
+  const startOffset = getDay(startDate) === 0 ? 6 : getDay(startDate) - 1;
 
   const grid: (any | null)[] = Array(startOffset).fill(null);
   days.forEach((date) => {
@@ -62,12 +69,11 @@ export default function PeriodCalendar() {
   } = useQuery({
     queryKey: ["holt-winter-period"],
     queryFn: async () => {
-      const all = await getHoltWinterDaily(1, 731); // Ambil semua 731 dokumen
-      console.log("Fetched data:", all.items);
+      const all = await getHoltWinterDaily(1, 731);
       return all.items
         .map((item: any) => ({
           ...item,
-          forecast_date: new Date(item.forecast_date).toISOString(), // Pastikan format konsisten
+          forecast_date: new Date(item.forecast_date).toISOString(),
         }))
         .sort((a: any, b: any) => new Date(a.forecast_date).getTime() - new Date(b.forecast_date).getTime());
     },
@@ -178,18 +184,19 @@ export default function PeriodCalendar() {
         {renderPeriodGrid("KT-2")}
         {renderPeriodGrid("KT-3")}
       </Tabs>
+      {/* === BAGIAN INI DIUBAH === */}
       <div className="flex flex-col gap-2 mt-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-green-300 border" />
-          <span>Cocok tanam</span>
+          <span>Sangat Cocok Tanam (3/3 parameter sesuai)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-green-100 border" />
-          <span>Tanam dengan peringatan (ada parameter rendah)</span>
+          <span>Cukup Cocok Tanam (2/3 parameter sesuai)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-red-300 border" />
-          <span>Tidak cocok tanam</span>
+          <span>Tidak Cocok Tanam (&lt;2 parameter sesuai)</span>
         </div>
       </div>
     </div>
