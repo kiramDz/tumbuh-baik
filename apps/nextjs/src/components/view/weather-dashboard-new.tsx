@@ -49,10 +49,10 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
           {selectedGampong && <WeatherHeader bmkgData={bmkgData} selectedCode={selectedGampong} onGampongChange={setSelectedGampong} />}
           <div className="w-full flex justify-between mx-auto">
             <div className="flex-1">{latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData }} unit={unit} />}</div>
-            <div className="flex-1 flex justify-center">{latestData && selected && <WeatherIcon description={latestData.weather_desc} />}</div>
-            <div className="flex-1 flex justify-end items-center">
+            <div className="flex-1 flex justify-end">{latestData && selected && <WeatherIcon description={latestData.weather_desc} />}</div>
+            {/* <div className="flex-1 flex justify-end items-center">
               <WeatherForecast forecast={dailyForecast} />
-            </div>
+            </div> */}
           </div>
 
           {hourlyForecast.length > 0 ? <RainbowGlowGradientLineChart hourlyForecast={hourlyForecast} /> : <div>No forecast data available</div>}
