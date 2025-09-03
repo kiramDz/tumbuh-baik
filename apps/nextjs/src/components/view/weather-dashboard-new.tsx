@@ -7,10 +7,9 @@ import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
 import WeatherIcon from "./weather-icon";
 import CurrentWeatherCard from "./current-weather";
-import WeatherForecast from "./weather-forecast";
 import { RainbowGlowGradientLineChart } from "./chart/weather-rainbow-chart";
 import { getBmkgApi } from "@/lib/fetch/files.fetch";
-import { getTodayWeather, getDailyForecastData, getHourlyForecastData } from "@/lib/bmkg-utils";
+import { getTodayWeather, getHourlyForecastData } from "@/lib/bmkg-utils";
 
 interface WeatherDashboardProps {
   unit: "metric" | "imperial";
@@ -39,7 +38,6 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
   }, [selected]);
 
   const latestData = useMemo(() => getTodayWeather(selectedData), [selectedData]);
-  const dailyForecast = getDailyForecastData(bmkgData);
   const hourlyForecast = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);
   return (
     <>

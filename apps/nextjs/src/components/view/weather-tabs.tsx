@@ -4,8 +4,7 @@ import { type ReactNode, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { YearlyCalender } from "./calender/planting-calender-2";
 
-import { CloudSun, CalendarDays, ChartNoAxesGantt } from "lucide-react";
-import Overview from "@/content/overview/aceh-besar.mdx";
+import { CloudSun, CalendarDays } from "lucide-react";
 interface ProjectTabsProps {
   defaultTab?: string;
   children: ReactNode;
@@ -43,16 +42,6 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
         <TabsContent value="calender" className="mt-6 mx-6">
           <YearlyCalender />
         </TabsContent>
-
-        {/* <TabsContent value="calculation" className="mt-6">
-          <div className="prose max-w-none dark:prose-invert">
-            <Formula />
-          </div>
-        </TabsContent> */}
-
-        {/* <TabsContent value="overview" className="mt-6 mx-24">
-          <Overview />
-        </TabsContent> */}
       </Tabs>
     </div>
   );
