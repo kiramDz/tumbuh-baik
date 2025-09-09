@@ -10,7 +10,7 @@ import exportRoute from "../_routes/feature/export-csv.route";
 import datasetMetaRoute from "../_routes/feature/dataset-meta.route";
 import forecastConfigRoute from "../_routes/feature/forecast-config";
 import holtWinter from "../_routes/model/holt-winter.route";
-
+import bmkgLiveRoute from "../_routes/dataset/newBmkg.route";
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
@@ -22,6 +22,7 @@ app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d 
 
 //fetch : http://localhost:3000/api/v1/bmkg-fetch
 
+app.route("/bmkg-live", bmkgLiveRoute);
 app.route("/bmkg-fetch", bmkgFetcherRoute); //api untuk ambik dari bmkg api dan masukin ke mongodb
 app.route("/bmkg-summary", bmkgSummaryRoute);
 app.route("/bmkg-daily", bmkgDailyRoute);

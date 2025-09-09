@@ -59,7 +59,7 @@ def run_forecast_from_config():
         )
         
         if not config:
-            return jsonify({"message": "No pending forecast config found."}), 404
+            return jsonify({"message": "No pending forecast config found."}), 200
         
         # Kosongkan collection holt-winter di awal (tanpa perlu pengecekan)
         db["holt-winter"].delete_many({})

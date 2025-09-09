@@ -76,6 +76,17 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
   }
 }
 
+export const getBmkgLive = async () => {
+  try {
+    const response = await axios.get("/api/v1/bmkg-live/all");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG live data:", error);
+    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG live data");
+  }
+};
+
+
 //bmkg api
 export const getBmkgApi = async () => {
   try {
@@ -300,10 +311,13 @@ export const createForecastConfig = async (data: { name: string; columns: { coll
 
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post("https://145ae302a51a.ngrok-free.app/run-forecast");
+    const res = await axios.post("https://50da438894f3.ngrok-free.app/run-forecast");
+    // const res = await axios.post("http://3.107.238.87/run-forecast");
     return res.data;
-  } catch (error) {
-    console.error("Trigger forecast run failed:", error);
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return { message: "Tidak ada config pending" };
+    }
     throw error;
   }
 };

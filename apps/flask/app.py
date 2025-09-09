@@ -5,7 +5,7 @@ from jobs.run_forecast_from_config import run_forecast_from_config
 from pymongo import MongoClient
 
 app = Flask(__name__)
-CORS(app, origins="http://localhost:3000") 
+CORS(app) 
 
 
 @app.route("/")
