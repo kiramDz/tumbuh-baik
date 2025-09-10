@@ -17,10 +17,7 @@ bmkgLiveRoute.get("/all", async (c) => {
     const results: any[] = [];
 
     for (const kodeGampong of gampongList) {
-      const response = await axios.get(
-        `https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${kodeGampong}`,
-        { timeout: 10000 } // 10 detik max tunggu respon
-      );
+      const response = await axios.get(`https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${kodeGampong}`, { timeout: 10000 });
 
       const data = response.data;
       const cuacaNested = data.data?.[0]?.cuaca ?? [];
