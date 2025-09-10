@@ -9,11 +9,7 @@ from jobs.run_forecast_from_config import run_forecast_from_config
 # === Init Flask ===
 app = Flask(__name__)
 
-# Atur CORS hanya untuk domain Next.js (ubah sesuai domain kamu)
-CORS(app, origins=[
-    "http://localhost:3000",
-    "https://tumbuh-baik.vercel.app",  
-])
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://3.107.238.87"]}})
 
 # === MongoDB Connection ===
 MONGO_URI = os.getenv("MONGO_URI")
