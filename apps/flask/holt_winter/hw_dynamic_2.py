@@ -290,7 +290,6 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
 
         try:
             best_period = detect_seasonal_period(param_data, target_column)
-            print(f"🔍 Starting decompose for {target_column}, data length: {len(param_data)}, period: {best_period}")
             
             decompose_result = seasonal_decompose(param_data, model='additive', period=best_period, extrapolate_trend='freq')
             decompose_docs = []
@@ -307,8 +306,6 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                     }
                 }
                 decompose_docs.append(doc)
-            
-            db["temp-decompose"].insert_many(decompose_docs)
             print(f"✅ Decompose success: {len(decompose_docs)} documents saved to temp-decompose")
             
         except Exception as e:
