@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import db from "@/lib/database/db";
 import { parseError } from "@/lib/utils";
 import { LSTMConfig } from "@/lib/database/schema/feature/lstm-config.model";
-import { ca, tr } from "date-fns/locale";
 
 const lstmConfigRoute = new Hono();
 

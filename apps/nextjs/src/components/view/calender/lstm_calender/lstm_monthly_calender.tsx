@@ -1,24 +1,21 @@
-"use client";
+'use client'
 
 import { useQuery } from "@tanstack/react-query";
-import { getHoltWinterDaily, getLSTMDaily } from "@/lib/fetch/files.fetch";
+import { getLSTMDaily } from "@/lib/fetch/files.fetch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import clsx from "clsx";
 import { format, parse, eachDayOfInterval, getDay } from "date-fns";
 import { id } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const KT_PERIODS = {
   "KT-1": ["09-20-2025", "01-20-2026"],
   "KT-2": ["01-21-2026", "06-20-2026"],
   "KT-3": ["06-21-2026", "09-19-2026"],
 };
-
-type ModelType = "holt-winters" | "lstm";
 
 const getWeatherColor = (rain: number, temp: number, humidity: number) => {
   const rainLow = rain < 5.7;
@@ -57,35 +54,22 @@ const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
   return rows;
 };
 
-export default function PeriodCalendar() {
-  const [selectedModel, setSelectedModel] = useState<ModelType>("holt-winters");
-
+export default function LSTMMonthlyCalendar() {
   const {
     data: forecastData,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["forecast-data", selectedModel],
+    queryKey: ["lstm-period"],
     queryFn: async () => {
-      if (selectedModel === "lstm") {
-        const all = await getLSTMDaily(1, 731);
-        console.log("Fetched LSTM data:", all.items);
-        return all.items
-          .map((item: any) => ({
-            ...item,
-            forecast_date: new Date(item.forecast_date).toISOString(),
-          }))
-          .sort((a: any, b: any) => new Date(a.forecast_date).getTime() - new Date(b.forecast_date).getTime());
-      } else {
-        const all = await getHoltWinterDaily(1, 731);
-        console.log("Fetched Holt Winters data:", all.items);
-        return all.items
-          .map((item: any) => ({
-            ...item,
-            forecast_date: new Date(item.forecast_date).toISOString(),
-          }))
-          .sort((a: any, b: any) => new Date(a.forecast_date).getTime() - new Date(b.forecast_date).getTime());
-      }
+      const all = await getLSTMDaily(1, 731); // Ambil semua 731 dokumen
+      console.log("Fetched data:", all.items);
+      return all.items
+        .map((item: any) => ({
+          ...item,
+          forecast_date: new Date(item.forecast_date).toISOString(), // Pastikan format konsisten
+        }))
+        .sort((a: any, b: any) => new Date(a.forecast_date).getTime() - new Date(b.forecast_date).getTime());
     },
   });
 
@@ -105,7 +89,7 @@ export default function PeriodCalendar() {
     <TabsContent value={period}>
       <ScrollArea className="w-full overflow-auto">
         <div className="min-w-[900px]">
-          <Table className="bg-background">
+          <Table className="bg-background  ">
             <TableHeader>
               <TableRow className="*:border-border">
                 {Array.from({ length: periodRows[period][0]?.length || 0 }).map((_, colIdx) => (
@@ -184,22 +168,6 @@ export default function PeriodCalendar() {
 
   return (
     <div className="space-y-6">
-      {/* Model Selection Dropdown */}
-      <div className="flex items-center gap-4">
-        <label htmlFor="model-select" className="text-sm font-medium">
-          Model Prediksi:
-        </label>
-        <Select value={selectedModel} onValueChange={(value: ModelType) => setSelectedModel(value)}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Pilih model prediksi" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="holt-winters">Holt Winters</SelectItem>
-            <SelectItem value="lstm">LSTM</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <Tabs defaultValue="KT-1">
         <TabsList className="mb-4">
           <TabsTrigger value="KT-1">KT-1</TabsTrigger>
@@ -210,7 +178,6 @@ export default function PeriodCalendar() {
         {renderPeriodGrid("KT-2")}
         {renderPeriodGrid("KT-3")}
       </Tabs>
-      
       <div className="flex flex-col gap-2 mt-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-green-300 border" />

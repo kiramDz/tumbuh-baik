@@ -30,7 +30,7 @@ const data = {
         },
         {
           title: "lstm",
-          url: "/dashboard/kaltam",
+          url: "/dashboard/kaltam-lstm",
         },
       ],
     },

@@ -5,7 +5,7 @@ import traceback
 import os
 from flask import jsonify
 from dotenv import load_dotenv
-from lstm.lstm_dynamic_2 import run_optimized_lstm_analysis
+from lstm.lstm_dynamic_2 import run_lstm_analysis
 
 
 load_dotenv()
@@ -153,7 +153,7 @@ def run_lstm_from_config():
             
             try:
                 # Jalankan analisis LSTM
-                result = run_optimized_lstm_analysis(
+                result = run_lstm_analysis(
                     collection_name=collection,
                     target_column=column,
                     save_collection="temp-lstm",  # Simpan sementara

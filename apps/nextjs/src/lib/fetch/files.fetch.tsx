@@ -78,7 +78,7 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
 
 export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder = "desc") {
   try {
-    const response = await axios.get("/api/v1/export-csv/lstm-daily", {
+    const response = await axios.get("/api/v1/export-csv/lstm/daily", {
       params: { sortBy, sortOrder },
       responseType: "blob",
     });
@@ -88,7 +88,7 @@ export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      const filename = `lstm_forecast_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      const filename = `lstm_daily_${new Date().toISOString().split("T")[0]}.csv`;
       link.href = url;
       link.download = filename;
       link.style.display = "none";
@@ -251,6 +251,38 @@ export const getUsers = async (page = 1, pageSize = 10) => {
   }
 };
 
+export const getAllKuesionerPetani = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner/petani");
+    console.log("getAllKuesionerPetani", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner petani:", error);
+    throw error;
+  }
+}
+
+// export const getKuesionerPetaniById = async (id: string) => {
+//   try {
+//     const res = await axios.get(`/api/v1/kuesioner/petani/${id}`);
+//     return res.data;
+//   } catch (error) {
+//     console.error("Error fetching kuesioner petani by ID:", error);
+//     throw error;
+//   }
+// };
+
+export const getAllKuesionerManajemen = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner-manajemen/manajemen");
+    console.log("getAllKuesionerManajemen", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner manajemen:", error);
+    throw error;
+  }
+};
+
 export const updateUserRole = async (userId: string, role: "user" | "admin") => {
   try {
     const res = await axios.put(`/api/v1/user/${userId}/role`, { role });
@@ -381,7 +413,7 @@ export const triggerForecastRun = async () => {
 
 export const triggerLSTMForecast = async () => {
   try {
-    const res = await axios.post("https://1b47fe2a888c.ngrok-free.app/run-lstm-forecast");
+    const res = await axios.post("http://127.0.0.1:5001/run-lstm");
     return res.data;
   } catch (error) {
     console.error("Trigger LSTM forecast failed:", error);

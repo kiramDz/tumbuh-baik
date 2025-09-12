@@ -12,6 +12,7 @@ import forecastConfigRoute from "../_routes/feature/forecast-config";
 import holtWinter from "../_routes/model/holt-winter.route";
 import lstmConfigRoute from "../_routes/feature/lstm-config";
 import lstm from "../_routes/model/lstm.route";
+import { kuesionerRoute, kuesionerManajemenRoute } from "../_routes/dataset/kuesioner.route";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,8 @@ app.route("/forecast-config", forecastConfigRoute);
 app.route("/hw", holtWinter);
 app.route("/lstm-config", lstmConfigRoute);
 app.route("/lstm", lstm);
+app.route("/kuesioner", kuesionerRoute);
+app.route("/kuesioner-manajemen", kuesionerManajemenRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);

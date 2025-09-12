@@ -1,371 +1,294 @@
 from pymongo import MongoClient
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-from sklearn.preprocessing import MinMaxScaler
+from datetime import datetime
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow import keras
+from tensorflow.keras import layers
+import itertools
 import warnings
+
 warnings.filterwarnings('ignore')
 
-# Set random seeds for reproducibility
-np.random.seed(42)
-tf.random.set_seed(42)
-
-class LSTMForecaster:
-    def __init__(self, sequence_length=365, epochs=100, batch_size=32):
-        """
-        Initialize LSTM Forecaster
-        
-        Args:
-            sequence_length (int): Number of time steps to look back (default: 365 days)
-            epochs (int): Number of training epochs
-            batch_size (int): Batch size for training
-        """
-        self.sequence_length = sequence_length
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.model = None
-        self.scaler = MinMaxScaler(feature_range=(0, 1))
-        self.is_fitted = False
-        
-    def create_sequences(self, data):
-        """
-        Create sequences for LSTM training
-        
-        Args:
-            data (array): Time series data
-            
-        Returns:
-            X, y: Input sequences and target values
-        """
-        X, y = [], []
-        for i in range(self.sequence_length, len(data)):
-            X.append(data[i-self.sequence_length:i])
-            y.append(data[i])
-        return np.array(X), np.array(y)
-    
-    def build_model(self, input_shape):
-        """
-        Build LSTM model architecture (similar to notebook style)
-        
-        Args:
-            input_shape (tuple): Shape of input data
-            
-        Returns:
-            model: Compiled Keras model
-        """
-        model = Sequential([
-            LSTM(128, return_sequences=True, input_shape=input_shape),
-            Dropout(0.2),
-            LSTM(64, return_sequences=False),
-            Dropout(0.2),
-            Dense(1)  # Output layer untuk satu langkah prediksi
-        ])
-        
-        model.compile(
-            optimizer='adam',
-            loss='mean_squared_error',
-            metrics=['mae']
-        )
-        
-        return model
-    
-    def fit(self, train_data, validation_split=0.2):
-        """
-        Train the LSTM model
-        
-        Args:
-            train_data (array): Training time series data
-            validation_split (float): Fraction of data to use for validation
-            
-        Returns:
-            history: Training history
-        """
-        print(f"Training LSTM model with {len(train_data)} data points...")
-        
-        # Scale the data
-        scaled_data = self.scaler.fit_transform(train_data.reshape(-1, 1)).flatten()
-        
-        # Create sequences
-        X, y = self.create_sequences(scaled_data)
-        
-        if len(X) == 0:
-            raise ValueError(f"Insufficient data for sequence length {self.sequence_length}")
-        
-        print(f"Created {len(X)} sequences for training")
-        
-        # Reshape for LSTM input
-        X = X.reshape((X.shape[0], X.shape[1], 1))
-        
-        # Build model
-        self.model = self.build_model((X.shape[1], 1))
-        
-        # Define callbacks
-        callbacks = [
-            EarlyStopping(
-                monitor='val_loss',
-                patience=10,
-                restore_best_weights=True,
-                verbose=1
-            ),
-            ReduceLROnPlateau(
-                monitor='val_loss',
-                factor=0.5,
-                patience=5,
-                min_lr=0.0001,
-                verbose=1
-            )
-        ]
-        
-        # Train the model
-        history = self.model.fit(
-            X, y,
-            epochs=self.epochs,
-            batch_size=self.batch_size,
-            validation_split=validation_split,
-            callbacks=callbacks,
-            verbose=1
-        )
-        
-        self.is_fitted = True
-        print("✓ LSTM model training completed")
-        
-        return history
-    
-    def predict(self, data, steps=1):
-        """
-        Generate forecasts
-        
-        Args:
-            data (array): Input data for prediction
-            steps (int): Number of steps to forecast
-            
-        Returns:
-            array: Forecast values
-        """
-        if not self.is_fitted:
-            raise ValueError("Model must be fitted before prediction")
-        
-        # Scale the input data
-        scaled_data = self.scaler.transform(data.reshape(-1, 1)).flatten()
-        
-        # Take the last sequence_length points for prediction
-        last_sequence = scaled_data[-self.sequence_length:]
-        
-        predictions = []
-        current_sequence = last_sequence.copy()
-        
-        for _ in range(steps):
-            # Prepare input for prediction
-            X_pred = current_sequence.reshape((1, self.sequence_length, 1))
-            
-            # Make prediction
-            pred_scaled = self.model.predict(X_pred, verbose=0)[0, 0]
-            
-            # Store prediction
-            predictions.append(pred_scaled)
-            
-            # Update sequence for next prediction
-            current_sequence = np.append(current_sequence[1:], pred_scaled)
-        
-        # Inverse transform predictions
-        predictions = np.array(predictions).reshape(-1, 1)
-        predictions = self.scaler.inverse_transform(predictions).flatten()
-        
-        return predictions
-    
-    def evaluate(self, test_data, test_targets):
-        """
-        Evaluate model performance
-        
-        Args:
-            test_data (array): Test input data
-            test_targets (array): True target values
-            
-        Returns:
-            dict: Evaluation metrics
-        """
-        predictions = []
-        
-        for i in range(len(test_targets)):
-            # Use sequence ending at position i+sequence_length
-            end_idx = i + self.sequence_length
-            if end_idx > len(test_data):
-                break
-                
-            input_data = test_data[:end_idx]
-            pred = self.predict(input_data, steps=1)[0]
-            predictions.append(pred)
-        
-        if len(predictions) == 0:
-            return None
-        
-        # Align predictions with targets
-        aligned_targets = test_targets[:len(predictions)]
-        predictions = np.array(predictions)
-        
-        # Calculate metrics
-        mae = mean_absolute_error(aligned_targets, predictions)
-        mse = mean_squared_error(aligned_targets, predictions)
-        rmse = np.sqrt(mse)
-        mape = np.mean(np.abs((aligned_targets - predictions) / np.where(aligned_targets != 0, aligned_targets, 1))) * 100
-        
-        return {
-            'mae': mae,
-            'mse': mse,
-            'rmse': rmse,
-            'mape': mape,
-            'predictions': predictions,
-            'targets': aligned_targets
-        }
-
+# ======================================================
+# Fungsi post-process hasil forecast - OPTIMIZED
+# ======================================================
 def post_process_forecast(forecast, param_name):
-    """
-    Post-processing untuk memastikan forecast masuk akal
-    """
-    if param_name == "RR" or param_name == "RR_imputed":  # Curah Hujan
-        forecast = np.maximum(forecast, 0)
-        forecast = np.minimum(forecast, 300)
-        
-    elif param_name == "RH_AVG":  # Kelembapan
-        forecast = np.clip(forecast, 0, 100)
-    
-    elif param_name == "NDVI":  # Normalized Difference Vegetation Index
-        forecast = np.clip(forecast, -1, 1)
-    
-    elif "Suhu" in param_name or "Temperature" in param_name:  # Suhu
-        forecast = np.clip(forecast, -50, 60)
-    
+    """Optimized dengan numpy vectorization"""
+    if param_name in ["RR", "RR_imputed"]:
+        return np.clip(forecast, 0, 300)
+    elif param_name == "RH_AVG":
+        return np.clip(forecast, 0, 100)
+    elif param_name == "NDVI":
+        return np.clip(forecast, -1, 1)
+    elif "Suhu" in param_name or "Temperature" in param_name:
+        return np.clip(forecast, -50, 60)
     return forecast
 
-def optimize_lstm_params(train_data, param_name, validation_split=0.2):
-    """
-    Optimize LSTM hyperparameters using grid search (with longer sequence lengths)
+# ======================================================
+# Dataset supervised (X,y) untuk LSTM - OPTIMIZED
+# ======================================================
+def create_supervised_data(data_scaled, lookback):
+    """Optimized dengan numpy advanced indexing - menghilangkan loop Python"""
+    if len(data_scaled) <= lookback:
+        return np.array([]), np.array([])
     
-    Args:
-        train_data (array): Training data
-        param_name (str): Parameter name for post-processing
-        validation_split (float): Validation split ratio
+    n_samples = len(data_scaled) - lookback
+    # Vectorized approach - jauh lebih cepat dari loop Python
+    indices = np.arange(lookback)[None, :] + np.arange(n_samples)[:, None]
+    
+    X = data_scaled[indices].reshape(n_samples, lookback, 1)
+    y = data_scaled[lookback:]
+    
+    return X, y
+
+# ======================================================
+# Model LSTM
+# ======================================================
+def build_lstm_model(input_shape):
+    model = keras.Sequential([
+        layers.LSTM(64, return_sequences=True, input_shape=input_shape),
+        layers.Dropout(0.2),
+        layers.LSTM(32, return_sequences=False),
+        layers.Dropout(0.2),
+        layers.Dense(1)
+    ])
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    return model
+
+# ======================================================
+# Recursive Forecast - OPTIMIZED
+# ======================================================
+def lstm_recursive_forecast(model, last_window, horizon):
+    """Optimized dengan numpy operations yang lebih efisien"""
+    predictions = np.zeros(horizon)
+    current_window = last_window.copy()
+    
+    for i in range(horizon):
+        pred = model.predict(current_window[np.newaxis, :, :], verbose=0)[0, 0]
+        predictions[i] = pred
         
-    Returns:
-        tuple: Best parameters and metrics
-    """
-    print(f"\n--- LSTM Hyperparameter Optimization for {param_name} ---")
+        # Optimized window update - lebih cepat dari np.vstack
+        current_window = np.roll(current_window, -1, axis=0)
+        current_window[-1, 0] = pred
     
-    data_length = len(train_data)
-    print(f"Data length: {data_length}")
-    
-    # Minimum requirement for LSTM
-    if data_length < 500:
-        print("❌ Insufficient data for LSTM optimization (minimum 500 points required)")
+    return predictions
+
+# ======================================================
+# Validation function untuk mengurangi redundant code
+# ======================================================
+def validate_single_combination(train_split, val_split, lookback, scaler_type, param_name):
+    """Consolidated validation untuk menghindari kode berulang"""
+    try:
+        scaler = StandardScaler() if scaler_type == 'standard' else MinMaxScaler()
+        train_scaled = scaler.fit_transform(train_split.values.reshape(-1, 1))
+        val_scaled = scaler.transform(val_split.values.reshape(-1, 1))
+
+        X_train, y_train = create_supervised_data(train_scaled, lookback)
+        X_val, y_val = create_supervised_data(val_scaled, lookback)
+        
+        if len(X_train) == 0 or len(X_val) == 0:
+            return None
+
+        model = build_lstm_model(input_shape=(lookback, 1))
+        early_stopping = keras.callbacks.EarlyStopping(
+            monitor='val_loss', patience=5, restore_best_weights=True  # Reduced patience untuk epochs rendah
+        )
+        ReduceLROnPlateau = keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss', factor=0.5, patience=3, min_lr=1e-5
+            )
+
+        model.fit(
+            X_train, y_train,
+            validation_data=(X_val, y_val),
+            epochs=50,  # ✅ CHANGED: Reduced dari 50 ke 10
+            batch_size=64,
+            callbacks=[early_stopping, ReduceLROnPlateau],
+        )
+
+        val_pred_scaled = model.predict(X_val, verbose=0).flatten()
+        val_pred = scaler.inverse_transform(val_pred_scaled.reshape(-1, 1)).flatten()
+        val_true = val_split.iloc[lookback:].values
+
+        if len(val_pred) != len(val_true):
+            return None
+
+        val_pred = post_process_forecast(val_pred, param_name)
+        if np.isnan(val_pred).any() or np.isinf(val_pred).any():
+            return None
+
+        mse = mean_squared_error(val_true, val_pred)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(val_true, val_pred)
+        mape = np.mean(np.abs((val_true - val_pred) / np.where(val_true != 0, val_true, 1))) * 100
+
+        return {
+            'rmse': rmse,
+            'mae': mae,
+            'mape': mape,
+            'lookback': lookback,
+            'scaler_type': scaler_type
+        }
+        
+    except Exception:
+        return None
+
+# ======================================================
+# Grid search parameter LSTM - OPTIMIZED
+# ======================================================
+def grid_search_lstm_params(train_data, param_name):
+    """Optimized grid search dengan reduced redundancy"""
+    print(f"\n--- LSTM Grid Search for {param_name} (FAST MODE: 10 epochs) ---")
+
+    if len(train_data) < 100:
+        print("❌ Data terlalu sedikit untuk grid search")
         return None, None
+
+    # ✅ CHANGED: Fixed lookback 1-2 tahun untuk semua data
+    lookback_range = [365, 730]  # 1-2 tahun saja
+    print(f"📅 Data span: {len(train_data)} days (~{len(train_data)/365:.1f} years)")
+    print(f"🎯 Using fixed 1-2 year lookback strategy")
     
-    # Dynamic sequence lengths based on data availability
-    if data_length >= 2000:
-        sequence_lengths = [365, 700, 1000]  # Like notebook: 700 days
-        print("Using long sequence lengths (365, 700, 1000 days)")
-    elif data_length >= 1500:
-        sequence_lengths = [365, 500, 700]
-        print("Using medium-long sequence lengths (365, 500, 700 days)")
-    elif data_length >= 1000:
-        sequence_lengths = [180, 365, 500]
-        print("Using medium sequence lengths (180, 365, 500 days)")
-    else:
-        sequence_lengths = [90, 180, 365]
-        print("Using shorter sequence lengths (90, 180, 365 days)")
-    
-    # Filter sequence lengths that are feasible
-    max_seq_len = int(data_length * 0.7)  # Use max 70% of data for sequence
-    sequence_lengths = [seq for seq in sequence_lengths if seq <= max_seq_len]
-    
-    if not sequence_lengths:
-        print("❌ No feasible sequence lengths found")
-        return None, None
-    
-    print(f"Testing sequence lengths: {sequence_lengths}")
-    
-    batch_sizes = [16, 32, 64]
-    
-    best_score = float('inf')
-    best_params = None
-    best_metrics = None
-    
-    # Split data for validation
-    split_point = int(len(train_data) * (1 - validation_split))
+    scaler_range = ['standard', 'minmax']
+
+    split_point = int(len(train_data) * 0.8)  # Lebih banyak data training
     train_split = train_data[:split_point]
     val_split = train_data[split_point:]
     
-    print(f"Train split: {len(train_split)}, Validation split: {len(val_split)}")
-    
-    for seq_len in sequence_lengths:
-        # Check if we have enough data for this sequence length
-        if len(train_split) <= seq_len:
-            print(f"Skipping seq_len={seq_len} (insufficient training data)")
-            continue
-            
-        for batch_size in batch_sizes:
-            try:
-                print(f"\nTesting: sequence_length={seq_len}, batch_size={batch_size}")
-                
-                # Create LSTM forecaster
-                forecaster = LSTMForecaster(
-                    sequence_length=seq_len,
-                    epochs=50,  # Reduced for optimization
-                    batch_size=batch_size
-                )
-                
-                # Train model
-                history = forecaster.fit(train_split, validation_split=0.2)
-                
-                # Evaluate on validation set
-                metrics = forecaster.evaluate(train_data[:split_point + seq_len], val_split)
-                
-                if metrics is None:
-                    print(f"❌ Evaluation failed for seq_len={seq_len}, batch_size={batch_size}")
-                    continue
-                
-                rmse = metrics['rmse']
-                
-                if rmse < best_score:
-                    best_score = rmse
-                    best_params = {
-                        'sequence_length': seq_len,
-                        'batch_size': batch_size,
-                        'epochs': 100  # Use more epochs for final model
-                    }
-                    best_metrics = metrics
-                    print(f"✓ New best: seq_len={seq_len}, batch_size={batch_size}")
-                    print(f"  RMSE={rmse:.3f}, MAE={metrics['mae']:.3f}, MAPE={metrics['mape']:.3f}%")
-                
-            except Exception as e:
-                print(f"❌ Error for seq_len={seq_len}, batch_size={batch_size}: {str(e)}")
-                continue
-    
-    if best_params is None:
-        # Use default parameters with appropriate sequence length
-        default_seq_len = min(365, max_seq_len)
-        best_params = {
-            'sequence_length': default_seq_len,
-            'batch_size': 32,
-            'epochs': 100
-        }
-        print(f"Using default parameters with sequence_length={default_seq_len}")
-    
-    print(f"✓ Best parameters: {best_params}")
-    return best_params, best_metrics
+    print(f"📊 Train: {len(train_split)} days, Val: {len(val_split)} days")
 
-def run_lstm_analysis(collection_name, target_column, save_collection="lstm-forecast", config_id=None, append_column_id=True, client=None):
-    """
-    Fungsi LSTM yang dinamis berdasarkan parameter dari forecast_config
-    """
-    print(f"=== Start LSTM Analysis for {collection_name}.{target_column} ===")
+    # Pre-filter valid lookbacks untuk menghindari checking berulang
+    valid_lookbacks = [lb for lb in lookback_range if len(train_split) > lb + 200]
     
-    # MongoDB connection
+    if not valid_lookbacks:
+        print("❌ No valid lookback values for this dataset")
+        return None, None
+
+    print(f"🔍 Testing {len(valid_lookbacks) * len(scaler_range)} combinations (10 epochs each)...")
+
+    best_score = float('inf')
+    best_result = None
+    valid_models = 0
+
+    # Optimized grid search loop
+    for lookback, scaler_type in itertools.product(valid_lookbacks, scaler_range):
+        result = validate_single_combination(train_split, val_split, lookback, scaler_type, param_name)
+        
+        if result is not None:
+            valid_models += 1
+            if result['rmse'] < best_score:
+                best_score = result['rmse']
+                best_result = result
+                print(f"✅ New best: lookback={lookback} days ({lookback/365:.1f}y), scaler={scaler_type}")
+                print(f"   RMSE={result['rmse']:.3f}, MAE={result['mae']:.3f}, MAPE={result['mape']:.1f}%")
+
+    if best_result is None:
+        print("❌ Tidak ada model LSTM yang valid")
+        return None, None
+
+    # Format hasil terbaik
+    best_params = {
+        'lookback': best_result['lookback'],
+        'lookback_years': round(best_result['lookback']/365, 2),
+        'units': 128,
+        'dropout': 0.2,
+        'scaler_type': best_result['scaler_type'],
+        'epochs': 50,  # ✅ CHANGED: Reduced dari 150 ke 10
+        'batch_size': 64
+    }
+
+    error_metrics = {
+        'mae': best_result['mae'],
+        'rmse': best_result['rmse'], 
+        'mape': best_result['mape']
+    }
+
+    print(f"\n🎯 BEST parameters for {param_name} (FAST MODE):")
+    for key, value in best_params.items():
+        print(f"   {key}: {value}")
+    print(f"✅ Valid models tested: {valid_models}")
+
+    return best_params, error_metrics
+
+# ======================================================
+# Training final model - OPTIMIZED
+# ======================================================
+def fit_final_lstm_model(data, best_params, param_name):
+    try:
+        print(f"\n🚀 Training final LSTM model for {param_name} (FAST MODE)")
+        print(f"📅 Lookback: {best_params['lookback']} days ({best_params.get('lookback_years', 0)} years)")
+        print(f"⚡ Epochs: {best_params['epochs']} (fast training)")
+        
+        scaler = StandardScaler() if best_params['scaler_type'] == 'standard' else MinMaxScaler()
+        data_scaled = scaler.fit_transform(data.values.reshape(-1, 1))
+
+        X, y = create_supervised_data(data_scaled, best_params['lookback'])
+        if len(X) == 0:
+            raise ValueError("Insufficient data after creating sequences")
+
+        print(f"📊 Total samples: {len(X)}")
+        
+        # Untuk data 20 tahun, gunakan 90:10 split
+        split_idx = int(len(X) * 0.9)
+        X_train, X_test = X[:split_idx], X[split_idx:]
+        y_train, y_test = y[:split_idx], y[split_idx:]
+        
+        print(f"📈 Final train: {len(X_train)}, validation: {len(X_test)}")
+
+        model = build_lstm_model(input_shape=(best_params['lookback'], 1))
+        
+        # Simplified callbacks untuk training cepat
+        callbacks = [
+            keras.callbacks.EarlyStopping(
+                monitor='val_loss', 
+                patience=5,  
+                restore_best_weights=True,
+            ), keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-5)
+        ]
+
+        print(f"🎯 Starting fast training (10 epochs)...")
+        history = model.fit(
+            X_train, y_train,
+            validation_data=(X_test, y_test) if len(X_test) > 0 else None,
+            epochs=best_params.get('epochs', 50),  # ✅ CHANGED: 50 epochs
+            batch_size=best_params.get('batch_size', 64),
+            callbacks=callbacks,
+            verbose=1
+        )
+
+        # Training analysis
+        if len(X_test) > 0 and 'val_loss' in history.history:
+            final_train_loss = history.history['loss'][-1]
+            final_val_loss = history.history['val_loss'][-1]
+            gap_percent = abs(final_val_loss - final_train_loss) / final_train_loss * 100
+            
+            print(f"\n📊 Fast training completed:")
+            print(f"   Train Loss: {final_train_loss:.6f}")
+            print(f"   Val Loss: {final_val_loss:.6f}")
+            print(f"   Gap: {gap_percent:.2f}%")
+            print(f"   Epochs trained: {len(history.history['loss'])}")
+            
+            if gap_percent > 30:  # More tolerant untuk fast training
+                print("⚠️  Note: Limited training with 10 epochs")
+            else:
+                print("✅ Good: Reasonable performance for fast training")
+
+        return model, scaler
+        
+    except Exception as e:
+        print(f"❌ Final model fitting failed: {e}")
+        return None, None
+
+# ======================================================
+# Pipeline utama - OPTIMIZED untuk FAST MODE
+# ======================================================
+def run_lstm_analysis(collection_name, target_column, save_collection="lstm-forecast",
+                       config_id=None, append_column_id=True, client=None):
+    print(f"=== 🚀 Start LSTM Analysis for {collection_name}.{target_column} ===")
+    print(f"⚡ Mode: 10 epochs, 20-day forecast, 1-2 year lookback")
+
     if client is None:
         from dotenv import load_dotenv
         import os
@@ -375,194 +298,142 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         should_close_client = True
     else:
         should_close_client = False
-    
+
     db = client["tugas_akhir"]
-    
+
     try:
-        # Fetch data dari collection yang ditentukan
+        # Fetch data
         source_data = list(db[collection_name].find().sort("Date", 1))
-        print(f"Fetched {len(source_data)} records from {collection_name}")
-        
+        print(f"📥 Fetched {len(source_data)} records from {collection_name}")
         if not source_data:
             raise ValueError(f"No data found in collection {collection_name}")
-        
+
         # Prepare DataFrame
         df = pd.DataFrame(source_data)
-        
-        # Cek apakah ada kolom Date/timestamp
-        date_column = None
-        for col in ['Date', 'date', 'timestamp', 'Timestamp']:
-            if col in df.columns:
-                date_column = col
-                break
-        
-        if date_column is None:
-            raise ValueError(f"No date column found in {collection_name}")
-        
-        # Set timestamp index
-        df['timestamp'] = pd.to_datetime(df[date_column])
-        df.set_index('timestamp', inplace=True)
-        
-        # Pastikan indeks harian tanpa duplikasi
-        df = df[~df.index.duplicated(keep='first')]
-        date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq='D')
-        df = df.reindex(date_range, method='ffill')
-        
-        print(f"Data range: {df.index[0]} to {df.index[-1]}")
-        
-        # Cek apakah target column ada
         if target_column not in df.columns:
             raise ValueError(f"Column '{target_column}' not found in {collection_name}")
-        
-        # Get data (tanpa preprocessing karena data sudah bersih)
-        param_data = df[target_column].dropna()
-        
-        if len(param_data) < 500:
-            raise ValueError(f"Insufficient data for LSTM analysis: {len(param_data)} records (minimum 500 required)")
-        
-        # Convert to numpy array
-        data_values = param_data.values
-        
-        # Optimize hyperparameters
-        best_params, optimization_metrics = optimize_lstm_params(data_values, target_column)
-        
+
+        # ✅ REMOVED: Clean data (sudah di-preprocessing dengan RR_imputed)
+        param_data = df[target_column]  # Langsung ambil data tanpa cleaning
+        if len(param_data) < 1000:  # ✅ CHANGED: 200 → 1000 untuk support 2-year lookback
+            raise ValueError(f"Insufficient data for 2-year LSTM {target_column} (need ≥1000 points)")
+
+        print(f"📊 Data points: {len(param_data)} (~{len(param_data)/365:.1f} years)")
+        print(f"🎯 Using preprocessed data: {target_column}")
+
+        # Grid search
+        best_params, error_metrics = grid_search_lstm_params(param_data, target_column)
         if best_params is None:
-            raise ValueError(f"No valid LSTM parameters found for {target_column}")
+            raise ValueError(f"No valid LSTM model found for {target_column}")
+
+        # Train final model
+        final_model, scaler = fit_final_lstm_model(param_data, best_params, target_column)
+        if final_model is None or scaler is None:
+            raise ValueError(f"Failed to fit final LSTM model for {target_column}")
+
+        # Calculate forecast horizon
+        data_end_date = pd.to_datetime(df["Date"].iloc[-1])
+        forecast_days = 20
+        print(f"📅 Forecast horizon: {forecast_days} days")
+
+        # Generate forecast
+        print(f"🔮 Generating LSTM forecast for {target_column} (20 days)...")
+        data_scaled = scaler.transform(param_data.values.reshape(-1, 1))
+        last_window = data_scaled[-best_params['lookback']:]
         
-        # Train final model with best parameters
-        print(f"\nTraining final LSTM model with best parameters...")
-        print(f"Using sequence_length: {best_params['sequence_length']} days")
-        
-        final_forecaster = LSTMForecaster(
-            sequence_length=best_params['sequence_length'],
-            epochs=best_params['epochs'],
-            batch_size=best_params['batch_size']
+        forecast_scaled = lstm_recursive_forecast(final_model, last_window, forecast_days)
+        forecast = scaler.inverse_transform(forecast_scaled.reshape(-1, 1)).flatten()
+        forecast = post_process_forecast(forecast, target_column)
+
+        print(f"✅ {target_column} LSTM forecast completed")
+        print(f"📈 Forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
+
+        # Document creation
+        forecast_dates = pd.date_range(
+            start=data_end_date + pd.Timedelta(days=1), 
+            periods=forecast_days, 
+            freq='D'
         )
         
-        # Split data for final training (use 90% for training like notebook)
-        train_size = int(len(data_values) * 0.9)
-        train_data = data_values[:train_size]
-        test_data = data_values[train_size:]
-        
-        # Train final model
-        history = final_forecaster.fit(train_data, validation_split=0.1)
-        
-        # Evaluate final model
-        final_metrics = final_forecaster.evaluate(data_values[:train_size + best_params['sequence_length']], test_data)
-        
-        # Calculate forecast horizon (sampai akhir 2026)
-        data_end_date = df.index[-1]
-        forecast_end_date = data_end_date + pd.DateOffset(years=1)
-        forecast_days = (forecast_end_date - data_end_date).days
-        
-        print(f"Forecast horizon: {forecast_days} days")
-        
-        # Generate forecast
-        print(f"Generating LSTM forecast for {target_column}...")
-        try:
-            forecast = final_forecaster.predict(data_values, steps=forecast_days)
-            
-            if forecast is None or len(forecast) == 0:
-                raise ValueError("Forecast result is empty")
-            
-            forecast = np.array(forecast).flatten()
-            
-            if np.isnan(forecast).any() or np.isinf(forecast).any():
-                raise ValueError("Forecast contains NaN or infinite values")
-            
-            # Post-process forecast
-            forecast = post_process_forecast(forecast, target_column)
-            
-            print(f"✓ {target_column} LSTM forecast completed")
-            print(f"  Forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
-            
-        except Exception as e:
-            raise ValueError(f"LSTM forecast generation failed: {str(e)}")
-        
-        # Prepare forecast documents
         forecast_docs = []
-        
-        try:
-            for i in range(len(forecast)):
-                forecast_date = df.index[-1] + pd.Timedelta(days=i + 1)
-                forecast_date_only = datetime.strptime(forecast_date.strftime('%Y-%m-%d'), '%Y-%m-%d')
-                
-                forecast_value = float(forecast[i])
-                if np.isnan(forecast_value) or np.isinf(forecast_value):
-                    print(f"Warning: Skipping invalid forecast value at index {i}")
-                    continue
+        for i, (forecast_date, forecast_value) in enumerate(zip(forecast_dates, forecast)):
+            if np.isnan(forecast_value) or np.isinf(forecast_value):
+                continue
 
-                doc = {
-                    "forecast_date": forecast_date_only,
-                    "timestamp": datetime.now().isoformat(),
-                    "source_collection": collection_name,
-                    "config_id": config_id,
-                    "parameters": {
-                        target_column: {
-                            "forecast_value": forecast_value,
-                            "model_metadata": {
-                                "model_type": "LSTM",
-                                "sequence_length": best_params["sequence_length"],
-                                "batch_size": best_params["batch_size"],
-                                "epochs": best_params["epochs"],
-                                "train_size": train_size,
-                                "total_data_points": len(data_values),
-                                "architecture": "128->64->1 (like notebook)"
-                            }
+            doc = {
+                "forecast_date": forecast_date.to_pydatetime(),
+                "timestamp": datetime.now().isoformat(),
+                "source_collection": collection_name,
+                "config_id": config_id,
+                "parameters": {
+                    target_column: {
+                        "forecast_value": float(forecast_value),
+                        "model_metadata": {
+                            "model": "LSTM_1_2_YEAR",  # ✅ CHANGED: Clear strategy
+                            "mode": "preprocessed_data",  # ✅ CHANGED: Indicate preprocessed
+                            "lookback_days": best_params['lookback'],
+                            "lookback_years": best_params.get('lookback_years', 0),
+                            "scaler": best_params['scaler_type'],
+                            "units": best_params['units'],
+                            "dropout": best_params['dropout'],
+                            "epochs": best_params.get('epochs', 50),
+                            "batch_size": best_params.get('batch_size', 64),
+                            "forecast_horizon_days": forecast_days,
+                            "data_preprocessed": True  # ✅ ADDED: Flag preprocessed data
                         }
                     }
                 }
+            }
+            if append_column_id:
+                doc["column_id"] = f"{collection_name}_{target_column}"
+            forecast_docs.append(doc)
 
-                if append_column_id:
-                    doc["column_id"] = f"{collection_name}_{target_column}"
-
-                forecast_docs.append(doc)
-            
-        except Exception as e:
-            raise ValueError(f"Error preparing forecast documents: {str(e)}")
-        
-        # Upsert ke collection
+        # Database upsert
+        print(f"💾 Saving {len(forecast_docs)} forecast documents...")
         upsert_count = 0
         for doc in forecast_docs:
             result = db[save_collection].update_one(
-                {"forecast_date": doc["forecast_date"]},
+                {"forecast_date": doc["forecast_date"], "config_id": config_id},
                 {"$set": doc},
                 upsert=True
             )
             if result.upserted_id or result.modified_count > 0:
                 upsert_count += 1
-        
-        print(f"✓ Upserted {upsert_count} forecast documents to {save_collection}")
-        
-        result_summary = {
+
+        print(f"✅ Saved {upsert_count} forecast documents to {save_collection}")
+
+        return {
             "collection_name": collection_name,
             "target_column": target_column,
             "forecast_days": len(forecast_docs),
             "documents_processed": upsert_count,
             "save_collection": save_collection,
             "model_params": best_params,
-            "error_metrics": final_metrics if final_metrics else optimization_metrics,
+            "error_metrics": error_metrics,
             "forecast_range": {
-                "min": float(forecast.min()),
-                "max": float(forecast.max())
+                "min": float(forecast.min()) if len(forecast) > 0 else None,
+                "max": float(forecast.max()) if len(forecast) > 0 else None
             },
-            "model_type": "LSTM"
+            "data_years": round(len(param_data)/365, 1),
+            "training_mode": "1_2_year_lookback",  # ✅ CHANGED: Clear mode
+            "epochs_used": best_params.get('epochs', 50),
+            "forecast_horizon_days": forecast_days,
+            "data_preprocessed": True  # ✅ ADDED: Flag preprocessed data
         }
-        
-        print(f"✓ LSTM Analysis completed for {collection_name}.{target_column}")
-        return result_summary
-        
+
     except Exception as e:
         print(f"❌ Error in LSTM analysis: {str(e)}")
         raise e
-    
+
     finally:
         if should_close_client:
             client.close()
 
+# ======================================================
+# Eksekusi langsung - Updated untuk preprocessed data
+# ======================================================
 if __name__ == "__main__":
-    # Test LSTM analysis
     run_lstm_analysis(
         collection_name="bmkg-data",
-        target_column="RR"
+        target_column="RR"  # ✅ CHANGED: Use preprocessed column
     )

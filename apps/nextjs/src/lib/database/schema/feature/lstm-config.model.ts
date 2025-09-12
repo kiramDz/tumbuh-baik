@@ -1,4 +1,3 @@
-import { error } from "console";
 import mongoose, { Schema } from "mongoose";
 
 const LSTMConfigSchema = new Schema(

@@ -3,7 +3,7 @@
 import { type ReactNode, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { YearlyCalender } from "./calender/planting-calender-2";
-
+import { ChartPetani } from "../kuesioner-chart/chartpetani";
 import { CloudSun, CalendarDays, ChartNoAxesGantt } from "lucide-react";
 import Overview from "@/content/overview/aceh-besar.mdx";
 interface ProjectTabsProps {
@@ -34,6 +34,10 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
             <ChartNoAxesGantt />
             Overview
           </TabsTrigger>
+          <TabsTrigger value="kuesioner" className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-green-600 data-[state=active]:bg-transparent">
+            <ChartNoAxesGantt />
+            Kuesioner
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="weather" className="mt-6 mx-6">
@@ -52,6 +56,10 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
 
         <TabsContent value="overview" className="mt-6 mx-24">
           <Overview />
+        </TabsContent>
+
+        <TabsContent value="kuesioner" className="mt-6 mx-24">
+          <ChartPetani />
         </TabsContent>
       </Tabs>
     </div>
