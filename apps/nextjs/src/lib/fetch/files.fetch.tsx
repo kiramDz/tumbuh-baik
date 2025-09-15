@@ -311,7 +311,7 @@ export const createForecastConfig = async (data: { name: string; columns: { coll
 
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post("https://8768713ec5e4.ngrok-free.app/run-forecast");
+    const res = await axios.post("https://1ac85ee732e6.ngrok-free.app/run-forecast");
     // const res = await axios.post("http://3.107.238.87/run-forecast");
     return res.data;
   } catch (error: any) {
