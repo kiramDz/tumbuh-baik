@@ -4,8 +4,7 @@ import * as React from "react";
 import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, LayoutDashboardIcon, Trash, Users, Bean } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
-import { NavUser } from "@/components/nav-user";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 
 const data = {
   user: {
@@ -21,7 +20,7 @@ const data = {
     },
     {
       title: "Kalender Tanam",
-      url: "/dashboard/kaltam", 
+      url: "/dashboard/kaltam",
       icon: BarChartIcon,
       items: [
         {

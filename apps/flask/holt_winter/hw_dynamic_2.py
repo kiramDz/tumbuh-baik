@@ -415,13 +415,25 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # Upsert ke collection
         upsert_count = 0
         for doc in forecast_docs:
+            target_column = list(doc["parameters"].keys())[0]  # ambil nama parameter
             result = db[save_collection].update_one(
-                {"forecast_date": doc["forecast_date"]},
-                {"$set": doc},
+                {
+                    "forecast_date": doc["forecast_date"],
+                    "config_id": doc["config_id"]
+                },
+                {
+                    "$set": {
+                        f"parameters.{target_column}": doc["parameters"][target_column],  # hanya overwrite kolom ini
+                        "timestamp": doc["timestamp"],
+                        "source_collection": doc["source_collection"],
+                        "column_id": doc.get("column_id")
+                    }
+                },
                 upsert=True
             )
-            if result.upserted_id or result.modified_count > 0:
-                upsert_count += 1
+        if result.upserted_id or result.modified_count > 0:
+            upsert_count += 1
+
         
         print(f"✓ Upserted {upsert_count} forecast documents to {save_collection}")
         
