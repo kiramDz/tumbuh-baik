@@ -310,7 +310,7 @@ export const createForecastConfig = async (data: { name: string; columns: { coll
 
 export const triggerForecastRun = async () => {
   try {
-    //  const res = await axios.post("https://72ce7d68ecd8.ngrok-free.app/run-forecast");
+    // const res = await axios.post("https://72ce7d68ecd8.ngrok-free.app/run-forecast");
     const res = await axios.post("https://api.zonapetik.tech/run-forecast");
     return res.data;
   } catch (error: any) {
