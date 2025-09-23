@@ -6,6 +6,7 @@ import { FileText } from "lucide-react";
 import { DashboardCard, DashboardCardSkeleton } from "../_components/dashboard-card";
 import { GetAllDatasetMeta } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
+
 export default function Page() {
   const { data, isLoading } = useQuery({
     queryKey: ["datasets"],
@@ -23,10 +24,16 @@ export default function Page() {
 
             {data &&
               data.map((dataset: any) => (
-                <DashboardCard key={dataset.collectionName} href={`/dashboard/data/${dataset.collectionName}`} title={dataset.name} description={dataset.description || `Dataset dari collcetion ${dataset.collectionName}`} icon={FileText} />
+                <DashboardCard
+                  key={dataset.collectionName}
+                  href={`/dashboard/data/${dataset.collectionName}`}
+                  collectionName={dataset.collectionName}
+                  title={dataset.name}
+                  description={dataset.description || `Dataset dari collcetion ${dataset.collectionName}`}
+                  icon={FileText}
+                />
               ))}
           </div>
-
         </div>
       </PageContainer>
     </>

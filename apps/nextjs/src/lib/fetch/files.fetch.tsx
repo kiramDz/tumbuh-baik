@@ -234,6 +234,49 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
   return json.data;
 };
 
+
+export const SoftDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Soft delete dataset error:", error);
+    throw error;
+  }
+};
+
+export const GetRecycleBinDatasets = async () => {
+  try {
+    const res = await axios.get("/api/v1/dataset-meta/recycle-bin");
+    return res.data.data;
+  } catch (error) {
+    console.error("Get recycle bin error:", error);
+    throw error;
+  }
+};
+
+export const RestoreDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/restore`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Restore dataset error:", error);
+    throw error;
+  }
+};
+
+export const PermanentDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
+    return res.data;
+  } catch (error) {
+    console.error("Permanent delete dataset error:", error);
+    throw error;
+  }
+};
+
+
+
 // for dataset table
 // lib/fetch/files.fetch.ts
 export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "asc" | "desc" = "desc") {

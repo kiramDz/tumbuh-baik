@@ -14,6 +14,7 @@ const DatasetMetaSchema = new Schema(
     description: { type: String },
     uploadDate: { type: Date, default: Date.now },
     errorMessage: { type: String },
+    deletedAt: { type: Date, default: null },
   },
   {
     collection: "dataset_meta",
