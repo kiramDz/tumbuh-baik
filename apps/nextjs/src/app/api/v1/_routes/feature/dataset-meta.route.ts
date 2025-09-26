@@ -21,6 +21,40 @@ datasetMetaRoute.get("/", async (c) => {
   }
 });
 
+// GET - Display soft deleted datasets in recycle bin
+datasetMetaRoute.get("/recycle-bin", async (c) => {
+  try {
+    await db();
+    const page = Number(c.req.query("page")) || 1;
+    const pageSize = Number(c.req.query("pageSize")) || 10;
+
+    const total = await DatasetMeta.countDocuments({ deletedAt: { $ne: null } });
+    console.log("Total deleted items:", total); // 👈 ad
+    const datasets = await DatasetMeta.find({ deletedAt: { $ne: null } })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ deletedAt: -1 })
+      .lean();
+
+    console.log("Found datasets:", datasets.length);
+
+    return c.json({
+      message: "Recycle bin data retrieved successfully",
+      data: {
+        items: datasets,
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / pageSize),
+        pageSize,
+      },
+    });
+  } catch (error) {
+    console.error("Get recycle bin error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
 // GET - Buat slug untuk setiap dataset baru
 datasetMetaRoute.get("/:slug", async (c) => {
   try {
@@ -93,21 +127,6 @@ datasetMetaRoute.patch("/:collectionName/delete", async (c) => {
     return c.json({ message: "Dataset moved to recycle bin", success: true, data: dataset }, 200);
   } catch (error) {
     console.error("Soft delete dataset error:", error);
-    const { message, status } = parseError(error);
-    return c.json({ message }, status);
-  }
-});
-
-// GET - Display soft deleted datasets in recycle bin
-datasetMetaRoute.get("/recycle-bin", async (c) => {
-  try {
-    await db();
-    const datasets = await DatasetMeta.find({ deletedAt: { $ne: null } })
-      .sort({ deletedAt: -1 })
-      .lean();
-    return c.json({ data: datasets }, 200);
-  } catch (error) {
-    console.error("Get recycle bin error:", error);
     const { message, status } = parseError(error);
     return c.json({ message }, status);
   }

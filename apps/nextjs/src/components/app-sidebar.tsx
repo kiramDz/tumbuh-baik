@@ -44,8 +44,8 @@ const data = {
       icon: Users,
     },
     {
-      title: "Sampah",
-      url: "/sampah",
+      title: "Recycle Bin",
+      url: "dashboard/recycle-bin",
       icon: Trash,
     },
   ],

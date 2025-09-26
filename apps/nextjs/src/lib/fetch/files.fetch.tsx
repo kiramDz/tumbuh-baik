@@ -6,6 +6,7 @@ export interface DatasetMetaType {
   description?: string;
   status: string;
   uploadDate: string;
+  deletedAt?: string;
 }
 
 export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
@@ -221,6 +222,35 @@ export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
   }
 };
 
+export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
+  try {
+    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", { page, pageSize });
+
+    const res = await axios.get("/api/v1/dataset-meta/recycle-bin", {
+      params: { page, pageSize },
+    });
+
+    console.log("[GetRecycleBinDatasets] Response status:", res.status);
+    console.log("[GetRecycleBinDatasets] Response data:", res.data);
+
+    if (res.status === 200) {
+      const result = res.data.data || {
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 1,
+        pageSize,
+      };
+
+      console.log("[GetRecycleBinDatasets] Final result:", result);
+      return result;
+    }
+  } catch (error) {
+    console.error("Get recycle bin error:", error);
+    throw error;
+  }
+};
+
 //for dataset detail page
 export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items: any[] }> => {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
@@ -234,7 +264,6 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
   return json.data;
 };
 
-
 export const SoftDeleteDataset = async (collectionName: string) => {
   try {
     const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
@@ -245,15 +274,7 @@ export const SoftDeleteDataset = async (collectionName: string) => {
   }
 };
 
-export const GetRecycleBinDatasets = async () => {
-  try {
-    const res = await axios.get("/api/v1/dataset-meta/recycle-bin");
-    return res.data.data;
-  } catch (error) {
-    console.error("Get recycle bin error:", error);
-    throw error;
-  }
-};
+// API function - tambah Promise type
 
 export const RestoreDataset = async (collectionName: string) => {
   try {
@@ -274,8 +295,6 @@ export const PermanentDeleteDataset = async (collectionName: string) => {
     throw error;
   }
 };
-
-
 
 // for dataset table
 // lib/fetch/files.fetch.ts
