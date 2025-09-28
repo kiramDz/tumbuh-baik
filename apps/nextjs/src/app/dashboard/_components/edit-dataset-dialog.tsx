@@ -145,9 +145,6 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               <option value="Data NASA (https://power.larc.nasa.gov/)">
                 Data NASA (https://power.larc.nasa.gov/)
               </option>
-              <option value="Data Satelit">
-                NDVI LSWI EVI Google Earth Engine
-              </option>
             </select>
           </div>
 

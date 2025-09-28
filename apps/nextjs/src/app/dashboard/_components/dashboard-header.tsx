@@ -4,7 +4,7 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import DashboardBreadcrumb from "./dashboard-breadcrumb";
-import AddDatasetDialog from "./add-dataset-dialog";
+import AddDatasetDialog from "./add-dataset-unify-dialog";
 import HeaderProfile from "./header-profile";
 import { Separator } from "@/components/ui/separator";
 
@@ -15,7 +15,10 @@ const DashboardHeader = () => {
         <SidebarTrigger />
         <DashboardBreadcrumb />
       </div>
-      <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
+      <Separator
+        orientation="vertical"
+        className="mx-2 data-[orientation=vertical]:h-4"
+      />
       <div className="w-full h-fit flex itemsq-center gap-4 justify-end flex-1">
         <AddDatasetDialog />
         <HeaderProfile />

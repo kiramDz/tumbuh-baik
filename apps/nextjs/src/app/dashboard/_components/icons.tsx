@@ -32,6 +32,8 @@ import {
   ChevronsRight,
   SlidersHorizontal,
   Database,
+  CalendarIcon,
+  AlertTriangle,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -44,6 +46,7 @@ export const Icons = {
   options: SlidersHorizontal,
   sun: SunMedium,
   moon: Moon,
+  alertTriangle: AlertTriangle,
   spinner: Loader2,
   chevronLeft: ChevronLeft,
   table: TableProperties,
@@ -69,6 +72,7 @@ export const Icons = {
   check: Check,
   logout: LogOut,
   database: Database,
+  calendar: CalendarIcon,
   logo: (props: LucideProps) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
       <path

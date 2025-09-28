@@ -374,3 +374,47 @@ export const triggerForecastRun = async () => {
     throw error;
   }
 };
+
+export interface NasaPowerParams {
+  start: string; // format YYYYMMDD
+  end: string;
+  latitude: number;
+  longitude: number;
+  parameters: string[];
+  community?: string;
+}
+
+export const fetchNasaPowerData = async (params: NasaPowerParams) => {
+  try {
+    const response = await axios.get(`/api/v1/nasa-power`, {
+      params: {
+        start: params.start,
+        end: params.end,
+        latitude: params.latitude,
+        longitude: params.longitude,
+        parameters: params.parameters.join(","),
+        community: params.community || "ag",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching NASA Power data:", error);
+    throw error;
+  }
+};
+export const saveNasaPowerData = async (data: {
+  name: string;
+  collectionName?: string;
+  description?: string;
+  status?: string;
+  source?: string;
+  nasaParams: NasaPowerParams;
+}) => {
+  try {
+    const response = await axios.post(`/api/v1/nasa-power/save`, data);
+    return response.data;
+  } catch (error) {
+    console.error("Error saving NASA Power data:", error);
+    throw error;
+  }
+};
