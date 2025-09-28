@@ -39,6 +39,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { fi } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
+import { FileUploader } from "@/components/ui/file-uploader";
 import {
   DateRangePicker,
   dateToYYYYMMDD,
@@ -160,7 +161,7 @@ export default function AddDatasetDialog() {
     nasaPowerForm.reset();
     setPreviewData(null);
     setDateWarningMessage(""); // Now this line will work
-    setSelectedKabupaten("Kabupaten Aceh Besar");
+    setSelectedKabupaten("Pilih Kabupaten");
     setSelectedKecamatan("");
     setDateRange(undefined);
   };
@@ -247,6 +248,12 @@ export default function AddDatasetDialog() {
       ? "csv"
       : null;
     if (!fileType) return toast.error("Hanya file CSV atau JSON yang didukung");
+
+    // Generate collectionName from name (lowercase, replace spaces with underscores)
+    const collectionName = uploadForm.name
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
     const buffer = await file.arrayBuffer();
     const parsed = await parseFile({
       fileBuffer: Buffer.from(buffer),
@@ -260,7 +267,7 @@ export default function AddDatasetDialog() {
             name: uploadForm.name,
             source: uploadForm.source,
             fileType,
-            collectionName: uploadForm.collectionName,
+            collectionName,
             description: uploadForm.description,
             status: uploadForm.status,
             records: parsed,
@@ -335,8 +342,7 @@ export default function AddDatasetDialog() {
   // Also update the handleNasaPowerSubmit function similarly
   const handleNasaPowerSubmit = async (values: NasaPowerFormValues) => {
     const validationErrors = [];
-
-    // Check for dataset name
+    // Check for name length
     if (!values.name || values.name.length < 3) {
       validationErrors.push("Nama dataset minimal 3 karakter!");
     }
@@ -461,19 +467,6 @@ export default function AddDatasetDialog() {
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="collectionName">Nama Koleksi (Opsional)</Label>
-                <Input
-                  id="collectionName"
-                  value={uploadForm.collectionName}
-                  onChange={(e) =>
-                    setUploadForm({
-                      ...uploadForm,
-                      collectionName: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="status">Status</Label>
                 <select
                   id="status"
@@ -502,13 +495,13 @@ export default function AddDatasetDialog() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="file">Upload File</Label>
-                <Input
-                  id="file"
-                  type="file"
+                <Label>Upload File</Label>
+                <FileUploader
                   accept=".csv,.json"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  required
+                  maxSize={50} // 50MB max size
+                  onFileSelect={setFile}
+                  selectedFile={file}
+                  loading={uploadPending}
                 />
               </div>
               <DialogFooter>
