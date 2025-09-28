@@ -129,7 +129,8 @@ export default function AddDatasetDialog() {
 
   // NASA POWER form state
   const [previewData, setPreviewData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   // NASA POWER form
   const nasaPowerForm = useForm<NasaPowerFormValues>({
@@ -251,15 +252,38 @@ export default function AddDatasetDialog() {
       fileBuffer: Buffer.from(buffer),
       fileType,
     });
-    uploadMutate({
-      name: uploadForm.name,
-      source: uploadForm.source,
-      fileType,
-      collectionName: uploadForm.collectionName,
-      description: uploadForm.description,
-      status: uploadForm.status,
-      records: parsed,
-    });
+    toast.promise(
+      // The promise
+      new Promise((resolve, reject) => {
+        uploadMutate(
+          {
+            name: uploadForm.name,
+            source: uploadForm.source,
+            fileType,
+            collectionName: uploadForm.collectionName,
+            description: uploadForm.description,
+            status: uploadForm.status,
+            records: parsed,
+          },
+          {
+            onSuccess: () => {
+              queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+              resetForm();
+              resolve("success");
+            },
+            onError: (error) => {
+              reject(error);
+            },
+          }
+        );
+      }),
+      {
+        loading: "Menyimpan dataset...",
+        success: `Dataset ${uploadForm.name} berhasil disimpan!`,
+        error: (err) =>
+          `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
+      }
+    );
   };
   // Handle Preview NASA POWER data
   const handleNasaPowerPreview = async () => {
@@ -270,11 +294,12 @@ export default function AddDatasetDialog() {
       validationErrors.push("Pilih Kecamatan terlebih dahulu!");
     }
 
-    // Add validation for date range
-    if (!dateRange?.from || !dateRange?.to) {
-      return toast.error(
-        "Pilih tanggal mulai dan tanggal akhir terlebih dahulu!"
-      );
+    if (!dateRange?.from) {
+      validationErrors.push("Pilih tanggal mulai terlebih dahulu!");
+    }
+
+    if (!dateRange?.to) {
+      validationErrors.push("Pilih tanggal akhir terlebih dahulu!");
     }
 
     // If there are validation errors, show them all and stop
@@ -287,7 +312,7 @@ export default function AddDatasetDialog() {
     }
 
     try {
-      setLoading(true);
+      setPreviewLoading(true);
       const values = nasaPowerForm.getValues();
       const response = await fetchNasaPowerData({
         start: values.start,
@@ -303,7 +328,7 @@ export default function AddDatasetDialog() {
       toast.error(error.message || "Gagal memuat preview data");
       console.error(error);
     } finally {
-      setLoading(false);
+      setPreviewLoading(false);
     }
   };
 
@@ -322,10 +347,12 @@ export default function AddDatasetDialog() {
     }
 
     // Add validation for date range
-    if (!dateRange?.from || !dateRange?.to) {
-      return toast.error(
-        "Pilih tanggal mulai dan tanggal akhir terlebih dahulu!"
-      );
+    if (!dateRange?.from) {
+      validationErrors.push("Pilih tanggal mulai terlebih dahulu!");
+    }
+
+    if (!dateRange?.to) {
+      validationErrors.push("Pilih tanggal akhir terlebih dahulu!");
     }
     // If there are validation errors, show them all and stop
     if (validationErrors.length > 0) {
@@ -335,30 +362,39 @@ export default function AddDatasetDialog() {
       return;
     }
 
-    try {
-      setLoading(true);
-      await saveNasaPowerData({
-        name: values.name,
-        description: values.description,
-        status: "raw",
-        source: "Data NASA (https://power.larc.nasa.gov/)",
-        nasaParams: {
-          start: values.start,
-          end: values.end,
-          latitude: values.latitude,
-          longitude: values.longitude,
-          parameters: values.parameters,
-        },
-      });
-      toast.success(`Dataset ${values.name} berhasil disimpan!`);
-      queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
-      resetForm();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Gagal menyimpan dataset!");
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    toast.promise(
+      new Promise(async (resolve, reject) => {
+        try {
+          setSaveLoading(true);
+          await saveNasaPowerData({
+            name: values.name,
+            description: values.description,
+            status: "raw",
+            source: "Data NASA (https://power.larc.nasa.gov/)",
+            nasaParams: {
+              start: values.start,
+              end: values.end,
+              latitude: values.latitude,
+              longitude: values.longitude,
+              parameters: values.parameters,
+            },
+          });
+          queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+          resetForm();
+          setSaveLoading(false);
+          resolve("success");
+        } catch (error) {
+          setSaveLoading(false);
+          reject(error);
+        }
+      }),
+      {
+        loading: "Menyimpan dataset NASA POWER...",
+        success: `Dataset ${values.name} berhasil disimpan!`,
+        error: (err) =>
+          `${err?.response?.data?.message || "Gagal menyimpan dataset!"}`,
+      }
+    );
   };
   return (
     <Dialog
@@ -676,7 +712,7 @@ export default function AddDatasetDialog() {
                           <DateRangePicker
                             dateRange={dateRange}
                             onDateRangeChange={handleDateRangeChange}
-                            disabled={loading}
+                            disabled={previewLoading || saveLoading}
                           />
                         </FormControl>
 
@@ -772,9 +808,9 @@ export default function AddDatasetDialog() {
                     type="button"
                     variant="outline"
                     onClick={handleNasaPowerPreview}
-                    disabled={loading}
+                    disabled={previewLoading || saveLoading}
                   >
-                    {loading ? (
+                    {previewLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Loading...
@@ -787,8 +823,11 @@ export default function AddDatasetDialog() {
                     <DialogClose asChild>
                       <Button variant="outline">Batal</Button>
                     </DialogClose>
-                    <Button type="submit" disabled={loading}>
-                      {loading ? (
+                    <Button
+                      type="submit"
+                      disabled={previewLoading || saveLoading}
+                    >
+                      {saveLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Menyimpan...
