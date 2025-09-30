@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-
 //TODO : Buat useffect setip kli ada data baru yg ditambah, biar auto reload
 export default function AddDatasetDialog() {
   const queryClient = useQueryClient();
@@ -75,19 +74,23 @@ export default function AddDatasetDialog() {
           <DialogTitle>Tambah Dataset</DialogTitle>
           <DialogDescription>Unggah file CSV/JSON beserta metadata singkat.</DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="name">Nama Dataset</Label>
-            <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <Input id="name" placeholder="Contoh: Data Curah Hujan Jawa Barat" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="source">Sumber</Label>
-            <Input id="source" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} required />
+            <Input id="source" placeholder="Contoh: BMKG (https://dataonline.bmkg.go.id/)" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} required />
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="collectionName">Nama Koleksi (Opsional)</Label>
-            <Input id="collectionName" value={form.collectionName} onChange={(e) => setForm({ ...form, collectionName: e.target.value })} />
+            <Input id="collectionName" placeholder="Contoh: rainfall_jabar_2025" value={form.collectionName} onChange={(e) => setForm({ ...form, collectionName: e.target.value })} />
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="status">Status</Label>
             <select id="status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="border rounded px-3 py-2">
@@ -96,14 +99,18 @@ export default function AddDatasetDialog() {
               <option value="validated">Validated</option>
             </select>
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="description">Deskripsi</Label>
-            <Input id="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Input id="description" placeholder="Tuliskan deskripsi singkat dataset" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
+
           <div className="grid gap-2">
             <Label htmlFor="file">Upload File</Label>
             <Input id="file" type="file" accept=".csv,.json" onChange={(e) => setFile(e.target.files?.[0] || null)} required />
+            <p className="text-xs text-muted-foreground">Hanya mendukung file .csv atau .json</p>
           </div>
+
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Batal</Button>
