@@ -207,7 +207,7 @@ importers:
         specifier: ^3.0.1
         version: 3.1.0(prop-types@15.8.1)(react@19.1.0)
       recharts:
-        specifier: ^2.15.1
+        specifier: 2.15.4
         version: 2.15.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       sonner:
         specifier: ^1.7.1
