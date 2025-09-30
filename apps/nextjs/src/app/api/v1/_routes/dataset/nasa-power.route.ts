@@ -121,13 +121,7 @@ nasaPowerRoute.post("/save", async (c) => {
     await db();
     const body = await c.req.json();
 
-    const {
-      name,
-      collectionName = `nasa_power_${Date.now()}`,
-      description = "",
-      status = "processed",
-      nasaParams,
-    } = body;
+    const { name, description = "", status = "processed", nasaParams } = body;
 
     if (!name || !nasaParams) {
       return c.json(
@@ -135,6 +129,13 @@ nasaPowerRoute.post("/save", async (c) => {
         400
       );
     }
+
+    // Generate collectionName from name (lowercase, replace spaces with underscores)
+    const collectionName = name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
 
     // Add community from nasaParams or use default
     const community = nasaParams.community || "ag";
@@ -188,9 +189,18 @@ nasaPowerRoute.post("/save", async (c) => {
     const paramData = properties.parameter;
     const timespan = Object.keys(paramData[parameters[0]]);
 
+    // Convert YYYYMMDDD string date to MongoDB Date object
     const records = timespan.map((date) => {
-      const record: Record<string, any> = { Date: date };
+      const year = parseInt(date.substring(0, 4));
+      const month = parseInt(date.substring(4, 6)) - 1; // JS months are 0-indexed
+      const day = parseInt(date.substring(6, 8));
 
+      const record: Record<string, any> = {
+        Date: new Date(year, month, day),
+        Year: year,
+        month: month + 1,
+        day: day,
+      };
       parameters.forEach((param: string) => {
         if (paramData[param] && paramData[param][date] !== undefined) {
           record[param] = paramData[param][date];

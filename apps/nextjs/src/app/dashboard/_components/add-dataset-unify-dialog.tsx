@@ -167,11 +167,7 @@ export default function AddDatasetDialog() {
   };
 
   // State for data range
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from:
-      yyyymmddToDate(nasaPowerForm.getValues().start) || new Date(2005, 0, 1),
-    to: yyyymmddToDate(nasaPowerForm.getValues().end) || new Date(),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   React.useEffect(() => {
     // Set default Kecamatan based on initial coordinates
