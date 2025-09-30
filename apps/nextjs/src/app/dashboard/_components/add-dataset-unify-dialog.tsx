@@ -33,7 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import toast from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { Icons } from "@/app/dashboard/_components/icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -423,9 +423,40 @@ export default function AddDatasetDialog() {
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="upload">Upload File</TabsTrigger>
-            <TabsTrigger value="nasa-power">NASA POWER API</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/30">
+            <TabsTrigger
+              value="upload"
+              className={`
+      transition-all duration-200 rounded-md
+      ${
+        activeTab === "upload"
+          ? "bg-black text-white font-medium shadow-md" // Changed to black with white text
+          : "hover:bg-muted/80"
+      }
+    `}
+            >
+              <div className="flex items-center gap-2">
+                <Icons.fileUpload className="h-4 w-4" />{" "}
+                {/* Always show icon */}
+                <span>Upload File</span>
+              </div>
+            </TabsTrigger>
+            <TabsTrigger
+              value="nasa-power"
+              className={`
+      transition-all duration-200 rounded-md
+      ${
+        activeTab === "nasa-power"
+          ? "bg-black text-white font-medium shadow-md" // Changed to black with white text
+          : "hover:bg-muted/80"
+      }
+    `}
+            >
+              <div className="flex items-center gap-2">
+                <Icons.cloud className="h-4 w-4" /> {/* Always show icon */}
+                <span>NASA POWER API</span>
+              </div>
+            </TabsTrigger>
           </TabsList>
 
           {/* Upload File Tab */}
@@ -795,17 +826,21 @@ export default function AddDatasetDialog() {
                 <DialogFooter className="flex justify-between pt-4">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     onClick={handleNasaPowerPreview}
                     disabled={previewLoading || saveLoading}
+                    className="flex items-center gap-2 transition-all hover:bg-secondary/80"
                   >
                     {previewLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
+                        <Icons.spinner className="h-4 w-4 animate-spin" />
+                        <span>Loading...</span>
                       </>
                     ) : (
-                      "Preview"
+                      <>
+                        <Icons.preview className="h-4 w-4" />
+                        <span>Preview</span>
+                      </>
                     )}
                   </Button>
                   <div className="flex gap-2">
@@ -815,14 +850,18 @@ export default function AddDatasetDialog() {
                     <Button
                       type="submit"
                       disabled={previewLoading || saveLoading}
+                      className="flex items-center gap-2 transition-colors"
                     >
                       {saveLoading ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Menyimpan...
+                          <Icons.spinner className="h-4 w-4 animate-spin" />
+                          <span>Menyimpan...</span>
                         </>
                       ) : (
-                        "Simpan"
+                        <>
+                          <Icons.save className="h-4 w-4" />
+                          <span>Simpan</span>
+                        </>
                       )}
                     </Button>
                   </div>

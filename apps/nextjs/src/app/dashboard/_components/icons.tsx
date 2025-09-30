@@ -9,10 +9,10 @@ import {
   Building2,
   ChevronsUpDown,
   Edit,
-  Eye,
   Trash2,
   Laptop,
   Palette,
+  FileUp,
   LayoutDashboard,
   PlusCircle,
   Settings,
@@ -32,13 +32,24 @@ import {
   ChevronsRight,
   SlidersHorizontal,
   Database,
+  Menu,
+  Trash,
+  Save,
+  Eye,
   CalendarIcon,
   AlertTriangle,
+  CloudDownload
 } from "lucide-react";
 
 export type Icon = LucideIcon;
 
 export const Icons = {
+  fileUpload: FileUp,
+  cloud: CloudDownload,
+  preview: Eye,
+  menu: Menu,
+  trash: Trash,
+  save: Save,
   previous: ChevronLeft,
   speedPrevious: ChevronsLeft,
   next: ChevronRight,
