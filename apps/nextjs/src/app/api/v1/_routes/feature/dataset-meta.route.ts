@@ -109,6 +109,70 @@ datasetMetaRoute.get("/:slug", async (c) => {
   }
 });
 
+// Route untuk fetch semua data tanpa pagination (khusus chart)
+datasetMetaRoute.get("/:slug/chart-data", async (c) => {
+  try {
+    await db();
+    const { slug } = c.req.param();
+    console.log("[DEBUG] API chart-data called with slug:", slug);
+
+    // Gunakan type assertion untuk meta
+    const meta = (await DatasetMeta.findOne({ collectionName: slug }).lean()) as {
+      name: string;
+      collectionName: string;
+      columns: string[];
+      [key: string]: any;
+    } | null;
+
+    if (!meta) return c.json({ message: "Dataset not found" }, 404);
+
+    // Validasi kolom Date
+    const hasDateColumn = meta.columns.some((col: string) => col.toLowerCase() === "date");
+
+    if (!hasDateColumn) {
+      return c.json(
+        {
+          message: "Dataset tidak memiliki kolom Date",
+          data: null,
+        },
+        200
+      );
+    }
+
+    let Model;
+    try {
+      Model = mongoose.model(slug);
+    } catch {
+      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+    }
+
+    // Fetch SEMUA data, sort by Date ascending untuk chart
+    const allData = await Model.find().sort({ Date: 1 }).lean();
+
+    // Filter hanya kolom numerik (exclude Date dan kolom string)
+    const firstItem = allData[0] || {};
+    const numericColumns = meta.columns.filter((col: string) => {
+      if (col.toLowerCase() === "date") return false;
+      const value = firstItem[col];
+      return typeof value === "number" || !isNaN(Number(value));
+    });
+
+    return c.json(
+      {
+        message: "Success",
+        data: {
+          items: allData,
+          numericColumns,
+          dateColumn: "Date",
+        },
+      },
+      200
+    );
+  } catch (error) {
+    console.error("Error fetching chart data:", error);
+    return c.json({ message: "Server error" }, 500);
+  }
+});
 // DELETE - Soft delete dataset (move to recycle bin)
 datasetMetaRoute.patch("/:collectionName/delete", async (c) => {
   try {

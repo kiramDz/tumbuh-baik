@@ -264,6 +264,25 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
   return json.data;
 };
 
+export const GetChartDataBySlug = async (
+  slug: string
+): Promise<{
+  items: any[];
+  numericColumns: string[];
+  dateColumn: string;
+} | null> => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}/chart-data`, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch chart data");
+
+  const json = await res.json();
+
+  return json.data;
+};
+
 export const SoftDeleteDataset = async (collectionName: string) => {
   try {
     const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
