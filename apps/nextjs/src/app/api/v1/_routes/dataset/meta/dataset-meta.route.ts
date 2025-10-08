@@ -119,12 +119,12 @@ datasetMetaRoute.get("/rainfall-summary", async (c) => {
   }
 });
 
-// PUT - Update dataset meta
-datasetMetaRoute.put("/:id", async (c) => {
+// PUT - Update dataset meta by ID or collectionName
+datasetMetaRoute.put("/:idOrSlug", async (c) => {
   try {
     await db();
 
-    const { id } = c.req.param();
+    const { idOrSlug } = c.req.param();
 
     // Definisikan tipe data untuk body
     let body: Record<string, any> = {}; // atau bisa menggunakan interface yang lebih spesifik
@@ -159,12 +159,25 @@ datasetMetaRoute.put("/:id", async (c) => {
         400
       );
     }
-    // Update metadata di MongoDB
-    const updatedDataset = await DatasetMeta.findByIdAndUpdate(
-      id,
-      { $set: body },
-      { new: true, runValidators: true, lean: true }
-    );
+
+    let updatedDataset;
+
+    // Check if idOrSlug is a valid MongoDB ObjectId
+    if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+      // Update by ID
+      updatedDataset = await DatasetMeta.findByIdAndUpdate(
+        idOrSlug,
+        { $set: body },
+        { new: true, runValidators: true, lean: true }
+      );
+    } else {
+      // Update by collectionName (slug)
+      updatedDataset = await DatasetMeta.findOneAndUpdate(
+        { collectionName: idOrSlug },
+        { $set: body },
+        { new: true, runValidators: true, lean: true }
+      );
+    }
 
     if (!updatedDataset) {
       return c.json({ message: "Dataset not found" }, 404);
@@ -251,6 +264,7 @@ datasetMetaRoute.post("/", async (c) => {
       fileSize,
       totalRecords,
       columns,
+      isAPI: false,
     });
 
     console.log({
@@ -264,6 +278,7 @@ datasetMetaRoute.post("/", async (c) => {
       fileSize,
       totalRecords,
       columns,
+      isAPI: false,
     });
 
     return c.json(

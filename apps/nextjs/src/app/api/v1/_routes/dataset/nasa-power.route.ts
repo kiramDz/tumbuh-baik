@@ -130,12 +130,17 @@ nasaPowerRoute.post("/save", async (c) => {
       );
     }
 
-    // Generate collectionName from name (lowercase, replace spaces with underscores)
+    // Log the original name
+    console.log("Original name:", name);
+
+    // Generate collectionName from name - PRESERVING SPACES, just removing invalid chars
     const collectionName = name
-      .toLowerCase()
       .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
+      .replace(/[^a-zA-Z0-9\s]/g, "") // Keep spaces, only remove special chars
+      .replace(/\s+/g, " "); // Normalize multiple spaces to single space
+
+    // Log the processed collection name
+    console.log("Generated collection name:", collectionName);
 
     // Add community from nasaParams or use default
     const community = nasaParams.community || "ag";
@@ -243,6 +248,12 @@ nasaPowerRoute.post("/save", async (c) => {
       fileSize,
       totalRecords,
       columns,
+      isAPI: true,
+      lastUpdated: new Date(),
+      apiConfig: {
+        type: "nasa-power",
+        params: nasaParams,
+      }, // Store API configuration for future updates
       metadata: {
         nasaParams,
         header: properties.header,

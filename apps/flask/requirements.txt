@@ -5,3 +5,7 @@ pymongo
 statsmodels
 scikit-learn
 python-dotenv
+matplotlib
+seaborn
+scipy
+windrose

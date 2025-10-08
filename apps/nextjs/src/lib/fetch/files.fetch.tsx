@@ -7,6 +7,9 @@ export interface DatasetMetaType {
   description?: string;
   status: string;
   uploadDate: string;
+  isAPI: boolean; // Added API flag for fetching NASA
+  lastUpdated?: string; // Dated latest updating
+  apiConfig?: Record<string, any>; // API config
 }
 
 export async function exportDatasetCsv(
