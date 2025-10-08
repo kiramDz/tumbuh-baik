@@ -491,6 +491,9 @@ export default function AddDatasetDialog() {
                   <option value="Data NASA (https://power.larc.nasa.gov/)">
                     Data NASA (https://power.larc.nasa.gov/)
                   </option>
+                  <option value="Data BUOYS (https://www.pmel.noaa.gov)">
+                    Data BUOYS (https://www.pmel.noaa.gov)
+                  </option>
                 </select>
               </div>
               <div className="grid gap-2">
