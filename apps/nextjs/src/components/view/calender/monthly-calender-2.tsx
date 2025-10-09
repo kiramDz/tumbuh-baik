@@ -5,38 +5,32 @@ import { getHoltWinterDaily } from "@/lib/fetch/files.fetch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMemo } from "react";
 import clsx from "clsx";
-import { format, parse, eachDayOfInterval, getDay } from "date-fns";
+import { format, eachDayOfInterval, getDay, addMonths, subDays, addDays } from "date-fns";
 import { id } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const KT_PERIODS = {
-  "KT-1": ["09-20-2025", "01-20-2026"],
-  "KT-2": ["01-21-2026", "06-20-2026"],
-  "KT-3": ["06-21-2026", "09-19-2026"],
-};
+// const KT_PERIODS = {
+//   "KT-1": ["09-20-2025", "01-20-2026"],
+//   "KT-2": ["01-21-2026", "06-20-2026"],
+//   "KT-3": ["06-21-2026", "09-19-2026"],
+// };
 
-// === FUNGSI INI DIUBAH ===
 const getWeatherColor = (rain: number, temp: number, humidity: number) => {
-  // 1. Cek kesesuaian untuk setiap parameter
   const isRainSesuai = rain >= 5.7 && rain <= 16.7;
   const isTempSesuai = temp >= 24 && temp <= 29;
   const isHumiditySesuai = humidity >= 33 && humidity <= 90;
 
-  // 2. Hitung berapa banyak parameter yang "Sesuai"
-  // (Boolean diubah menjadi Angka: true=1, false=0)
   const sesuaiCount = Number(isRainSesuai) + Number(isTempSesuai) + Number(isHumiditySesuai);
 
-  // 3. Tentukan warna berdasarkan aturan "minimal 2 dari 3"
   if (sesuaiCount === 3) {
-    return "bg-green-300"; // Sangat Cocok (3/3 parameter terpenuhi)
+    return "bg-green-300";
   }
   if (sesuaiCount === 2) {
-    return "bg-green-100"; // Cukup Cocok (2/3 parameter terpenuhi)
+    return "bg-green-100";
   }
 
-  // Jika kurang dari 2 parameter yang sesuai (0 atau 1), maka Tidak Cocok
   return "bg-red-300";
 };
 
@@ -69,7 +63,7 @@ export default function PeriodCalendar() {
   } = useQuery({
     queryKey: ["holt-winter-period"],
     queryFn: async () => {
-      const all = await getHoltWinterDaily(1, 731);
+      const all = await getHoltWinterDaily(1, 365);
       return all.items
         .map((item: any) => ({
           ...item,
@@ -79,28 +73,59 @@ export default function PeriodCalendar() {
     },
   });
 
-  const periodRows = useMemo(() => {
-    if (!forecastData || forecastData.length === 0) return { "KT-1": [], "KT-2": [], "KT-3": [] };
-    const rows: Record<string, (any | null)[][]> = {};
-    Object.keys(KT_PERIODS).forEach((period) => {
-      const [startStr, endStr] = KT_PERIODS[period as keyof typeof KT_PERIODS];
-      const startDate = parse(startStr, "MM-dd-yyyy", new Date());
-      const endDate = parse(endStr, "MM-dd-yyyy", new Date());
-      rows[period] = getPeriodCalendarGrid(forecastData, startDate, endDate);
+  const { periodRows, periodRanges } = useMemo(() => {
+    const emptyState = {
+      periodRows: { "KT-1": [], "KT-2": [], "KT-3": [] },
+      periodRanges: { "KT-1": "Memuat...", "KT-2": "Memuat...", "KT-3": "Memuat..." },
+    };
+    if (!forecastData || forecastData.length === 0) return emptyState;
+
+    // 1. Tentukan tanggal awal dari data pertama
+    const globalStartDate = new Date(forecastData[0].forecast_date);
+
+    // 2. Hitung periode secara dinamis (masing-masing 4 bulan)
+    const kt1_endDate = subDays(addMonths(globalStartDate, 4), 1);
+
+    const kt2_startDate = addDays(kt1_endDate, 1);
+    const kt2_endDate = subDays(addMonths(kt2_startDate, 4), 1);
+
+    const kt3_startDate = addDays(kt2_endDate, 1);
+    const kt3_endDate = subDays(addMonths(kt3_startDate, 4), 1);
+
+    const dynamicPeriods = {
+      "KT-1": { start: globalStartDate, end: kt1_endDate },
+      "KT-2": { start: kt2_startDate, end: kt2_endDate },
+      "KT-3": { start: kt3_startDate, end: kt3_endDate },
+    };
+
+    const newPeriodRows: Record<string, (any | null)[][]> = {};
+    const newPeriodRanges: Record<string, string> = {};
+
+    Object.keys(dynamicPeriods).forEach((period) => {
+      const { start, end } = dynamicPeriods[period as keyof typeof dynamicPeriods];
+
+      // Buat grid kalender
+      newPeriodRows[period] = getPeriodCalendarGrid(forecastData, start, end);
+
+      // Buat teks rentang tanggal untuk ditampilkan di UI
+      newPeriodRanges[period] = `${format(start, "d MMM yyyy", { locale: id })} - ${format(end, "d MMM yyyy", { locale: id })}`;
     });
-    return rows;
+
+    return { periodRows: newPeriodRows, periodRanges: newPeriodRanges };
   }, [forecastData]);
 
-  const renderPeriodGrid = (period: keyof typeof KT_PERIODS) => (
+  const renderPeriodGrid = (period: keyof typeof periodRows) => (
     <TabsContent value={period}>
+      <div className="mb-3 text-sm font-medium text-center text-muted-foreground">Periode Tanam: {periodRanges[period]}</div>
       <ScrollArea className="w-full overflow-auto">
         <div className="min-w-[900px]">
           <Table className="bg-background  ">
             <TableHeader>
               <TableRow className="*:border-border">
-                {Array.from({ length: periodRows[period][0]?.length || 0 }).map((_, colIdx) => (
+                <TableHead className="w-[100px]">Hari</TableHead>
+                {periodRows[period][0]?.map((_, colIdx) => (
                   <TableHead key={colIdx} className="text-center">
-                    {periodRows[period][0][colIdx] ? format(new Date(periodRows[period][0][colIdx].forecast_date), " MMM", { locale: id }) : ""}
+                    {`Minggu ${colIdx + 1}`}
                   </TableHead>
                 ))}
               </TableRow>
@@ -110,9 +135,8 @@ export default function PeriodCalendar() {
                 {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day, rowIdx) => (
                   <TableRow key={day} className="*:border-border">
                     <TableCell className="text-center font-medium">{day}</TableCell>
-
                     {periodRows[period][rowIdx]?.map((dayData, colIdx) => {
-                      if (dayData) {
+                      if (dayData && !dayData.isPlaceholder) {
                         return (
                           <Tooltip key={colIdx}>
                             <TooltipTrigger asChild>
@@ -122,11 +146,13 @@ export default function PeriodCalendar() {
                                   getWeatherColor(dayData.parameters?.RR_imputed?.forecast_value ?? 0, dayData.parameters?.TAVG?.forecast_value ?? 0, dayData.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0)
                                 )}
                               >
-                                <div className="text-[10px] absolute top-0 right-1">{format(new Date(dayData.forecast_date), "dd")}</div>
+                                <div className="text-xs absolute top-1 right-1.5">{format(new Date(dayData.forecast_date), "dd")}</div>
+                                <div className="text-[10px] absolute bottom-1 left-1.5">{format(new Date(dayData.forecast_date), "MMM", { locale: id })}</div>
                               </TableCell>
                             </TooltipTrigger>
                             <TooltipContent side="top">
                               <div className="text-xs">
+                                <p>{format(new Date(dayData.forecast_date), "eeee, d MMMM yyyy", { locale: id })}</p>
                                 <p>Hujan: {dayData.parameters?.RR_imputed?.forecast_value.toFixed(2)} mm</p>
                                 <p>Suhu: {dayData.parameters?.TAVG?.forecast_value.toFixed(2)} °C</p>
                                 <p>Kelembaban: {dayData.parameters?.RH_AVG_preprocessed?.forecast_value.toFixed(2)} %</p>
@@ -135,11 +161,7 @@ export default function PeriodCalendar() {
                           </Tooltip>
                         );
                       } else {
-                        return (
-                          <TableCell key={colIdx} className="text-center h-20 w-20 text-xs">
-                            -
-                          </TableCell>
-                        );
+                        return <TableCell key={colIdx} className="text-center h-20 w-20 border bg-slate-50"></TableCell>;
                       }
                     })}
                   </TableRow>
@@ -184,7 +206,6 @@ export default function PeriodCalendar() {
         {renderPeriodGrid("KT-2")}
         {renderPeriodGrid("KT-3")}
       </Tabs>
-      {/* === BAGIAN INI DIUBAH === */}
       <div className="flex flex-col gap-2 mt-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-green-300 border" />
