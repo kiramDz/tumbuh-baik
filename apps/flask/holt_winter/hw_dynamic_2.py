@@ -333,13 +333,13 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
         
-
-        forecast_start_date = pd.Timestamp("2025-06-01")
-        forecast_end_date = pd.Timestamp("2026-09-19")
-        date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
+        last_data_date = df.index[-1]
+        forecast_start_date = last_data_date + pd.Timedelta(days=1)
+        forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
+        date_increment = '16D' if is_ndvi else 'D'
 
         forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
-        forecast_steps = len(forecast_dates)  # jumlah langkah forecast
+        forecast_steps = len(forecast_dates)
 
         
         print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
