@@ -9,7 +9,21 @@ const DatasetMetaSchema = new Schema(
     fileSize: { type: Number, required: true },
     totalRecords: { type: Number, required: true },
     fileType: { type: String, required: true },
-    status: { type: String, required: true },
+    status: {
+      type: String,
+      required: true,
+      enum: [
+        "raw",
+        "latest",
+        "preprocessing",
+        "preprocessed",
+        "validated",
+        "ready",
+        "archived",
+        "failed",
+      ],
+      default: "raw",
+    },
     columns: { type: [String], required: true },
     description: { type: String },
     uploadDate: { type: Date, default: Date.now },
@@ -26,5 +40,3 @@ const DatasetMetaSchema = new Schema(
 export const DatasetMeta =
   mongoose.models.DatasetMeta ||
   mongoose.model("DatasetMeta", DatasetMetaSchema, "dataset_meta");
-
-// Yang manual diisi user: name, source, collectionName (optional), description (optional) - sudah benar.
