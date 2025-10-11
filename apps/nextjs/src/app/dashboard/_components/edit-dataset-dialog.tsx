@@ -345,25 +345,22 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                 }
               />
             </div>
-
             {/* Action buttons */}
-            <div className="flex justify-between pt-4">
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                className="flex items-center gap-2"
-              >
-                <Icons.trash className="h-4 w-4" />
-                {isDeleting ? "Menghapus..." : "Hapus"}
-              </Button>
+            <div className="space-y-4 pt-4 border-t">
+              {/* NASA POWER Refresh Section - Pindah ke atas */}
               {dataset.isAPI && dataset.apiConfig?.type === "nasa-power" && (
-                <div className="flex flex-col gap-2 border-t pt-3 mt-3">
-                  <div className="text-sm text-gray-600">
-                    <p className="text-xs mt-1"></p>
-                    {!refreshStatus.isLoading && (
-                      <p className="text-xs mt-1">
+                <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border">
+                  <div className="text-sm">
+                    <p className="font-medium text-gray-700 mb-2">
+                      Status Data NASA POWER
+                    </p>
+                    {refreshStatus.isLoading ? (
+                      <p className="text-xs text-blue-600 flex items-center gap-1">
+                        <Icons.refresh className="h-3 w-3 animate-spin" />
+                        Memeriksa status...
+                      </p>
+                    ) : (
+                      <p className="text-xs">
                         {refreshStatus.canRefresh ? (
                           <span className="text-green-600 font-medium">
                             ✓ Tersedia {refreshStatus.daysSinceLastRecord} hari
@@ -394,7 +391,8 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                       !refreshStatus.canRefresh ||
                       refreshStatus.isLoading
                     }
-                    className="flex items-center gap-2 w-full"
+                    className="flex items-center justify-center gap-2 w-full"
+                    size="sm"
                   >
                     <Icons.refresh
                       className={`h-4 w-4 ${
@@ -405,29 +403,47 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                       ? "Memperbarui data..."
                       : refreshStatus.canRefresh
                       ? `Refresh Data (${refreshStatus.daysSinceLastRecord} hari)`
-                      : "Perbarui Data"}
+                      : "Data Terbaru"}
                   </Button>
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <DialogClose asChild>
-                  <Button type="button" variant="outline">
-                    Batal
-                  </Button>
-                </DialogClose>
+              {/* Bottom Action Buttons */}
+              <div className="flex items-center justify-between gap-3">
+                {/* Delete Button - Left */}
                 <Button
-                  type="button" // Change to type="button"
-                  disabled={isPending}
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
                   className="flex items-center gap-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsUpdateConfirmOpen(true);
-                  }}
+                  size="sm"
                 >
-                  <Icons.save className="h-4 w-4" />
-                  {isPending ? "Menyimpan..." : "Simpan"}
+                  <Icons.trash className="h-4 w-4" />
+                  {isDeleting ? "Menghapus..." : "Hapus"}
                 </Button>
+
+                {/* Cancel & Save Buttons - Right */}
+                <div className="flex items-center gap-2">
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline" size="sm">
+                      Batal
+                    </Button>
+                  </DialogClose>
+                  <Button
+                    type="button"
+                    disabled={isPending}
+                    className="flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsUpdateConfirmOpen(true);
+                    }}
+                    size="sm"
+                  >
+                    <Icons.save className="h-4 w-4" />
+                    {isPending ? "Menyimpan..." : "Simpan"}
+                  </Button>
+                </div>
               </div>
             </div>
           </form>

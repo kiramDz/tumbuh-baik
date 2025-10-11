@@ -40,6 +40,7 @@ import {
   CalendarIcon,
   AlertTriangle,
   CloudDownload,
+  CircleAlert,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -51,6 +52,7 @@ export const Icons = {
   menu: Menu,
   trash: Trash,
   save: Save,
+  alertCircle: CircleAlert,
   previous: ChevronLeft,
   speedPrevious: ChevronsLeft,
   next: ChevronRight,

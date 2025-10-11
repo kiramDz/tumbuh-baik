@@ -20,6 +20,27 @@ export interface DatasetMetaType {
   };
 }
 
+export interface RefreshResult {
+  id: string;
+  name: string;
+  status: string;
+  refreshResult: string;
+  newRecordsCount?: number;
+  lastRecord?: string;
+  reason?: string;
+}
+
+export interface RefreshAllResponse {
+  message: string;
+  data: {
+    total: number;
+    refreshed: number;
+    alreadyUpToDate: number;
+    failed: number;
+    details: RefreshResult[];
+  };
+}
+
 export async function exportDatasetCsv(
   collectionName: string,
   sortBy = "Date",
@@ -481,6 +502,20 @@ export const refreshNasaPowerDataset = async (datasetId: string) => {
     return response.data;
   } catch (error) {
     console.error("Error refreshing NASA POWER dataset:", error);
+    throw error;
+  }
+};
+
+// Fetch All NASA datasets
+export const refreshAllNasaDatasets = async (): Promise<RefreshAllResponse> => {
+  try {
+    const response = await axios.post("/api/v1/nasa-power/refresh-all");
+    console.log("Full response:", response);
+    console.log("response.data:", response.data);
+    console.log("response.status:", response.status);
+    return response.data;
+  } catch (error) {
+    console.error("Error refreshing all NASA datasets:", error);
     throw error;
   }
 };
