@@ -2,9 +2,14 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React, { useState } from "react";
-import { UpdateDatasetMeta, DeleteDatasetMeta } from "@/lib/fetch/files.fetch";
+import { useEffect } from "react";
+import {
+  UpdateDatasetMeta,
+  DeleteDatasetMeta,
+  getNasaPowerRefreshStatus,
+  refreshNasaPowerDataset,
+} from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash } from "lucide-react";
 import { Icons } from "@/app/dashboard/_components/icons";
 import { ConfirmationDeleteModal } from "@/components/ui/modal/confirmation-delete-modal";
 import { ConfirmationUpdateModal } from "@/components/ui/modal/confirmation-update-modal";
@@ -31,6 +35,12 @@ interface EditDatasetDialogProps {
     collectionName: string;
     description?: string;
     status: string;
+    isAPI?: boolean; // Add this
+    apiConfig?: {
+      type: string;
+      params?: any;
+    }; // Add this
+    lastUpdated?: string;
   };
 }
 
@@ -39,6 +49,14 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
   const [open, setOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isUpdateConfirmOpen, setIsUpdateConfirmOpen] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState({
+    canRefresh: false,
+    daysSinceLastRecord: 0,
+    lastRecordDate: "",
+    message: "",
+    isLoading: false,
+  });
+  // Form state
   const [form, setForm] = useState({
     name: dataset?.name || "",
     source: dataset?.source || "",
@@ -46,6 +64,35 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     description: dataset?.description || "",
     status: dataset?.status || "raw",
   });
+  // useEffect for NASA latest date
+  useEffect(() => {
+    if (open && dataset.isAPI && dataset.apiConfig?.type === "nasa-power") {
+      setRefreshStatus((prev) => ({ ...prev, isLoading: true }));
+
+      getNasaPowerRefreshStatus(dataset._id)
+        .then((status) => {
+          setRefreshStatus({
+            canRefresh: status.canRefresh,
+            daysSinceLastRecord: status.daysSinceLastRecord || 0,
+            lastRecordDate: status.lastRecordDate || "",
+            message: status.message,
+            isLoading: false,
+          });
+        })
+        .catch((error) => {
+          console.error("Error fetching refresh status:", error);
+          // On error, allow refresh attempt
+          setRefreshStatus({
+            canRefresh: true,
+            daysSinceLastRecord: 0,
+            lastRecordDate: "",
+            message: "Unable to check status",
+            isLoading: false,
+          });
+        });
+    }
+  }, [open, dataset._id, dataset.isAPI, dataset.apiConfig?.type]);
+
   // Mutation update
   const { mutate: updateDataset, isPending: isPending } = useMutation({
     mutationKey: ["update-dataset", dataset._id],
@@ -69,6 +116,84 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         error?.response?.data?.message || "Gagal memperbarui dataset";
       toast.error(errorMessage);
       setIsUpdateConfirmOpen(false);
+    },
+  });
+
+  // Mutation refresh (for NASA POWER datasets)
+  const { mutate: refreshDataset, isPending: isRefreshing } = useMutation({
+    mutationKey: ["refresh-nasa-dataset", dataset._id],
+    mutationFn: () => {
+      if (!dataset?._id) {
+        throw new Error("Dataset ID is missing");
+      }
+      return refreshNasaPowerDataset(dataset._id);
+    },
+    onSuccess: (data) => {
+      // Check if there were records updated
+      if (
+        data.data?.newRecordsCount === 0 ||
+        data.message?.includes("up to date") ||
+        data.message?.includes("No new data")
+      ) {
+        toast.info("Dataset sudah memiliki data terbaru", {
+          description: `Data terakhir: ${new Date(
+            data.data?.lastUpdated || dataset.lastUpdated || ""
+          ).toLocaleDateString("id-ID")}`,
+          duration: 5000,
+        });
+      } else {
+        toast.success(
+          `Berhasil memperbarui ${data.data?.newRecordsCount || 0} data baru`,
+          {
+            description: `Total data: ${
+              data.data?.dataset?.totalRecords || "N/A"
+            }`,
+            duration: 5000,
+          }
+        );
+      }
+
+      // Update refresh status after successful refresh
+      setRefreshStatus({
+        canRefresh: false,
+        daysSinceLastRecord: 0,
+        lastRecordDate: new Date().toISOString(),
+        message: "Dataset sudah up-to-date",
+        isLoading: false,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+      // Don't close dialog, let user see the result
+    },
+    onError: (error: any) => {
+      console.error("❌ Refresh failed, error:", error);
+
+      // Special handling for "already up to date" messages
+      if (
+        error?.response?.data?.message?.includes("up to date") ||
+        error?.message?.includes("up to date")
+      ) {
+        toast.info("Dataset sudah memiliki data terbaru", {
+          description: `Data terakhir: ${new Date(
+            dataset.lastUpdated || ""
+          ).toLocaleDateString("id-ID")}`,
+          duration: 5000,
+        });
+
+        // Update refresh status
+        setRefreshStatus({
+          canRefresh: false,
+          daysSinceLastRecord: 0,
+          lastRecordDate: dataset.lastUpdated || "",
+          message: "Dataset sudah up-to-date",
+          isLoading: false,
+        });
+        return;
+      }
+
+      const errorMessage =
+        error?.response?.data?.message || "Gagal memperbarui dataset";
+      toast.error(errorMessage);
     },
   });
 
@@ -99,6 +224,28 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     setIsDeleteConfirmOpen(true);
   };
 
+  // funtion handle refresh
+  const handleRefreshClick = () => {
+    // Prevent refresh if status check is still loading
+    if (refreshStatus.isLoading) {
+      toast.info("Memeriksa status data...");
+      return;
+    }
+
+    // Prevent refresh if data is already up-to-date
+    if (!refreshStatus.canRefresh) {
+      toast.info("Dataset sudah memiliki data terbaru", {
+        description: `Data terakhir: ${new Date(
+          refreshStatus.lastRecordDate || dataset.lastUpdated || ""
+        ).toLocaleDateString("id-ID")}`,
+        duration: 5000,
+      });
+      return;
+    }
+
+    refreshDataset();
+  };
+
   const handleConfirmDelete = () => {
     deleteDataset();
   };
@@ -121,7 +268,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
             className="group/menu flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-all duration-200 hover:bg-black hover:scale-110"
             onClick={(e) => e.stopPropagation()}
           >
-            <Menu className="h-5 w-5 text-gray-600 transition-colors duration-200 group-hover/menu:text-white" />
+            <Icons.menu className="h-5 w-5 text-gray-600 transition-colors duration-200 group-hover/menu:text-white" />
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[500px]">
@@ -198,38 +345,105 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                 }
               />
             </div>
-
             {/* Action buttons */}
-            <div className="flex justify-between pt-4">
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                className="flex items-center gap-2"
-              >
-                <Trash className="h-4 w-4" />
-                {isDeleting ? "Menghapus..." : "Hapus"}
-              </Button>
+            <div className="space-y-4 pt-4 border-t">
+              {/* NASA POWER Refresh Section - Pindah ke atas */}
+              {dataset.isAPI && dataset.apiConfig?.type === "nasa-power" && (
+                <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border">
+                  <div className="text-sm">
+                    <p className="font-medium text-gray-700 mb-2">
+                      Status Data NASA POWER
+                    </p>
+                    {refreshStatus.isLoading ? (
+                      <p className="text-xs text-blue-600 flex items-center gap-1">
+                        <Icons.refresh className="h-3 w-3 animate-spin" />
+                        Memeriksa status...
+                      </p>
+                    ) : (
+                      <p className="text-xs">
+                        {refreshStatus.canRefresh ? (
+                          <span className="text-green-600 font-medium">
+                            ✓ Tersedia {refreshStatus.daysSinceLastRecord} hari
+                            data baru
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">
+                            ✓ Up-to-date:{" "}
+                            {new Date(
+                              dataset.lastUpdated || ""
+                            ).toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
 
-              <div className="flex gap-2">
-                <DialogClose asChild>
-                  <Button type="button" variant="outline">
-                    Batal
+                  <Button
+                    type="button"
+                    variant={refreshStatus.canRefresh ? "secondary" : "outline"}
+                    onClick={handleRefreshClick}
+                    disabled={
+                      isRefreshing ||
+                      !refreshStatus.canRefresh ||
+                      refreshStatus.isLoading
+                    }
+                    className="flex items-center justify-center gap-2 w-full"
+                    size="sm"
+                  >
+                    <Icons.refresh
+                      className={`h-4 w-4 ${
+                        isRefreshing ? "animate-spin" : ""
+                      }`}
+                    />
+                    {isRefreshing
+                      ? "Memperbarui data..."
+                      : refreshStatus.canRefresh
+                      ? `Refresh Data (${refreshStatus.daysSinceLastRecord} hari)`
+                      : "Data Terbaru"}
                   </Button>
-                </DialogClose>
+                </div>
+              )}
+
+              {/* Bottom Action Buttons */}
+              <div className="flex items-center justify-between gap-3">
+                {/* Delete Button - Left */}
                 <Button
-                  type="button" // Change to type="button"
-                  disabled={isPending}
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
                   className="flex items-center gap-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsUpdateConfirmOpen(true);
-                  }}
+                  size="sm"
                 >
-                  <Icons.save className="h-4 w-4" />
-                  {isPending ? "Menyimpan..." : "Simpan"}
+                  <Icons.trash className="h-4 w-4" />
+                  {isDeleting ? "Menghapus..." : "Hapus"}
                 </Button>
+
+                {/* Cancel & Save Buttons - Right */}
+                <div className="flex items-center gap-2">
+                  <DialogClose asChild>
+                    <Button type="button" variant="outline" size="sm">
+                      Batal
+                    </Button>
+                  </DialogClose>
+                  <Button
+                    type="button"
+                    disabled={isPending}
+                    className="flex items-center gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsUpdateConfirmOpen(true);
+                    }}
+                    size="sm"
+                  >
+                    <Icons.save className="h-4 w-4" />
+                    {isPending ? "Menyimpan..." : "Simpan"}
+                  </Button>
+                </div>
               </div>
             </div>
           </form>

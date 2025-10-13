@@ -1,5 +1,6 @@
 import {
   LucideProps,
+  RefreshCw,
   Moon,
   SunMedium,
   LucideIcon,
@@ -38,7 +39,8 @@ import {
   Eye,
   CalendarIcon,
   AlertTriangle,
-  CloudDownload
+  CloudDownload,
+  CircleAlert,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -50,6 +52,7 @@ export const Icons = {
   menu: Menu,
   trash: Trash,
   save: Save,
+  alertCircle: CircleAlert,
   previous: ChevronLeft,
   speedPrevious: ChevronsLeft,
   next: ChevronRight,
@@ -79,6 +82,7 @@ export const Icons = {
   cancel: XCircle,
   pending: Timer,
   circle: Circle,
+  refresh: RefreshCw,
   question: HelpCircle,
   check: Check,
   logout: LogOut,

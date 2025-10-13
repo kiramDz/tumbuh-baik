@@ -1,4 +1,5 @@
 import axios from "axios";
+
 export interface DatasetMetaType {
   _id: string;
   name: string;
@@ -7,6 +8,37 @@ export interface DatasetMetaType {
   description?: string;
   status: string;
   uploadDate: string;
+  isAPI: boolean; // Added API flag for fetching NASA
+  lastUpdated?: string; // Dated latest updating
+  apiConfig?: Record<string, any>; // API config
+  refreshInfo: {
+    canRefresh: boolean;
+    daysSinceLastRecord: number;
+    lastRecordDate: string;
+    startDate: string;
+    endDate: string;
+  };
+}
+
+export interface RefreshResult {
+  id: string;
+  name: string;
+  status: string;
+  refreshResult: string;
+  newRecordsCount?: number;
+  lastRecord?: string;
+  reason?: string;
+}
+
+export interface RefreshAllResponse {
+  message: string;
+  data: {
+    total: number;
+    refreshed: number;
+    alreadyUpToDate: number;
+    failed: number;
+    details: RefreshResult[];
+  };
 }
 
 export async function exportDatasetCsv(
@@ -415,6 +447,75 @@ export const saveNasaPowerData = async (data: {
     return response.data;
   } catch (error) {
     console.error("Error saving NASA Power data:", error);
+    throw error;
+  }
+};
+
+export const getNasaPowerRefreshStatus = async (datasetId: string) => {
+  try {
+    const response = await axios.get(`/api/v1/nasa-power/refreshable`);
+    const datasets = (response.data.data || []) as DatasetMetaType[];
+
+    // Find the specified dataset - add proper type annotation
+    const dataset = datasets.find((d) => d._id === datasetId);
+
+    if (!dataset) {
+      return { canRefresh: false, message: "Dataset not found" };
+    }
+
+    return {
+      canRefresh: dataset.refreshInfo.canRefresh,
+      daysSinceLastRecord: dataset.refreshInfo.daysSinceLastRecord,
+      lastRecordDate: dataset.refreshInfo.lastRecordDate,
+      message: dataset.refreshInfo.canRefresh
+        ? `Dataset can be refreshed with ${dataset.refreshInfo.daysSinceLastRecord} days of new data`
+        : "Dataset is already up-to-date",
+    };
+  } catch (error) {
+    console.error("Error checking refresh status:", error);
+    // Default to allowing refresh if we can't determine status
+    return { canRefresh: true, message: "Unable to check refresh status" };
+  }
+};
+
+// Modify refreshNasaPowerDataset to check first
+export const refreshNasaPowerDataset = async (datasetId: string) => {
+  try {
+    // First check if refresh is needed
+    const refreshStatus = await getNasaPowerRefreshStatus(datasetId);
+
+    // If dataset is already up-to-date
+    if (!refreshStatus.canRefresh) {
+      return {
+        message: "Dataset is already up-to-date",
+        data: {
+          newRecordsCount: 0,
+          lastUpdated: refreshStatus.lastRecordDate,
+        },
+      };
+    }
+
+    // Proceed with refresh if needed
+    const response = await axios.post(
+      `/api/v1/nasa-power/refresh/${datasetId}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error refreshing NASA POWER dataset:", error);
+    throw error;
+  }
+};
+
+// Fetch All NASA datasets
+export const refreshAllNasaDatasets = async (): Promise<RefreshAllResponse> => {
+  try {
+    const response = await axios.post("/api/v1/nasa-power/refresh-all");
+    console.log("Full response:", response);
+    console.log("response.data:", response.data);
+    console.log("response.status:", response.status);
+    return response.data;
+  } catch (error) {
+    console.error("Error refreshing all NASA datasets:", error);
     throw error;
   }
 };
