@@ -9,6 +9,7 @@ export interface DatasetMetaType {
   status: string;
   uploadDate: string;
   isAPI: boolean; // Added API flag for fetching NASA
+  deleteAt?: string;
   lastUpdated?: string; // Dated latest updating
   apiConfig?: Record<string, any>; // API config
   refreshInfo: {
@@ -20,32 +21,7 @@ export interface DatasetMetaType {
   };
 }
 
-export interface RefreshResult {
-  id: string;
-  name: string;
-  status: string;
-  refreshResult: string;
-  newRecordsCount?: number;
-  lastRecord?: string;
-  reason?: string;
-}
-
-export interface RefreshAllResponse {
-  message: string;
-  data: {
-    total: number;
-    refreshed: number;
-    alreadyUpToDate: number;
-    failed: number;
-    details: RefreshResult[];
-  };
-}
-
-export async function exportDatasetCsv(
-  collectionName: string,
-  sortBy = "Date",
-  sortOrder = "desc"
-) {
+export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
   try {
     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
@@ -123,6 +99,16 @@ export async function exportHoltWinterCsv(
   }
 }
 
+export const getBmkgLive = async () => {
+  try {
+    const response = await axios.get("/api/v1/bmkg-live/all");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG live data:", error);
+    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG live data");
+  }
+};
+
 //bmkg api
 export const getBmkgApi = async () => {
   try {
@@ -143,6 +129,7 @@ export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
       params: { page, pageSize },
     });
     if (res.status === 200) {
+      console.log("🟢 Retrieved documents:", res.data.length);
       console.log("✅ HW API response:", res.data.data);
       return (
         res.data.data || {
@@ -262,6 +249,35 @@ export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
   }
 };
 
+export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
+  try {
+    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", { page, pageSize });
+
+    const res = await axios.get("/api/v1/dataset-meta/recycle-bin", {
+      params: { page, pageSize },
+    });
+
+    console.log("[GetRecycleBinDatasets] Response status:", res.status);
+    console.log("[GetRecycleBinDatasets] Response data:", res.data);
+
+    if (res.status === 200) {
+      const result = res.data.data || {
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 1,
+        pageSize,
+      };
+
+      console.log("[GetRecycleBinDatasets] Final result:", result);
+      return result;
+    }
+  } catch (error) {
+    console.error("Get recycle bin error:", error);
+    throw error;
+  }
+};
+
 //for dataset detail page
 export const GetDatasetBySlug = async (
   slug: string
@@ -275,6 +291,57 @@ export const GetDatasetBySlug = async (
 
   const json = await res.json();
   return json.data;
+};
+
+export const GetChartDataBySlug = async (
+  slug: string
+): Promise<{
+  items: any[];
+  numericColumns: string[];
+  dateColumn: string;
+} | null> => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}/chart-data`, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch chart data");
+
+  const json = await res.json();
+
+  return json.data;
+};
+
+export const SoftDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Soft delete dataset error:", error);
+    throw error;
+  }
+};
+
+// API function - tambah Promise type
+
+export const RestoreDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/restore`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Restore dataset error:", error);
+    throw error;
+  }
+};
+
+export const PermanentDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
+    return res.data;
+  } catch (error) {
+    console.error("Permanent delete dataset error:", error);
+    throw error;
+  }
 };
 
 // for dataset table
@@ -399,10 +466,13 @@ export const createForecastConfig = async (data: {
 
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post("http://localhost:5001/run-forecast"); // ganti host jika deploy
+    // const res = await axios.post("https://de53213413b6.ngrok-free.app/run-forecast");
+    const res = await axios.post("https://api.zonapetik.tech/run-forecast");
     return res.data;
-  } catch (error) {
-    console.error("Trigger forecast run failed:", error);
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return { message: "Tidak ada config pending" };
+    }
     throw error;
   }
 };

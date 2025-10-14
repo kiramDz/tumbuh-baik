@@ -48,14 +48,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: "/dashboard/kaltam",
       icon: BarChartIcon,
       items: [
-        { title: "Holt Winter", url: "/dashboard/kaltam" },
-        { title: "lstm", url: "/dashboard/kaltam" },
+        {
+          title: "Holt Winter",
+          url: "/dashboard/kaltam",
+        },
+        {
+          title: "lstm",
+          url: "/dashboard/kaltam",
+        },
       ],
     },
-    { title: "Data bibit", url: "/dashboard/bibit", icon: Bean },
-    { title: "User Management", url: "dashboard/users", icon: Users },
-    { title: "Sampah", url: "/sampah", icon: Trash },
-  ];
+    {
+      title: "Data bibit",
+      url: "/dashboard/bibit",
+      icon: Bean,
+    },
+    {
+      title: "User Management",
+      url: "dashboard/users",
+      icon: Users,
+    },
+    {
+      title: "Recycle Bin",
+      url: "dashboard/recycle-bin",
+      icon: Trash,
+    },
+  ],
 
   const documents = [
     { name: "Data Library", url: "#", icon: DatabaseIcon },

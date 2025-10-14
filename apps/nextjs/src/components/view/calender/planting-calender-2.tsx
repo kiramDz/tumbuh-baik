@@ -8,9 +8,7 @@ function YearlyCalender() {
     <div className="spaye-y-6 p-6">
       <PeriodCalendar />
       <Separator className="my-10" />
-      <div>
-        <CalendarSeedPlanner />
-      </div>
+      <CalendarSeedPlanner />
     </div>
   );
 }

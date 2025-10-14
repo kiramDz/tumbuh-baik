@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 from datetime import datetime
 import time
+import pandas as pd
 import traceback
 import os
 from flask import jsonify
@@ -48,6 +49,8 @@ def run_forecast_from_config():
 
         # Kosongkan collection temp-hw di awal
         db["temp-hw"].delete_many({})
+        db["temp-decompose"].delete_many({})  # Tambah: kosongkan temp-decompose
+        db["decompose"].delete_many({})
 
         config = db.forecast_configs.find_one_and_update(
             {"status": "pending"},
@@ -80,6 +83,7 @@ def run_forecast_from_config():
         
         results = []
         forecast_data = {}  # Untuk menyimpan semua forecast berdasarkan tanggal
+        decompose_data = {}
         error_metrics_list = []
 
         for item in columns:
@@ -112,12 +116,13 @@ def run_forecast_from_config():
                             "mse": result["error_metrics"].get("mse")
                         }
                     })
-                
+
                 # Ambil hasil forecast untuk digabung
                 temp_forecasts = list(db["temp-hw"].find({"config_id": config_id}))
                 
                 for forecast_doc in temp_forecasts:
-                    forecast_date = forecast_doc["forecast_date"]
+                    forecast_date = pd.to_datetime(forecast_doc["forecast_date"]).strftime("%Y-%m-%d")
+
                     
                     if forecast_date not in forecast_data:
                         forecast_data[forecast_date] = {
@@ -155,6 +160,30 @@ def run_forecast_from_config():
         
         # Bersihkan collection temporary
         db["temp-hw"].delete_many({})
+
+        temp_decomposes = list(db["temp-decompose"].find({"config_id": config_id}))
+
+        for decompose_doc in temp_decomposes:
+            decompose_date = pd.to_datetime(decompose_doc["date"]).strftime("%Y-%m-%d")
+
+            if decompose_date not in decompose_data:
+                decompose_data[decompose_date] = {
+                    "date": decompose_date,
+                    "timestamp": datetime.now().isoformat(),
+                    "config_id": config_id,
+                    "parameters": {}
+                }
+            
+            if "parameters" in decompose_doc:
+                decompose_data[decompose_date]["parameters"].update(
+                    decompose_doc["parameters"]
+                )
+        
+        if decompose_data:
+            combined_decompose_docs = list(decompose_data.values())
+            db["decompose"].insert_many(combined_decompose_docs)
+        
+        db["temp-decompose"].delete_many({})
         
         # Update status config dan simpan error metrics
         update_data = {

@@ -78,16 +78,20 @@ export type ForecastDay = {
 };
 export const getDailyForecastData = (data: BMKGDataItem[]): ForecastDay[] => {
   const now = new Date();
-  const days = [0, 1, 2]; // hari ini sampai 2 hari ke depan
+  const days = [0, 1, 2];
 
   return days.map((offset) => {
     const date = addDays(now, offset);
     const dayName = format(date, "EEEE", { locale: id });
 
+    const start = date;
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+
     const filtered = (data ?? []).filter((item) => {
-      if (!item?.local_datetime) return false; // tambahkan ini
+      if (!item?.local_datetime) return false;
       const itemDate = new Date(item.local_datetime.replace(" ", "T"));
-      return itemDate >= now && itemDate <= end;
+      return itemDate >= start && itemDate <= end;
     });
 
     const avgTemp = filtered.reduce((sum, item) => sum + (item.t || 0), 0) / (filtered.length || 1);

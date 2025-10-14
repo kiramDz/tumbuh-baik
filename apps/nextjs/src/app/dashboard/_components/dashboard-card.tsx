@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { ElementType } from "react";
+import { EllipsisVertical } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DatasetMetaType } from "@/lib/fetch/files.fetch";
 import EditDatasetDialog from "./edit-dataset-dialog";
@@ -9,6 +10,7 @@ interface DashboardCardProps {
   href: string;
   icon: ElementType;
   title: string;
+  collectionName: string;
   description?: string;
   dataset?: DatasetMetaType;
   showMenu?: boolean;
