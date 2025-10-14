@@ -7,10 +7,9 @@ import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
 import WeatherIcon from "./weather-icon";
 import CurrentWeatherCard from "./current-weather";
-import { RainbowGlowGradientLineChart } from "./chart/weather-rainbow-chart";
 import { getBmkgLive } from "@/lib/fetch/files.fetch";
 import { getTodayWeather, getHourlyForecastData } from "@/lib/bmkg-utils";
-
+import HourlyForecastList from "./hourly-forecast";
 interface WeatherDashboardProps {
   unit: "metric" | "imperial";
 }
@@ -39,6 +38,9 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
 
   const latestData = useMemo(() => getTodayWeather(selectedData), [selectedData]);
   const hourlyForecast = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);
+
+  console.log("hourlyForecast:", hourlyForecast);
+
   return (
     <>
       <div className="bg-inherit min-h-screen flex flex-col space-y-6">
@@ -50,7 +52,14 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
             <div className="flex-1 flex justify-end">{latestData && selected && <WeatherIcon description={latestData.weather_desc} />}</div>
           </div>
 
-          {hourlyForecast.length > 0 ? <RainbowGlowGradientLineChart hourlyForecast={hourlyForecast} /> : <div>Loading ...</div>}
+          {hourlyForecast.length > 0 ? (
+            <>
+              {/* <RainbowGlowGradientLineChart hourlyForecast={hourlyForecast} /> */}
+              <HourlyForecastList hourlyForecast={hourlyForecast} /> {/* ⬅️ tambahan baru */}
+            </>
+          ) : (
+            <div>Loading ...</div>
+          )}
         </WeatherTabs>
       </div>
     </>

@@ -12,9 +12,9 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // const KT_PERIODS = {
-//   "KT-1": ["09-20-2025", "01-20-2026"],
-//   "KT-2": ["01-21-2026", "06-20-2026"],
-//   "KT-3": ["06-21-2026", "09-19-2026"],
+//   "Periode-1": ["09-20-2025", "01-20-2026"],
+//   "Periode-2": ["01-21-2026", "06-20-2026"],
+//   "Periode-3": ["06-21-2026", "09-19-2026"],
 // };
 
 const getWeatherColor = (rain: number, temp: number, humidity: number) => {
@@ -75,8 +75,8 @@ export default function PeriodCalendar() {
 
   const { periodRows, periodRanges } = useMemo(() => {
     const emptyState = {
-      periodRows: { "KT-1": [], "KT-2": [], "KT-3": [] },
-      periodRanges: { "KT-1": "Memuat...", "KT-2": "Memuat...", "KT-3": "Memuat..." },
+      periodRows: { "Periode-1": [], "Periode-2": [], "Periode-3": [] },
+      periodRanges: { "Periode-1": "Memuat...", "Periode-2": "Memuat...", "Periode-3": "Memuat..." },
     };
     if (!forecastData || forecastData.length === 0) return emptyState;
 
@@ -93,9 +93,9 @@ export default function PeriodCalendar() {
     const kt3_endDate = subDays(addMonths(kt3_startDate, 4), 1);
 
     const dynamicPeriods = {
-      "KT-1": { start: globalStartDate, end: kt1_endDate },
-      "KT-2": { start: kt2_startDate, end: kt2_endDate },
-      "KT-3": { start: kt3_startDate, end: kt3_endDate },
+      "Periode-1": { start: globalStartDate, end: kt1_endDate },
+      "Periode-2": { start: kt2_startDate, end: kt2_endDate },
+      "Periode-3": { start: kt3_startDate, end: kt3_endDate },
     };
 
     const newPeriodRows: Record<string, (any | null)[][]> = {};
@@ -196,15 +196,15 @@ export default function PeriodCalendar() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="KT-1">
+      <Tabs defaultValue="Periode-1">
         <TabsList className="mb-4">
-          <TabsTrigger value="KT-1">KT-1</TabsTrigger>
-          <TabsTrigger value="KT-2">KT-2</TabsTrigger>
-          <TabsTrigger value="KT-3">KT-3</TabsTrigger>
+          <TabsTrigger value="Periode-1">Periode-1</TabsTrigger>
+          <TabsTrigger value="Periode-2">Periode-2</TabsTrigger>
+          <TabsTrigger value="Periode-3">Periode-3</TabsTrigger>
         </TabsList>
-        {renderPeriodGrid("KT-1")}
-        {renderPeriodGrid("KT-2")}
-        {renderPeriodGrid("KT-3")}
+        {renderPeriodGrid("Periode-1")}
+        {renderPeriodGrid("Periode-2")}
+        {renderPeriodGrid("Periode-3")}
       </Tabs>
       <div className="flex flex-col gap-2 mt-4 text-sm">
         <div className="flex items-center gap-2">
