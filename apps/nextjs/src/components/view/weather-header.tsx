@@ -19,7 +19,8 @@ export const WeatherHeader: React.FC<WeatherHeaderProps> = ({ bmkgData, selected
   const month = tanggal.toLocaleDateString("id-ID", { month: "long" });
 
   return (
-    <div className="flex items-center justify-start md:gap-10  p-4 rounded-xl">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-4 md:gap-10 p-4 rounded-xl">
+      {/* Date Display */}
       <div className="flex items-center gap-4">
         <div className="flex items-center justify-center w-16 h-16 border rounded-xl">
           <span className="text-3xl font-semibold text-teal-800">{date}</span>
@@ -30,8 +31,9 @@ export const WeatherHeader: React.FC<WeatherHeaderProps> = ({ bmkgData, selected
         </div>
       </div>
 
+      {/* Gampong Selector */}
       <Select value={selectedCode} onValueChange={onGampongChange}>
-        <SelectTrigger className="w-[250px] rounded-md">
+        <SelectTrigger className="w-full sm:w-[250px] rounded-md">
           <SelectValue placeholder="Pilih Gampong" />
         </SelectTrigger>
         <SelectContent>

@@ -45,22 +45,23 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
 
   return (
     <>
-      <div className="bg-inherit min-h-screen flex flex-col space-y-6">
+      <div className="bg-inherit min-h-screen flex flex-col space-y-4 md:space-y-6 px-0 ">
         <Banner />
         <WeatherTabs defaultTab="weather">
           {selectedGampong && <WeatherHeader bmkgData={bmkgData} selectedCode={selectedGampong} onGampongChange={setSelectedGampong} />}
-          <div className="w-full flex justify-between mx-auto">
-            <div className="flex-1">{latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData }} unit={unit} />}</div>
-            <div className="flex-1 flex justify-end">{latestData && selected && <WeatherIcon description={latestData.weather_desc} />}</div>
+
+          {/* Responsive layout: stack on mobile, side-by-side on desktop */}
+          <div className="w-full flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 lg:gap-6">
+            <div className="flex-1 w-full">{latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData }} unit={unit} />}</div>
+            <div className="flex-1 w-full flex justify-center lg:justify-end">{latestData && selected && <WeatherIcon description={latestData.weather_desc} />}</div>
           </div>
 
           {hourlyForecast.length > 0 ? (
             <>
-              {/* <RainbowGlowGradientLineChart hourlyForecast={hourlyForecast} /> */}
               <WeatherChartTabs hourlyForecast={hourlyForecast} />
             </>
           ) : (
-            <div>Loading ...</div>
+            <div className="text-center py-8">Loading ...</div>
           )}
         </WeatherTabs>
       </div>

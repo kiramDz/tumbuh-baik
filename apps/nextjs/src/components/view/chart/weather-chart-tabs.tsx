@@ -30,14 +30,14 @@ export function WeatherChartTabs({ hourlyForecast }: WeatherChartTabsProps) {
   }));
 
   return (
-    <Tabs defaultValue="temperature" className="w-full mt-4">
+    <Tabs defaultValue="temperature" className="w-full mt-4 p-0">
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="temperature">Temperature</TabsTrigger>
         <TabsTrigger value="cloud_cover">Tutupan Awan</TabsTrigger>
         <TabsTrigger value="wind">Wind Speed</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="temperature">
+      <TabsContent className="p-0" value="temperature">
         <WeatherLineChart data={tempData} type="temperature" />
       </TabsContent>
 

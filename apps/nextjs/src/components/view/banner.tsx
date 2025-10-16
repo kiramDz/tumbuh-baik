@@ -15,11 +15,11 @@ export function Banner() {
       </div>
 
       {/* Content */}
-      <div className="relative px-6 py-4 w-1/3">
-        <div className="mt-10 rounded-lg bg-white p-6 shadow-lg">
+      <div className="relative px-4 py-4 w-full sm:w-2/3 md:w-1/3">
+        <div className="mt-6 rounded-lg bg-white p-4 shadow-lg">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold">Aceh Besar</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold">Aceh Besar</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2 sm:gap-3">
               <Badge variant="outline" className="bg-yellow-50 text-yellow-700 hover:bg-yellow-50">
                 Forecasting
               </Badge>
@@ -30,12 +30,12 @@ export function Banner() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-1">
                 <span className="text-lg font-medium">2025</span>
               </div>
-              <p className="text-sm text-gray-500">year</p>
+              <p className="text-sm text-gray-500">Year</p>
             </div>
 
             <div className="space-y-1">

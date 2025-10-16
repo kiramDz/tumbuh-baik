@@ -52,15 +52,15 @@ export function WeatherLineChart({ data, type }: WeatherLineChartProps) {
   };
 
   return (
-    <Card className="pt-0 border-none shadow-none">
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
+    <Card className="py-2  border-none shadow-none">
+      <CardContent className="p-0 pt-4 sm:px-6 sm:pt-6">
+        <ChartContainer config={chartConfig} className="aspect-auto  h-[250px] sm:h-[280px] md:h-[320px] w-full">
           <LineChart data={data} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatHour} />
-            <YAxis tickLine={false} axisLine={false} />
+            <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatHour} className="text-xs sm:text-sm" />
+            <YAxis tickLine={false} axisLine={false} className="text-xs sm:text-sm" />
             <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-            <Legend verticalAlign="top" height={32} />
+            <Legend verticalAlign="top" height={32} wrapperStyle={{ fontSize: "14px" }} />
 
             <Line dataKey="value" type="monotone" stroke={chartMeta.color} dot={false} strokeWidth={2.5} name={chartMeta.label} />
           </LineChart>
