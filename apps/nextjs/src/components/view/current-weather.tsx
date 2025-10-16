@@ -63,7 +63,6 @@ const CurrentWeatherCard: React.FC<CurrentWeatherProps> = ({ bmkgCurrent, unit }
   return (
     <Card className="relative h-fit w-full md:h-[28rem] border-none shadow-none">
       <CardContent className="flex flex-col justify-center h-full ">
-        {/* Temperature Section */}
         <TemperatureDisplay temperature={bmkgCurrent.t} unit={unit} description={bmkgCurrent.weather_desc} />
         <WeatherMetrics windSpeed={bmkgCurrent.ws} humidity={bmkgCurrent.hu} unit={unit} />
       </CardContent>

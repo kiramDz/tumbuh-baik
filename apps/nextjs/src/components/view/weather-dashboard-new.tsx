@@ -9,7 +9,8 @@ import WeatherIcon from "./weather-icon";
 import CurrentWeatherCard from "./current-weather";
 import { getBmkgLive } from "@/lib/fetch/files.fetch";
 import { getTodayWeather, getHourlyForecastData } from "@/lib/bmkg-utils";
-import HourlyForecastList from "./hourly-forecast";
+// import { RainbowGlowGradientLineChart } from "./chart/weather-rainbow-chart";
+import { WeatherChartTabs } from "./chart/weather-chart-tabs";
 interface WeatherDashboardProps {
   unit: "metric" | "imperial";
 }
@@ -40,6 +41,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
   const hourlyForecast = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);
 
   console.log("hourlyForecast:", hourlyForecast);
+  console.log("latestData:", latestData);
 
   return (
     <>
@@ -55,7 +57,7 @@ const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
           {hourlyForecast.length > 0 ? (
             <>
               {/* <RainbowGlowGradientLineChart hourlyForecast={hourlyForecast} /> */}
-              <HourlyForecastList hourlyForecast={hourlyForecast} /> {/* ⬅️ tambahan baru */}
+              <WeatherChartTabs hourlyForecast={hourlyForecast} />
             </>
           ) : (
             <div>Loading ...</div>
