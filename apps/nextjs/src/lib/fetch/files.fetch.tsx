@@ -9,7 +9,6 @@ export interface DatasetMetaType {
   status: string;
   uploadDate: string;
   isAPI: boolean; // Added API flag for fetching NASA
-  deleteAt?: string;
   lastUpdated?: string; // Dated latest updating
   apiConfig?: Record<string, any>; // API config
   refreshInfo: {
@@ -21,7 +20,32 @@ export interface DatasetMetaType {
   };
 }
 
-export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
+export interface RefreshResult {
+  id: string;
+  name: string;
+  status: string;
+  refreshResult: string;
+  newRecordsCount?: number;
+  lastRecord?: string;
+  reason?: string;
+}
+
+export interface RefreshAllResponse {
+  message: string;
+  data: {
+    total: number;
+    refreshed: number;
+    alreadyUpToDate: number;
+    failed: number;
+    details: RefreshResult[];
+  };
+}
+
+export async function exportDatasetCsv(
+  collectionName: string,
+  sortBy = "Date",
+  sortOrder = "desc"
+) {
   try {
     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
@@ -105,7 +129,9 @@ export const getBmkgLive = async () => {
     return response.data;
   } catch (error: any) {
     console.error("Error fetching BMKG live data:", error);
-    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG live data");
+    throw new Error(
+      error?.response?.data?.description || "Failed to fetch BMKG live data"
+    );
   }
 };
 
@@ -251,7 +277,10 @@ export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
 
 export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
   try {
-    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", { page, pageSize });
+    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", {
+      page,
+      pageSize,
+    });
 
     const res = await axios.get("/api/v1/dataset-meta/recycle-bin", {
       params: { page, pageSize },
@@ -314,7 +343,9 @@ export const GetChartDataBySlug = async (
 
 export const SoftDeleteDataset = async (collectionName: string) => {
   try {
-    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/delete`
+    );
     return res.data.data;
   } catch (error) {
     console.error("Soft delete dataset error:", error);
@@ -326,7 +357,9 @@ export const SoftDeleteDataset = async (collectionName: string) => {
 
 export const RestoreDataset = async (collectionName: string) => {
   try {
-    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/restore`);
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/restore`
+    );
     return res.data.data;
   } catch (error) {
     console.error("Restore dataset error:", error);
@@ -334,15 +367,15 @@ export const RestoreDataset = async (collectionName: string) => {
   }
 };
 
-export const PermanentDeleteDataset = async (collectionName: string) => {
-  try {
-    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
-    return res.data;
-  } catch (error) {
-    console.error("Permanent delete dataset error:", error);
-    throw error;
-  }
-};
+// export const PermanentDeleteDataset = async (collectionName: string) => {
+//   try {
+//     const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
+//     return res.data;
+//   } catch (error) {
+//     console.error("Permanent delete dataset error:", error);
+//     throw error;
+//   }
+// };
 
 // for dataset table
 // lib/fetch/files.fetch.ts

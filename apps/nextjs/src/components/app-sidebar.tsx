@@ -73,8 +73,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: "dashboard/recycle-bin",
       icon: Trash,
     },
-  ],
-
+  ];
   const documents = [
     { name: "Data Library", url: "#", icon: DatabaseIcon },
     { name: "Reports", url: "#", icon: ClipboardListIcon },
