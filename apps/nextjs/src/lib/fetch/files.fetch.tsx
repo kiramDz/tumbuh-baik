@@ -273,16 +273,6 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
     cache: "no-store",
   });
 
-  if (typeof window === "undefined") {
-    console.log("=== GetDatasetBySlug DEBUG ===");
-    console.log("Slug:", slug);
-    console.log("Base URL:", baseUrl);
-    console.log("Full URL:", url);
-    console.log("NODE_ENV:", process.env.NODE_ENV);
-    console.log("VERCEL_ENV:", process.env.VERCEL_ENV);
-    console.log("VERCEL_URL:", process.env.VERCEL_URL);
-    console.log("NEXT_PUBLIC_SITE_URL:", process.env.NEXT_PUBLIC_SITE_URL);
-  }
   if (!res.ok) throw new Error("Failed to fetch dataset");
 
   const json = await res.json();

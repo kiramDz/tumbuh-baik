@@ -51,16 +51,14 @@ const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
   days.forEach((date) => {
     const forecast = data.find((item) => format(new Date(item.forecast_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"));
     if (forecast) grid.push(forecast);
-    // Kita buat placeholder jika ada data yg hilang
     else
       grid.push({
         forecast_date: date.toISOString(),
-        isPlaceholder: true, // Tambahkan flag placeholder
-        parameters: {}, // Pastikan parameters ada
+        isPlaceholder: true,
+        parameters: {},
       });
   });
 
-  // Logika pivot untuk mengubah array 1D menjadi 2D (baris per hari)
   const rows: (any | null)[][] = [];
   for (let i = 0; i < grid.length; i += 1) {
     const rowIndex = i % 7; // 0=Senin, 1=Selasa, ...
@@ -130,7 +128,6 @@ export default function PeriodCalendar() {
             <TableHeader>
               <TableRow className="*:border-border">
                 <TableHead className="w-[100px]">Hari</TableHead>
-                {/* Asumsi row pertama (Senin) ada dan punya data kolom */}
                 {periodRows[period][0]?.map((_, colIdx) => (
                   <TableHead key={colIdx} className="text-center">
                     {`Minggu ${colIdx + 1}`}
@@ -143,18 +140,15 @@ export default function PeriodCalendar() {
                 {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day, rowIdx) => (
                   <TableRow key={day} className="*:border-border">
                     <TableCell className="text-center font-medium">{day}</TableCell>
-                    {/* Ambil baris data sesuai hari (Senin=0, Selasa=1, ...) */}
+
                     {periodRows[period][rowIdx]?.map((dayData, colIdx) => {
-                      // Cek jika ini data asli atau placeholder
                       if (dayData && !dayData.isPlaceholder) {
-                        // --- Logika Diperbarui Disini ---
                         const rain = dayData.parameters?.RR_imputed?.forecast_value ?? 0;
                         const temp = dayData.parameters?.TAVG?.forecast_value ?? 0;
                         const humid = dayData.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
-                        // Ambil parameter baru (gunakan nama kolom dari Python)
+
                         const radiation = dayData.parameters?.ALLSKY_SFC_SW_DWN?.forecast_value ?? 0;
 
-                        // Panggil fungsi logika baru
                         const suitability = getSuitability(rain, temp, humid, radiation);
                         // --- Akhir Logika Diperbarui ---
 

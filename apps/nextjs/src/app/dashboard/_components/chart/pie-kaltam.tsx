@@ -9,9 +9,8 @@ export const description = "Pie charts with error metrics";
 
 const COLORS = {
   mae: "#4ADE80",
-  // R2: "#60A5FA",
   mape: "#F59E0B",
-  mse: "#EF4444",
+  rmse: "#EF4444",
 };
 
 const chartConfig = {
@@ -23,9 +22,9 @@ const chartConfig = {
     label: "MAPE",
     color: COLORS.mape,
   },
-  mse: {
-    label: "MSE",
-    color: COLORS.mse,
+  rmse: {
+    label: "RMSE",
+    color: COLORS.rmse,
   },
 } satisfies ChartConfig;
 
@@ -37,12 +36,10 @@ export function RoundedPieChart() {
 
   if (isLoading) return <p>Loading pie charts...</p>;
 
-  // Ambil hanya yang statusnya "done" dan punya error_metrics
   const completed = data.filter((item: any) => item.status === "done" && item.error_metrics?.length > 0);
 
   if (completed.length === 0) return <p>No completed forecasts with metrics available.</p>;
 
-  // Ambil error_metrics dari config pertama (terbaru, karena sort -1)
   const errorMetricsArray = completed[0]?.error_metrics ?? [];
 
   return (
@@ -51,12 +48,11 @@ export function RoundedPieChart() {
         const metrics = entry.metrics ?? {};
         const title = `${entry.collectionName} - ${entry.columnName}`;
 
-        // Bentuk data untuk pie chart
+        
         const chartData = [
           { key: "mae", value: metrics.mae || 0, fill: COLORS.mae },
-          // { key: "R2", value: metrics.R2 || 0, fill: COLORS.R2 },
           { key: "mape", value: metrics.mape || 0, fill: COLORS.mape },
-          { key: "mse", value: metrics.mse || 0, fill: COLORS.mse },
+          { key: "rmse", value: metrics.rmse || 0, fill: COLORS.rmse },
         ];
 
         return (
