@@ -40,12 +40,12 @@ const data = {
     },
     {
       title: "User Management",
-      url: "dashboard/users",
+      url: "/dashboard/users",
       icon: Users,
     },
     {
       title: "Recycle Bin",
-      url: "dashboard/recycle-bin",
+      url: "/dashboard/recycle-bin",
       icon: Trash,
     },
   ],
@@ -78,7 +78,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
               <a href="#">
                 <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">Tumbuh Baik.</span>
+                <span className="text-base font-semibold">Zona Petik</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

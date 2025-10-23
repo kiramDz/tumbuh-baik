@@ -9,6 +9,22 @@ export interface DatasetMetaType {
   deletedAt?: string;
 }
 
+const getBaseUrl = () => {
+  // Client-side: gunakan relative URL
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  // Server-side: gunakan absolute URL
+  // Di production
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // Di local development
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+};
+
 export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
   try {
     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
@@ -253,9 +269,11 @@ export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
 
 //for dataset detail page
 export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items: any[] }> => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}`, {
-    cache: "no-store", // optional jika ingin real-time
+  const baseUrl = getBaseUrl();
+  const url = `${baseUrl}/api/v1/dataset-meta/${slug}`;
+
+  const res = await fetch(url, {
+    cache: "no-store",
   });
 
   if (!res.ok) throw new Error("Failed to fetch dataset");
@@ -271,15 +289,16 @@ export const GetChartDataBySlug = async (
   numericColumns: string[];
   dateColumn: string;
 } | null> => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}/chart-data`, {
+  const baseUrl = getBaseUrl(); // Gunakan helper yang sama
+  const url = `${baseUrl}/api/v1/dataset-meta/${slug}/chart-data`;
+
+  const res = await fetch(url, {
     cache: "no-store",
   });
 
   if (!res.ok) throw new Error("Failed to fetch chart data");
 
   const json = await res.json();
-
   return json.data;
 };
 
