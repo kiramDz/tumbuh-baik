@@ -57,7 +57,7 @@ export function SeedActions({ seed }: SeedActionsProps) {
 
   const handleDelete = () => {
     setPopoverOpen(false);
-    deleteMutation.mutate(); // langsung hapus tanpa alert dialog
+    deleteMutation.mutate(); 
   };
 
   const handleSubmitEdit = (e: React.FormEvent<HTMLFormElement>) => {
