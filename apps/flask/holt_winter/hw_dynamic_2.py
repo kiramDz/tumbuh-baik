@@ -56,7 +56,7 @@ def post_process_forecast(forecast, param_name, lam=None):
     elif param_name in ["RH_AVG", "RH_AVG_preprocessed"]:  
         forecast = np.clip(forecast, 0, 100)  
     elif param_name in ["TAVG", "TMAX", "TMIN"]:  
-        forecast = np.clip(forecast, -10, 50)  # Celsius, rentang realistis
+        forecast = np.clip(forecast, 10, 50)  # Celsius, rentang realistis
     elif param_name in ["ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]:
         # Radiasi Matahari (W/m²), tidak mungkin negatif
         forecast = np.clip(forecast, 0, 1400) 
@@ -193,6 +193,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.30):
                                 'mad': mad,
                                 'mape': mape,
                                 'mse': mse,
+                                'rmse': rmse,
                                 'valid_models': valid_models + 1
                             }
                             print(f"✅ New best found! Score: {score:.4f}, Params: {best_params}")
@@ -447,7 +448,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             "documents_processed": upsert_count,
             "save_collection": save_collection,
             "model_params": best_params,
-            "error_metrics": error_metrics,  # Menambahkan MAE, RMSE, MAPE, MSE
+            "error_metrics": error_metrics,  
             "forecast_range": {
                 "min": float(forecast.min()),
                 "max": float(forecast.max())
