@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, Blueprint
 from flask_cors import CORS
+from flask import current_app
 from helpers.objectid_converter import convert_objectid
 from jobs.run_forecast_from_config import run_forecast_from_config
 from pymongo import MongoClient
@@ -22,6 +23,12 @@ from preprocessing.buoys.preprocessing_buoys import (
     BuoyPreprocessor,
     MongoDataSaver,
     PreprocessingError
+)
+from preprocessing.nasa.preprocessing_nasa import (
+    NasaPreprocessor,
+    NasaDataValidator,
+    NasaDataSaver,
+    NasaPreprocessingError,
 )
 
 # Configure logging
@@ -375,6 +382,149 @@ def get_preprocessing_status(job_id):
     except Exception as e:
         logger.error(f"Error fetching job status: {str(e)}")
         return jsonify({"message": f"Server error: {str(e)}"}), 500
+
+
+@preprocessing_bp.route("/preprocess/nasa/<collection_name>", methods=["POST"])
+def preprocess_nasa_dataset(collection_name):
+    """Preprocessing a NASA POWER dataset"""
+    db = current_app.config['MONGO_DB']
+    
+    try:
+        # Check if collection exists
+        if collection_name not in db.list_collection_names():
+            return jsonify({"message": f"Collection '{collection_name}' not found"}), 404
+        
+        # Get total records
+        total_records = db[collection_name].count_documents({})
+        logger.info(f"Starting preprocessing for NASA dataset '{collection_name}' with {total_records} records")
+        
+        # Generate a job ID to track this preprocessing task
+        job_id = str(ObjectId())
+        
+        # Create a status document to track progress
+        preprocessing_status = {
+            "job_id": job_id,
+            "collection": collection_name,
+            "type": "nasa-power",
+            "status": "processing",
+            "startTime": datetime.now(),
+            "totalRecords": total_records,
+            "processedRecords": 0,
+            "steps": [
+                {"name": "started", "completed": True, "timestamp": datetime.now()}
+            ]
+        }
+        
+        # Save status to MongoDB
+        db["preprocessing_jobs"].insert_one(preprocessing_status)
+        
+        # GET preprocessing options from request body
+        options = request.json or {}
+        
+        try:
+            # Update status to indicate validation started
+            db['preprocessing_jobs'].update_one(
+                {"job_id": job_id},
+                {"$push": {"steps": {"name": "validating_data", "completed": True, "timestamp": datetime.now()}}}
+            )
+            # Validate the dataset
+            validator = NasaDataValidator()
+            validation_result = validator.validate_dataset(db, collection_name)
+            
+            if validation_result and not validation_result.get('valid', True):
+                db['preprocessing_jobs'].update_one(
+                    {"job_id": job_id},
+                    {"$set": {"status": "failed", "error": "Validation failed"}}
+                )
+                return jsonify({
+                    "message": "Dataset validation failed",
+                    "job_id": job_id,
+                    "errors": validation_result.get('errors', []),
+                    "warnings": validation_result.get('warnings', [])
+                }), 400
+                
+            # Update status
+            db['preprocessing_jobs'].update_one(
+                {"job_id": job_id},
+                {
+                    "$push": {"steps": {"name": "loading_data", "completed": True, "timestamp": datetime.now()}},
+                    "$set": {"status": "processing", "currentStep": "loading_data"}
+                }
+            )
+            
+            # Initialize preprocessor
+            preprocessor = NasaPreprocessor(db, collection_name)
+            
+            # Update status for preprocessing started
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$push": {"steps": {"name": "preprocessing_started", "completed": True, "timestamp": datetime.now()}},
+                    "$set": {"status": "processing", "currentStep": "preprocessing"}
+                }
+            )
+            # Run preprocessing
+            preprocessing_results = preprocessor.preprocess(options)
+            
+            # Update status for preprocessing completion
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$push": {"steps": {"name": "preprocessing_completed", "completed": True, "timestamp": datetime.now()}},
+                    "$set": {
+                        "processedRecords": preprocessing_results.get("recordCount", total_records),
+                        "status": "saving_results",
+                        "currentStep": "saving_results"
+                    }
+                }
+            )
+            # Final status update
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed", 
+                        "endTime": datetime.now(), 
+                        "metadata": preprocessing_results
+                    },
+                    "$push": {"steps": {"name": "results_saved", "completed": True, "timestamp": datetime.now()}}
+                }
+            )
+            # Return success response
+            return jsonify({
+                "message": "NASA POWER preprocessing completed successfully",
+                "job_id": job_id,
+                "collection": collection_name,
+                "cleanedCollection": preprocessing_results.get("cleanedCollection"),
+                "preprocessedCollection": f"{collection_name}_cleaned",
+                "status": "preprocessed",
+                "recordCount": preprocessing_results.get("recordCount", 0),
+                "warnings": preprocessing_results.get("warnings", [])
+            }), 200
+        except NasaPreprocessingError as pe:
+            error_details = str(pe)
+            logger.error(f"NasaPreprocessingError: {error_details}")
+            
+            # Update status with error
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$set": {"status": "failed", "endTime": datetime.now(), "error": error_details},
+                    "$push": {"steps": {"name": "processing_failed", "completed": False, "timestamp": datetime.now(), "error": error_details}}
+                }
+            )
+            
+            return jsonify({
+                "message": f"Preprocessing error: {error_details}",
+                "job_id": job_id,
+                "status": "failed"
+            }), 500
+    
+    except Exception as e:
+        logger.error(f"Error in NASA preprocessing: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"message": f"Server error: {str(e)}"}), 500
+
 
 # TAMBAHKAN BARIS INI
 app.register_blueprint(preprocessing_bp)

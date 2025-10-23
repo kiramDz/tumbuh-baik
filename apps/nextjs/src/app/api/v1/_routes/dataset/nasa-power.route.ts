@@ -257,11 +257,18 @@ nasaPowerRoute.post("/save", async (c) => {
     );
 
     // Save data to dynamic collection
-    const dynamicModel = mongoose.model(
-      collectionName,
-      new mongoose.Schema({}, { strict: false }),
-      collectionName
-    );
+    // const dynamicModel = mongoose.model(
+    //   collectionName,
+    //   new mongoose.Schema({}, { strict: false }),
+    //   collectionName
+    // );
+    const dynamicModel =
+      mongoose.models[collectionName] ||
+      mongoose.model(
+        collectionName,
+        new mongoose.Schema({}, { strict: false }),
+        collectionName
+      );
 
     await dynamicModel.insertMany(records);
     console.log(
