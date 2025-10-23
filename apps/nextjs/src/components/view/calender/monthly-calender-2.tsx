@@ -11,43 +11,59 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// const KT_PERIODS = {
-//   "Periode-1": ["09-20-2025", "01-20-2026"],
-//   "Periode-2": ["01-21-2026", "06-20-2026"],
-//   "Periode-3": ["06-21-2026", "09-19-2026"],
-// };
+const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
+  const criteria = {
+    isRainSesuai: rain >= 5.7 && rain <= 16.7,
+    isTempSesuai: temp >= 24 && temp <= 29,
+    isHumiditySesuai: humidity >= 33 && humidity <= 90,
+    isRadiationSesuai: radiation >= 13,
+  };
 
-const getWeatherColor = (rain: number, temp: number, humidity: number) => {
-  const isRainSesuai = rain >= 5.7 && rain <= 16.7;
-  const isTempSesuai = temp >= 24 && temp <= 29;
-  const isHumiditySesuai = humidity >= 33 && humidity <= 90;
+  const sesuaiCount = Object.values(criteria).filter(Boolean).length;
 
-  const sesuaiCount = Number(isRainSesuai) + Number(isTempSesuai) + Number(isHumiditySesuai);
-
+  if (sesuaiCount === 4) {
+    return {
+      color: "bg-green-300",
+      label: "Sangat Cocok",
+      count: 4,
+    };
+  }
   if (sesuaiCount === 3) {
-    return "bg-green-300";
+    return {
+      color: "bg-green-100",
+      label: "Cukup Cocok",
+      count: 3,
+    };
   }
-  if (sesuaiCount === 2) {
-    return "bg-green-100";
-  }
-
-  return "bg-red-300";
+  return {
+    color: "bg-red-300",
+    label: "Tidak Cocok",
+    count: sesuaiCount,
+  };
 };
 
 const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
   const days = eachDayOfInterval({ start: startDate, end: endDate });
+  // Offset 0=Senin, 6=Minggu
   const startOffset = getDay(startDate) === 0 ? 6 : getDay(startDate) - 1;
 
   const grid: (any | null)[] = Array(startOffset).fill(null);
   days.forEach((date) => {
     const forecast = data.find((item) => format(new Date(item.forecast_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"));
     if (forecast) grid.push(forecast);
-    else grid.push({ forecast_date: date.toISOString(), parameters: { RR_imputed: { forecast_value: 0 } } });
+    // Kita buat placeholder jika ada data yg hilang
+    else
+      grid.push({
+        forecast_date: date.toISOString(),
+        isPlaceholder: true, // Tambahkan flag placeholder
+        parameters: {}, // Pastikan parameters ada
+      });
   });
 
+  // Logika pivot untuk mengubah array 1D menjadi 2D (baris per hari)
   const rows: (any | null)[][] = [];
   for (let i = 0; i < grid.length; i += 1) {
-    const rowIndex = i % 7;
+    const rowIndex = i % 7; // 0=Senin, 1=Selasa, ...
     if (!rows[rowIndex]) rows[rowIndex] = [];
     rows[rowIndex].push(grid[i]);
   }
@@ -80,15 +96,10 @@ export default function PeriodCalendar() {
     };
     if (!forecastData || forecastData.length === 0) return emptyState;
 
-    // 1. Tentukan tanggal awal dari data pertama
     const globalStartDate = new Date(forecastData[0].forecast_date);
-
-    // 2. Hitung periode secara dinamis (masing-masing 4 bulan)
     const kt1_endDate = subDays(addMonths(globalStartDate, 4), 1);
-
     const kt2_startDate = addDays(kt1_endDate, 1);
     const kt2_endDate = subDays(addMonths(kt2_startDate, 4), 1);
-
     const kt3_startDate = addDays(kt2_endDate, 1);
     const kt3_endDate = subDays(addMonths(kt3_startDate, 4), 1);
 
@@ -103,11 +114,7 @@ export default function PeriodCalendar() {
 
     Object.keys(dynamicPeriods).forEach((period) => {
       const { start, end } = dynamicPeriods[period as keyof typeof dynamicPeriods];
-
-      // Buat grid kalender
       newPeriodRows[period] = getPeriodCalendarGrid(forecastData, start, end);
-
-      // Buat teks rentang tanggal untuk ditampilkan di UI
       newPeriodRanges[period] = `${format(start, "d MMM yyyy", { locale: id })} - ${format(end, "d MMM yyyy", { locale: id })}`;
     });
 
@@ -119,10 +126,11 @@ export default function PeriodCalendar() {
       <div className="mb-3 text-sm font-medium text-center text-muted-foreground">Periode Tanam: {periodRanges[period]}</div>
       <ScrollArea className="w-full overflow-auto">
         <div className="min-w-[900px]">
-          <Table className="bg-background  ">
+          <Table className="bg-background">
             <TableHeader>
               <TableRow className="*:border-border">
                 <TableHead className="w-[100px]">Hari</TableHead>
+                {/* Asumsi row pertama (Senin) ada dan punya data kolom */}
                 {periodRows[period][0]?.map((_, colIdx) => (
                   <TableHead key={colIdx} className="text-center">
                     {`Minggu ${colIdx + 1}`}
@@ -135,15 +143,28 @@ export default function PeriodCalendar() {
                 {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"].map((day, rowIdx) => (
                   <TableRow key={day} className="*:border-border">
                     <TableCell className="text-center font-medium">{day}</TableCell>
+                    {/* Ambil baris data sesuai hari (Senin=0, Selasa=1, ...) */}
                     {periodRows[period][rowIdx]?.map((dayData, colIdx) => {
+                      // Cek jika ini data asli atau placeholder
                       if (dayData && !dayData.isPlaceholder) {
+                        // --- Logika Diperbarui Disini ---
+                        const rain = dayData.parameters?.RR_imputed?.forecast_value ?? 0;
+                        const temp = dayData.parameters?.TAVG?.forecast_value ?? 0;
+                        const humid = dayData.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
+                        // Ambil parameter baru (gunakan nama kolom dari Python)
+                        const radiation = dayData.parameters?.ALLSKY_SFC_SW_DWN?.forecast_value ?? 0;
+
+                        // Panggil fungsi logika baru
+                        const suitability = getSuitability(rain, temp, humid, radiation);
+                        // --- Akhir Logika Diperbarui ---
+
                         return (
                           <Tooltip key={colIdx}>
                             <TooltipTrigger asChild>
                               <TableCell
                                 className={clsx(
                                   "text-center relative h-20 w-20 border",
-                                  getWeatherColor(dayData.parameters?.RR_imputed?.forecast_value ?? 0, dayData.parameters?.TAVG?.forecast_value ?? 0, dayData.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0)
+                                  suitability.color // Gunakan warna dari objek
                                 )}
                               >
                                 <div className="text-xs absolute top-1 right-1.5">{format(new Date(dayData.forecast_date), "dd")}</div>
@@ -151,16 +172,23 @@ export default function PeriodCalendar() {
                               </TableCell>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                              <div className="text-xs">
+                              {/* --- Tooltip Diperbarui Disini --- */}
+                              <div className="text-xs space-y-0.5">
                                 <p>{format(new Date(dayData.forecast_date), "eeee, d MMMM yyyy", { locale: id })}</p>
-                                <p>Hujan: {dayData.parameters?.RR_imputed?.forecast_value.toFixed(2)} mm</p>
-                                <p>Suhu: {dayData.parameters?.TAVG?.forecast_value.toFixed(2)} °C</p>
-                                <p>Kelembaban: {dayData.parameters?.RH_AVG_preprocessed?.forecast_value.toFixed(2)} %</p>
+                                <p>Hujan: {rain.toFixed(2)} mm</p>
+                                <p>Suhu: {temp.toFixed(2)} °C</p>
+                                <p>Kelembaban: {humid.toFixed(2)} %</p>
+                                <p>Radiasi: {radiation.toFixed(2)} W/m²</p>
+                                <p className="font-bold pt-1">
+                                  {suitability.label} ({suitability.count}/4)
+                                </p>
                               </div>
+                              {/* --- Akhir Tooltip Diperbarui --- */}
                             </TooltipContent>
                           </Tooltip>
                         );
                       } else {
+                        // Ini adalah sel kosong (sebelum tanggal mulai) atau data hilang
                         return <TableCell key={colIdx} className="text-center h-20 w-20 border bg-slate-50"></TableCell>;
                       }
                     })}
@@ -206,18 +234,20 @@ export default function PeriodCalendar() {
         {renderPeriodGrid("Periode-2")}
         {renderPeriodGrid("Periode-3")}
       </Tabs>
+
+      {/* --- Legend Diperbarui Disini --- */}
       <div className="flex flex-col gap-2 mt-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-green-300 border" />
-          <span>Sangat Cocok Tanam (3/3 parameter sesuai)</span>
+          <span>Sangat Cocok Tanam (4/4 parameter sesuai)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-green-100 border" />
-          <span>Cukup Cocok Tanam (2/3 parameter sesuai)</span>
+          <span>Cukup Cocok Tanam (3/4 parameter sesuai)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-red-300 border" />
-          <span>Tidak Cocok Tanam (&lt;2 parameter sesuai)</span>
+          <span>Tidak Cocok Tanam (&lt;3 parameter sesuai)</span>
         </div>
       </div>
     </div>

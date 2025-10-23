@@ -57,6 +57,9 @@ def post_process_forecast(forecast, param_name, lam=None):
         forecast = np.clip(forecast, 0, 100)  
     elif param_name in ["TAVG", "TMAX", "TMIN"]:  
         forecast = np.clip(forecast, -10, 50)  # Celsius, rentang realistis
+    elif param_name in ["ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]:
+        # Radiasi Matahari (W/m²), tidak mungkin negatif
+        forecast = np.clip(forecast, 0, 1400) 
     else:
         print(f"Warning: No post-processing defined for {param_name}")
     return forecast
