@@ -181,8 +181,24 @@ export const createSeed = async (data: { name: string; duration: number }) => {
   }
 };
 
+export const updateSeed = async (id: string, data: { name: string; duration: number }) => {
+  try {
+    const res = await axios.put(`/api/v1/seeds/${id}`, data);
+    return res.data.data;
+  } catch (error) {
+    console.error("Update seed error:", error);
+    throw error;
+  }
+};
+
 export const deleteSeed = async (id: string) => {
-  await axios.delete(`/api/v1/seeds/${id}`);
+  try {
+    const res = await axios.delete(`/api/v1/seeds/${id}`);
+    return res.data;
+  } catch (error) {
+    console.error("Delete seed error:", error);
+    throw error;
+  }
 };
 
 export const getUsers = async (page = 1, pageSize = 10) => {
