@@ -72,7 +72,7 @@ export function ForecastDialog({ onSubmit }: ForecastDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">Tambah Kolom</Button>
+        <Button variant="default">Konfigurasi Peramalan</Button>
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl">
