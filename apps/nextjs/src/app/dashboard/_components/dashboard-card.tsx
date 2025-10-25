@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import RefreshSingleDatasetDialog from "./refresh-single-dataset-dialog";
+import RefreshSingleDatasetDialog from "../(main)/data/_components/refresh-single-dataset-dialog";
 
 interface DashboardCardProps {
   href: string;

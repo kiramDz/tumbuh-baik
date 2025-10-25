@@ -622,3 +622,17 @@ export const refreshAllNasaDatasets = async (): Promise<RefreshAllResponse> => {
     throw error;
   }
 };
+
+export const preprocessNasaDataset = async (collectionName: string) => {
+  try {
+    const response = await axios.post(
+      `http://localhost:5001/api/v1/preprocess/nasa/${encodeURIComponent(
+        collectionName
+      )}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error preprocessing NASA dataset:", error);
+    throw error;
+  }
+};

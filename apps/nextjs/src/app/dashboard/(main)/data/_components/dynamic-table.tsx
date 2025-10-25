@@ -8,7 +8,7 @@ import { MainTableUI } from "@/app/dashboard/_components/table/main-table-ui";
 import { ColumnDef } from "@tanstack/react-table";
 import { exportDatasetCsv } from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
-import RefreshSingleDatasetDialog from "@/app/dashboard/_components/refresh-single-dataset-dialog";
+import RefreshSingleDatasetDialog from "@/app/dashboard/(main)/data/_components/refresh-single-dataset-dialog";
 
 interface DynamicMainTableProps {
   collectionName: string; // slug

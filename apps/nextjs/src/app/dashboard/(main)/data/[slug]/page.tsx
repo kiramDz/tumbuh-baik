@@ -2,7 +2,7 @@ import { GetDatasetBySlug } from "@/lib/fetch/files.fetch";
 import { notFound } from "next/navigation";
 // import { Metadata } from "next";
 import DynamicMainTable from "../_components/dynamic-table";
-import RefreshSingleDatasetDialog from "@/app/dashboard/_components/refresh-single-dataset-dialog";
+import RefreshSingleDatasetDialog from "@/app/dashboard/(main)/data/_components/refresh-single-dataset-dialog";
 import ChartSection from "@/app/dashboard/_components/datataset-chart";
 interface Props {
   params: Promise<{ slug: string }>;
