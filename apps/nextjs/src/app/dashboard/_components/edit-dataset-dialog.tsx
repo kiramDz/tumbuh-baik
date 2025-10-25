@@ -328,10 +328,25 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
                 className="border rounded px-3 py-2"
+                //disabled={dataset.isAPI} // Optionally disable for API datasets
               >
-                <option value="raw">Raw</option>
-                <option value="cleaned">Cleaned</option>
-                <option value="validated">Validated</option>
+                {/* Show status options based on dataset source/type */}
+                {dataset.isAPI && dataset.apiConfig?.type === "nasa-power" ? (
+                  <>
+                    <option value="raw">Raw</option>
+                    <option value="latest">Latest</option>
+                    <option value="preprocessed">Preprocessed</option>
+                    <option value="validated">Validated</option>
+                    <option value="archived">Archived</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="raw">Raw</option>
+                    <option value="cleaned">Cleaned</option>
+                    <option value="validated">Validated</option>
+                    <option value="archived">Archived</option>
+                  </>
+                )}
               </select>
             </div>
 

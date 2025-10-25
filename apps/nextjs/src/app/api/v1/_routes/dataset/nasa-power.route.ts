@@ -995,4 +995,51 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
   }
 });
 
+// // PATCH - Move NASA POWER dataset to recycle bin if status: archived
+// nasaPowerRoute.patch("/:collectionName/recycle-bin", async (c) => {
+//   try {
+//     await db();
+//     const { collectionName } = c.req.param();
+
+//     // Find dataset meta
+//     const meta = await DatasetMeta.findOne({ collectionName }).lean();
+//     if (!meta) {
+//       return c.json({ message: "Dataset not found" }, 404);
+//     }
+
+//     // Only allow soft delete if status is archived and isAPI NASA POWER
+//     if (
+//       meta.isAPI &&
+//       meta.apiConfig?.type === "nasa-power" &&
+//       meta.status === "archived"
+//     ) {
+//       // Set deletedAt timestamp
+//       const updated = await DatasetMeta.findOneAndUpdate(
+//         { collectionName },
+//         { $set: { deletedAt: new Date() } },
+//         { new: true }
+//       );
+//       return c.json(
+//         {
+//           message: "NASA POWER dataset moved to recycle bin",
+//           data: updated,
+//         },
+//         200
+//       );
+//     } else {
+//       return c.json(
+//         {
+//           message:
+//             "Only NASA POWER datasets with status 'archived' can be moved to recycle bin",
+//         },
+//         400
+//       );
+//     }
+//   } catch (error) {
+//     console.error("Soft delete NASA dataset error:", error);
+//     const { message, status } = parseError(error);
+//     return c.json({ message }, status);
+//   }
+// });
+
 export default nasaPowerRoute;
