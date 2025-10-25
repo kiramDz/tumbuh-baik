@@ -7,22 +7,33 @@ import { getDynamicDatasetData } from "@/lib/fetch/files.fetch";
 import { MainTableUI } from "@/app/dashboard/_components/table/main-table-ui";
 import { ColumnDef } from "@tanstack/react-table";
 import { exportDatasetCsv } from "@/lib/fetch/files.fetch";
+import { Button } from "@/components/ui/button";
+import RefreshSingleDatasetDialog from "@/app/dashboard/_components/refresh-single-dataset-dialog";
 
 interface DynamicMainTableProps {
   collectionName: string; // slug
   columns: string[]; // from dataset_meta
+  datasetId?: string;
+  datasetName: string;
 }
 
-export default function DynamicMainTable({ collectionName, columns }: DynamicMainTableProps) {
+export default function DynamicMainTable({
+  collectionName,
+  columns,
+  datasetId,
+  datasetName,
+}: DynamicMainTableProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState(columns[0] || ""); // default sort by first column
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isExporting, setIsExporting] = useState(false);
+  const [showRefreshDialog, setShowRefreshDialog] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: [collectionName, page, pageSize, sortBy, sortOrder],
-    queryFn: () => getDynamicDatasetData(collectionName, page, pageSize, sortBy, sortOrder),
+    queryFn: () =>
+      getDynamicDatasetData(collectionName, page, pageSize, sortBy, sortOrder),
     enabled: !!collectionName && columns.length > 0,
     refetchOnWindowFocus: false,
   });
@@ -55,37 +66,53 @@ export default function DynamicMainTable({ collectionName, columns }: DynamicMai
       if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
         return value.split("T")[0]; // Format string ISO → ambil bagian tanggal
       }
-      return typeof value === "object" ? JSON.stringify(value) : String(value ?? "-");
+      return typeof value === "object"
+        ? JSON.stringify(value)
+        : String(value ?? "-");
     },
   }));
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Memuat data...</p>;
+  if (isLoading)
+    return <p className="text-sm text-muted-foreground">Memuat data...</p>;
   if (error) return <p className="text-sm text-red-500">Gagal memuat data</p>;
 
   return (
-    <MainTableUI
-      data={data?.items || []}
-      columns={dynamicColumns}
-      pagination={{
-        currentPage: data?.currentPage || 1,
-        totalPages: data?.totalPages || 1,
-        total: data?.total || 0,
-        pageSize,
-        onPageChange: setPage,
-        onPageSizeChange: setPageSize,
-      }}
-      sorting={{
-        sortBy,
-        sortOrder,
-        onSortChange: (newSortBy, newSortOrder) => {
-          setSortBy(newSortBy);
-          setSortOrder(newSortOrder);
-        },
-      }}
-      export={{
-        onExport: handleExport,
-        isExporting,
-      }}
-    />
+    <>
+      <div className="flex justify-end mb-2">
+        <Button variant="outline" onClick={() => setShowRefreshDialog(true)}>
+          Refresh Dataset
+        </Button>
+        <RefreshSingleDatasetDialog
+          datasetId={datasetId || ""}
+          datasetName={datasetName || collectionName}
+          open={showRefreshDialog}
+          onOpenChange={setShowRefreshDialog}
+        />
+      </div>
+      <MainTableUI
+        data={data?.items || []}
+        columns={dynamicColumns}
+        pagination={{
+          currentPage: data?.currentPage || 1,
+          totalPages: data?.totalPages || 1,
+          total: data?.total || 0,
+          pageSize,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+        sorting={{
+          sortBy,
+          sortOrder,
+          onSortChange: (newSortBy, newSortOrder) => {
+            setSortBy(newSortBy);
+            setSortOrder(newSortOrder);
+          },
+        }}
+        export={{
+          onExport: handleExport,
+          isExporting,
+        }}
+      />
+    </>
   );
 }

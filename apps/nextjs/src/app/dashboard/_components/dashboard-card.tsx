@@ -12,17 +12,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import RefreshSingleDatasetDialog from "./refresh-single-dataset-dialog";
 
 interface DashboardCardProps {
   href: string;
   icon: ElementType;
   title: string;
   description?: string;
-  // Made collectionName optional since we can get it from dataset
   collectionName?: string;
-  // Updated dataset type to be more flexible
   dataset?: Partial<DatasetMetaType>;
   showMenu?: boolean;
+  onSelect?: () => void; // <-- Add this
 }
 
 const DashboardCard: React.FC<DashboardCardProps> = ({
@@ -33,6 +33,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   collectionName,
   dataset,
   showMenu = true, // Default to true if not provided
+  onSelect,
 }) => {
   const router = useRouter();
 
@@ -44,6 +45,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
     : href;
 
   const handleCardClick = () => {
+    if (onSelect) onSelect();
     router.push(encodedHref);
   };
 

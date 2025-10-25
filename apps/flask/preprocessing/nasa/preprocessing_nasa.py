@@ -157,92 +157,39 @@ class NasaDataSaver:
             logger.error(error_msg)
             raise NasaPreprocessingError(error_msg)
         
-    def _update_dataset_metadata(  # This should have underscore to match the call
-        self, 
-        db, 
-        original_collection_name: str, 
-        cleaned_collection_name: str, 
+    def _update_dataset_metadata(
+        self,
+        db,
+        original_collection_name: str,
+        cleaned_collection_name: str,
         record_count: int
     ) -> Dict[str, Any]:
-            """
-            Update dataset-meta after preprocessing
-            """
-            try:
-                # First check if we have a dataset_meta collection
-                meta_collection = None
-                if "dataset_meta" in db.list_collection_names():
-                    meta_collection = "dataset_meta"
-                elif "DatasetMeta" in db.list_collection_names():
-                    meta_collection = "DatasetMeta"
-                else:
-                    logger.warning("No metadata collection found, skipping metadata update")
-                    return {"status": "no_metadata_collection"}
-                
-                # Get the original dataset metadata
-                original_meta = db[meta_collection].find_one({"collectionName": original_collection_name})
-                
-                if not original_meta:
-                    logger.warning(f"No metadata found for collection '{original_collection_name}', skipping metadata update")
-                    return {"status": "no_original_metadata"}
-                
-                # Get field list from first document
-                sample_doc = db[cleaned_collection_name].find_one()
-                columns = list(sample_doc.keys()) if sample_doc else []
-                
-                # Create new metadata for cleaned collection
-                cleaned_meta = {
-                    "name": f"{original_meta.get('name', original_collection_name)} (Cleaned)",
-                    "source": original_meta.get('source'),
-                    "filename": f"{original_meta.get('filename')}",
-                    "collectionName": cleaned_collection_name,
-                    "fileSize": record_count * 250,  # Rough estimate
-                    "totalRecords": record_count,
-                    "fileType": "json",
+        """Only update status and totalRecords in dataset-meta in original collection"""
+        try:
+            # Find the metadata document for the original collection
+            meta_collection = None
+            if "dataset-meta" in db.list_collection_names():
+                meta_collection = "dataset-meta"
+            elif "DatasetMeta" in db.list_collection_names():
+                meta_collection = "DatasetMeta"
+            else:
+                logger.warning("No metadata collection found!")
+                return {"status": "no_meta_collection"}
+            
+            # Update only the status, totalRecords, and lastUpdated fields
+            result = db[meta_collection].update_one(
+                {"collectionName": original_collection_name},
+                {"$set": {
                     "status": "preprocessed",
-                    "columns": columns,
-                    "description": original_meta.get('description'),
-                    # "description": f"Preprocessed version of {original_meta.get('name', original_collection_name)}",
-                    "uploadDate": datetime.now(),
-                    "isAPI": original_meta.get('isAPI', True),
-                    "lastUpdated": datetime.now(),
-                    "preprocessedFrom": original_collection_name,
-                    "apiConfig": original_meta.get('apiConfig', {})
-                }
-                
-                # Update metadata for original dataset
-                db[meta_collection].update_one(
-                    {"collectionName": original_collection_name},
-                    {"$set": {"status": "preprocessed"}}
-                )
-                
-                # Check if cleaned metadata already exists
-                existing_cleaned = db[meta_collection].find_one({"collectionName": cleaned_collection_name})
-                
-                if existing_cleaned:
-                    # Update existing metadata
-                    db[meta_collection].update_one(
-                        {"collectionName": cleaned_collection_name},
-                        {"$set": cleaned_meta}
-                    )
-                    logger.info(f"Updated metadata for '{cleaned_collection_name}'")
-                else:
-                    # Insert new metadata
-                    db[meta_collection].insert_one(cleaned_meta)
-                    logger.info(f"Created new metadata for '{cleaned_collection_name}'")
-                
-                return {
-                    "status": "success",
-                    "originalStatus": "preprocessed",
-                    "cleanedCollectionName": cleaned_collection_name
-                }
-                    
-            except Exception as e:
-                logger.error(f"Error updating metadata: {str(e)}")
-                # Continue without failing - metadata update is not critical
-                return {
-                    "status": "error",
-                    "error": str(e)
-                }
+                    "total_records": record_count,
+                    "lastUpdated": datetime.now()
+                }}
+            )
+            logger.info(f"Updated metadata for collection '{original_collection_name}")
+            return {"status": "success"}
+        except Exception as e:
+            logger.error(f"Error updating metadata: {str(e)}")
+            return {"status": "error", "error": str(e)}
 class NasaPreprocessor:
     """Main class for preprocessing NASA POWER datasets"""
     
