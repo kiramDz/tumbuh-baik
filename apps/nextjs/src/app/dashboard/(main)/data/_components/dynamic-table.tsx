@@ -26,7 +26,7 @@ export default function DynamicMainTable({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState(columns[0] || ""); // default sort by first column
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isExporting, setIsExporting] = useState(false);
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
   const queryClient = useQueryClient();
@@ -46,8 +46,7 @@ export default function DynamicMainTable({
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      // Always export in ascending order (oldest to newest)
-      const result = await exportDatasetCsv(collectionName, sortBy, "asc");
+      const result = await exportDatasetCsv(collectionName, sortBy, sortOrder); // ganti `category` ➜ `collectionName`
       if (result?.success) {
         toast.success("Data exported successfully!");
       } else {
