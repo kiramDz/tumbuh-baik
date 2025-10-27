@@ -639,36 +639,56 @@ export const preprocessNasaDatasetWithStream = (
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
+
       switch (data.type) {
         case "connected":
           onLog({
             type: "info",
-            message: "Connected to preprocessing stream.",
+            message: `Connected to preprocessing stream. Session: ${data.session_id}`,
           });
           break;
+
         case "log":
           onLog(data);
           break;
+
         case "progress":
-          onProgress(data.progress, data.stage, data.message);
+          // Handle multiple possible field names for progress percentage
+          const progressValue =
+            data.percentage ?? data.progress ?? data.percent ?? 0;
+
+          onProgress(
+            progressValue,
+            data.stage || "Processing",
+            data.message || "Processing..."
+          );
           break;
+
         case "complete":
           onComplete(data.result);
           eventSource.close();
           break;
+
         case "error":
-          onError(data.message);
+          onError(data.message || "An error occurred during preprocessing");
           eventSource.close();
+          break;
+
+        default:
+          console.log("Unknown SSE message type:", data.type, data);
           break;
       }
     } catch (error) {
       console.error("Error parsing SSE data:", error);
+      console.log("Raw event data:", event.data);
     }
   };
+
   eventSource.onerror = (error) => {
     console.error("SSE error:", error);
-    onError("An error occurred with the preprocessing stream.");
+    onError("Connection error occurred with the preprocessing stream.");
     eventSource.close();
   };
+
   return eventSource;
 };

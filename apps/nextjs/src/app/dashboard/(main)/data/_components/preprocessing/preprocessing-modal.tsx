@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Icons } from "@/app/dashboard/_components/icons";
+import { preprocessNasaDatasetWithStream } from "@/lib/fetch/files.fetch";
 
 interface LogEntry {
   type: "log" | "progress" | "error" | "complete";
@@ -51,79 +52,61 @@ export default function PreprocessingModal({
       }
     };
   }, [isOpen]);
+
   const startPreprocessing = () => {
     setStatus("processing");
     setLogs([]);
     setProgress(0);
     setCurrentStage("Connecting...");
 
-    const encodedName = encodeURIComponent(collectionName);
-    const eventSource = new EventSource(
-      `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
-    );
+    try {
+      // Use the existing function from files.fetch.tsx
+      const eventSource = preprocessNasaDatasetWithStream(
+        collectionName,
+        // onLog callback
+        (logData: any) => {
+          if (logData.type === "info") {
+            addLog("info", logData.message, "INFO");
+          } else {
+            addLog("log", logData.message, logData.level || "INFO");
+          }
+        },
+        // onProgress callback
+        (progressPercent: number, stage: string, message: string) => {
+          setProgress(progressPercent || 0);
+          setCurrentStage(message || stage || "Processing...");
+          addLog("progress", `[${progressPercent}%] ${message}`, "INFO");
+        },
+        // onComplete callback
+        (completionResult: any) => {
+          setStatus("success");
+          setResult(completionResult);
+          addLog(
+            "success",
+            "✅ Preprocessing completed successfully!",
+            "SUCCESS"
+          );
 
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      addLog("log", "Connected to preprocessing server", "INFO");
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        switch (data.type) {
-          case "connected":
-            addLog("log", `Session started: ${data.session_id}`, "INFO");
-            break;
-
-          case "log":
-            addLog("log", data.message, data.level);
-            break;
-
-          case "progress":
-            setProgress(data.percentage || 0);
-            setCurrentStage(data.message || data.stage);
-            addLog("progress", data.message, "INFO");
-            break;
-
-          case "complete":
-            setStatus("success");
-            setResult(data.result);
-            addLog(
-              "log",
-              "✅ Preprocessing completed successfully!",
-              "SUCCESS"
-            );
-            eventSource.close();
-            if (onSuccess) {
-              setTimeout(() => onSuccess(data.result), 1000);
-            }
-            break;
-
-          case "error":
-            setStatus("error");
-            addLog("error", `❌ Error: ${data.message}`, "ERROR");
-            eventSource.close();
-            break;
-        }
-      } catch (error) {
-        console.error("Error parsing SSE data:", error);
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("SSE Error:", error);
-      addLog("error", "Connection error. Retrying...", "ERROR");
-
-      // Auto-close after error
-      setTimeout(() => {
-        eventSource.close();
-        if (status === "processing") {
+          if (onSuccess) {
+            setTimeout(() => onSuccess(completionResult), 1000);
+          }
+        },
+        // onError callback
+        (errorMessage: string) => {
           setStatus("error");
+          addLog("error", `❌ Error: ${errorMessage}`, "ERROR");
         }
-      }, 3000);
-    };
+      );
+
+      eventSourceRef.current = eventSource;
+
+      // Add connection success log
+      addLog("info", "Connecting to preprocessing server...", "INFO");
+    } catch (error) {
+      console.error("Failed to start preprocessing:", error);
+      setStatus("error");
+      addLog("error", "Failed to start preprocessing", "ERROR");
+    }
   };
 
   const addLog = (type: string, message: string, level: string) => {

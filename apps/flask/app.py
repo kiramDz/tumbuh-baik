@@ -550,14 +550,33 @@ def preprocess_nasa_stream(collection_name):
                         # Extract PROGRESS:percentage:stage:message
                         progress_part = log_entry.split("PROGRESS:")[1]
                         parts = progress_part.split(":", 2)  # Split into max 3 parts
+                        
+                        print(f"[DEBUG] Progress parts: {parts}")  # Debug log
+                        
                         if len(parts) >= 3:
+                            # Parse percentage with error handling
+                            try:
+                                percentage_str = parts[0].strip()
+                                percentage = int(percentage_str) if percentage_str.isdigit() else 0
+                            except (ValueError, AttributeError):
+                                percentage = 0
+                                
                             log_queue.put({
                                 'type': 'progress',
-                                'percentage': int(parts[0]),
-                                'stage': parts[1],
-                                'message': parts[2]
+                                'percentage': percentage,  # Now properly parsed
+                                'stage': parts[1].strip() if len(parts) > 1 else 'processing',
+                                'message': parts[2].strip() if len(parts) > 2 else 'Processing...'
+                            })
+                        else:
+                            # If parsing fails, treat as regular log but try to extract percentage
+                            log_queue.put({
+                                'type': 'log',
+                                'level': record.levelname,
+                                'message': log_entry,
+                                'timestamp': time.time()
                             })
                     except (ValueError, IndexError) as e:
+                        print(f"[DEBUG] Error parsing progress: {e}")  # Debug log
                         # If parsing fails, treat as regular log
                         log_queue.put({
                             'type': 'log',
