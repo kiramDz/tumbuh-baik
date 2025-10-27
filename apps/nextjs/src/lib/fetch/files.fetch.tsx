@@ -623,16 +623,52 @@ export const refreshAllNasaDatasets = async (): Promise<RefreshAllResponse> => {
   }
 };
 
-export const preprocessNasaDataset = async (collectionName: string) => {
-  try {
-    const response = await axios.post(
-      `http://localhost:5001/api/v1/preprocess/nasa/${encodeURIComponent(
-        collectionName
-      )}`
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Error preprocessing NASA dataset:", error);
-    throw error;
-  }
+// Trigger NASA POWER Preprocessing with stream
+export const preprocessNasaDatasetWithStream = (
+  collectionName: string,
+  onLog: (log: any) => void,
+  onProgress: (progress: number, stage: string, message: string) => void,
+  onComplete: (result: any) => void,
+  onError: (error: string) => void
+) => {
+  const encodedName = encodeURIComponent(collectionName);
+  const eventSource = new EventSource(
+    `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
+  );
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      switch (data.type) {
+        case "connected":
+          onLog({
+            type: "info",
+            message: "Connected to preprocessing stream.",
+          });
+          break;
+        case "log":
+          onLog(data);
+          break;
+        case "progress":
+          onProgress(data.progress, data.stage, data.message);
+          break;
+        case "complete":
+          onComplete(data.result);
+          eventSource.close();
+          break;
+        case "error":
+          onError(data.message);
+          eventSource.close();
+          break;
+      }
+    } catch (error) {
+      console.error("Error parsing SSE data:", error);
+    }
+  };
+  eventSource.onerror = (error) => {
+    console.error("SSE error:", error);
+    onError("An error occurred with the preprocessing stream.");
+    eventSource.close();
+  };
+  return eventSource;
 };

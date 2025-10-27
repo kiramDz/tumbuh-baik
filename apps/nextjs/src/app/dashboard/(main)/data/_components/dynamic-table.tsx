@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { getDynamicDatasetData } from "@/lib/fetch/files.fetch";
 import { MainTableUI } from "@/app/dashboard/_components/table/main-table-ui";
 import { ColumnDef } from "@tanstack/react-table";
 import { exportDatasetCsv } from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import RefreshSingleDatasetDialog from "@/app/dashboard/(main)/data/_components/refresh-single-dataset-dialog";
+import toast from "react-hot-toast";
 
 interface DynamicMainTableProps {
   collectionName: string; // slug
@@ -29,6 +29,11 @@ export default function DynamicMainTable({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isExporting, setIsExporting] = useState(false);
   const [showRefreshDialog, setShowRefreshDialog] = useState(false);
+  const queryClient = useQueryClient();
+
+  const isNasaDataset =
+    datasetName.toLowerCase().includes("nasa") ||
+    datasetName.toLowerCase().includes("power");
 
   const { data, isLoading, error } = useQuery({
     queryKey: [collectionName, page, pageSize, sortBy, sortOrder],
@@ -72,6 +77,14 @@ export default function DynamicMainTable({
     },
   }));
 
+  const preprocessingProps = {
+    collectionName,
+    isNasaDataset,
+    onPreprocessingComplete: () => {
+      queryClient.invalidateQueries({ queryKey: [collectionName] });
+    },
+  };
+
   if (isLoading)
     return <p className="text-sm text-muted-foreground">Memuat data...</p>;
   if (error) return <p className="text-sm text-red-500">Gagal memuat data</p>;
@@ -112,6 +125,8 @@ export default function DynamicMainTable({
           onExport: handleExport,
           isExporting,
         }}
+        // Prerpocessing props
+        preprocessing={preprocessingProps}
       />
     </>
   );

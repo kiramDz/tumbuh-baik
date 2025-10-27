@@ -33,10 +33,12 @@ import {
   ChevronsRight,
   SlidersHorizontal,
   Database,
+  Play,
   Menu,
   Trash,
   Save,
   Eye,
+  X,
   CalendarIcon,
   AlertTriangle,
   CloudDownload,
@@ -46,11 +48,13 @@ import {
 export type Icon = LucideIcon;
 
 export const Icons = {
+  closeX: X,
   fileUpload: FileUp,
   cloud: CloudDownload,
   preview: Eye,
   menu: Menu,
   trash: Trash,
+  play: Play,
   save: Save,
   alertCircle: CircleAlert,
   previous: ChevronLeft,

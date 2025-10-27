@@ -289,41 +289,53 @@ class NasaPreprocessor:
             raise NasaPreprocessingError(error_msg)
     
     def _apply_preprocessing(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Apply preprocessing steps to the data
-        
-        Note: This method will be implemented in the future with actual preprocessing logic.
-        For now, it just returns the original dataframe.
-        """
+        """Apply preprocessing steps to the data with progress tracking"""
         logger.info("Starting NASA POWER data preprocessing...")
         
         processed_df = df.copy()
+        total_steps = 7
+        current_step = 0
         
-        # STEP 1: Replace NASA POWER fill values (-999) with NaN
+        # Helper function untuk log progress
+        def log_progress(stage, message):
+            nonlocal current_step
+            current_step += 1
+            percentage = int((current_step / total_steps) * 100)
+            # Format khusus yang akan di-parse oleh SSE handler
+            logger.info(f"PROGRESS:{percentage}:{stage}:{message}")
+        
+        # STEP 1: Replace NASA POWER fill values
+        log_progress("fill_values", "Replacing fill values with NaN...")
         processed_df = self._replace_fill_values(processed_df)
         
-        # STEP 2: Exclude tail data (last 5-7 days) - NASA POWER lag
+        # STEP 2: Exclude tail data
+        log_progress("tail_data", "Checking for tail data to exclude...")
         if self.options.get("exclude_tail_data", True):
             processed_df = self._exclude_tail_data(processed_df)
         
         # STEP 3: Detect and report gaps
+        log_progress("gap_detection", "Detecting gaps in time series...")
         if self.options.get("detect_gaps", True):
             self._detect_gaps(processed_df)
         
-        # STEP 4: Handle missing values with imputation
+        # STEP 4: Handle missing values
+        log_progress("imputation", "Imputing missing values...")
         if self.options.get("fill_missing", True):
             processed_df = self._impute_missing_values(processed_df)
         
         # STEP 5: Detect and handle outliers
+        log_progress("outliers", "Detecting and handling outliers...")
         if self.options.get("drop_outliers", True):
             processed_df = self._handle_outliers(processed_df)
         
         # STEP 6: Apply smoothing
+        log_progress("smoothing", "Applying smoothing methods...")
         processed_df = self._apply_smoothing(processed_df)
         
         # STEP 7: Generate quality metrics
+        log_progress("quality_metrics", "Generating quality metrics...")
         self._generate_quality_metrics(df, processed_df)
-
+        
         logger.info(f"Preprocessing completed - processed {len(processed_df)} records")
         return processed_df
     
