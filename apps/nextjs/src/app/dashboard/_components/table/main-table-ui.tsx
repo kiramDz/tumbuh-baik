@@ -181,7 +181,7 @@ export function MainTableUI<TData, TValue>({
               variant="default"
               size="sm"
               onClick={handlePreprocessingClick}
-              className="h-8 bg-blue-600 hover:bg-blue-700 text-white"
+              className="h-8 bg-green-600 hover:bg-green-700 text-white"
             >
               <Icons.play className="mr-2 h-4 w-4" />
               Preprocess Data

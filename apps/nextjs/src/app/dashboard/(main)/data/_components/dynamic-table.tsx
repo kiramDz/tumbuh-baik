@@ -35,7 +35,7 @@ export default function DynamicMainTable({
     datasetName.toLowerCase().includes("nasa") ||
     datasetName.toLowerCase().includes("power");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: [collectionName, page, pageSize, sortBy, sortOrder],
     queryFn: () =>
       getDynamicDatasetData(collectionName, page, pageSize, sortBy, sortOrder),
@@ -56,6 +56,38 @@ export default function DynamicMainTable({
       toast.error("Failed to export data");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  // Handle refresh completion - invalidate all related queries and refresh
+  const handleRefreshComplete = async () => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading("Memperbarui data tabel...", {
+        position: "bottom-right",
+      });
+
+      // Invalidate all queries related to this collection
+      await queryClient.invalidateQueries({
+        queryKey: [collectionName],
+      });
+
+      // Force refetch the current data
+      await refetch();
+
+      // Invalidate the main datasets query to update the dataset list
+      await queryClient.invalidateQueries({
+        queryKey: ["datasets"],
+      });
+
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingToast);
+      toast.success("Data tabel berhasil diperbarui!", {
+        duration: 3000,
+        position: "bottom-right",
+      });
+    } catch (error) {
+      toast.error("Gagal memperbarui data tabel");
     }
   };
 
@@ -80,8 +112,26 @@ export default function DynamicMainTable({
   const preprocessingProps = {
     collectionName,
     isNasaDataset,
-    onPreprocessingComplete: () => {
-      queryClient.invalidateQueries({ queryKey: [collectionName] });
+    onPreprocessingComplete: async () => {
+      try {
+        const loadingToast = toast.loading(
+          "Memperbarui data setelah preprocessing...",
+          {
+            position: "bottom-right",
+          }
+        );
+
+        await queryClient.invalidateQueries({ queryKey: [collectionName] });
+        await refetch();
+
+        toast.dismiss(loadingToast);
+        toast.success("Data tabel diperbarui setelah preprocessing!", {
+          duration: 3000,
+          position: "bottom-right",
+        });
+      } catch (error) {
+        toast.error("Gagal memperbarui data setelah preprocessing");
+      }
     },
   };
 
@@ -100,6 +150,7 @@ export default function DynamicMainTable({
           datasetName={datasetName || collectionName}
           open={showRefreshDialog}
           onOpenChange={setShowRefreshDialog}
+          onRefreshComplete={handleRefreshComplete}
         />
       </div>
       <MainTableUI

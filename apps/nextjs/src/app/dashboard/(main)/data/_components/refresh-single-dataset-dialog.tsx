@@ -18,6 +18,7 @@ interface RefreshDatasetDialogProps {
   datasetName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRefreshComplete?: () => void; // Add this callback prop
 }
 
 export default function RefreshSingleDatasetDialog({
@@ -25,17 +26,34 @@ export default function RefreshSingleDatasetDialog({
   datasetName,
   open,
   onOpenChange,
+  onRefreshComplete, // Add this prop
 }: RefreshDatasetDialogProps) {
   const { mutate, isPending, data, isSuccess, reset } = useMutation({
     mutationFn: () => refreshNasaPowerDataset(datasetId),
     onSuccess: (result) => {
-      toast.success(`Dataset "${datasetName}" berhasil diperbarui`);
-      onOpenChange(false);
-      setTimeout(() => reset(), 300);
+      toast.success(`Dataset "${datasetName}" berhasil diperbarui`, {
+        duration: 4000,
+        position: "bottom-right",
+      });
+
+      // Call the callback to refresh table data
+      if (onRefreshComplete) {
+        onRefreshComplete();
+      }
+
+      // Close dialog after a short delay to show success message
+      setTimeout(() => {
+        onOpenChange(false);
+        reset();
+      }, 1500);
     },
     onError: (error: any) => {
       toast.error(
-        error?.response?.data?.message || "Gagal memperbarui dataset"
+        error?.response?.data?.message || "Gagal memperbarui dataset",
+        {
+          duration: 4000,
+          position: "bottom-right",
+        }
       );
     },
   });
