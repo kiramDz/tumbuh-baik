@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Icons } from "@/app/dashboard/_components/icons";
 import { ConfirmationDeleteModal } from "@/components/ui/modal/confirmation-delete-modal";
 import { ConfirmationUpdateModal } from "@/components/ui/modal/confirmation-update-modal";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 
 interface EditDatasetDialogProps {
   dataset: {
@@ -135,20 +135,26 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         data.message?.includes("up to date") ||
         data.message?.includes("No new data")
       ) {
-        toast.info("Dataset sudah memiliki data terbaru", {
-          description: `Data terakhir: ${new Date(
+        toast(
+          `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
             data.data?.lastUpdated || dataset.lastUpdated || ""
           ).toLocaleDateString("id-ID")}`,
-          duration: 5000,
-        });
+          {
+            duration: 5000,
+            icon: "ℹ️",
+            position: "bottom-right",
+          }
+        );
       } else {
         toast.success(
-          `Berhasil memperbarui ${data.data?.newRecordsCount || 0} data baru`,
+          `Berhasil memperbarui ${
+            data.data?.newRecordsCount || 0
+          } data baru\nTotal data: ${
+            data.data?.dataset?.totalRecords || "N/A"
+          }`,
           {
-            description: `Total data: ${
-              data.data?.dataset?.totalRecords || "N/A"
-            }`,
             duration: 5000,
+            position: "bottom-right",
           }
         );
       }
@@ -173,12 +179,16 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         error?.response?.data?.message?.includes("up to date") ||
         error?.message?.includes("up to date")
       ) {
-        toast.info("Dataset sudah memiliki data terbaru", {
-          description: `Data terakhir: ${new Date(
-            dataset.lastUpdated || ""
+        toast(
+          `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
+            refreshStatus.lastRecordDate || dataset.lastUpdated || ""
           ).toLocaleDateString("id-ID")}`,
-          duration: 5000,
-        });
+          {
+            duration: 5000,
+            icon: "ℹ️",
+            position: "bottom-right",
+          }
+        );
 
         // Update refresh status
         setRefreshStatus({
@@ -228,18 +238,25 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
   const handleRefreshClick = () => {
     // Prevent refresh if status check is still loading
     if (refreshStatus.isLoading) {
-      toast.info("Memeriksa status data...");
+      toast("Memeriksa status data...", {
+        icon: "ℹ️",
+        position: "bottom-right",
+      });
       return;
     }
 
     // Prevent refresh if data is already up-to-date
     if (!refreshStatus.canRefresh) {
-      toast.info("Dataset sudah memiliki data terbaru", {
-        description: `Data terakhir: ${new Date(
+      toast(
+        `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
           refreshStatus.lastRecordDate || dataset.lastUpdated || ""
         ).toLocaleDateString("id-ID")}`,
-        duration: 5000,
-      });
+        {
+          duration: 5000,
+          icon: "ℹ️",
+          position: "bottom-right",
+        }
+      );
       return;
     }
 

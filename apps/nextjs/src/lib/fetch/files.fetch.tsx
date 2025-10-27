@@ -44,30 +44,91 @@ export interface RefreshAllResponse {
 export async function exportDatasetCsv(
   collectionName: string,
   sortBy = "Date",
-  sortOrder = "desc"
+  sortOrder = "asc"
 ) {
   try {
-    const response = await axios.get("/api/v1/export-csv/dataset-meta", {
-      params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
-      responseType: "blob",
+    // Fetch all data from the existing endpoint (without pagination)
+    const response = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
+      params: {
+        page: 1,
+        pageSize: 999999, // Get all records
+        sortBy,
+        sortOrder,
+      },
     });
 
-    if (response.status === 200) {
-      const blob = new Blob([response.data], { type: "text/csv" });
+    if (response.status === 200 && response.data?.data?.items) {
+      const data = response.data.data.items;
+
+      if (data.length === 0) {
+        return { success: false, message: "No data to export" };
+      }
+
+      // Get column headers from the first item
+      const headers = Object.keys(data[0]).filter((key) => key !== "_id");
+
+      // Create CSV content
+      let csvContent = headers.join(",") + "\n";
+
+      // Add data rows
+      data.forEach((item: any) => {
+        const row = headers
+          .map((header) => {
+            let value = item[header];
+
+            // Handle Date formatting specifically
+            if (header.toLowerCase() === "date" || header === "Date") {
+              if (typeof value === "string") {
+                // Convert DD/MM/YYYY to YYYY-MM-DD
+                if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) {
+                  const [day, month, year] = value.split("/");
+                  value = `${year}-${month.padStart(2, "0")}-${day.padStart(
+                    2,
+                    "0"
+                  )}`;
+                }
+                // Handle ISO string format
+                else if (value.includes("T")) {
+                  value = value.split("T")[0];
+                }
+              } else if (value instanceof Date) {
+                value = value.toISOString().split("T")[0];
+              }
+            }
+
+            // Handle other data types
+            if (value === null || value === undefined) {
+              return "";
+            }
+            if (typeof value === "object") {
+              return JSON.stringify(value);
+            }
+
+            // Escape commas and quotes in CSV
+            const stringValue = String(value);
+            if (
+              stringValue.includes(",") ||
+              stringValue.includes('"') ||
+              stringValue.includes("\n")
+            ) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+
+            return stringValue;
+          })
+          .join(",");
+
+        csvContent += row + "\n";
+      });
+
+      // Create and download the CSV file
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      const contentDisposition = response.headers["content-disposition"];
-      let filename = `${collectionName}_data_${
+      const filename = `${collectionName}_data_${
         new Date().toISOString().split("T")[0]
       }.csv`;
-
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-        if (filenameMatch) {
-          filename = filenameMatch[1];
-        }
-      }
 
       link.href = url;
       link.download = filename;
@@ -78,16 +139,69 @@ export async function exportDatasetCsv(
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      return { success: true, message: "File downloaded successfully" };
+      return {
+        success: true,
+        message: `Successfully exported ${data.length} records`,
+      };
     }
+
+    return { success: false, message: "No data found" };
   } catch (error) {
     console.error("Error exporting CSV:", error);
-    return { success: false, message: "Export failed" };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Export failed",
+    };
   }
 }
+
+// export async function exportDatasetCsv(
+//   collectionName: string,
+//   sortBy = "Date",
+//   sortOrder = "desc"
+// ) {
+//   try {
+//     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
+//       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
+//       responseType: "blob",
+//     });
+
+//     if (response.status === 200) {
+//       const blob = new Blob([response.data], { type: "text/csv" });
+//       const url = window.URL.createObjectURL(blob);
+//       const link = document.createElement("a");
+
+//       const contentDisposition = response.headers["content-disposition"];
+//       let filename = `${collectionName}_data_${
+//         new Date().toISOString().split("T")[0]
+//       }.csv`;
+
+//       if (contentDisposition) {
+//         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+//         if (filenameMatch) {
+//           filename = filenameMatch[1];
+//         }
+//       }
+
+//       link.href = url;
+//       link.download = filename;
+//       link.style.display = "none";
+
+//       document.body.appendChild(link);
+//       link.click();
+//       document.body.removeChild(link);
+//       window.URL.revokeObjectURL(url);
+
+//       return { success: true, message: "File downloaded successfully" };
+//     }
+//   } catch (error) {
+//     console.error("Error exporting CSV:", error);
+//     return { success: false, message: "Export failed" };
+//   }
+// }
 export async function exportHoltWinterCsv(
   sortBy = "forecast_date",
-  sortOrder = "desc"
+  sortOrder = "asc"
 ) {
   try {
     const response = await axios.get("/api/v1/export-csv/hw-daily", {
