@@ -806,3 +806,150 @@ export const preprocessNasaDatasetWithStream = (
 
   return eventSource;
 };
+
+// Trigger BMKG Preprocessing with stream
+export const preprocessBmkgDatasetWithStream = (
+  collectionName: string,
+  onLog: (log: any) => void,
+  onProgress: (progress: number, stage: string, message: string) => void,
+  onComplete: (result: any) => void,
+  onError: (error: string) => void
+) => {
+  const encodedName = encodeURIComponent(collectionName);
+  const eventSource = new EventSource(
+    `http://localhost:5001/api/v1/preprocess/bmkg/${encodedName}/stream`
+  );
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      switch (data.type) {
+        case "connected":
+          onLog({
+            type: "info",
+            message: `Connected to BMKG preprocessing stream. Session: ${data.session_id}`,
+          });
+          break;
+
+        case "log":
+          onLog(data);
+          break;
+
+        case "progress":
+          // Handle multiple possible field names for progress percentage
+          const progressValue =
+            data.percentage ?? data.progress ?? data.percent ?? 0;
+
+          onProgress(
+            progressValue,
+            data.stage || "Processing",
+            data.message || "Processing..."
+          );
+          break;
+
+        case "complete":
+          onComplete(data.result);
+          eventSource.close();
+          break;
+
+        case "error":
+          onError(data.message || "An error occurred during BMKG preprocessing");
+          eventSource.close();
+          break;
+
+        default:
+          console.log("Unknown SSE message type:", data.type, data);
+          break;
+      }
+    } catch (error) {
+      console.error("Error parsing SSE data:", error);
+      console.log("Raw event data:", event.data);
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error("SSE error:", error);
+    onError("Connection error occurred with the BMKG preprocessing stream.");
+    eventSource.close();
+  };
+
+  return eventSource;
+};
+
+// Trigger BMKG Preprocessing without stream (standard)
+export const preprocessBmkgDataset = async (
+  collectionName: string,
+  options?: {
+    smoothing_method?: "exponential" | "moving_average";
+    window_size?: number;
+    exponential_alpha?: number;
+    drop_outliers?: boolean;
+    outlier_methods?: string[];
+    iqr_multiplier?: number;
+    zscore_threshold?: number;
+    outlier_treatment?: "interpolate" | "cap" | "remove";
+    fill_missing?: boolean;
+    detect_gaps?: boolean;
+    max_gap_interpolate?: number;
+    columns_to_process?: string[];
+    parameter_configs?: Record<string, any>;
+  }
+) => {
+  try {
+    const response = await axios.post(
+      `/api/v1/preprocess/bmkg/${collectionName}`,
+      options || {}
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error preprocessing BMKG dataset:", error);
+    throw error;
+  }
+};
+
+// Get BMKG preprocessing job status
+export const getBmkgPreprocessingStatus = async (jobId: string) => {
+  try {
+    const response = await axios.get(`/api/v1/preprocess/status/${jobId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error getting BMKG preprocessing status:", error);
+    throw error;
+  }
+};
+
+// Get all BMKG preprocessing jobs
+export const getAllBmkgPreprocessingJobs = async (
+  page = 1,
+  pageSize = 10
+) => {
+  try {
+    const response = await axios.get("/api/v1/preprocess/jobs", {
+      params: {
+        page,
+        pageSize,
+        type: "bmkg", // Filter for BMKG jobs only
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error getting BMKG preprocessing jobs:", error);
+    throw error;
+  }
+};
+
+// Check if BMKG dataset can be preprocessed
+export const checkBmkgDatasetForPreprocessing = async (
+  collectionName: string
+) => {
+  try {
+    const response = await axios.get(
+      `/api/v1/preprocess/bmkg/${collectionName}/validate`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error validating BMKG dataset:", error);
+    throw error;
+  }
+};

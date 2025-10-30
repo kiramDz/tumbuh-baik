@@ -28,7 +28,9 @@ datasetMetaRoute.get("/recycle-bin", async (c) => {
     const page = Number(c.req.query("page")) || 1;
     const pageSize = Number(c.req.query("pageSize")) || 10;
 
-    const total = await DatasetMeta.countDocuments({ deletedAt: { $ne: null } });
+    const total = await DatasetMeta.countDocuments({
+      deletedAt: { $ne: null },
+    });
     console.log("Total deleted items:", total); // 👈 ad
     const datasets = await DatasetMeta.find({ deletedAt: { $ne: null } })
       .skip((page - 1) * pageSize)
@@ -122,7 +124,9 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     console.log("[DEBUG] API chart-data called with slug:", slug);
 
     // Gunakan type assertion untuk meta
-    const meta = (await DatasetMeta.findOne({ collectionName: slug }).lean()) as {
+    const meta = (await DatasetMeta.findOne({
+      collectionName: slug,
+    }).lean()) as {
       name: string;
       collectionName: string;
       columns: string[];
@@ -132,7 +136,9 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     if (!meta) return c.json({ message: "Dataset not found" }, 404);
 
     // Validasi kolom Date
-    const hasDateColumn = meta.columns.some((col: string) => col.toLowerCase() === "date");
+    const hasDateColumn = meta.columns.some(
+      (col: string) => col.toLowerCase() === "date"
+    );
 
     if (!hasDateColumn) {
       return c.json(
@@ -148,7 +154,12 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     try {
       Model = mongoose.model(slug);
     } catch {
-      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+      Model = (mongoose.models[slug] ||
+        mongoose.model(
+          slug,
+          new mongoose.Schema({}, { strict: false }),
+          slug
+        )) as mongoose.Model<any>;
     }
 
     // Fetch SEMUA data, sort by Date ascending untuk chart

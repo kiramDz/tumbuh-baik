@@ -32,6 +32,12 @@ from preprocessing.nasa.preprocessing_nasa import (
     NasaDataSaver,
     NasaPreprocessingError,
 )
+from preprocessing.bmkg.preprocessing_bmkg import (
+    BmkgPreprocessor,
+    BmkgDataValidator,
+    BmkgDataSaver,
+    BmkgPreprocessingError,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -694,6 +700,315 @@ def preprocess_nasa_stream(collection_name):
         }
     )
 
+@preprocessing_bp.route("/preprocess/bmkg/<collection_name>", methods=["POST"])
+def preprocess_bmkg_dataset(collection_name):
+    """Preprocessing a BMKG dataset"""
+    db = current_app.config['MONGO_DB']
+    
+    try:
+        # Check if collection exists
+        if collection_name not in db.list_collection_names():
+            return jsonify({"message": f"Collection '{collection_name}' not found"}), 404
+        
+        # Get total records
+        total_records = db[collection_name].count_documents({})
+        logger.info(f"Starting preprocessing for BMKG dataset '{collection_name}' with {total_records} records")
+        
+        # Generate a job ID to track this preprocessing task
+        job_id = str(ObjectId())
+        
+        # Create a status document to track progress
+        preprocessing_status = {
+            "job_id": job_id,
+            "collection": collection_name,
+            "type": "bmkg",
+            "status": "processing",
+            "startTime": datetime.now(),
+            "totalRecords": total_records,
+            "processedRecords": 0,
+            "steps": [
+                {"name": "started", "completed": True, "timestamp": datetime.now()}
+            ]
+        }
+        
+        # Save status to MongoDB
+        db["preprocessing_jobs"].insert_one(preprocessing_status)
+        
+        # GET preprocessing options from request body
+        options = request.json or {}
+        
+        try:
+            # Update status to indicate validation started
+            db['preprocessing_jobs'].update_one(
+                {"job_id": job_id},
+                {"$push": {"steps": {"name": "validating_data", "completed": True, "timestamp": datetime.now()}}}
+            )
+            
+            # Validate the dataset
+            validator = BmkgDataValidator()
+            validation_result = validator.validate_dataset(db, collection_name)
+            
+            if validation_result and not validation_result.get('valid', True):
+                db['preprocessing_jobs'].update_one(
+                    {"job_id": job_id},
+                    {"$set": {"status": "failed", "error": "Validation failed"}}
+                )
+                return jsonify({
+                    "message": "Dataset validation failed",
+                    "job_id": job_id,
+                    "errors": validation_result.get('errors', []),
+                    "warnings": validation_result.get('warnings', [])
+                }), 400
+                
+            # Update status
+            db['preprocessing_jobs'].update_one(
+                {"job_id": job_id},
+                {
+                    "$push": {"steps": {"name": "loading_data", "completed": True, "timestamp": datetime.now()}},
+                    "$set": {"status": "processing", "currentStep": "loading_data"}
+                }
+            )
+            
+            # Initialize preprocessor
+            preprocessor = BmkgPreprocessor(db, collection_name)
+            
+            # Update status for preprocessing started
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$push": {"steps": {"name": "preprocessing_started", "completed": True, "timestamp": datetime.now()}},
+                    "$set": {"status": "processing", "currentStep": "preprocessing"}
+                }
+            )
+            
+            # Run preprocessing
+            preprocessing_results = preprocessor.preprocess(options)
+            
+            # Update status for preprocessing completion
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$push": {"steps": {"name": "preprocessing_completed", "completed": True, "timestamp": datetime.now()}},
+                    "$set": {
+                        "processedRecords": preprocessing_results.get("recordCount", total_records),
+                        "status": "saving_results",
+                        "currentStep": "saving_results"
+                    }
+                }
+            )
+            
+            # Final status update
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$set": {
+                        "status": "completed", 
+                        "endTime": datetime.now(), 
+                        "metadata": preprocessing_results
+                    },
+                    "$push": {"steps": {"name": "results_saved", "completed": True, "timestamp": datetime.now()}}
+                }
+            )
+            
+            # Return success response
+            return jsonify({
+                "message": "BMKG preprocessing completed successfully",
+                "job_id": job_id,
+                "collection": collection_name,
+                "cleanedCollection": preprocessing_results.get("cleanedCollection"),
+                "preprocessedCollection": f"{collection_name}_cleaned",
+                "status": "preprocessed",
+                "recordCount": preprocessing_results.get("recordCount", 0),
+                "warnings": preprocessing_results.get("warnings", [])
+            }), 200
+            
+        except BmkgPreprocessingError as pe:
+            error_details = str(pe)
+            logger.error(f"BmkgPreprocessingError: {error_details}")
+            
+            # Update status with error
+            db["preprocessing_jobs"].update_one(
+                {"job_id": job_id},
+                {
+                    "$set": {"status": "failed", "endTime": datetime.now(), "error": error_details},
+                    "$push": {"steps": {"name": "processing_failed", "completed": False, "timestamp": datetime.now(), "error": error_details}}
+                }
+            )
+            
+            return jsonify({
+                "message": f"Preprocessing error: {error_details}",
+                "job_id": job_id,
+                "status": "failed"
+            }), 500
+    
+    except Exception as e:
+        logger.error(f"Error in BMKG preprocessing: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"message": f"Server error: {str(e)}"}), 500
+
+
+@preprocessing_bp.route("/preprocess/bmkg/<collection_name>/stream", methods=["GET"])
+def preprocess_bmkg_stream(collection_name):
+    """
+    SSE endpoint for real-time BMKG preprocessing logs
+    Stream preprocessing progress to frontend
+    """
+    def generate():
+        # Create log queue for this session
+        log_queue = Queue()
+        session_id = f"{collection_name}_{int(time.time())}"
+        
+        # Setup custom log handler that captures logs
+        class SSELogHandler(logging.Handler):
+            def emit(self, record):
+                log_entry = self.format(record)
+                
+                # Parse progress information
+                if "PROGRESS:" in log_entry:
+                    try:
+                        # Extract PROGRESS:percentage:stage:message
+                        progress_part = log_entry.split("PROGRESS:")[1]
+                        parts = progress_part.split(":", 2)  # Split into max 3 parts
+                        
+                        if len(parts) >= 3:
+                            # Parse percentage with error handling
+                            try:
+                                percentage_str = parts[0].strip()
+                                percentage = int(percentage_str) if percentage_str.isdigit() else 0
+                            except (ValueError, AttributeError):
+                                percentage = 0
+                                
+                            log_queue.put({
+                                'type': 'progress',
+                                'percentage': percentage,
+                                'stage': parts[1].strip() if len(parts) > 1 else 'processing',
+                                'message': parts[2].strip() if len(parts) > 2 else 'Processing...'
+                            })
+                        else:
+                            # If parsing fails, treat as regular log
+                            log_queue.put({
+                                'type': 'log',
+                                'level': record.levelname,
+                                'message': log_entry,
+                                'timestamp': time.time()
+                            })
+                    except (ValueError, IndexError) as e:
+                        # If parsing fails, treat as regular log
+                        log_queue.put({
+                            'type': 'log',
+                            'level': record.levelname,
+                            'message': log_entry,
+                            'timestamp': time.time()
+                        })
+                else:
+                    log_queue.put({
+                        'type': 'log',
+                        'level': record.levelname,
+                        'message': log_entry,
+                        'timestamp': time.time()
+                    })
+        
+        # Add handler to preprocessing logger
+        sse_handler = SSELogHandler()
+        sse_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
+        
+        preprocessing_logger = logging.getLogger('preprocessing.bmkg.preprocessing_bmkg')
+        preprocessing_logger.addHandler(sse_handler)
+        preprocessing_logger.setLevel(logging.INFO)
+        
+        try:
+            # Send initial connection message
+            yield f"data: {json.dumps({'type': 'connected', 'session_id': session_id, 'collection': collection_name})}\n\n"
+            
+            # Get db instance from current request context
+            db_instance = current_app.config['MONGO_DB']
+            
+            # Start preprocessing in background thread
+            preprocessing_result = {'status': None, 'data': None, 'error': None}
+            
+            def run_preprocessing():
+                try:
+                    # Send starting message
+                    log_queue.put({
+                        'type': 'progress',
+                        'stage': 'starting',
+                        'percentage': 0,
+                        'message': 'Initializing BMKG preprocessing...'
+                    })
+                    
+                    # Run actual preprocessing
+                    preprocessor = BmkgPreprocessor(db_instance, collection_name)
+                    result = preprocessor.preprocess()
+                    
+                    # Store result
+                    preprocessing_result['status'] = 'success'
+                    preprocessing_result['data'] = result
+                    
+                    # Send completion
+                    log_queue.put({
+                        'type': 'complete',
+                        'status': 'success',
+                        'result': {
+                            'recordCount': result.get('recordCount'),
+                            'originalRecordCount': result.get('originalRecordCount'),
+                            'cleanedCollection': result.get('cleanedCollection'),
+                            'preprocessing_report': result.get('preprocessing_report')
+                        }
+                    })
+                    
+                except Exception as e:
+                    preprocessing_result['status'] = 'error'
+                    preprocessing_result['error'] = str(e)
+                    
+                    log_queue.put({
+                        'type': 'error',
+                        'message': str(e),
+                        'traceback': traceback.format_exc()
+                    })
+                finally:
+                    # Signal completion
+                    log_queue.put({'type': 'done'})
+            
+            # Start preprocessing thread
+            thread = threading.Thread(target=run_preprocessing)
+            thread.daemon = True
+            thread.start()
+            
+            # Stream logs to client
+            while True:
+                try:
+                    # Get log from queue (timeout to check if client disconnected)
+                    log_data = log_queue.get(timeout=1)
+                    
+                    # Check if done
+                    if log_data.get('type') == 'done':
+                        break
+                    
+                    # Send log to client as SSE
+                    yield f"data: {json.dumps(log_data)}\n\n"
+                    
+                except:
+                    # Timeout - send keepalive
+                    yield ": keepalive\n\n"
+                    continue
+                    
+        except GeneratorExit:
+            # Client disconnected
+            logger.info(f"Client disconnected from preprocessing stream: {collection_name}")
+        finally:
+            # Cleanup
+            preprocessing_logger.removeHandler(sse_handler)
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
+        }
+    )
 
 # TAMBAHKAN BARIS INI
 app.register_blueprint(preprocessing_bp)
