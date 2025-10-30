@@ -217,7 +217,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
       return DeleteDatasetMeta(dataset.collectionName);
     },
     onSuccess: () => {
-      toast.success("Dataset berhasil dihapus");
+      toast.success(`Dataset "${dataset.name}" telah dihapus.`);
       queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
       setOpen(false);
       setIsDeleteConfirmOpen(false);

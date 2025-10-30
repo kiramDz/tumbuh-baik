@@ -138,34 +138,34 @@ class BmkgDataValidator:
                      )
                 
                 # Add physical relationship validation
-                relationship_warnings = self._validate_physical_relationships(sample_docs)
-                validation_warnings.extend(relationship_warnings)
+            relationship_warnings = self._validate_physical_relationships(sample_docs)
+            validation_warnings.extend(relationship_warnings)
                     
-                # Validation date fields and temporal consistency
-                date_validation = self._validate_temporal_continuity(db, collection_name, total_records)
+            # Validation date fields and temporal consistency
+            date_validation = self._validate_temporal_continuity(db, collection_name, total_records)
 
-                if not date_validation['valid']:
-                    validation_warnings.append(
-                        f"Dataset has only {total_records} records."
-                        " ML models may not perform well with limited data."
-                    )
-                # Determine if validation passed
-                is_valid = len(validation_errors) == 0
+            if not date_validation['valid']:
+                validation_warnings.append(
+                    f"Dataset has only {total_records} records."
+                    " ML models may not perform well with limited data."
+                )
+            # Determine if validation passed
+            is_valid = len(validation_errors) == 0
 
-                return {
-                    'valid': is_valid,
-                    'total_records': total_records,
-                    'sample_size': sample_size,
-                    'errors': validation_errors,
-                    'warnings': validation_warnings,
-                    'fields_statistics': field_stats,
-                    'temporal_info': date_validation.get('temporal_info', {}),
-                    'message': "Dataset validation completed" if is_valid else "Dataset validation failed"
-                }
+            return {
+                'valid': is_valid,
+                'total_records': total_records,
+                'sample_size': sample_size,
+                'errors': validation_errors,
+                'warnings': validation_warnings,
+                'fields_statistics': field_stats,
+                'temporal_info': date_validation.get('temporal_info', {}),
+                'message': "Dataset validation completed" if is_valid else "Dataset validation failed"
+            }
         except Exception as e:
             logger.error(f"Error during validation: {str(e)}")
             logger.error(traceback.format_exc())
-            return{
+            return {
                 'valid': False,
                 'errors': [f"Validation error: {str(e)}"]
             }
@@ -482,7 +482,7 @@ class BmkgPreprocessor:
             processed_df = processed_df.set_index('Date').sort_index()
 
         # Add temporal features
-        processed_df['Month'] = processed_df.index.month
+        processed_df['month'] = processed_df.index.month
         processed_df['Season'] = processed_df.index.month.map(
             lambda m: 'Wet' if m in [9, 10, 11, 12, 1, 2, 3] else 'Dry'
         )
@@ -596,7 +596,7 @@ class BmkgPreprocessor:
 
         try:
             # Prepare predictors (ensure they're already imputed)
-            predictors = ['TAVG', 'RH_AVG', 'SS', 'TX', 'TN', 'Month']
+            predictors = ['TAVG', 'RH_AVG', 'SS', 'TX', 'TN', 'month']
             available_predictors = [p for p in predictors if p in df.columns]
 
             # Fill any remaining NaNs in predictors with forward/backward fill
@@ -681,7 +681,7 @@ class BmkgPreprocessor:
             # Build distributions by month
             monthly_distributions = {}
             for month in range(1, 13):
-                month_rain = df[(df['Month'] == month) & (df['RR'] > 0) & (~df['RR'].isna())]['RR']
+                month_rain = df[(df['month'] == month) & (df['RR'] > 0) & (~df['RR'].isna())]['RR']
                 if len(month_rain) > 5:
                     monthly_distributions[month] = month_rain
 
@@ -745,7 +745,7 @@ class BmkgPreprocessor:
 
             # Prepare predictors
             predictors = ['TAVG', 'RH_AVG', 'FF_X', 'wind_zone',
-                        'FF_AVG_lag1', 'FF_AVG_lag7', 'Month']
+                        'FF_AVG_lag1', 'FF_AVG_lag7', 'month']
             available_predictors = [p for p in predictors if p in df.columns]
 
             # Create training set
@@ -1343,7 +1343,7 @@ class BmkgPreprocessor:
         # Calculate monthly mean directions and consistency
         monthly_wind_data = {}
         for month in range(1, 13):
-            month_data = df[df['Month'] == month]['DDD_X'].dropna()
+            month_data = df[df['month'] == month]['DDD_X'].dropna()
             if not month_data.empty:
                 direction = circular_mean(month_data)
                 consistency = circular_consistency(month_data)
@@ -1441,10 +1441,10 @@ class BmkgPreprocessor:
 
         # For remaining, use monthly mode
         for month in range(1, 13):
-            month_data = df[df['Month'] == month]['DDD_CAR'].dropna()
+            month_data = df[df['month'] == month]['DDD_CAR'].dropna()
             if not month_data.empty:
                 month_mode = month_data.mode()[0]
-                month_mask = (df['Month'] == month) & df['DDD_CAR'].isna()
+                month_mask = (df['month'] == month) & df['DDD_CAR'].isna()
                 if month_mask.sum() > 0:
                     df.loc[month_mask, 'DDD_CAR'] = month_mode
 
