@@ -324,11 +324,11 @@ class BmkgDataSaver:
                 logger.info(f"Dropping existing collection: {cleaned_collection_name}")
                 db[cleaned_collection_name].drop()
 
-            # Generate new _id values instead of keeping the original ones
+            # Remove _id column - MongoDB will auto-generate new IDs
             if '_id' in preprocessed_data.columns:
                 preprocessed_data = preprocessed_data.drop('_id', axis=1)
                 
-            # ✅ TAMBAHKAN INI: Drop temporary preprocessing columns
+            # Drop temporary preprocessing columns
             temp_columns = ['Season', 'is_RR_missing']
             columns_to_drop = [col for col in temp_columns if col in preprocessed_data.columns]
             
@@ -337,6 +337,7 @@ class BmkgDataSaver:
                 logger.info(f"Dropped temporary columns: {columns_to_drop}")
 
             # Convert DataFrame records for MongoDB insertion
+            # MongoDB will automatically generate new _id values
             records = preprocessed_data.to_dict('records')
             if records:
                 db[cleaned_collection_name].insert_many(records)
@@ -362,7 +363,7 @@ class BmkgDataSaver:
             error_msg = f"Error saving preprocessed data: {str(e)}"
             logger.error(error_msg)
             raise BmkgPreprocessingError(error_msg)
-
+        
     def _update_dataset_metadata(
         self,
         db,
@@ -370,7 +371,7 @@ class BmkgDataSaver:
         cleaned_collection_name: str,
         record_count: int
     ) -> Dict[str, Any]:
-        """Update dataset-meta after preprocessing"""
+        """Update dataset-meta after preprocessing - Only update status, totalRecords, and lastUpdated"""
         try:
             # Find the metadata collection
             meta_collection = None
@@ -379,72 +380,60 @@ class BmkgDataSaver:
             elif "DatasetMeta" in db.list_collection_names():
                 meta_collection = "DatasetMeta"
             else:
-                logger.warning("No metadata collection found, skipping metadata update")
-                return {"status": "no_metadata_collection"}
-
-            # Get the original dataset metadata
+                logger.warning("No metadata collection found!")
+                return {"status": "no_meta_collection"}
+            
+            # Get the original dataset metadata to check if it exists
             original_meta = db[meta_collection].find_one({"collectionName": original_collection_name})
-
+            
             if not original_meta:
-                logger.warning(f"No metadata found for collection '{original_collection_name}', skipping metadata update")
+                logger.warning(f"No metadata found for collection '{original_collection_name}'")
                 return {"status": "no_original_metadata"}
-
-            # Get field list from first document
-            sample_doc = db[cleaned_collection_name].find_one()
-            columns = list(sample_doc.keys()) if sample_doc else []
-
-            # Create new metadata for cleaned collection
-            cleaned_meta = {
-                "name": f"{original_meta.get('name', original_collection_name)} (Cleaned)",
-                "source": original_meta.get('source'),
-                "filename": f"{original_meta.get('filename')}",
-                "collectionName": cleaned_collection_name,
-                "fileSize": record_count * 250,  # Rough estimate
-                "totalRecords": record_count,
-                "fileType": "json",
+            
+            # Update only the status, totalRecords, and lastUpdated fields
+            update_fields = {
                 "status": "preprocessed",
-                "columns": columns,
-                "description": original_meta.get('description'),
-                "uploadDate": datetime.now(),
-                "isAPI": original_meta.get('isAPI', False),
-                "lastUpdated": datetime.now(),
-                "preprocessedFrom": original_collection_name,
-                "apiConfig": original_meta.get('apiConfig', {})
+                "totalRecords": record_count,
+                "lastUpdated": datetime.now()
             }
-
-            # Update metadata for original dataset
-            db[meta_collection].update_one(
+            
+            # Add collectionName to point to cleaned collection
+            update_fields["collectionName"] = cleaned_collection_name
+            
+            # Get cleaned collection columns for metadata
+            sample_doc = db[cleaned_collection_name].find_one()
+            if sample_doc:
+                # Filter out technical mongoDB fields
+                all_columns = list(sample_doc.keys())
+                filtered_columns = [
+                    col for col in all_columns
+                    if col not in ['_id', '__v'] and not col.startswith('_')
+                ]
+                update_fields["columns"] = filtered_columns
+            
+            result = db[meta_collection].update_one(
                 {"collectionName": original_collection_name},
-                {"$set": {"status": "preprocessed"}}
+                {"$set": update_fields}
             )
-
-            # Check if cleaned metadata already exists
-            existing_cleaned = db[meta_collection].find_one({"collectionName": cleaned_collection_name})
-
-            if existing_cleaned:
-                # Update existing metadata
-                db[meta_collection].update_one(
-                    {"collectionName": cleaned_collection_name},
-                    {"$set": cleaned_meta}
-                )
-                logger.info(f"Updated metadata for '{cleaned_collection_name}'")
+            
+            if result.modified_count > 0:
+                logger.info(f"Updated metadata for collection '{original_collection_name}' -> points to '{cleaned_collection_name}'")
+                return {
+                    "status": "success",
+                    "cleanedCollectionName": cleaned_collection_name,
+                    "updated_fields": list(update_fields.keys())
+                }
             else:
-                # Insert new metadata
-                db[meta_collection].insert_one(cleaned_meta)
-                logger.info(f"Created new metadata for '{cleaned_collection_name}'")
-
-            return {
-                "status": "success",
-                "originalStatus": "preprocessed",
-                "cleanedCollectionName": cleaned_collection_name
-            }
-
+                logger.warning("No metadata document was updated")
+                return {"status": "no_update"}
+                
         except Exception as e:
             logger.error(f"Error updating metadata: {str(e)}")
             return {
-                "status": "error",
+                "status": "error", 
                 "error": str(e)
             }
+
 class BmkgPreprocessor:
     """Main class for preprocessing BMKG datasets"""
 
@@ -468,10 +457,8 @@ class BmkgPreprocessor:
         Apply comprehensive preprocessing to BMKG data
         Following the robust imputation strategies
         """
-        logger.info("=" * 60)
         logger.info("Starting BMKG Data Preprocessing")
         logger.info(f"Initial dataset shape: {df.shape}")
-        logger.info("=" * 60)
 
         # Make a copy to avoid modifying original
         processed_df = df.copy()
@@ -518,10 +505,8 @@ class BmkgPreprocessor:
         # Reset index to have Date as column
         processed_df = processed_df.reset_index()
 
-        logger.info("=" * 60)
         logger.info("Preprocessing completed successfully")
         logger.info(f"Final dataset shape: {processed_df.shape}")
-        logger.info("=" * 60)
 
         return processed_df
 
@@ -1467,21 +1452,11 @@ class BmkgPreprocessor:
         try:
             start_time = datetime.now()
 
-            # Default options
-            default_options = {
-                "location": "Aceh",
-                "latitude": 5.5,
-                "save_plots": False,
-                "validate_results": True
-            }
-
             if options is None:
                 options = {}
-            self.options = {**default_options, **options}
+            self.options = options
 
-            logger.info("=" * 70)
             logger.info("BMKG DATA PREPROCESSING PIPELINE")
-            logger.info("=" * 70)
 
             # Step 1: Validate dataset
             logger.info("\n[1/5] Validating dataset...")

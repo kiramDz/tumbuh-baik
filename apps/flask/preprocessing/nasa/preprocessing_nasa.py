@@ -156,7 +156,7 @@ class NasaDataSaver:
             error_msg = f"Error saving preprocessed data: {str(e)}"
             logger.error(error_msg)
             raise NasaPreprocessingError(error_msg)
-        
+    
     def _update_dataset_metadata(
         self,
         db,
@@ -164,30 +164,99 @@ class NasaDataSaver:
         cleaned_collection_name: str,
         record_count: int
     ) -> Dict[str, Any]:
-        """Only update status and totalRecords in dataset-meta in original collection"""
+        """Update dataset-meta after preprocessing - Point to cleaned collection"""
         try:
-            # Find the metadata document for the original collection
+            # Find the metadata collection
             meta_collection = None
             if "dataset_meta" in db.list_collection_names():
                 meta_collection = "dataset_meta"
+            elif "DatasetMeta" in db.list_collection_names():
+                meta_collection = "DatasetMeta"
             else:
                 logger.warning("No metadata collection found!")
                 return {"status": "no_meta_collection"}
             
-            # Update only the status, totalRecords, and lastUpdated fields
+            # Get original metadata to preserve other fields
+            original_meta = db[meta_collection].find_one({"collectionName": original_collection_name})
+            
+            if not original_meta:
+                logger.warning(f"No metadata found for collection '{original_collection_name}'")
+                return {"status": "no_original_metadata"}
+            
+            # Get cleaned collection columns
+            sample_doc = db[cleaned_collection_name].find_one()
+            if sample_doc:
+                all_columns = list(sample_doc.keys())
+                cleaned_columns = [
+                    col for col in all_columns
+                    if col not in ['_id', '__v'] and not col.startswith('_')
+                ]
+            else:
+                cleaned_columns = []
+            
+            # cleaned_columns = list(sample_doc.keys()) if sample_doc else []
+            
+            # Update metadata to point to cleaned collection
+            update_fields = {
+                "status": "preprocessed",
+                "collectionName": cleaned_collection_name,  # ✅ Point to cleaned collection
+                "totalRecords": record_count,               # ✅ Correct field name
+                "columns": cleaned_columns,                 # ✅ Updated columns
+                "lastUpdated": datetime.now(),
+                "name": f"{original_meta.get('name', original_collection_name)} (Cleaned)"
+            }
+            
+            # Only include apiConfig if it's an API dataset
+            if original_meta.get('isAPI', False):
+                update_fields["apiConfig"] = original_meta.get('apiConfig', {})
+            
             result = db[meta_collection].update_one(
                 {"collectionName": original_collection_name},
-                {"$set": {
-                    "status": "preprocessed",
-                    "total_records": record_count,
-                    "lastUpdated": datetime.now()
-                }}
+                {"$set": update_fields}
             )
-            logger.info(f"Updated metadata for collection '{original_collection_name}'")
+            
+            if result.modified_count > 0:
+                logger.info(f"Updated metadata to point to cleaned collection: {cleaned_collection_name}")
+            else:
+                logger.warning("No metadata was updated")
+            
             return {"status": "success"}
+            
         except Exception as e:
             logger.error(f"Error updating metadata: {str(e)}")
             return {"status": "error", "error": str(e)}
+        
+    # def _update_dataset_metadata(
+    #     self,
+    #     db,
+    #     original_collection_name: str,
+    #     cleaned_collection_name: str,
+    #     record_count: int
+    # ) -> Dict[str, Any]:
+    #     """Only update status and totalRecords in dataset-meta in original collection"""
+    #     try:
+    #         # Find the metadata document for the original collection
+    #         meta_collection = None
+    #         if "dataset_meta" in db.list_collection_names():
+    #             meta_collection = "dataset_meta"
+    #         else:
+    #             logger.warning("No metadata collection found!")
+    #             return {"status": "no_meta_collection"}
+            
+    #         # Update only the status, totalRecords, and lastUpdated fields
+    #         result = db[meta_collection].update_one(
+    #             {"collectionName": original_collection_name},
+    #             {"$set": {
+    #                 "status": "preprocessed",
+    #                 "total_records": record_count,
+    #                 "lastUpdated": datetime.now()
+    #             }}
+    #         )
+    #         logger.info(f"Updated metadata for collection '{original_collection_name}'")
+    #         return {"status": "success"}
+    #     except Exception as e:
+    #         logger.error(f"Error updating metadata: {str(e)}")
+    #         return {"status": "error", "error": str(e)}
 class NasaPreprocessor:
     """Main class for preprocessing NASA POWER datasets"""
     
