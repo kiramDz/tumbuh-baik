@@ -15,6 +15,7 @@ interface DynamicMainTableProps {
   columns: string[]; // from dataset_meta
   datasetId?: string;
   datasetName: string;
+  isAPI: boolean;
 }
 
 export default function DynamicMainTable({
@@ -22,6 +23,7 @@ export default function DynamicMainTable({
   columns,
   datasetId,
   datasetName,
+  isAPI,
 }: DynamicMainTableProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -32,8 +34,18 @@ export default function DynamicMainTable({
   const queryClient = useQueryClient();
 
   const isNasaDataset =
-    datasetName.toLowerCase().includes("nasa") ||
-    datasetName.toLowerCase().includes("power");
+    isAPI === true &&
+    (datasetName.toLowerCase().includes("nasa") ||
+      datasetName.toLowerCase().includes("power"));
+
+  const isBmkgDataset =
+    isAPI === false &&
+    (datasetName.toLowerCase().includes("bmkg") ||
+      datasetName.toLowerCase().includes("stasiun") ||
+      datasetName.toLowerCase().includes("meteorologi"));
+
+  // Show preprocessing button for NASA and BMKG
+  const canPreprocess = isNasaDataset || isBmkgDataset;
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [collectionName, page, pageSize, sortBy, sortOrder],
@@ -109,31 +121,35 @@ export default function DynamicMainTable({
     },
   }));
 
-  const preprocessingProps = {
-    collectionName,
-    isNasaDataset,
-    onPreprocessingComplete: async () => {
-      try {
-        const loadingToast = toast.loading(
-          "Memperbarui data setelah preprocessing...",
-          {
-            position: "bottom-right",
+  const preprocessingProps = canPreprocess
+    ? {
+        collectionName,
+        isNasaDataset,
+        isBmkgDataset,
+        isAPI,
+        onPreprocessingComplete: async () => {
+          try {
+            const loadingToast = toast.loading(
+              "Memperbarui data setelah preprocessing...",
+              {
+                position: "bottom-right",
+              }
+            );
+
+            await queryClient.invalidateQueries({ queryKey: [collectionName] });
+            await refetch();
+
+            toast.dismiss(loadingToast);
+            toast.success("Data tabel diperbarui setelah preprocessing!", {
+              duration: 3000,
+              position: "bottom-right",
+            });
+          } catch (error) {
+            toast.error("Gagal memperbarui data setelah preprocessing");
           }
-        );
-
-        await queryClient.invalidateQueries({ queryKey: [collectionName] });
-        await refetch();
-
-        toast.dismiss(loadingToast);
-        toast.success("Data tabel diperbarui setelah preprocessing!", {
-          duration: 3000,
-          position: "bottom-right",
-        });
-      } catch (error) {
-        toast.error("Gagal memperbarui data setelah preprocessing");
+        },
       }
-    },
-  };
+    : undefined;
 
   if (isLoading)
     return <p className="text-sm text-muted-foreground">Memuat data...</p>;
@@ -141,18 +157,21 @@ export default function DynamicMainTable({
 
   return (
     <>
-      <div className="flex justify-end mb-2">
-        <Button variant="outline" onClick={() => setShowRefreshDialog(true)}>
-          Refresh Dataset
-        </Button>
-        <RefreshSingleDatasetDialog
-          datasetId={datasetId || ""}
-          datasetName={datasetName || collectionName}
-          open={showRefreshDialog}
-          onOpenChange={setShowRefreshDialog}
-          onRefreshComplete={handleRefreshComplete}
-        />
-      </div>
+      {/** Refresh button only shows for isAPI: True */}
+      {isAPI && (
+        <div className="flex justify-end mb-2">
+          <Button variant="outline" onClick={() => setShowRefreshDialog(true)}>
+            Refresh Dataset
+          </Button>
+          <RefreshSingleDatasetDialog
+            datasetId={datasetId || ""}
+            datasetName={datasetName || collectionName}
+            open={showRefreshDialog}
+            onOpenChange={setShowRefreshDialog}
+            onRefreshComplete={handleRefreshComplete}
+          />
+        </div>
+      )}
       <MainTableUI
         data={data?.items || []}
         columns={dynamicColumns}

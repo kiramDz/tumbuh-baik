@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Icons } from "@/app/dashboard/_components/icons";
-import { preprocessNasaDatasetWithStream } from "@/lib/fetch/files.fetch";
+import {
+  preprocessNasaDatasetWithStream,
+  preprocessBmkgDatasetWithStream,
+} from "@/lib/fetch/files.fetch";
 
 interface LogEntry {
   type: "log" | "progress" | "error" | "complete" | "info" | "success";
@@ -25,6 +28,9 @@ interface PreprocessingResult {
 
 interface PreprocessingModalProps {
   collectionName: string;
+  isNasaDataset?: boolean;
+  isBmkgDataset?: boolean;
+  isAPI?: boolean;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (result: any) => void;
@@ -36,6 +42,9 @@ const CLOSE_DELAY = 300;
 
 export default function PreprocessingModal({
   collectionName,
+  isNasaDataset = false,
+  isBmkgDataset = false,
+  isAPI = false,
   isOpen,
   onClose,
   onSuccess,
@@ -53,6 +62,13 @@ export default function PreprocessingModal({
   const logsEndRef = useRef<HTMLDivElement | null>(null);
   const logsContainerRef = useRef<HTMLDivElement | null>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Determine preprocessing type
+  const preprocessingType = isNasaDataset
+    ? "NASA POWER"
+    : isBmkgDataset
+    ? "BMKG"
+    : "Unknown";
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -129,54 +145,82 @@ export default function PreprocessingModal({
     setResult(null);
 
     try {
-      // Use the existing function from files.fetch.tsx
-      const eventSource = preprocessNasaDatasetWithStream(
-        collectionName,
-        // onLog callback
-        (logData: any) => {
-          if (logData.type === "info") {
-            addLog("info", logData.message, "INFO");
-          } else {
-            addLog("log", logData.message, logData.level || "INFO");
-          }
-        },
-        // onProgress callback
-        (progressPercent: number, stage: string, message: string) => {
-          const safeProgress = Math.max(0, Math.min(100, progressPercent || 0));
-          setProgress(safeProgress);
-          setCurrentStage(message || stage || "Processing...");
-          addLog("progress", `[${safeProgress}%] ${message}`, "INFO");
-        },
-        // onComplete callback
-        (completionResult: any) => {
-          const typedResult: PreprocessingResult = {
-            recordCount: completionResult?.recordCount,
-            cleanedCollection: completionResult?.cleanedCollection,
-            preprocessing_report: completionResult?.preprocessing_report,
-          };
-
-          setStatus("success");
-          setResult(typedResult);
-          addLog(
-            "success",
-            "✅ Preprocessing completed successfully!",
-            "SUCCESS"
-          );
-
-          if (onSuccess) {
-            setTimeout(() => onSuccess(typedResult), 1000);
-          }
-        },
-        // onError callback
-        (errorMessage: string) => {
-          setStatus("error");
-          const safeErrorMessage = errorMessage || "Unknown error occurred";
-          addLog("error", `❌ Error: ${safeErrorMessage}`, "ERROR");
+      let eventSource: EventSource;
+      // Callback functions reusable for both types
+      const onLog = (logData: any) => {
+        if (logData.type === "info") {
+          addLog("info", logData.message, "INFO");
+        } else {
+          addLog("log", logData.message, logData.level || "INFO");
         }
-      );
+      };
+      const onProgress = (
+        progressPercent: number,
+        stage: string,
+        message: string
+      ) => {
+        const safeProgress = Math.max(0, Math.min(100, progressPercent || 0));
+        setProgress(safeProgress);
+        setCurrentStage(message || stage || "Processing...");
+        addLog("progress", `[${safeProgress}%] ${message}`, "INFO");
+      };
 
+      const onComplete = (completionResult: any) => {
+        const typedResult: PreprocessingResult = {
+          recordCount: completionResult?.recordCount,
+          cleanedCollection: completionResult?.cleanedCollection,
+          preprocessing_report: completionResult?.preprocessing_report,
+        };
+
+        setStatus("success");
+        setResult(typedResult);
+        addLog(
+          "success",
+          `✅ ${preprocessingType} preprocessing completed successfully!`,
+          "SUCCESS"
+        );
+
+        if (onSuccess) {
+          setTimeout(() => onSuccess(typedResult), 1000);
+        }
+      };
+
+      const onError = (errorMessage: string) => {
+        setStatus("error");
+        const safeErrorMessage = errorMessage || "Unknown error occurred";
+        addLog("error", `❌ Error: ${safeErrorMessage}`, "ERROR");
+      };
+
+      // Choose preprocessing type
+      if (isNasaDataset) {
+        addLog("info", "Starting NASA POWER preprocessing...", "INFO");
+        eventSource = preprocessNasaDatasetWithStream(
+          collectionName,
+          onLog,
+          onProgress,
+          onComplete,
+          onError
+        );
+      } else if (isBmkgDataset) {
+        addLog("info", "Starting BMKG preprocessing...", "INFO");
+        eventSource = preprocessBmkgDatasetWithStream(
+          collectionName,
+          onLog,
+          onProgress,
+          onComplete,
+          onError
+        );
+      } else {
+        throw new Error(
+          "Unknown dataset type. Please specify isNasaDataset or isBmkgDataset."
+        );
+      }
       eventSourceRef.current = eventSource;
-      addLog("info", "Connecting to preprocessing server...", "INFO");
+      addLog(
+        "info",
+        `Connecting to ${preprocessingType} preprocessing server...`,
+        "INFO"
+      );
     } catch (error) {
       console.error("Failed to start preprocessing:", error);
       setStatus("error");
@@ -266,7 +310,7 @@ export default function PreprocessingModal({
                 id="preprocessing-title"
                 className="text-xl font-semibold text-gray-900"
               >
-                Preprocessing NASA POWER Data
+                Preprocessing {preprocessingType} Data
               </h2>
               <p className="text-sm text-gray-500 mt-1">{collectionName}</p>
             </div>

@@ -54,6 +54,8 @@ interface DataTableProps<TData, TValue> {
   preprocessing?: {
     collectionName: string;
     isNasaDataset: boolean;
+    isBmkgDataset: boolean;
+    isAPI?: boolean;
     onPreprocessingComplete?: () => void;
   };
 }
@@ -76,6 +78,14 @@ export function MainTableUI<TData, TValue>({
   // Add preprocessing modal state
   const [isPreprocessingModalOpen, setIsPreprocessingModalOpen] =
     useState(false);
+
+  const canPreprocess =
+    preprocessing?.isNasaDataset || preprocessing?.isBmkgDataset;
+
+  const getPreprocessingButtonText = () => {
+    if (preprocessing?.isNasaDataset) return "Preprocess NASA";
+    if (preprocessing?.isBmkgDataset) return "Preprocess BMKG";
+  };
 
   const table = useReactTable({
     data,
@@ -175,8 +185,20 @@ export function MainTableUI<TData, TValue>({
     <>
       <div className="space-y-4 ">
         <div className="w-full flex items-center gap-2 justify-end">
-          {/* Add Preprocessing Button */}
-          {preprocessing?.isNasaDataset && (
+          {/* Add Preprocessing Button condition */}
+          {canPreprocess && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handlePreprocessingClick}
+              className="h-8 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Icons.play className="mr-2 h-4 w-4" />
+              {getPreprocessingButtonText()}
+            </Button>
+          )}
+
+          {/* {preprocessing?.isNasaDataset && (
             <Button
               variant="default"
               size="sm"
@@ -186,7 +208,7 @@ export function MainTableUI<TData, TValue>({
               <Icons.play className="mr-2 h-4 w-4" />
               Preprocess Data
             </Button>
-          )}
+          )} */}
           {exportProps && (
             <Button
               variant="outline"
@@ -272,14 +294,25 @@ export function MainTableUI<TData, TValue>({
           onPageChange={pagination.onPageChange}
         />
       </div>
-      {preprocessing?.isNasaDataset && (
+      {canPreprocess && (
+        <PreprocessingModal
+          collectionName={preprocessing.collectionName}
+          isNasaDataset={preprocessing.isNasaDataset}
+          isBmkgDataset={preprocessing.isBmkgDataset}
+          isAPI={preprocessing.isAPI}
+          isOpen={isPreprocessingModalOpen}
+          onClose={() => setIsPreprocessingModalOpen(false)}
+          onSuccess={handlePreprocessingSuccess}
+        />
+      )}
+      {/* {preprocessing?.isNasaDataset && (
         <PreprocessingModal
           collectionName={preprocessing.collectionName}
           isOpen={isPreprocessingModalOpen}
           onClose={() => setIsPreprocessingModalOpen(false)}
           onSuccess={handlePreprocessingSuccess}
         />
-      )}
+      )} */}
     </>
   );
 }

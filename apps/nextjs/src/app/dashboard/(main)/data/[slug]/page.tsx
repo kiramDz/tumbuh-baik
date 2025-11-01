@@ -22,6 +22,7 @@ export default async function DatasetDetailPage({ params }: Props) {
         columns={meta.columns}
         datasetId={meta._id}
         datasetName={meta.name}
+        isAPI={meta.isAPI || false}
       />
       <ChartSection collectionName={meta.collectionName} />
     </div>

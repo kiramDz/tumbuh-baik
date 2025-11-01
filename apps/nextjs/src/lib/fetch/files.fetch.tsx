@@ -854,7 +854,9 @@ export const preprocessBmkgDatasetWithStream = (
           break;
 
         case "error":
-          onError(data.message || "An error occurred during BMKG preprocessing");
+          onError(
+            data.message || "An error occurred during BMKG preprocessing"
+          );
           eventSource.close();
           break;
 
@@ -875,81 +877,4 @@ export const preprocessBmkgDatasetWithStream = (
   };
 
   return eventSource;
-};
-
-// Trigger BMKG Preprocessing without stream (standard)
-export const preprocessBmkgDataset = async (
-  collectionName: string,
-  options?: {
-    smoothing_method?: "exponential" | "moving_average";
-    window_size?: number;
-    exponential_alpha?: number;
-    drop_outliers?: boolean;
-    outlier_methods?: string[];
-    iqr_multiplier?: number;
-    zscore_threshold?: number;
-    outlier_treatment?: "interpolate" | "cap" | "remove";
-    fill_missing?: boolean;
-    detect_gaps?: boolean;
-    max_gap_interpolate?: number;
-    columns_to_process?: string[];
-    parameter_configs?: Record<string, any>;
-  }
-) => {
-  try {
-    const response = await axios.post(
-      `/api/v1/preprocess/bmkg/${collectionName}`,
-      options || {}
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Error preprocessing BMKG dataset:", error);
-    throw error;
-  }
-};
-
-// Get BMKG preprocessing job status
-export const getBmkgPreprocessingStatus = async (jobId: string) => {
-  try {
-    const response = await axios.get(`/api/v1/preprocess/status/${jobId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error getting BMKG preprocessing status:", error);
-    throw error;
-  }
-};
-
-// Get all BMKG preprocessing jobs
-export const getAllBmkgPreprocessingJobs = async (
-  page = 1,
-  pageSize = 10
-) => {
-  try {
-    const response = await axios.get("/api/v1/preprocess/jobs", {
-      params: {
-        page,
-        pageSize,
-        type: "bmkg", // Filter for BMKG jobs only
-      },
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error getting BMKG preprocessing jobs:", error);
-    throw error;
-  }
-};
-
-// Check if BMKG dataset can be preprocessed
-export const checkBmkgDatasetForPreprocessing = async (
-  collectionName: string
-) => {
-  try {
-    const response = await axios.get(
-      `/api/v1/preprocess/bmkg/${collectionName}/validate`
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Error validating BMKG dataset:", error);
-    throw error;
-  }
 };
