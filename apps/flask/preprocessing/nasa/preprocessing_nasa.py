@@ -129,6 +129,11 @@ class NasaDataSaver:
             # Create a new DataFrame without the _id column
             if '_id' in preprocessed_data.columns:
                 preprocessed_data = preprocessed_data.drop('_id', axis=1)
+                
+            # Remove any existing __v column
+            if '__v' in preprocessed_data.columns:
+                preprocessed_data = preprocessed_data.drop('__v', axis=1)
+                logger.info("Dropped '__v' column from preprocessed data")
             
             # Convert DataFrame records for MongoDB insertion
             # MongoDB will generate new _id values automatically
