@@ -47,7 +47,7 @@ const DatasetMetaSchema = new Schema(
     isAPI: { type: Boolean, default: false }, // Flag untuk menandakan dataset fetch vs upload
     lastUpdated: { type: Date },
     apiConfig: { type: Schema.Types.Mixed }, // Optional: menyimpan konfigurasi API jika diperlukan
-    deleteAt: { type: Date, default: null }, // Untuk soft delete
+    deletedAt: { type: Date, default: null }, // Untuk soft delete
   },
   {
     collection: "dataset_meta",
