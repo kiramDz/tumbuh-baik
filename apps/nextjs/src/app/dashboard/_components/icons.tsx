@@ -15,7 +15,6 @@ import {
   Palette,
   FileUp,
   LayoutDashboard,
-  PlusCircle,
   Settings,
   ArrowLeft,
   CheckCircle2,
@@ -47,6 +46,7 @@ import {
   CloudDownload,
   CircleAlert,
   FileCheck,
+  Plus,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -59,6 +59,7 @@ export const Icons = {
   menu: Menu,
   upload: Upload,
   trash: Trash,
+  plus: Plus,
   play: Play,
   fileCheck: FileCheck,
   save: Save,
@@ -85,7 +86,6 @@ export const Icons = {
   theme: Palette,
   settings: Settings,
   dashboard: LayoutDashboard,
-  plus: PlusCircle,
   copy: Copy,
   left: ArrowLeft,
   shield: ShieldAlert,

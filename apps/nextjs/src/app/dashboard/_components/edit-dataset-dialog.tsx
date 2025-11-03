@@ -288,14 +288,14 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
             <Icons.menu className="h-5 w-5 text-gray-600 transition-colors duration-200 group-hover/menu:text-white" />
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
+          {" "}
           <DialogHeader>
             <DialogTitle>Edit Dataset</DialogTitle>
             <DialogDescription>
               Ubah metadata dataset atau hapus dataset.
             </DialogDescription>
           </DialogHeader>
-
           {/* Main form */}
           <form onSubmit={handleSubmitClick} className="space-y-4">
             <div className="grid gap-2">
@@ -441,14 +441,14 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               )}
 
               {/* Bottom Action Buttons */}
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 {/* Delete Button - Left */}
                 <Button
                   type="button"
                   variant="destructive"
                   onClick={handleDeleteClick}
                   disabled={isDeleting}
-                  className="flex items-center gap-2"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
                   size="sm"
                 >
                   <Icons.trash className="h-4 w-4" />
@@ -456,16 +456,21 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                 </Button>
 
                 {/* Cancel & Save Buttons - Right */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <DialogClose asChild>
-                    <Button type="button" variant="outline" size="sm">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 sm:flex-none"
+                    >
                       Batal
                     </Button>
                   </DialogClose>
                   <Button
                     type="button"
                     disabled={isPending}
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-center gap-2 flex-1 sm:flex-none"
                     onClick={(e) => {
                       e.preventDefault();
                       setIsUpdateConfirmOpen(true);

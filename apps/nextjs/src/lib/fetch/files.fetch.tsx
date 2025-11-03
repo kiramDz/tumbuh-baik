@@ -593,17 +593,43 @@ export const AddXlsxDatasetMeta = async (data: {
   source: string;
   description?: string;
   status?: string;
-  file: File;
+  file?: File;
+  files?: File[];
+  isMultiFile?: boolean;
 }) => {
   try {
+    // Validation: Must provide either file or files
+    if (data.isMultiFile) {
+      if (!data.files || data.files.length === 0) {
+        throw new Error("Files array is required for multi-file upload");
+      }
+      if (data.files.length > 50) {
+        throw new Error("Maximum 50 files allowed for multi-file upload");
+      }
+    } else {
+      if (!data.file) {
+        throw new Error("File is required for single file upload");
+      }
+    }
+
     // Create FormData for multipart upload
     const formData = new FormData();
     formData.append("name", data.name.trim());
     formData.append("source", data.source.trim());
     formData.append("description", data.description || "");
     formData.append("status", data.status || "raw");
-    formData.append("fileType", "xlsx");
-    formData.append("file", data.file);
+    formData.append("isMultiFile", data.isMultiFile ? "true" : "false");
+
+    // Add files based on upload mode
+    if (data.isMultiFile && data.files) {
+      // Multi-file upload: add all files with "files" key
+      data.files.forEach((file) => {
+        formData.append("files", file);
+      });
+    } else if (data.file) {
+      // Single-file upload: add single file with "file" key
+      formData.append("file", data.file);
+    }
 
     const res = await axios.post("/api/v1/dataset-meta", formData, {
       headers: {
