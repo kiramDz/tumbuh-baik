@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+import json
 import logging
 import traceback
 import io
@@ -125,11 +126,37 @@ class BmkgXlsxConverter:
             min_date = df['Date'].min()
             max_date = df['Date'].max()
             
+            # Critial fix: convert DataFrame to JSON-safe records
+            records = []
+            for _, row in df.iterrows():
+                record = {}
+                for col in df.columns:
+                    value = row[col]
+                    if pd.isna(value):
+                        record[col] = None  # Convert NaN to None (becomes null in JSON)
+                    elif isinstance(value, (np.integer, np.int64, np.int32)):
+                        record[col] = int(value)
+                    elif isinstance(value, (np.floating, np.float64, np.float32)):
+                        if np.isnan(value):
+                            record[col] = None
+                        else:
+                            record[col] = float(value)
+                    elif isinstance(value, pd.Timestamp):
+                        record[col] = value.isoformat() if pd.notna(value) else None
+                    elif hasattr(value, 'item'):  # Handle numpy scalars
+                        try:
+                            record[col] = value.item()
+                        except:
+                            record[col] = str(value)
+                    else:
+                        record[col] = value
+                records.append(record)
+            
             result = {
                 "status": "success",
                 "csv_content": csv_content,
-                "records": df.to_dict('records'),
-                "record_count": len(df),
+                "records": records,
+                "record_count": len(records),
                 "columns": list(df.columns),
                 "date_range": {
                     "start": min_date.strftime('%Y-%m-%d') if pd.notna(min_date) else None,
@@ -141,9 +168,15 @@ class BmkgXlsxConverter:
                     "columns_found": len(df.columns)
                 }
             }
+            # ✅ SAFETY CHECK: Test JSON serialization before returning
+            try:
+                json.dumps(result)
+                self.logger.info(f"✓ Conversion successful: {len(records)} records, {len(df.columns)} columns")
+                return result
+            except (TypeError, ValueError) as json_error:
+                self.logger.error(f"JSON serialization failed: {json_error}")
+                raise XlsxConversionError(f"Data contains non-serializable values: {json_error}")
             
-            self.logger.info(f"✓ Conversion successful: {len(df)} records, {len(df.columns)} columns")
-            return result
         except Exception as e:
             error_msg = f"Error converting XLSX: {str(e)}"
             self.logger.error(error_msg)

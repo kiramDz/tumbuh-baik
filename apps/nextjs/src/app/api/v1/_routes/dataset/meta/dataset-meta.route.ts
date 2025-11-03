@@ -272,6 +272,15 @@ datasetMetaRoute.put("/:idOrSlug", async (c) => {
 datasetMetaRoute.post("/", async (c) => {
   try {
     await db();
+
+    const contentType = c.req.header("content-type") || "";
+
+    // ✅ Handle XLSX via multipart/form-data
+    if (contentType.includes("multipart/form-data")) {
+      return await handleXlsxUpload(c);
+    }
+
+    // ✅ Handle CSV/JSON via JSON body (existing logic)
     const body = await c.req.json();
 
     const requiredFields = ["name", "source", "fileType", "data"];
@@ -289,7 +298,7 @@ datasetMetaRoute.post("/", async (c) => {
       name,
       source,
       fileType,
-      data, // data records (parsed JSON/CSV)
+      data,
       filename = `${name}.${fileType}`,
       description = "",
       status = "raw",
@@ -301,8 +310,13 @@ datasetMetaRoute.post("/", async (c) => {
     }
 
     const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
-    const collectionName = rawCollectionName?.trim() || name.trim();
-    const fileSize = Buffer.byteLength(JSON.stringify(body.data));
+    const collectionName =
+      rawCollectionName?.trim() ||
+      name
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+    const fileSize = Buffer.byteLength(JSON.stringify(data));
 
     if (fileSize > MAX_FILE_SIZE) {
       return c.json({ message: "File size exceeds 16MB limit" }, 400);
@@ -314,7 +328,7 @@ datasetMetaRoute.post("/", async (c) => {
     // Insert data ke collection dinamis
     const parsedData = data.map((item) => ({
       ...item,
-      Date: item.Date ? new Date(item.Date) : null, // konversi ke tipe Date
+      Date: item.Date ? new Date(item.Date) : null,
     }));
 
     // Check if model already exists, if not create it
@@ -346,20 +360,6 @@ datasetMetaRoute.post("/", async (c) => {
       isAPI: false,
     });
 
-    console.log({
-      name,
-      source,
-      filename,
-      collectionName,
-      fileType,
-      status,
-      description,
-      fileSize,
-      totalRecords,
-      columns,
-      isAPI: false,
-    });
-
     return c.json(
       {
         message: "Dataset uploaded and metadata saved successfully",
@@ -373,6 +373,268 @@ datasetMetaRoute.post("/", async (c) => {
     return c.json({ message }, status);
   }
 });
+async function handleXlsxUpload(c: any) {
+  try {
+    const formData = await c.req.formData();
+
+    // Extract form fields
+    const name = formData.get("name") as string;
+    const source = formData.get("source") as string;
+    const description = (formData.get("description") as string) || "";
+    const status = ((formData.get("status") as string) || "raw").trim(); // ✅ Add trim() here
+    const file = formData.get("file") as File;
+
+    // Basic validation
+    if (!name || !source || !file) {
+      return c.json({ message: "name, source, and file are required" }, 400);
+    }
+
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      return c.json({ message: "Only .xlsx files are allowed" }, 400);
+    }
+
+    const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
+    if (file.size > MAX_FILE_SIZE) {
+      return c.json({ message: "File size exceeds 16MB limit" }, 400);
+    }
+
+    // Convert file to buffer for Flask
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBuffer = Array.from(new Uint8Array(arrayBuffer));
+
+    // Create FormData for Flask
+    const flaskFormData = new FormData();
+    const buffer = Buffer.from(fileBuffer);
+    const flaskFile = new File([buffer], file.name, {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    flaskFormData.append("file", flaskFile);
+
+    // Call Flask conversion service
+    let conversionResult;
+    try {
+      const response = await fetch(
+        "http://localhost:5001/api/v1/convert/xlsx-to-csv",
+        {
+          method: "POST",
+          body: flaskFormData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Flask service error: ${response.status} ${response.statusText}. Response: ${errorText}`
+        );
+      }
+
+      // ✅ Better JSON parsing with error handling
+      const responseText = await response.text();
+      try {
+        conversionResult = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error("JSON Parse Error:", jsonError);
+        console.error("Raw Response:", responseText.substring(0, 500) + "...");
+        throw new Error(
+          `Invalid JSON response from conversion service: ${jsonError}`
+        );
+      }
+    } catch (fetchError) {
+      console.error("Flask service error:", fetchError);
+      return c.json(
+        { message: `Failed to connect to conversion service: ${fetchError}` },
+        500
+      );
+    }
+
+    // Check conversion result
+    if (conversionResult.status !== "success") {
+      return c.json(
+        {
+          message: `XLSX conversion failed: ${
+            conversionResult.error || "Unknown error"
+          }`,
+        },
+        400
+      );
+    }
+
+    // Extract converted data
+    const processedData = conversionResult.records;
+    const totalRecords = conversionResult.record_count;
+    const columns = conversionResult.columns;
+
+    if (!Array.isArray(processedData) || processedData.length === 0) {
+      return c.json({ message: "Conversion resulted in empty data" }, 400);
+    }
+
+    // Generate collection name and filename
+    const collectionName = name
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+    const filename = file.name.replace(".xlsx", ".csv");
+    const fileSize = Buffer.byteLength(JSON.stringify(processedData));
+
+    // Parse data with Date conversion
+    const parsedData = processedData.map((item: any) => ({
+      ...item,
+      Date: item.Date ? new Date(item.Date) : null,
+    }));
+
+    // Create or get dynamic model
+    let dynamicModel;
+    try {
+      dynamicModel = mongoose.model(collectionName);
+    } catch {
+      dynamicModel = mongoose.model(
+        collectionName,
+        new mongoose.Schema({}, { strict: false }),
+        collectionName
+      );
+    }
+
+    // Insert to MongoDB
+    await dynamicModel.insertMany(parsedData);
+
+    // Save metadata
+    const newDataset = await DatasetMeta.create({
+      name: name.trim(),
+      source: source.trim(),
+      filename,
+      collectionName,
+      fileType: "csv", // Always saved as CSV after conversion
+      status: status.trim(),
+      description,
+      fileSize,
+      totalRecords,
+      columns,
+      isAPI: false,
+    });
+
+    return c.json(
+      {
+        message: "Dataset uploaded and metadata saved successfully",
+        data: newDataset,
+        conversionInfo: {
+          originalFormat: "xlsx",
+          convertedTo: "csv",
+          isMultiFile: false,
+        },
+      },
+      201
+    );
+  } catch (error) {
+    console.error("XLSX upload error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+}
+
+// datasetMetaRoute.post("/", async (c) => {
+//   try {
+//     await db();
+//     const body = await c.req.json();
+
+//     const requiredFields = ["name", "source", "fileType", "data"];
+//     for (const field of requiredFields) {
+//       if (!body[field]) {
+//         return c.json({ message: `${field} is required` }, 400);
+//       }
+//     }
+
+//     if (!["csv", "json"].includes(body.fileType)) {
+//       return c.json({ message: "fileType must be 'csv' or 'json'" }, 400);
+//     }
+
+//     const {
+//       name,
+//       source,
+//       fileType,
+//       data, // data records (parsed JSON/CSV)
+//       filename = `${name}.${fileType}`,
+//       description = "",
+//       status = "raw",
+//       collectionName: rawCollectionName,
+//     } = body;
+
+//     if (!Array.isArray(data) || data.length === 0) {
+//       return c.json({ message: "data must be a non-empty array" }, 400);
+//     }
+
+//     const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
+//     const collectionName = rawCollectionName?.trim() || name.trim();
+//     const fileSize = Buffer.byteLength(JSON.stringify(body.data));
+
+//     if (fileSize > MAX_FILE_SIZE) {
+//       return c.json({ message: "File size exceeds 16MB limit" }, 400);
+//     }
+
+//     const totalRecords = data.length || 0;
+//     const columns = data[0] ? Object.keys(data[0]) : [];
+
+//     // Insert data ke collection dinamis
+//     const parsedData = data.map((item) => ({
+//       ...item,
+//       Date: item.Date ? new Date(item.Date) : null, // konversi ke tipe Date
+//     }));
+
+//     // Check if model already exists, if not create it
+//     let dynamicModel;
+//     try {
+//       dynamicModel = mongoose.model(collectionName);
+//     } catch {
+//       dynamicModel = mongoose.model(
+//         collectionName,
+//         new mongoose.Schema({}, { strict: false }),
+//         collectionName
+//       );
+//     }
+
+//     await dynamicModel.insertMany(parsedData);
+
+//     // Simpan metadata
+//     const newDataset = await DatasetMeta.create({
+//       name: name.trim(),
+//       source: source.trim(),
+//       filename,
+//       collectionName,
+//       fileType,
+//       status,
+//       description,
+//       fileSize,
+//       totalRecords,
+//       columns,
+//       isAPI: false,
+//     });
+
+//     console.log({
+//       name,
+//       source,
+//       filename,
+//       collectionName,
+//       fileType,
+//       status,
+//       description,
+//       fileSize,
+//       totalRecords,
+//       columns,
+//       isAPI: false,
+//     });
+
+//     return c.json(
+//       {
+//         message: "Dataset uploaded and metadata saved successfully",
+//         data: newDataset,
+//       },
+//       201
+//     );
+//   } catch (error) {
+//     console.error("Upload dataset error:", error);
+//     const { message, status } = parseError(error);
+//     return c.json({ message }, status);
+//   }
+// });
 // datasetMetaRoute.post("/", async (c) => {
 //   try {
 //     await db();

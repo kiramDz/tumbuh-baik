@@ -5,6 +5,7 @@ import {
   AddDatasetMeta,
   fetchNasaPowerData,
   saveNasaPowerData,
+  AddXlsxDatasetMeta,
 } from "@/lib/fetch/files.fetch";
 import { parseFile } from "@/lib/parse-upload";
 import { Button } from "@/components/ui/button";
@@ -214,10 +215,17 @@ export default function AddDatasetDialog() {
     }
   };
 
-  //Upload mutation
+  //Upload mutation to handle CSV/JSON and also XLSX
   const { mutate: uploadMutate, isPending: uploadPending } = useMutation({
     mutationKey: ["add-dataset"],
-    mutationFn: AddDatasetMeta,
+    mutationFn: async (uploadData: any) => {
+      // Check if it's an XLSX file
+      if (uploadData.fileType === "xlsx") {
+        return AddXlsxDatasetMeta(uploadData);
+      } else {
+        return AddDatasetMeta(uploadData);
+      }
+    },
     onSuccess: () => {
       toast.success(
         `Dataset ${uploadForm.collectionName} berhasil ditambahkan!`
@@ -238,55 +246,99 @@ export default function AddDatasetDialog() {
     if (!uploadForm.name || !uploadForm.source || !file) {
       return toast.error("Mohon lengkapi semua data wajib");
     }
-    const fileType = file.name.endsWith(".json")
-      ? "json"
-      : file.name.endsWith(".csv")
-      ? "csv"
-      : null;
-    if (!fileType) return toast.error("Hanya file CSV atau JSON yang didukung");
 
-    // Generate collectionName from name (lowercase, replace spaces with underscores)
-    const collectionName = uploadForm.name
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
-    const buffer = await file.arrayBuffer();
-    const parsed = await parseFile({
-      fileBuffer: Buffer.from(buffer),
-      fileType,
-    });
-    toast.promise(
-      // The promise
-      new Promise((resolve, reject) => {
-        uploadMutate(
-          {
-            name: uploadForm.name,
-            source: uploadForm.source,
-            fileType,
-            collectionName,
-            description: uploadForm.description,
-            status: uploadForm.status,
-            records: parsed,
-          },
-          {
-            onSuccess: () => {
-              queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
-              resetForm();
-              resolve("success");
+    // ✅ Determine file type based on extension
+    const fileName = file.name.toLowerCase();
+    let fileType: "csv" | "json" | "xlsx";
+
+    if (fileName.endsWith(".xlsx")) {
+      fileType = "xlsx";
+    } else if (fileName.endsWith(".json")) {
+      fileType = "json";
+    } else if (fileName.endsWith(".csv")) {
+      fileType = "csv";
+    } else {
+      return toast.error("Hanya file CSV, JSON, atau XLSX yang didukung");
+    }
+
+    // ✅ Handle XLSX differently from CSV/JSON
+    if (fileType === "xlsx") {
+      // For XLSX, send the file directly
+      toast.promise(
+        new Promise((resolve, reject) => {
+          uploadMutate(
+            {
+              name: uploadForm.name,
+              source: uploadForm.source,
+              description: uploadForm.description,
+              status: uploadForm.status,
+              file: file,
+              fileType: "xlsx",
             },
-            onError: (error) => {
-              reject(error);
+            {
+              onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+                resetForm();
+                resolve("success");
+              },
+              onError: (error) => {
+                reject(error);
+              },
+            }
+          );
+        }),
+        {
+          loading: "Mengkonversi dan menyimpan file XLSX...",
+          success: `Dataset ${uploadForm.name} berhasil disimpan!`,
+          error: (err) =>
+            `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
+        }
+      );
+    } else {
+      // For CSV/JSON, parse the file first
+      const collectionName = uploadForm.name
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+
+      const buffer = await file.arrayBuffer();
+      const parsed = await parseFile({
+        fileBuffer: Buffer.from(buffer),
+        fileType,
+      });
+
+      toast.promise(
+        new Promise((resolve, reject) => {
+          uploadMutate(
+            {
+              name: uploadForm.name,
+              source: uploadForm.source,
+              fileType,
+              collectionName,
+              description: uploadForm.description,
+              status: uploadForm.status,
+              records: parsed,
             },
-          }
-        );
-      }),
-      {
-        loading: "Menyimpan dataset...",
-        success: `Dataset ${uploadForm.name} berhasil disimpan!`,
-        error: (err) =>
-          `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
-      }
-    );
+            {
+              onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+                resetForm();
+                resolve("success");
+              },
+              onError: (error) => {
+                reject(error);
+              },
+            }
+          );
+        }),
+        {
+          loading: "Menyimpan dataset...",
+          success: `Dataset ${uploadForm.name} berhasil disimpan!`,
+          error: (err) =>
+            `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
+        }
+      );
+    }
   };
   // Handle Preview NASA POWER data
   const handleNasaPowerPreview = async () => {
@@ -418,7 +470,7 @@ export default function AddDatasetDialog() {
         <DialogHeader>
           <DialogTitle>Tambah Dataset</DialogTitle>
           <DialogDescription>
-            Unggah file CSV/JSON atau ambil data dari NASA POWER API.
+            Unggah file CSV/JSON/XLSX atau ambil data dari NASA POWER API.
           </DialogDescription>
         </DialogHeader>
 
@@ -527,19 +579,46 @@ export default function AddDatasetDialog() {
               <div className="grid gap-2">
                 <Label>Upload File</Label>
                 <FileUploader
-                  accept=".csv,.json"
+                  accept=".csv,.json,.xlsx"
                   maxSize={50} // 50MB max size
                   onFileSelect={setFile}
                   selectedFile={file}
                   loading={uploadPending}
                 />
+                {/* ✅ Add file type indicator */}
+                {file && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {file.name.toLowerCase().endsWith(".xlsx") ? (
+                      <span className="text-blue-600 font-medium">
+                        📊 File Excel akan dikonversi ke format CSV
+                      </span>
+                    ) : file.name.toLowerCase().endsWith(".json") ? (
+                      <span className="text-green-600 font-medium">
+                        📄 File JSON siap diproses
+                      </span>
+                    ) : (
+                      <span className="text-orange-600 font-medium">
+                        📈 File CSV siap diproses
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <DialogClose asChild>
                   <Button variant="outline">Batal</Button>
                 </DialogClose>
                 <Button type="submit" disabled={uploadPending}>
-                  {uploadPending ? "Menyimpan..." : "Simpan"}
+                  {uploadPending ? (
+                    <>
+                      <Icons.spinner className="h-4 w-4 animate-spin mr-2" />
+                      {file?.name.toLowerCase().endsWith(".xlsx")
+                        ? "Mengkonversi..."
+                        : "Menyimpan..."}
+                    </>
+                  ) : (
+                    "Simpan"
+                  )}
                 </Button>
               </DialogFooter>
             </form>

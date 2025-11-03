@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 import logging
 import traceback
+import json
 import io
 from .xlsx_to_csv import BmkgXlsxConverter, XlsxConversionError
 
@@ -115,11 +116,37 @@ class BmkgMultiXlsxMerger:
             # Generate auto dataset name
             dataset_name = self._generate_dataset_name(min_date, max_date, len(files_data))
             
+            # Critical fix: Convert to JSON-safe records
+            records = []
+            for _, row in combined_df.iterrows():
+                record = {}
+                for col in combined_df.columns:
+                    value = row[col]
+                    if pd.isna(value):
+                        record[col] = None
+                    elif isinstance(value, (np.integer, np.int64, np.int32)):
+                        record[col] = int(value)
+                    elif isinstance(value, (np.floating, np.float64, np.float32)):
+                        if np.isnan(value):
+                            record[col] = None
+                        else:
+                            record[col] = float(value)
+                    elif isinstance(value, pd.Timestamp):
+                        record[col] = value.isoformat() if pd.notna(value) else None
+                    elif hasattr(value, 'item'):
+                        try:
+                            record[col] = value.item()
+                        except:
+                            record[col] = str(value)
+                    else:
+                        record[col] = value
+                records.append(record)
+            
             result = {
                 "status": "success",
                 "csv_content": csv_content,
-                "records": combined_df.to_dict('records'),
-                "record_count": len(combined_df),
+                "records": records,
+                "record_count": len(records),
                 "columns": list(combined_df.columns),
                 "dataset_metadata": {
                     "name": dataset_name,
@@ -153,9 +180,15 @@ class BmkgMultiXlsxMerger:
             # Add warnings if any files failed
             if failed_files:
                 result["warnings"].append(f"{len(failed_files)} file(s) gagal diproses: {', '.join(failed_files)}")
-            
-            self.logger.info(f"✓ Merge completed: {len(combined_df)} total records from {len(processed_dfs)} files")
-            return result
+
+             # Test JSON serialization
+            try:
+                json.dumps(result)
+                self.logger.info(f"✓ Merge completed: {len(records)} total records from {len(processed_dfs)} files")
+                return result
+            except (TypeError, ValueError) as json_error:
+                self.logger.error(f"JSON serialization failed: {json_error}")
+                raise XlsxConversionError(f"Merged data contains non-serializable values: {json_error}")
             
         except Exception as e:
             error_msg = f"Error merging XLSX files: {str(e)}"

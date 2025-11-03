@@ -40,11 +40,13 @@ import {
   Trash,
   Save,
   Eye,
+  Upload,
   X,
   CalendarIcon,
   AlertTriangle,
   CloudDownload,
   CircleAlert,
+  FileCheck,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -55,8 +57,10 @@ export const Icons = {
   cloud: CloudDownload,
   preview: Eye,
   menu: Menu,
+  upload: Upload,
   trash: Trash,
   play: Play,
+  fileCheck: FileCheck,
   save: Save,
   alertCircle: CircleAlert,
   previous: ChevronLeft,

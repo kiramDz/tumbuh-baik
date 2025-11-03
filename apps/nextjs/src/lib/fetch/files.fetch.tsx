@@ -1,4 +1,5 @@
 import axios from "axios";
+import { trackAllowedDynamicAccess } from "next/dist/server/app-render/dynamic-rendering";
 
 export interface DatasetMetaType {
   _id: string;
@@ -583,6 +584,35 @@ export const UpdateDatasetMeta = async (
     return res.data.data;
   } catch (error) {
     console.error("❌ Update dataset meta error:", error);
+    throw error;
+  }
+};
+
+export const AddXlsxDatasetMeta = async (data: {
+  name: string;
+  source: string;
+  description?: string;
+  status?: string;
+  file: File;
+}) => {
+  try {
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append("name", data.name.trim());
+    formData.append("source", data.source.trim());
+    formData.append("description", data.description || "");
+    formData.append("status", data.status || "raw");
+    formData.append("fileType", "xlsx");
+    formData.append("file", data.file);
+
+    const res = await axios.post("/api/v1/dataset-meta", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data.data;
+  } catch (error) {
+    console.error("Add XLSX dataset meta error:", error);
     throw error;
   }
 };

@@ -17,7 +17,7 @@ interface FileUploaderProps
 }
 
 export function FileUploader({
-  accept = ".csv,.json",
+  accept = ".csv,.json,.xlsx",
   maxSize = 50,
   onFileSelect,
   selectedFile,
@@ -91,10 +91,12 @@ export function FileUploader({
   const getFileIcon = (fileName: string) => {
     const extension = fileName.split(".").pop()?.toLowerCase();
     return extension === "csv"
-      ? "/document.png"
+      ? "/image/csv.png" // ✅ Updated path
       : extension === "json"
-      ? "/other.png"
-      : "/file-not-found.png";
+      ? "/image/json.png" // ✅ Updated path
+      : extension === "xlsx"
+      ? "/image/xlsx.png" // ✅ Added XLSX support with correct path
+      : "/file-not-found.png"; // Keep fallback as is
   };
 
   return (
