@@ -116,7 +116,6 @@ class BmkgMultiXlsxMerger:
             # Generate auto dataset name
             dataset_name = self._generate_dataset_name(min_date, max_date, len(files_data))
             
-            # Critical fix: Convert to JSON-safe records
             records = []
             for _, row in combined_df.iterrows():
                 record = {}
@@ -141,7 +140,7 @@ class BmkgMultiXlsxMerger:
                     else:
                         record[col] = value
                 records.append(record)
-            
+
             result = {
                 "status": "success",
                 "csv_content": csv_content,
@@ -158,7 +157,7 @@ class BmkgMultiXlsxMerger:
                     "status": "raw",
                     "columns": [col for col in combined_df.columns if col not in ['_id', '__v']],
                     "isAPI": False,
-                    "uploadDate": datetime.now()
+                    "uploadDate": datetime.now().isoformat()
                 },
                 "processing_summary": {
                     "files_processed": len(processed_dfs),
@@ -167,9 +166,16 @@ class BmkgMultiXlsxMerger:
                     "total_records": len(combined_df),
                     "duplicates_removed": before_dedup - after_dedup,
                     "date_range": {
-                        "start": min_date.strftime('%Y-%m-%d') if pd.notna(min_date) else None,
-                        "end": max_date.strftime('%Y-%m-%d') if pd.notna(max_date) else None,
-                        "years": int(max_date.year - min_date.year + 1) if pd.notna(min_date) and pd.notna(max_date) else 0
+                        "start": min_date.strftime('%Y-%m-%d') if pd.notna(min_date) and hasattr(min_date, 'strftime') else (
+                            str(min_date)[:10] if pd.notna(min_date) and str(min_date) != 'NaT' else None
+                        ),
+                        "end": max_date.strftime('%Y-%m-%d') if pd.notna(max_date) and hasattr(max_date, 'strftime') else (
+                            str(max_date)[:10] if pd.notna(max_date) and str(max_date) != 'NaT' else None
+                        ),
+                        "years": int(max_date.year - min_date.year + 1) if (
+                            pd.notna(min_date) and pd.notna(max_date) and 
+                            hasattr(min_date, 'year') and hasattr(max_date, 'year')
+                        ) else 0
                     }
                 },
                 "file_details": file_info,

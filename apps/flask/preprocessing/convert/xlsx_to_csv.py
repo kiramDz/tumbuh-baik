@@ -78,15 +78,38 @@ class BmkgXlsxConverter:
                 raise XlsxConversionError(f"kolom TANGGAL tidak ditemukan.")
             
             # Convert date dolumn
-            df['Date'] = pd.to_datetime(df['TANGGAL'], format='%d-%m-%Y', errors='coerce')
-            if df['Date'].isna().all():
-                df['Date'] = pd.to_datetime(df['TANGGAL'], errors='coerce')
+            try:
+                # First try expected BMKG format
+                df['Date'] = pd.to_datetime(df['TANGGAL'], format='%d-%m-%Y', errors='coerce')
                 
-            # Extract date components
-            df['Year'] = df['Date'].dt.year.astype('Int64')
-            df['month'] = df['Date'].dt.month.astype('Int64')
-            df['day'] = df['Date'].dt.day.astype('Int64')
+                # If that fails, try general parsing
+                if df['Date'].isna().all():
+                    df['Date'] = pd.to_datetime(df['TANGGAL'], errors='coerce')
+                
+                # Remove any timezone info and treat as local dates
+                df['Date'] = df['Date'].dt.tz_localize(None)
+                
+                # Ensure we have valid dates
+                valid_dates = df['Date'].notna()
+                if not valid_dates.any():
+                    raise XlsxConversionError("No valid dates found in TANGGAL column")
+                
+                self.logger.info("=== DATE CONVERSION DEBUG ===")
+                sample_dates = df[['TANGGAL', 'Date']].head(3)
+                for idx, row in sample_dates.iterrows():
+                    original = row['TANGGAL']
+                    converted = row['Date']
+                    self.logger.info(f"  {original} → {converted.strftime('%Y-%m-%d') if pd.notna(converted) else 'NaN'}")
+                self.logger.info("============================")
+            except Exception as date_error:
+                self.logger.error(f"Date conversion error: {date_error}")
+                raise XlsxConversionError(f"Failed to parse dates: {date_error}")
             
+            # Extract date components AFTER ensuring proper date format
+            df['Year'] = df['Date'].dt.year.astype('Int64')
+            df['month'] = df['Date'].dt.month.astype('Int64') 
+            df['day'] = df['Date'].dt.day.astype('Int64')
+
             # Remove old date columns
             df = df.drop(columns=['Month', 'Day'], errors='ignore')
             
@@ -142,7 +165,11 @@ class BmkgXlsxConverter:
                         else:
                             record[col] = float(value)
                     elif isinstance(value, pd.Timestamp):
-                        record[col] = value.isoformat() if pd.notna(value) else None
+                        # ✅ FIXED: Use date-only format to prevent timezone shifts
+                        if pd.notna(value):
+                            record[col] = value.strftime('%Y-%m-%d')
+                        else:
+                            record[col] = None
                     elif hasattr(value, 'item'):  # Handle numpy scalars
                         try:
                             record[col] = value.item()
@@ -165,7 +192,8 @@ class BmkgXlsxConverter:
                 "file_info": {
                     "original_filename": filename,
                     "rows_processed": len(df),
-                    "columns_found": len(df.columns)
+                    "columns_found": len(df.columns),
+                    "processed_at": datetime.now().isoformat()
                 }
             }
             # ✅ SAFETY CHECK: Test JSON serialization before returning
