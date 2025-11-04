@@ -39,6 +39,10 @@ from preprocessing.bmkg.preprocessing_bmkg import (
     BmkgPreprocessingError,
 )
 
+from preprocessing.convert.xlsx_to_csv import convert_single_xlsx
+from preprocessing.convert.xlsx_merge_csv import merge_multiple_xlsx
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -846,7 +850,6 @@ def preprocess_bmkg_dataset(collection_name):
         logger.error(traceback.format_exc())
         return jsonify({"message": f"Server error: {str(e)}"}), 500
 
-
 @preprocessing_bp.route("/preprocess/bmkg/<collection_name>/stream", methods=["GET"])
 def preprocess_bmkg_stream(collection_name):
     """
@@ -1009,7 +1012,95 @@ def preprocess_bmkg_stream(collection_name):
             'Access-Control-Allow-Origin': '*'
         }
     )
+@app.route('/api/v1/convert/xlsx-to-csv', methods=['POST'])
+def convert_xlsx_to_csv():
+    """Convert single XLSX file to CSV format"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.xlsx'):
+            return jsonify({'error': 'Only XLSX files are supported'}), 400
+        
+        # Check file size (16MB limit)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 16 * 1024 * 1024:  # 16MB
+            return jsonify({'error': 'File size exceeds 16MB limit'}), 400
+        
+        # Read file content
+        file_buffer = file.read()
+        
+        # Convert XLSX to CSV
+        result = convert_single_xlsx(file_buffer, file.filename)
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        logger.error(f"Error in XLSX conversion: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
+@app.route('/api/v1/convert/xlsx-merge-csv', methods=['POST'])
+def convert_multi_xlsx_to_csv():
+    """Convert and merge multiple XLSX files to single CSV"""
+    try:
+        files = request.files.getlist('files')
+        
+        if not files:
+            return jsonify({'error': 'No files provided'}), 400
+        
+        if len(files) > 50:
+            return jsonify({'error': 'Maximum 50 files allowed per batch'}), 400
+        
+        # Validate and prepare file data
+        files_data = []
+        total_size = 0
+        
+        for file in files:
+            if file.filename == '':
+                continue
+                
+            if not file.filename.lower().endswith('.xlsx'):
+                return jsonify({'error': f'File {file.filename} is not XLSX format'}), 400
+            
+            # Check individual file size
+            file.seek(0, 2)
+            file_size = file.tell()
+            file.seek(0)
+            
+            if file_size > 16 * 1024 * 1024:  # 16MB per file
+                return jsonify({'error': f'File {file.filename} exceeds 16MB limit'}), 400
+            
+            total_size += file_size
+            
+            # Check total batch size (200MB limit for batch)
+            if total_size > 200 * 1024 * 1024:
+                return jsonify({'error': 'Total batch size exceeds 200MB limit'}), 400
+            
+            file_buffer = file.read()
+            files_data.append({
+                'buffer': file_buffer,
+                'filename': file.filename
+            })
+        
+        if not files_data:
+            return jsonify({'error': 'No valid XLSX files found'}), 400
+        
+        # Process and merge files
+        result = merge_multiple_xlsx(files_data)
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        logger.error(f"Error in multi-XLSX conversion: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
 # TAMBAHKAN BARIS INI
 app.register_blueprint(preprocessing_bp)
 

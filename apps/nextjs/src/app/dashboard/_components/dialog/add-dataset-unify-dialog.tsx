@@ -5,6 +5,7 @@ import {
   AddDatasetMeta,
   fetchNasaPowerData,
   saveNasaPowerData,
+  AddXlsxDatasetMeta,
 } from "@/lib/fetch/files.fetch";
 import { parseFile } from "@/lib/parse-upload";
 import { Button } from "@/components/ui/button";
@@ -126,7 +127,11 @@ export default function AddDatasetDialog() {
     description: "",
     status: "raw",
   });
+
+  // Multi-file support state
+  const [isMultiFile, setIsMultiFile] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
   // NASA POWER form state
   const [previewData, setPreviewData] = useState<any>(null);
@@ -147,7 +152,7 @@ export default function AddDatasetDialog() {
     },
   });
 
-  // Reset form
+  // Reset form include multi-file upload
   const resetForm = () => {
     setOpen(false);
     setUploadForm({
@@ -158,9 +163,11 @@ export default function AddDatasetDialog() {
       status: "raw",
     });
     setFile(null);
+    setFiles([]);
+    setIsMultiFile(false);
     nasaPowerForm.reset();
     setPreviewData(null);
-    setDateWarningMessage(""); // Now this line will work
+    setDateWarningMessage("");
     setSelectedKabupaten("Pilih Kabupaten");
     setSelectedKecamatan("");
     setDateRange(undefined);
@@ -214,14 +221,19 @@ export default function AddDatasetDialog() {
     }
   };
 
-  //Upload mutation
+  //Upload mutation to handle CSV/JSON and also XLSX
   const { mutate: uploadMutate, isPending: uploadPending } = useMutation({
     mutationKey: ["add-dataset"],
-    mutationFn: AddDatasetMeta,
+    mutationFn: async (uploadData: any) => {
+      // Check if it's XLSX (single or multi)
+      if (uploadData.fileType === "xlsx") {
+        return AddXlsxDatasetMeta(uploadData); // XLSX upload
+      } else {
+        return AddDatasetMeta(uploadData); // CSV/JSON uploads
+      }
+    },
     onSuccess: () => {
-      toast.success(
-        `Dataset ${uploadForm.collectionName} berhasil ditambahkan!`
-      );
+      toast.success(`Dataset ${uploadForm.name} berhasil ditambahkan!`);
       queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
       resetForm();
     },
@@ -235,28 +247,102 @@ export default function AddDatasetDialog() {
   // Handle Upload form submit
   const handleUploadSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!uploadForm.name || !uploadForm.source || !file) {
-      return toast.error("Mohon lengkapi semua data wajib");
-    }
-    const fileType = file.name.endsWith(".json")
-      ? "json"
-      : file.name.endsWith(".csv")
-      ? "csv"
-      : null;
-    if (!fileType) return toast.error("Hanya file CSV atau JSON yang didukung");
 
-    // Generate collectionName from name (lowercase, replace spaces with underscores)
+    // Basic validation
+    if (!uploadForm.name || !uploadForm.source) {
+      return toast.error("Mohon lengkapi nama dan sumber data");
+    }
+
+    // Validate file selection based on mode
+    if (isMultiFile) {
+      if (files.length === 0) {
+        return toast.error("Pilih minimal 1 file untuk upload multi-file");
+      }
+      if (files.length > 12) {
+        return toast.error("Maksimum 12 file yang dapat dipilih");
+      }
+      // Check if all files are XLSX for multi-file mode
+      const nonXlsxFiles = files.filter(
+        (f) => !f.name.toLowerCase().endsWith(".xlsx")
+      );
+      if (nonXlsxFiles.length > 0) {
+        return toast.error("Mode multi-file hanya mendukung file XLSX");
+      }
+    } else {
+      if (!file) {
+        return toast.error("Pilih file untuk diupload");
+      }
+    }
+
+    // ✅ Determine file type based on extension
+    const fileName = isMultiFile ? files[0].name : file!.name;
+    let fileType: "csv" | "json" | "xlsx";
+
+    if (fileName.toLowerCase().endsWith(".xlsx")) {
+      fileType = "xlsx";
+    } else if (fileName.toLowerCase().endsWith(".json")) {
+      fileType = "json";
+    } else if (fileName.toLowerCase().endsWith(".csv")) {
+      fileType = "csv";
+    } else {
+      return toast.error("Hanya file CSV, JSON, atau XLSX yang didukung");
+    }
+
+    // ✅ Handle XLSX differently from CSV/JSON
+    if (fileType === "xlsx") {
+      toast.promise(
+        new Promise((resolve, reject) => {
+          uploadMutate(
+            {
+              name: uploadForm.name,
+              source: uploadForm.source,
+              description: uploadForm.description,
+              status: uploadForm.status,
+              // ✅ Pass the appropriate file(s) based on mode
+              ...(isMultiFile
+                ? { files: files, isMultiFile: true }
+                : { file: file, isMultiFile: false }),
+              fileType: "xlsx",
+            },
+            {
+              onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+                resetForm();
+                resolve("success");
+              },
+              onError: (error) => {
+                reject(error);
+              },
+            }
+          );
+        }),
+        {
+          loading: isMultiFile
+            ? `Mengkonversi dan menggabungkan ${files.length} file XLSX...`
+            : "Mengkonversi dan menyimpan file XLSX...",
+          success: `Dataset ${uploadForm.name} berhasil disimpan${
+            isMultiFile ? ` dari ${files.length} file` : ""
+          }!`,
+          error: (err) =>
+            `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
+        }
+      );
+      return;
+    }
+
+    // ✅ Handle CSV/JSON uploads (existing logic - unchanged)
     const collectionName = uploadForm.name
       .toLowerCase()
       .replace(/\s+/g, "_")
       .replace(/[^a-z0-9_]/g, "");
-    const buffer = await file.arrayBuffer();
+
+    const buffer = await file!.arrayBuffer();
     const parsed = await parseFile({
       fileBuffer: Buffer.from(buffer),
       fileType,
     });
+
     toast.promise(
-      // The promise
       new Promise((resolve, reject) => {
         uploadMutate(
           {
@@ -414,16 +500,16 @@ export default function AddDatasetDialog() {
           Dataset Baru
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="w-[95vw] max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Tambah Dataset</DialogTitle>
           <DialogDescription>
-            Unggah file CSV/JSON atau ambil data dari NASA POWER API.
+            Unggah file CSV/JSON/XLSX atau ambil data dari NASA POWER API.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/30">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 p-1 bg-muted/30">
             <TabsTrigger
               value="upload"
               className={`
@@ -462,6 +548,48 @@ export default function AddDatasetDialog() {
           {/* Upload File Tab */}
           <TabsContent value="upload">
             <form onSubmit={handleUploadSubmit} className="grid gap-4 py-4">
+              {/* ✅ Multi-file toggle checkbox */}
+              <div className="grid gap-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="multiFile"
+                    checked={isMultiFile}
+                    onCheckedChange={(checked) => {
+                      setIsMultiFile(!!checked);
+                      // Reset file selections when toggling
+                      setFile(null);
+                      setFiles([]);
+                    }}
+                  />
+                  <Label htmlFor="multiFile" className="text-sm font-medium">
+                    Upload Multi-File XLSX (untuk menggabungkan beberapa file)
+                  </Label>
+                </div>
+                {isMultiFile && (
+                  <div className="text-xs text-muted-foreground bg-blue-50 border border-blue-200 rounded p-2">
+                    <p className="font-medium text-blue-700 mb-1">
+                      Catatan Multi-File Upload:
+                    </p>
+                    <ul className="space-y-1 text-blue-600">
+                      <li className="flex items-start gap-1">
+                        <span>•</span>
+                        <span>
+                          Mode multi-file mendukung file XLSX - digabungkan
+                          menjadi satu dataset
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-1">
+                        <span>•</span>
+                        <span>
+                          Pastikan sumber dataset sama, dan dalam rentang 12
+                          bulan
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+
               <div className="grid gap-2">
                 <Label htmlFor="name">Nama Dataset *</Label>
                 <Input
@@ -524,22 +652,88 @@ export default function AddDatasetDialog() {
                   }
                 />
               </div>
+
+              {/* ✅ Updated File Upload Section */}
               <div className="grid gap-2">
-                <Label>Upload File</Label>
+                <Label>
+                  {isMultiFile ? "Upload Multiple Files (XLSX)" : "Upload File"}
+                </Label>
                 <FileUploader
-                  accept=".csv,.json"
-                  maxSize={50} // 50MB max size
-                  onFileSelect={setFile}
-                  selectedFile={file}
+                  accept={isMultiFile ? ".xlsx" : ".csv,.json,.xlsx"}
+                  maxSize={50}
+                  maxTotalSize={100}
+                  maxFiles={12}
+                  multiple={isMultiFile}
+                  onFileSelect={isMultiFile ? undefined : setFile}
+                  onFilesSelect={isMultiFile ? setFiles : undefined}
+                  selectedFile={isMultiFile ? undefined : file}
+                  selectedFiles={isMultiFile ? files : undefined}
                   loading={uploadPending}
                 />
+
+                {/* ✅ File type indicators */}
+                {isMultiFile && files.length > 0 && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    <span className="text-blue-600 font-medium">
+                      📊 {files.length} file Excel akan digabungkan dan
+                      dikonversi ke format CSV
+                    </span>
+                  </div>
+                )}
+
+                {!isMultiFile && file && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {file.name.toLowerCase().endsWith(".xlsx") ? (
+                      <span className="text-blue-600 font-medium">
+                        📊 File Excel akan dikonversi ke format CSV
+                      </span>
+                    ) : file.name.toLowerCase().endsWith(".json") ? (
+                      <span className="text-green-600 font-medium">
+                        📄 File JSON siap diproses
+                      </span>
+                    ) : (
+                      <span className="text-orange-600 font-medium">
+                        📈 File CSV siap diproses
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* ✅ Multi-file processing indicator */}
+                {uploadPending && isMultiFile && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-blue-700 text-sm">
+                      <Icons.spinner className="h-4 w-4 animate-spin" />
+                      <span>
+                        Sedang mengkonversi dan menggabungkan {files.length}{" "}
+                        file XLSX...
+                      </span>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                      Proses penggabungan mungkin membutuhkan waktu untuk banyak
+                      file
+                    </div>
+                  </div>
+                )}
               </div>
+
               <DialogFooter>
                 <DialogClose asChild>
                   <Button variant="outline">Batal</Button>
                 </DialogClose>
                 <Button type="submit" disabled={uploadPending}>
-                  {uploadPending ? "Menyimpan..." : "Simpan"}
+                  {uploadPending ? (
+                    <>
+                      <Icons.spinner className="h-4 w-4 animate-spin mr-2" />
+                      {isMultiFile
+                        ? "Menggabungkan..."
+                        : file?.name.toLowerCase().endsWith(".xlsx")
+                        ? "Mengkonversi..."
+                        : "Menyimpan..."}
+                    </>
+                  ) : (
+                    "Simpan"
+                  )}
                 </Button>
               </DialogFooter>
             </form>
@@ -679,7 +873,7 @@ export default function AddDatasetDialog() {
                           </div>
                         </div>
                         {/* Show the selected coordinates (read-only) */}
-                        <div className="grid grid-cols-2 gap-4 mt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                           <div>
                             <FormLabel className="text-xs text-muted-foreground">
                               Latitude
@@ -826,7 +1020,7 @@ export default function AddDatasetDialog() {
                   </Card>
                 )}
 
-                <DialogFooter className="flex justify-between pt-4">
+                <DialogFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4">
                   <Button
                     type="button"
                     variant="secondary"
@@ -846,7 +1040,7 @@ export default function AddDatasetDialog() {
                       </>
                     )}
                   </Button>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <DialogClose asChild>
                       <Button variant="outline">Batal</Button>
                     </DialogClose>

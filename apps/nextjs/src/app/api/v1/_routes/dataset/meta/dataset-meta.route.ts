@@ -4,6 +4,34 @@ import { DatasetMeta } from "@/lib/database/schema/feature/dataset-meta.model";
 import { parseError } from "@/lib/utils";
 import mongoose from "mongoose";
 
+interface ConversionInfo {
+  originalFormat: string;
+  convertedTo: string;
+  isMultiFile: boolean;
+  filesProcessed: number;
+  totalRecords: number;
+  fileSize: number;
+  processingDetails?: {
+    filesSuccessful: number;
+    filesFailed: number;
+    totalFiles: number;
+    duplicatesRemoved: number;
+    dateRange: {
+      start: string | null;
+      end: string | null;
+      years?: number;
+    };
+    failedFiles: string[];
+    warnings: string[];
+  };
+}
+
+interface UploadResponse {
+  message: string;
+  data: any;
+  conversionInfo: ConversionInfo;
+}
+
 const datasetMetaRoute = new Hono();
 
 // GET - Ambil semua metadata dataset
@@ -272,6 +300,14 @@ datasetMetaRoute.put("/:idOrSlug", async (c) => {
 datasetMetaRoute.post("/", async (c) => {
   try {
     await db();
+
+    const contentType = c.req.header("content-type") || "";
+
+    // Handle XLSX via multipart/form-data for single upload and multi-file upload
+    if (contentType.includes("multipart/form-data")) {
+      return await handleXlsxUpload(c);
+    }
+    // ✅ Handle CSV/JSON via JSON body (existing logic)
     const body = await c.req.json();
 
     const requiredFields = ["name", "source", "fileType", "data"];
@@ -289,7 +325,7 @@ datasetMetaRoute.post("/", async (c) => {
       name,
       source,
       fileType,
-      data, // data records (parsed JSON/CSV)
+      data,
       filename = `${name}.${fileType}`,
       description = "",
       status = "raw",
@@ -301,8 +337,13 @@ datasetMetaRoute.post("/", async (c) => {
     }
 
     const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
-    const collectionName = rawCollectionName?.trim() || name.trim();
-    const fileSize = Buffer.byteLength(JSON.stringify(body.data));
+    const collectionName =
+      rawCollectionName?.trim() ||
+      name
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+    const fileSize = Buffer.byteLength(JSON.stringify(data));
 
     if (fileSize > MAX_FILE_SIZE) {
       return c.json({ message: "File size exceeds 16MB limit" }, 400);
@@ -314,7 +355,7 @@ datasetMetaRoute.post("/", async (c) => {
     // Insert data ke collection dinamis
     const parsedData = data.map((item) => ({
       ...item,
-      Date: item.Date ? new Date(item.Date) : null, // konversi ke tipe Date
+      Date: item.Date ? new Date(item.Date) : null,
     }));
 
     // Check if model already exists, if not create it
@@ -346,20 +387,6 @@ datasetMetaRoute.post("/", async (c) => {
       isAPI: false,
     });
 
-    console.log({
-      name,
-      source,
-      filename,
-      collectionName,
-      fileType,
-      status,
-      description,
-      fileSize,
-      totalRecords,
-      columns,
-      isAPI: false,
-    });
-
     return c.json(
       {
         message: "Dataset uploaded and metadata saved successfully",
@@ -373,6 +400,461 @@ datasetMetaRoute.post("/", async (c) => {
     return c.json({ message }, status);
   }
 });
+async function handleXlsxUpload(c: any) {
+  try {
+    const formData = await c.req.formData();
+
+    // Extract files from formData
+    const name = (formData.get("name") as string)?.trim();
+    const source = (formData.get("source") as string)?.trim();
+    const description = ((formData.get("description") as string) || "").trim();
+    const status = ((formData.get("status") as string) || "raw").trim();
+    const isMultiFile = formData.get("isMultiFile") === "true";
+
+    // Basic validation
+    if (!name || !source) {
+      return c.json({ message: "name and source are required" }, 400);
+    }
+
+    const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
+    const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 100 MB for multi-file
+    const MAX_FILES = 50; // Maximum 50 files
+
+    let conversionResult;
+    let filename: string;
+    let filesProcessed = 0;
+
+    // ✅ Handle Multi-file XLSX merge
+    if (isMultiFile) {
+      console.log("Processing multi-file XLSX upload...");
+
+      // Collect all files from formData
+      const files: Array<{ buffer: number[]; filename: string }> = [];
+      let totalSize = 0;
+
+      // Get all file entries (should be named "files")
+      const fileEntries = formData.getAll("files");
+
+      if (!fileEntries || fileEntries.length === 0) {
+        return c.json(
+          { message: "No files provided for multi-file upload" },
+          400
+        );
+      }
+
+      if (fileEntries.length > MAX_FILES) {
+        return c.json(
+          {
+            message: `Too many files. Maximum ${MAX_FILES} files allowed per batch`,
+          },
+          400
+        );
+      }
+
+      // Process each file
+      for (const entry of fileEntries) {
+        if (entry instanceof File) {
+          const file = entry as File;
+
+          // Validate file extension
+          if (!file.name.toLowerCase().endsWith(".xlsx")) {
+            return c.json(
+              {
+                message: `File ${file.name} is not a .xlsx file`,
+              },
+              400
+            );
+          }
+
+          // Validate individual file size
+          if (file.size > MAX_FILE_SIZE) {
+            return c.json(
+              {
+                message: `File ${file.name} exceeds 16MB limit`,
+              },
+              400
+            );
+          }
+
+          totalSize += file.size;
+
+          // Validate total size
+          if (totalSize > MAX_TOTAL_SIZE) {
+            return c.json(
+              {
+                message: `Total file size exceeds 100MB limit`,
+              },
+              400
+            );
+          }
+
+          const arrayBuffer = await file.arrayBuffer();
+          const fileBuffer = Array.from(new Uint8Array(arrayBuffer));
+
+          files.push({
+            buffer: fileBuffer,
+            filename: file.name,
+          });
+        }
+      }
+
+      if (files.length === 0) {
+        return c.json(
+          {
+            message: "No valid .xlsx files found",
+          },
+          400
+        );
+      }
+
+      filesProcessed = files.length;
+      filename = `${name.replace(/\s+/g, "_")}_merged_${
+        files.length
+      }_files.csv`;
+
+      // ✅ Send to Flask for merging
+      const flaskFormData = new FormData();
+
+      // Add each file to FormData for Flask
+      files.forEach((fileData) => {
+        const buffer = Buffer.from(fileData.buffer);
+        const flaskFile = new File([buffer], fileData.filename, {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        flaskFormData.append("files", flaskFile);
+      });
+
+      try {
+        console.log(`Sending ${files.length} files to Flask merge service...`);
+        const response = await fetch(
+          "http://localhost:5001/api/v1/convert/xlsx-merge-csv",
+          {
+            method: "POST",
+            body: flaskFormData,
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Flask merge service error: ${response.status} ${response.statusText}. Response: ${errorText}`
+          );
+        }
+
+        const responseText = await response.text();
+        try {
+          conversionResult = JSON.parse(responseText);
+        } catch (jsonError) {
+          console.error("JSON Parse Error:", jsonError);
+          console.error(
+            "Raw Response:",
+            responseText.substring(0, 500) + "..."
+          );
+          throw new Error(
+            `Invalid JSON response from merge service: ${jsonError}`
+          );
+        }
+      } catch (fetchError) {
+        console.error("Flask merge service error:", fetchError);
+        return c.json(
+          { message: `Failed to connect to merge service: ${fetchError}` },
+          500
+        );
+      }
+    }
+    // ✅ Handle Single XLSX file
+    else {
+      console.log("Processing single XLSX file upload...");
+
+      const file = formData.get("file") as File;
+
+      if (!file || !(file instanceof File)) {
+        return c.json(
+          { message: "file is required for single file upload" },
+          400
+        );
+      }
+
+      // Validate file extension
+      if (!file.name.toLowerCase().endsWith(".xlsx")) {
+        return c.json({ message: "Only .xlsx files are allowed" }, 400);
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        return c.json({ message: "File size exceeds 16MB limit" }, 400);
+      }
+
+      filesProcessed = 1;
+      filename = file.name.replace(".xlsx", ".csv");
+
+      // Convert File to buffer array
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBuffer = Array.from(new Uint8Array(arrayBuffer));
+
+      // ✅ Send to Flask for single file conversion
+      const flaskFormData = new FormData();
+      const buffer = Buffer.from(fileBuffer);
+      const flaskFile = new File([buffer], file.name, {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      flaskFormData.append("file", flaskFile);
+
+      try {
+        console.log(`Sending single file to Flask conversion service...`);
+        const response = await fetch(
+          "http://localhost:5001/api/v1/convert/xlsx-to-csv",
+          {
+            method: "POST",
+            body: flaskFormData,
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(
+            `Flask service error: ${response.status} ${response.statusText}. Response: ${errorText}`
+          );
+        }
+
+        const responseText = await response.text();
+        try {
+          conversionResult = JSON.parse(responseText);
+        } catch (jsonError) {
+          console.error("JSON Parse Error:", jsonError);
+          console.error(
+            "Raw Response:",
+            responseText.substring(0, 500) + "..."
+          );
+          throw new Error(
+            `Invalid JSON response from conversion service: ${jsonError}`
+          );
+        }
+      } catch (fetchError) {
+        console.error("Flask service error:", fetchError);
+        return c.json(
+          { message: `Failed to connect to conversion service: ${fetchError}` },
+          500
+        );
+      }
+    }
+
+    // ✅ Check conversion result (same for both single and multi)
+    if (conversionResult.status !== "success") {
+      return c.json(
+        {
+          message: `XLSX conversion failed: ${
+            conversionResult.error || "Unknown error"
+          }`,
+        },
+        400
+      );
+    }
+
+    // Extract converted data
+    const processedData = conversionResult.records;
+    const totalRecords = conversionResult.record_count;
+    const columns = conversionResult.columns;
+
+    if (!Array.isArray(processedData) || processedData.length === 0) {
+      return c.json({ message: "Conversion resulted in empty data" }, 400);
+    }
+
+    // Generate collection name
+    const collectionName = name
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "")
+      .substring(0, 50); // Limit length
+
+    const fileSize = Buffer.byteLength(JSON.stringify(processedData));
+
+    // Validate processed data size
+    if (fileSize > MAX_TOTAL_SIZE) {
+      return c.json({ message: "Processed data exceeds size limit" }, 400);
+    }
+
+    // Parse data with Date conversion
+    const parsedData = processedData.map((item: any) => ({
+      ...item,
+      Date: item.Date ? new Date(item.Date) : null,
+    }));
+
+    // Create or get dynamic model
+    let dynamicModel;
+    try {
+      dynamicModel = mongoose.model(collectionName);
+    } catch {
+      dynamicModel = mongoose.model(
+        collectionName,
+        new mongoose.Schema({}, { strict: false }),
+        collectionName
+      );
+    }
+
+    // Insert to MongoDB
+    await dynamicModel.insertMany(parsedData);
+
+    // Save metadata
+    const newDataset = await DatasetMeta.create({
+      name: name.trim(),
+      source: source.trim(),
+      filename,
+      collectionName,
+      fileType: "csv", // Always saved as CSV after conversion
+      status: status.trim(),
+      description: description.trim(),
+      fileSize,
+      totalRecords,
+      columns,
+      isAPI: false,
+    });
+
+    // ✅ Return response with interface UploadResponse
+    const response: UploadResponse = {
+      message: "Dataset uploaded and metadata saved successfully",
+      data: newDataset,
+      conversionInfo: {
+        originalFormat: "xlsx",
+        convertedTo: "csv",
+        isMultiFile,
+        filesProcessed,
+        totalRecords,
+        fileSize,
+      },
+    };
+
+    // Add additional info for multi-file uploads
+    if (isMultiFile && conversionResult.processing_summary) {
+      response.conversionInfo.processingDetails = {
+        filesSuccessful: conversionResult.processing_summary.files_processed,
+        filesFailed: conversionResult.processing_summary.files_failed,
+        totalFiles: conversionResult.processing_summary.total_files,
+        duplicatesRemoved:
+          conversionResult.processing_summary.duplicates_removed,
+        dateRange: conversionResult.processing_summary.date_range,
+        failedFiles: conversionResult.failed_files || [],
+        warnings: conversionResult.warnings || [],
+      };
+    }
+
+    console.log(
+      `✅ XLSX conversion completed: ${
+        isMultiFile ? "Multi-file" : "Single"
+      } upload successful`
+    );
+    return c.json(response, 201);
+  } catch (error) {
+    console.error("XLSX upload error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+}
+
+// datasetMetaRoute.post("/", async (c) => {
+//   try {
+//     await db();
+//     const body = await c.req.json();
+
+//     const requiredFields = ["name", "source", "fileType", "data"];
+//     for (const field of requiredFields) {
+//       if (!body[field]) {
+//         return c.json({ message: `${field} is required` }, 400);
+//       }
+//     }
+
+//     if (!["csv", "json"].includes(body.fileType)) {
+//       return c.json({ message: "fileType must be 'csv' or 'json'" }, 400);
+//     }
+
+//     const {
+//       name,
+//       source,
+//       fileType,
+//       data, // data records (parsed JSON/CSV)
+//       filename = `${name}.${fileType}`,
+//       description = "",
+//       status = "raw",
+//       collectionName: rawCollectionName,
+//     } = body;
+
+//     if (!Array.isArray(data) || data.length === 0) {
+//       return c.json({ message: "data must be a non-empty array" }, 400);
+//     }
+
+//     const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
+//     const collectionName = rawCollectionName?.trim() || name.trim();
+//     const fileSize = Buffer.byteLength(JSON.stringify(body.data));
+
+//     if (fileSize > MAX_FILE_SIZE) {
+//       return c.json({ message: "File size exceeds 16MB limit" }, 400);
+//     }
+
+//     const totalRecords = data.length || 0;
+//     const columns = data[0] ? Object.keys(data[0]) : [];
+
+//     // Insert data ke collection dinamis
+//     const parsedData = data.map((item) => ({
+//       ...item,
+//       Date: item.Date ? new Date(item.Date) : null, // konversi ke tipe Date
+//     }));
+
+//     // Check if model already exists, if not create it
+//     let dynamicModel;
+//     try {
+//       dynamicModel = mongoose.model(collectionName);
+//     } catch {
+//       dynamicModel = mongoose.model(
+//         collectionName,
+//         new mongoose.Schema({}, { strict: false }),
+//         collectionName
+//       );
+//     }
+
+//     await dynamicModel.insertMany(parsedData);
+
+//     // Simpan metadata
+//     const newDataset = await DatasetMeta.create({
+//       name: name.trim(),
+//       source: source.trim(),
+//       filename,
+//       collectionName,
+//       fileType,
+//       status,
+//       description,
+//       fileSize,
+//       totalRecords,
+//       columns,
+//       isAPI: false,
+//     });
+
+//     console.log({
+//       name,
+//       source,
+//       filename,
+//       collectionName,
+//       fileType,
+//       status,
+//       description,
+//       fileSize,
+//       totalRecords,
+//       columns,
+//       isAPI: false,
+//     });
+
+//     return c.json(
+//       {
+//         message: "Dataset uploaded and metadata saved successfully",
+//         data: newDataset,
+//       },
+//       201
+//     );
+//   } catch (error) {
+//     console.error("Upload dataset error:", error);
+//     const { message, status } = parseError(error);
+//     return c.json({ message }, status);
+//   }
+// });
 // datasetMetaRoute.post("/", async (c) => {
 //   try {
 //     await db();

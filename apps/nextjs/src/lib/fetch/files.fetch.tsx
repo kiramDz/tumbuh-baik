@@ -1,4 +1,5 @@
 import axios from "axios";
+import { trackAllowedDynamicAccess } from "next/dist/server/app-render/dynamic-rendering";
 
 export interface DatasetMetaType {
   _id: string;
@@ -587,6 +588,61 @@ export const UpdateDatasetMeta = async (
   }
 };
 
+export const AddXlsxDatasetMeta = async (data: {
+  name: string;
+  source: string;
+  description?: string;
+  status?: string;
+  file?: File;
+  files?: File[];
+  isMultiFile?: boolean;
+}) => {
+  try {
+    // Validation: Must provide either file or files
+    if (data.isMultiFile) {
+      if (!data.files || data.files.length === 0) {
+        throw new Error("Files array is required for multi-file upload");
+      }
+      if (data.files.length > 50) {
+        throw new Error("Maximum 50 files allowed for multi-file upload");
+      }
+    } else {
+      if (!data.file) {
+        throw new Error("File is required for single file upload");
+      }
+    }
+
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append("name", data.name.trim());
+    formData.append("source", data.source.trim());
+    formData.append("description", data.description || "");
+    formData.append("status", data.status || "raw");
+    formData.append("isMultiFile", data.isMultiFile ? "true" : "false");
+
+    // Add files based on upload mode
+    if (data.isMultiFile && data.files) {
+      // Multi-file upload: add all files with "files" key
+      data.files.forEach((file) => {
+        formData.append("files", file);
+      });
+    } else if (data.file) {
+      // Single-file upload: add single file with "file" key
+      formData.append("file", data.file);
+    }
+
+    const res = await axios.post("/api/v1/dataset-meta", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data.data;
+  } catch (error) {
+    console.error("Add XLSX dataset meta error:", error);
+    throw error;
+  }
+};
+
 export const DeleteDatasetMeta = async (collectionName: string) => {
   try {
     const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
@@ -877,4 +933,78 @@ export const preprocessBmkgDatasetWithStream = (
   };
 
   return eventSource;
+};
+
+// Trigger BMKG Preprocessing without stream (standard)
+export const preprocessBmkgDataset = async (
+  collectionName: string,
+  options?: {
+    smoothing_method?: "exponential" | "moving_average";
+    window_size?: number;
+    exponential_alpha?: number;
+    drop_outliers?: boolean;
+    outlier_methods?: string[];
+    iqr_multiplier?: number;
+    zscore_threshold?: number;
+    outlier_treatment?: "interpolate" | "cap" | "remove";
+    fill_missing?: boolean;
+    detect_gaps?: boolean;
+    max_gap_interpolate?: number;
+    columns_to_process?: string[];
+    parameter_configs?: Record<string, any>;
+  }
+) => {
+  try {
+    const response = await axios.post(
+      `/api/v1/preprocess/bmkg/${collectionName}`,
+      options || {}
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error preprocessing BMKG dataset:", error);
+    throw error;
+  }
+};
+
+// Get BMKG preprocessing job status
+export const getBmkgPreprocessingStatus = async (jobId: string) => {
+  try {
+    const response = await axios.get(`/api/v1/preprocess/status/${jobId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error getting BMKG preprocessing status:", error);
+    throw error;
+  }
+};
+
+// Get all BMKG preprocessing jobs
+export const getAllBmkgPreprocessingJobs = async (page = 1, pageSize = 10) => {
+  try {
+    const response = await axios.get("/api/v1/preprocess/jobs", {
+      params: {
+        page,
+        pageSize,
+        type: "bmkg", // Filter for BMKG jobs only
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error getting BMKG preprocessing jobs:", error);
+    throw error;
+  }
+};
+
+// Check if BMKG dataset can be preprocessed
+export const checkBmkgDatasetForPreprocessing = async (
+  collectionName: string
+) => {
+  try {
+    const response = await axios.get(
+      `/api/v1/preprocess/bmkg/${collectionName}/validate`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error validating BMKG dataset:", error);
+    throw error;
+  }
 };
