@@ -340,9 +340,9 @@ datasetMetaRoute.post("/", async (c) => {
     const collectionName =
       rawCollectionName?.trim() ||
       name
-        .toLowerCase()
-        .replace(/\s+/g, "_")
-        .replace(/[^a-z0-9_]/g, "");
+        .trim()
+        .replace(/[^a-zA-Z0-9\s]/g, "") // Keep spaces, remove special chars
+        .replace(/\s+/g, " "); // Normalize spaces
     const fileSize = Buffer.byteLength(JSON.stringify(data));
 
     if (fileSize > MAX_FILE_SIZE) {
@@ -662,10 +662,9 @@ async function handleXlsxUpload(c: any) {
 
     // Generate collection name
     const collectionName = name
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "")
-      .substring(0, 50); // Limit length
+      .trim()
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .replace(/\s+/g, " ");
 
     const fileSize = Buffer.byteLength(JSON.stringify(processedData));
 

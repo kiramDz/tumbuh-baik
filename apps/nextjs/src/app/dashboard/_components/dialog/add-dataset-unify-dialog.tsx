@@ -64,8 +64,21 @@ const ACEH_LOCATIONS: AcehLocations = {
     { name: "Kec. Darussalam", lat: 5.5945451, lon: 95.4201377 },
   ],
   "Kabupaten Aceh Jaya": [
-    { name: "Kec. Panga", lat: 4.51396, lon: 95.457805 },
-    { name: "Kec. Jaya/Lamno", lat: 5.1617309, lon: 95.435853 },
+    { name: "Kec. Jaya/Lamno", lat: 5.1526721, lon: 95.1509617 },
+    { name: "Kec. Setia Bakti", lat: 4.8333007, lon: 95.4867971 },
+    { name: "Kec. Pasie Raya", lat: 4.6136123, lon: 95.8614504 },
+    { name: "Kec. Teunom", lat: 4.4999535, lon: 95.7700208 },
+  ],
+  "Kabupaten Pidie": [
+    { name: "Kec. Pidie", lat: 5.3759998, lon: 95.9148038 },
+    { name: "Kec. Indrajaya", lat: 5.3114261, lon: 95.8978653 },
+  ],
+  "Kabupaten Aceh Utara": [
+    { name: "Kec. Lhoksukon", lat: 5.051701, lon: 97.318123 },
+  ],
+  "Kabupaten Bireuen": [
+    { name: "Kec. Juli", lat: 5.0735373, lon: 96.5879472 },
+    { name: "Kec. Kota Juang", lat: 5.190849, lon: 96.6728368 },
   ],
 };
 
@@ -330,12 +343,6 @@ export default function AddDatasetDialog() {
       return;
     }
 
-    // ✅ Handle CSV/JSON uploads (existing logic - unchanged)
-    const collectionName = uploadForm.name
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
-
     const buffer = await file!.arrayBuffer();
     const parsed = await parseFile({
       fileBuffer: Buffer.from(buffer),
@@ -349,7 +356,6 @@ export default function AddDatasetDialog() {
             name: uploadForm.name,
             source: uploadForm.source,
             fileType,
-            collectionName,
             description: uploadForm.description,
             status: uploadForm.status,
             records: parsed,
