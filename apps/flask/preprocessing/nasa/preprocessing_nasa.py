@@ -8,7 +8,6 @@ from scipy import stats
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 from sklearn.metrics import r2_score
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 import logging 
 import traceback
 
@@ -281,7 +280,6 @@ class NasaPreprocessor:
             "outliers": {},
             "smoothing": {},
             "gaps": {},
-            "normalization": {},
             "r2_validation": {},
             "model_coverage": {},
             "quality_metrics": {},
@@ -313,9 +311,6 @@ class NasaPreprocessor:
                 "detect_gaps": True,
                 "exclude_tail_data": True,  # Exclude last 5 days (NASA lag)
                 "max_gap_interpolate": 90,  # days
-                "apply_normalization": True,
-                "normalization_method": "minmax",  # "minmax", "standard", "robust"
-                "normalization_feature_range": (0, 1), # for MinMaxScaler
                 "calculate_r2": True,
                 "r2_threshold": 0.85,
                 "calculate_coverage": True,
@@ -328,7 +323,6 @@ class NasaPreprocessor:
                     "PRECTOTCORR": {
                         "smoothing_method": None,
                         "apply_outlier_detection": False,
-                        "apply_normalization": True,
                         "preserve_zeros": True,
                         "validate_range": True,
                         "valid_min": 0.0,
@@ -382,7 +376,7 @@ class NasaPreprocessor:
         logger.info("Starting NASA POWER data preprocessing...")
         
         processed_df = df.copy()
-        total_steps = 10
+        total_steps = 9
         current_step = 0
         
         # Helper function untuk log progress
@@ -420,25 +414,29 @@ class NasaPreprocessor:
         # STEP 6: Apply smoothing
         log_progress("smoothing", "Applying smoothing methods...")
         processed_df = self._apply_smoothing(processed_df)
-
-        # STEP 7: Normalization data
-        log_progress("normalization", "Normalizing data for model compatibility...")
-        if self.options.get("apply_normalization", True):
-            processed_df = self._normalize_data(processed_df)
-                
-        # STEP 8: Calculate R² validation
+        
+        # STEP 7: Calculate R² validation
         log_progress("r2_validation", "Calculating preprocessing R² validation...")
         if self.options.get("calculate_r2", True):
             self._calculate_preprocessing_r2(df, processed_df)
             
-        # STEP 9: Calculate model coverage 
+        # STEP 8: Calculate model coverage 
         log_progress("model_coverage", "Calculating model coverage analysis...")
         if self.options.get("calculate_coverage", True):
             self._calculate_model_coverage(processed_df)
         
-        # STEP 10: Generate quality metrics
+        # STEP 9: Generate quality metrics
         log_progress("quality_metrics", "Generating quality metrics...")
         self._generate_quality_metrics(df, processed_df)
+        
+        # log_progress("quality_metrics", "Generating quality metrics...")
+        # self._generate_quality_metrics(df, processed_df)
+        
+        # numeric_columns = [col for col in processed_df.select_dtypes(include=[np.number]).columns]
+        
+        # for col in numeric_columns:
+        #     if col in processed_df.columns:
+        #         processed_df[col] = processed_df[col].round(2)
         
         logger.info(f"Preprocessing completed - processed {len(processed_df)} records")
         return processed_df
@@ -752,130 +750,6 @@ class NasaPreprocessor:
         
         return z_scores > threshold
     
-    def _normalize_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Apply normalization/standardization to numerical parameters for model compatibility
-        Critical for LSTM models which require scaled inputs (0-1 range)
-        """
-        logger.info("Applying data normalization...")
-        
-        params = self.options.get("columns_to_process", [])
-        normalization_method = self.options.get("normalization_method", "minmax")
-        normalization_summary = {}
-        
-        # Initialize scaler based on method
-        if normalization_method == "minmax":
-            feature_range = self.options.get("normalization_feature_range", (0, 1))
-            scaler = MinMaxScaler(feature_range=feature_range)
-            scaler_name = f"MinMaxScaler{feature_range}"
-        elif normalization_method == "standard":
-            scaler = StandardScaler()
-            scaler_name = "StandardScaler (mean=0, std=1)"
-        elif normalization_method == "robust":
-            scaler = RobustScaler()
-            scaler_name = "RobustScaler (median-based)"
-        else:
-            logger.warning(f"Unknown normalization method: {normalization_method}")
-            return df
-        
-        # Apply normalization for parameter
-        for param in params:
-            if param not in df.columns:
-                continue
-            
-            # Ckeck parameter specific config
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            if not param_config.get("apply_normalization", True):
-                normalization_summary[param] = "skipped"
-                continue
-            
-            # Get original statistics before normalization
-            original_stats = {
-                "min": float(df[param].min()),
-                "max": float(df[param].max()),
-                "mean": float(df[param].mean()),
-                "std": float(df[param].std())
-            }
-            
-            # Apply normalization
-            try:
-                # Reshape for sklearn (expects 2D array)
-                values = df[param].values.reshape(-1, 1)
-                
-                # Handle missing values
-                mask = ~np.isnan(values.flatten())
-                if mask.sum() == 0:
-                    logger.warning(f"No valid values for parameter {param}, skipping normalization")
-                    normalization_summary[param] = "no_valid_values"
-                    continue
-                
-                # Fit and transform only non-NaN values
-                if mask.sum() > 0:
-                    # Fit scaler on non-NaN values
-                    scaler.fit(values[mask])
-                    
-                    # Transform all values (NaN will remain NaN)
-                    normalized_values = values.flatten().copy()
-                    normalized_values[mask] = scaler.transform(values[mask]).flatten()
-                    
-                    df[param] = normalized_values
-                    
-                    # Get new statistics after normalization
-                    new_stats = {
-                        "min": float(df[param].min()),
-                        "max": float(df[param].max()),
-                        "mean": float(df[param].mean()),
-                        "std": float(df[param].std())
-                    }
-                    
-                    normalization_summary[param] = {
-                        "method": scaler_name,
-                        "original_range": f"{original_stats['min']:.3f} to {original_stats['max']:.3f}",
-                        "normalized_range": f"{new_stats['min']:.3f} to {new_stats['max']:.3f}",
-                        "scaler_params": self._get_scaler_params(scaler)
-                    }
-                    
-            except Exception as e:
-                logger.error(f"Error normalizing parameter {param}: {str(e)}")
-                normalization_summary[param] = f"error: {str(e)}"
-            
-            # Store normalization into preprocessing report
-        self.preprocessing_report["normalization"] = {
-            "method": normalization_method,
-            "scaler_type": scaler_name,
-            "parameters_normalized": normalization_summary,
-            "total_parameters": len([p for p in normalization_summary.values() if isinstance(p, dict)])
-        }
-            
-        logger.info(f"Normalization completed using {scaler_name}")
-        logger.info(f"Normalized parameters: {list(normalization_summary.keys())}")
-            
-        return df
-        
-    def _get_scaler_params(self, scaler) -> Dict[str, Any]:
-        """Extract scaler parameters for potential inverse transformation"""
-        params = {}
-        
-        if isinstance(scaler, MinMaxScaler):
-            params = {
-                "feature_range": scaler.feature_range,
-                "data_min_": scaler.data_min_.tolist() if hasattr(scaler, 'data_min_') else None,
-                "data_max_": scaler.data_max_.tolist() if hasattr(scaler, 'data_max_') else None,
-                "scale_": scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
-            }
-        elif isinstance(scaler, StandardScaler):
-            params = {
-                "mean_": scaler.mean_.tolist() if hasattr(scaler, 'mean_') else None,
-                "scale_": scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
-            }
-        elif isinstance(scaler, RobustScaler):
-            params = {
-                "center_": scaler.center_.tolist() if hasattr(scaler, 'center_') else None,
-                "scale_": scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
-            }
-        
-        return params 
-    
     def _calculate_preprocessing_r2(
         self, 
         original_df: pd.DataFrame,
@@ -1082,13 +956,13 @@ class NasaPreprocessor:
             coverage_results["holt_winters"] = {
                 "coverage_percentage": round(overall_hw_coverage, 2),
                 "uncovered_breakdown": hw_uncovered,
-                "model_sustainability": self._determine_model_sustainability(overall_hw_coverage)
+                "model_suitability": self._determine_model_suitability(overall_hw_coverage)
             }
             
             coverage_results["lstm"] = {
                 "coverage_percentage": round(overall_lstm_coverage, 2),
                 "uncovered_breakdown": lstm_uncovered,
-                "model_sustainability": self._determine_model_sustainability(overall_lstm_coverage)
+                "model_suitability": self._determine_model_suitability(overall_lstm_coverage)
             }
         
         # Store coverage results in preprocessing report
@@ -1131,10 +1005,7 @@ class NasaPreprocessor:
         # 4. Analyze stationarity (affects model selection)
         stationarity_analysis = self._analyze_stationarity(series)
         
-        # 5. Analyze normalization status (critical for LSTM)
-        normalization_analysis = self._analyze_normalization_status(series, param)
-        
-        # 6. Analyze extreme precipitation events (for PRECTOTCORR)
+        # 5. Analyze extreme precipitation events (for PRECTOTCORR)
         precipitation_analysis = self._analyze_precipitation_extremes(series, param) if param == "PRECTOTCORR" else {}
         
         # Calculate Holt-Winters coverage
@@ -1150,7 +1021,6 @@ class NasaPreprocessor:
         lstm_coverage = self._calculate_lstm_coverage(
             large_gaps_impact,
             extreme_outliers_impact,
-            normalization_analysis,
             precipitation_analysis,
             stationarity_analysis,
             coverage_analysis
@@ -1166,7 +1036,6 @@ class NasaPreprocessor:
                 "extreme_outliers": extreme_outliers_impact,
                 "seasonality": seasonality_analysis,
                 "stationarity": stationarity_analysis,
-                "normalization": normalization_analysis,
                 "precipitation": precipitation_analysis
             }
         }
@@ -1269,30 +1138,7 @@ class NasaPreprocessor:
         except Exception as e:
             logger.warning(f"Error in stationarity analysis: {str(e)}")
             return {"is_stationary": False, "error": str(e)}
-
-    def _analyze_normalization_status(self, series: pd.Series, param: str) -> Dict[str, Any]:
-        """Analyze if data is properly normalized for LSTM"""
         
-        # Check if normalization was applied
-        normalization_info = self.preprocessing_report.get("normalization", {})
-        param_normalized = normalization_info.get("parameters_normalized", {}).get(param)
-        
-        if isinstance(param_normalized, dict):
-            is_normalized = True
-            data_range = (series.min(), series.max())
-            is_in_range = 0 <= data_range[0] <= 1 and 0 <= data_range[1] <= 1
-        else:
-            is_normalized = False
-            is_in_range = False
-            data_range = (series.min(), series.max())
-        
-        return {
-            "is_normalized": is_normalized,
-            "is_in_proper_range": is_in_range,
-            "data_range": [round(float(data_range[0]), 3), round(float(data_range[1]), 3)],
-            "normalization_method": param_normalized.get("method") if isinstance(param_normalized, dict) else None
-        }
-
     def _analyze_precipitation_extremes(self, series: pd.Series, param: str) -> Dict[str, Any]:
         """Analyze extreme precipitation events (0 vs 500mm range)"""
         if param != "PRECTOTCORR":
@@ -1355,21 +1201,11 @@ class NasaPreprocessor:
             "uncovered_reasons": uncovered_reasons
         }
 
-    def _calculate_lstm_coverage(self, large_gaps, extreme_outliers, normalization, precipitation, stationarity, coverage_analysis) -> Dict[str, Any]:
+    def _calculate_lstm_coverage(self, large_gaps, extreme_outliers, precipitation, stationarity, coverage_analysis) -> Dict[str, Any]:
         """Calculate LSTM model coverage"""
         
         base_coverage = 100.0
         uncovered_reasons = {}
-        
-        # Critical: Normalization (LSTM requires normalized input)
-        if not normalization.get("is_normalized", False):
-            normalization_penalty = 25.0  # 25% penalty for no normalization
-            base_coverage -= normalization_penalty
-            uncovered_reasons["not_normalized"] = normalization_penalty
-        elif not normalization.get("is_in_proper_range", False):
-            range_penalty = 15.0  # 15% penalty for improper range
-            base_coverage -= range_penalty
-            uncovered_reasons["improper_range"] = range_penalty
         
         # Penalize for large gaps
         large_gap_penalty = large_gaps.get("impact_percentage", 0) * 0.8  # Slightly less critical than HW
@@ -1423,8 +1259,8 @@ class NasaPreprocessor:
         
         return aggregated
 
-    def _determine_model_sustainability(self, coverage_percentage: float) -> str:
-        """Determine model sustainability based on coverage percentage"""
+    def _determine_model_suitability(self, coverage_percentage: float) -> str:
+        """Determine model suitability based on coverage percentage"""
         if coverage_percentage >= 85:
             return "excellent"
         elif coverage_percentage >= 75:
