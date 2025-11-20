@@ -4,6 +4,11 @@ import pandas as pd
 import numpy as np
 from pymongo import MongoClient
 from bson import ObjectId
+from scipy import stats
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
+from sklearn.metrics import r2_score
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 import logging 
 import traceback
 
@@ -276,6 +281,9 @@ class NasaPreprocessor:
             "outliers": {},
             "smoothing": {},
             "gaps": {},
+            "normalization": {},
+            "r2_validation": {},
+            "model_coverage": {},
             "quality_metrics": {},
             "warnings": []
         }
@@ -305,6 +313,12 @@ class NasaPreprocessor:
                 "detect_gaps": True,
                 "exclude_tail_data": True,  # Exclude last 5 days (NASA lag)
                 "max_gap_interpolate": 90,  # days
+                "apply_normalization": True,
+                "normalization_method": "minmax",  # "minmax", "standard", "robust"
+                "normalization_feature_range": (0, 1), # for MinMaxScaler
+                "calculate_r2": True,
+                "r2_threshold": 0.85,
+                "calculate_coverage": True,
                 "columns_to_process": [
                     'T2M', 'T2M_MAX', 'T2M_MIN', 'RH2M', 
                     'PRECTOTCORR', 'ALLSKY_SFC_SW_DWN', 
@@ -314,6 +328,7 @@ class NasaPreprocessor:
                     "PRECTOTCORR": {
                         "smoothing_method": None,
                         "apply_outlier_detection": False,
+                        "apply_normalization": True,
                         "preserve_zeros": True,
                         "validate_range": True,
                         "valid_min": 0.0,
@@ -367,7 +382,7 @@ class NasaPreprocessor:
         logger.info("Starting NASA POWER data preprocessing...")
         
         processed_df = df.copy()
-        total_steps = 7
+        total_steps = 10
         current_step = 0
         
         # Helper function untuk log progress
@@ -405,8 +420,23 @@ class NasaPreprocessor:
         # STEP 6: Apply smoothing
         log_progress("smoothing", "Applying smoothing methods...")
         processed_df = self._apply_smoothing(processed_df)
+
+        # STEP 7: Normalization data
+        log_progress("normalization", "Normalizing data for model compatibility...")
+        if self.options.get("apply_normalization", True):
+            processed_df = self._normalize_data(processed_df)
+                
+        # STEP 8: Calculate R² validation
+        log_progress("r2_validation", "Calculating preprocessing R² validation...")
+        if self.options.get("calculate_r2", True):
+            self._calculate_preprocessing_r2(df, processed_df)
+            
+        # STEP 9: Calculate model coverage 
+        log_progress("model_coverage", "Calculating model coverage analysis...")
+        if self.options.get("calculate_coverage", True):
+            self._calculate_model_coverage(processed_df)
         
-        # STEP 7: Generate quality metrics
+        # STEP 10: Generate quality metrics
         log_progress("quality_metrics", "Generating quality metrics...")
         self._generate_quality_metrics(df, processed_df)
         
@@ -722,6 +752,251 @@ class NasaPreprocessor:
         
         return z_scores > threshold
     
+    def _normalize_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply normalization/standardization to numerical parameters for model compatibility
+        Critical for LSTM models which require scaled inputs (0-1 range)
+        """
+        logger.info("Applying data normalization...")
+        
+        params = self.options.get("columns_to_process", [])
+        normalization_method = self.options.get("normalization_method", "minmax")
+        normalization_summary = {}
+        
+        # Initialize scaler based on method
+        if normalization_method == "minmax":
+            feature_range = self.options.get("normalization_feature_range", (0, 1))
+            scaler = MinMaxScaler(feature_range=feature_range)
+            scaler_name = f"MinMaxScaler{feature_range}"
+        elif normalization_method == "standard":
+            scaler = StandardScaler()
+            scaler_name = "StandardScaler (mean=0, std=1)"
+        elif normalization_method == "robust":
+            scaler = RobustScaler()
+            scaler_name = "RobustScaler (median-based)"
+        else:
+            logger.warning(f"Unknown normalization method: {normalization_method}")
+            return df
+        
+        # Apply normalization for parameter
+        for param in params:
+            if param not in df.columns:
+                continue
+            
+            # Ckeck parameter specific config
+            param_config = self.options.get("parameter_configs", {}).get(param, {})
+            if not param_config.get("apply_normalization", True):
+                normalization_summary[param] = "skipped"
+                continue
+            
+            # Get original statistics before normalization
+            original_stats = {
+                "min": float(df[param].min()),
+                "max": float(df[param].max()),
+                "mean": float(df[param].mean()),
+                "std": float(df[param].std())
+            }
+            
+            # Apply normalization
+            try:
+                # Reshape for sklearn (expects 2D array)
+                values = df[param].values.reshape(-1, 1)
+                
+                # Handle missing values
+                mask = ~np.isnan(values.flatten())
+                if mask.sum() == 0:
+                    logger.warning(f"No valid values for parameter {param}, skipping normalization")
+                    normalization_summary[param] = "no_valid_values"
+                    continue
+                
+                # Fit and transform only non-NaN values
+                if mask.sum() > 0:
+                    # Fit scaler on non-NaN values
+                    scaler.fit(values[mask])
+                    
+                    # Transform all values (NaN will remain NaN)
+                    normalized_values = values.flatten().copy()
+                    normalized_values[mask] = scaler.transform(values[mask]).flatten()
+                    
+                    df[param] = normalized_values
+                    
+                    # Get new statistics after normalization
+                    new_stats = {
+                        "min": float(df[param].min()),
+                        "max": float(df[param].max()),
+                        "mean": float(df[param].mean()),
+                        "std": float(df[param].std())
+                    }
+                    
+                    normalization_summary[param] = {
+                        "method": scaler_name,
+                        "original_range": f"{original_stats['min']:.3f} to {original_stats['max']:.3f}",
+                        "normalized_range": f"{new_stats['min']:.3f} to {new_stats['max']:.3f}",
+                        "scaler_params": self._get_scaler_params(scaler)
+                    }
+                    
+            except Exception as e:
+                logger.error(f"Error normalizing parameter {param}: {str(e)}")
+                normalization_summary[param] = f"error: {str(e)}"
+            
+            # Store normalization into preprocessing report
+        self.preprocessing_report["normalization"] = {
+            "method": normalization_method,
+            "scaler_type": scaler_name,
+            "parameters_normalized": normalization_summary,
+            "total_parameters": len([p for p in normalization_summary.values() if isinstance(p, dict)])
+        }
+            
+        logger.info(f"Normalization completed using {scaler_name}")
+        logger.info(f"Normalized parameters: {list(normalization_summary.keys())}")
+            
+        return df
+        
+    def _get_scaler_params(self, scaler) -> Dict[str, Any]:
+        """Extract scaler parameters for potential inverse transformation"""
+        params = {}
+        
+        if isinstance(scaler, MinMaxScaler):
+            params = {
+                "feature_range": scaler.feature_range,
+                "data_min_": scaler.data_min_.tolist() if hasattr(scaler, 'data_min_') else None,
+                "data_max_": scaler.data_max_.tolist() if hasattr(scaler, 'data_max_') else None,
+                "scale_": scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
+            }
+        elif isinstance(scaler, StandardScaler):
+            params = {
+                "mean_": scaler.mean_.tolist() if hasattr(scaler, 'mean_') else None,
+                "scale_": scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
+            }
+        elif isinstance(scaler, RobustScaler):
+            params = {
+                "center_": scaler.center_.tolist() if hasattr(scaler, 'center_') else None,
+                "scale_": scaler.scale_.tolist() if hasattr(scaler, 'scale_') else None
+            }
+        
+        return params 
+    
+    def _calculate_preprocessing_r2(
+        self, 
+        original_df: pd.DataFrame,
+        preprocessed_df: pd.DataFrame
+    ) -> None:
+        """
+        Measure how well preprocessed data preserves original data trends using R² score
+        """
+        logger.info("Calculating preprocessing R² validation...")
+        
+        params = self.options.get("columns_to_process", [])
+        r2_threshold = self.options.get("r2_threshold", 0.85)
+        r2_results = {}
+        
+        for param in params: 
+            if param not in original_df.columns or param not in preprocessed_df.columns:
+                continue
+            
+            try:
+                # Get overlapping time periods only (exclude tail data and removed outliers)
+                # Find common indices between original and preprocessed
+                common_indices = original_df.index.intersection(preprocessed_df.index)
+                
+                if len (common_indices) == 0:
+                    logger.warning(f"No common indices found for parameter {param}")
+                    r2_results[param] = {"r2_score": None, "status": "no_common_data"}
+                    continue
+                
+                # Extract overlapping data
+                original_values = original_df.loc[common_indices, param]
+                preprocessed_values = preprocessed_df.loc[common_indices, param]
+                
+                # Remove NaN values from both series (must be paired)
+                mask = ~(original_values.isna() | preprocessed_values.isna())
+                
+                if mask.sum() < 10:
+                    logger.warning(f"Insufficient valid data points for {param}: {mask.sum()}")
+                    r2_results[param] = {"r2_score": None, "status": "insufficient_data"}
+                    continue
+                
+                original_clean = original_values[mask]
+                preprocessed_clean = preprocessed_values[mask]
+                
+                # Calculate R² score
+                if len(original_clean) > 0 and original_clean.std() > 0:
+                    r2 = r2_score(original_clean, preprocessed_clean)
+                    
+                    # Determine quality status
+                    if r2 >= r2_threshold:
+                        status = "excellent"
+                    elif r2 >= 0.75:
+                        status = "good"
+                    elif r2 >= 0.50:
+                        status = "fair"
+                    else:
+                        status = "poor"
+                        
+                    r2_results[param] = {
+                        "r2_score": round(float(r2), 4),
+                        "status": status,
+                        "data_points": int(len(original_clean)),
+                        "original_range": f"{original_clean.min():.3f} to {original_clean.max():.3f}",
+                        "preprocessed_range": f"{preprocessed_clean.min():.3f} to {preprocessed_clean.max():.3f}"
+                    }
+                    
+                    if r2 < r2_threshold:
+                        self.preprocessing_report["warnings"].append(
+                            f"Parameter {param} has low R² score ({r2:.3f} < {r2_threshold})"
+                        )
+                else:
+                    r2_results[param] = {"r2_score": None, "status": "no_variance"}
+
+                
+            except Exception as e:
+                logger.error(f"Error calculating R² for parameter {param}: {str(e)}")
+                r2_results[param] = {"r2_score": None, "status": f"error: {str(e)}"}
+        
+        # Calculate overall preprocessing quality
+        valid_r2_scores = [
+            result["r2_score"] for result in r2_results.values() 
+            if result["r2_score"] is not None
+        ]
+        
+        if valid_r2_scores:
+            overall_r2 = sum(valid_r2_scores) / len(valid_r2_scores)
+            parameters_above_threshold = sum(1 for r2 in valid_r2_scores if r2 >= r2_threshold)
+            
+            overall_quality = {
+                "overall_r2": round(float(overall_r2), 4),
+                "parameters_above_threshold": parameters_above_threshold,
+                "total_parameters": len(valid_r2_scores),
+                "threshold": r2_threshold,
+                "quality_percentage": round((parameters_above_threshold / len(valid_r2_scores)) * 100, 2)
+            }
+            
+            # Determine overall preprocessing quality
+            if overall_r2 >= r2_threshold and parameters_above_threshold >= len(valid_r2_scores) * 0.8:
+                overall_quality["preprocessing_quality"] = "excellent"
+            elif overall_r2 >= 0.75 and parameters_above_threshold >= len(valid_r2_scores) * 0.6:
+                overall_quality["preprocessing_quality"] = "good"
+            elif overall_r2 >= 0.50:
+                overall_quality["preprocessing_quality"] = "fair"
+            else:
+                overall_quality["preprocessing_quality"] = "poor"
+                
+        else:
+            overall_quality = {
+                "overall_r2": None,
+                "preprocessing_quality": "unknown",
+                "error": "No valid R² scores calculated"
+            }
+        
+        # Store R² validation results in preprocessing report
+        self.preprocessing_report["r2_validation"] = {
+            "threshold": r2_threshold,
+            "per_parameter": r2_results,
+            "overall": overall_quality
+        }
+        
+        logger.info(f"R² validation completed - Overall R²: {overall_quality.get('overall_r2', 'N/A')}")
+    
     def _treat_outliers(self, df: pd.DataFrame, param: str, outliers_mask: pd.Series) -> pd.DataFrame:
         """Treat detected outliers"""
         treatment = self.options.get("outlier_treatment", "interpolate")
@@ -748,6 +1023,416 @@ class NasaPreprocessor:
             df = df[~outliers_mask]
         
         return df
+    
+    def _calculate_model_coverage(
+        self,
+        df: pd.DataFrame
+    ) -> None:
+        """
+        Calculate model applicability coverage for Holt-Winters and LSTM models
+        Analyzes data segments that are suitable/unsuitable for each model type
+        """
+        logger.info("Calculating model coverage analysis...")
+        
+        params = self.options.get("columns_to_process", [])
+        coverage_results = {
+            "holt_winters": {"coverage_percentage": 0, "uncovered_breakdown": {}},
+            "lstm": {"coverage_percentage": 0, "uncovered_breakdown": {}},
+            "per_parameter": {}
+        }
+        
+        total_data_points = len(df)
+        
+        for param in params:
+            if param not in df.columns:
+                continue
+            
+            try:
+                param_coverage = self._analyze_parameter_coverage(df, param, total_data_points)
+                coverage_results["per_parameter"][param] = param_coverage
+            except Exception as e:
+                logger.error(f"Error calculating coverage for parameter {param}: {str(e)}")
+                coverage_results["per_parameter"][param] = {
+                    "holt_winters_coverage": 0,
+                    "lstm_coverage": 0,
+                    "error": str(e)
+                }
+        
+        # Calculate overall coverage percentages
+        if coverage_results["per_parameter"]:
+            hw_coverage = [
+                result.get("holt_winters_coverage", 0)
+                for result in coverage_results["per_parameter"].values()
+                if isinstance(result, dict) and "holt_winters_coverage" in result
+            ]
+            lstm_coverage = [
+                result.get("lstm_coverage", 0)
+                for result in coverage_results["per_parameter"].values()
+                if isinstance(result, dict) and "lstm_coverage" in result
+            ]
+            
+            # Overall coverage (average across parameters)
+            overall_hw_coverage = sum(hw_coverage) / len(hw_coverage) if hw_coverage else 0
+            overall_lstm_coverage = sum(lstm_coverage) / len(lstm_coverage) if lstm_coverage else 0
+            
+            # Aggregate uncovered breakdown
+            hw_uncovered = self._aggregate_uncovered_breakdown(coverage_results["per_parameter"], "holt_winters")
+            lstm_uncovered = self._aggregate_uncovered_breakdown(coverage_results["per_parameter"], "lstm")
+            
+            coverage_results["holt_winters"] = {
+                "coverage_percentage": round(overall_hw_coverage, 2),
+                "uncovered_breakdown": hw_uncovered,
+                "model_sustainability": self._determine_model_sustainability(overall_hw_coverage)
+            }
+            
+            coverage_results["lstm"] = {
+                "coverage_percentage": round(overall_lstm_coverage, 2),
+                "uncovered_breakdown": lstm_uncovered,
+                "model_sustainability": self._determine_model_sustainability(overall_lstm_coverage)
+            }
+        
+        # Store coverage results in preprocessing report
+        self.preprocessing_report["model_coverage"] = coverage_results
+        logger.info(f"Model coverage - Holt Winters: {coverage_results['holt_winters']['coverage_percentage']:.1f}%" )
+        logger.info(f"Model coverage - LSTM: {coverage_results['lstm']['coverage_percentage']:.1f}%")
+        
+    def _analyze_parameter_coverage(
+        self,
+        df: pd.DataFrame,
+        param: str,
+        total_points: int
+    ) -> Dict[str, Any]:
+        """
+        Analyze coverage for a specific parameter for both model types
+        """
+        series = df[param].dropna()
+        if len(series) < 30: # Need minimum data for analysis
+            return {
+                "holt_winters_coverage": 0,
+                "lstm_coverage": 0,
+                "insufficient_data": True
+            }
+        
+        # Analysis results
+        coverage_analysis = {
+            "data_points": len(series),
+            "missing_ratio": (total_points - len(series)) / total_points
+        }
+        
+        # 1. Analyze large gaps (affects both models)
+        large_gaps_impact = self._analyze_large_gaps(df, param)
+        
+        # 2. Analyze extreme outliers (affects both models)
+        extreme_outliers_impact = self._analyze_extreme_outliers(series)
+        
+        # 3. Analyze seasonality (critical for Holt-Winters)
+        seasonality_analysis = self._analyze_seasonality(series)
+        
+        # 4. Analyze stationarity (affects model selection)
+        stationarity_analysis = self._analyze_stationarity(series)
+        
+        # 5. Analyze normalization status (critical for LSTM)
+        normalization_analysis = self._analyze_normalization_status(series, param)
+        
+        # 6. Analyze extreme precipitation events (for PRECTOTCORR)
+        precipitation_analysis = self._analyze_precipitation_extremes(series, param) if param == "PRECTOTCORR" else {}
+        
+        # Calculate Holt-Winters coverage
+        hw_coverage = self._calculate_holt_winters_coverage(
+            large_gaps_impact,
+            extreme_outliers_impact,
+            seasonality_analysis,
+            stationarity_analysis,
+            coverage_analysis
+        )
+        
+        # Calculate LSTM coverage
+        lstm_coverage = self._calculate_lstm_coverage(
+            large_gaps_impact,
+            extreme_outliers_impact,
+            normalization_analysis,
+            precipitation_analysis,
+            stationarity_analysis,
+            coverage_analysis
+        )
+        
+        return {
+            "holt_winters_coverage": hw_coverage["coverage_percentage"],
+            "lstm_coverage": lstm_coverage["coverage_percentage"],
+            "holt_winters_uncovered": hw_coverage["uncovered_reasons"],
+            "lstm_uncovered": lstm_coverage["uncovered_reasons"],
+            "analysis_details": {
+                "large_gaps": large_gaps_impact,
+                "extreme_outliers": extreme_outliers_impact,
+                "seasonality": seasonality_analysis,
+                "stationarity": stationarity_analysis,
+                "normalization": normalization_analysis,
+                "precipitation": precipitation_analysis
+            }
+        }
+        
+    def _analyze_large_gaps(self, df: pd.DataFrame, param: str) -> Dict[str, Any]:
+        """Analyze impact of large gaps (>90 days)"""
+        if 'Date' not in df.columns:
+            return {"impact_percentage": 0, "large_gaps_count": 0}
+        
+        # Get gaps from preprocessing report
+        gaps_info = self.preprocessing_report.get("gaps", {})
+        large_gaps = [gap for gap in gaps_info.get("gap_details", []) if gap.get("duration_days", 0) > 90]
+        
+        if not large_gaps:
+            return {"impact_percentage": 0, "large_gaps_count": 0}
+        
+        # Calculate impact
+        total_gap_days = sum(gap["duration_days"] for gap in large_gaps)
+        total_days = (df['Date'].max() - df['Date'].min()).days + 1
+        impact_percentage = (total_gap_days / total_days) * 100
+        
+        return {
+            "impact_percentage": round(impact_percentage, 2),
+            "large_gaps_count": len(large_gaps),
+            "total_gap_days": total_gap_days
+        }
+    
+    def _analyze_extreme_outliers(self, series: pd.Series) -> Dict[str, Any]:
+        """Analyze extreme outliers that survived double-detection"""
+        if len(series) < 10:
+            return {"impact_percentage": 0}
+        
+        # More stringent outlier detection (3.5 sigma)
+        mean = series.mean()
+        std = series.std()
+        
+        if std == 0:
+            return {"impact_percentage": 0}
+        
+        z_scores = np.abs((series - mean) / std)
+        extreme_outliers = z_scores > 3.5  # More stringent than preprocessing (3.0)
+        
+        impact_percentage = (extreme_outliers.sum() / len(series)) * 100
+        
+        return {
+            "impact_percentage": round(impact_percentage, 2),
+            "extreme_outliers_count": int(extreme_outliers.sum()),
+            "max_z_score": round(float(z_scores.max()), 2)
+        }
+
+    def _analyze_seasonality(self, series: pd.Series) -> Dict[str, Any]:
+        """Analyze seasonal patterns (critical for Holt-Winters)"""
+        try:
+            if len(series) < 730:  # Need at least 2 years for seasonal analysis
+                return {"seasonal_strength": 0, "has_clear_seasonality": False, "insufficient_data": True}
+            
+            # Perform seasonal decomposition
+            decomposition = seasonal_decompose(series, model='additive', period=365, extrapolate_trend='freq')
+            
+            # Calculate seasonal strength
+            seasonal_var = np.var(decomposition.seasonal.dropna())
+            residual_var = np.var(decomposition.resid.dropna())
+            
+            if seasonal_var + residual_var == 0:
+                seasonal_strength = 0
+            else:
+                seasonal_strength = seasonal_var / (seasonal_var + residual_var)
+            
+            has_clear_seasonality = seasonal_strength > 0.3  # Threshold for clear seasonality
+            
+            return {
+                "seasonal_strength": round(float(seasonal_strength), 3),
+                "has_clear_seasonality": has_clear_seasonality,
+                "seasonal_variance": round(float(seasonal_var), 3),
+                "residual_variance": round(float(residual_var), 3)
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error in seasonal analysis: {str(e)}")
+            return {"seasonal_strength": 0, "has_clear_seasonality": False, "error": str(e)}
+
+    def _analyze_stationarity(self, series: pd.Series) -> Dict[str, Any]:
+        """Analyze stationarity using Augmented Dickey-Fuller test"""
+        try:
+            if len(series) < 50:
+                return {"is_stationary": False, "insufficient_data": True}
+            
+            # Perform ADF test
+            adf_result = adfuller(series.dropna())
+            
+            is_stationary = adf_result[1] < 0.05  # p-value < 0.05 indicates stationarity
+            
+            return {
+                "is_stationary": is_stationary,
+                "adf_statistic": round(float(adf_result[0]), 4),
+                "p_value": round(float(adf_result[1]), 4),
+                "critical_values": {k: round(v, 4) for k, v in adf_result[4].items()}
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error in stationarity analysis: {str(e)}")
+            return {"is_stationary": False, "error": str(e)}
+
+    def _analyze_normalization_status(self, series: pd.Series, param: str) -> Dict[str, Any]:
+        """Analyze if data is properly normalized for LSTM"""
+        
+        # Check if normalization was applied
+        normalization_info = self.preprocessing_report.get("normalization", {})
+        param_normalized = normalization_info.get("parameters_normalized", {}).get(param)
+        
+        if isinstance(param_normalized, dict):
+            is_normalized = True
+            data_range = (series.min(), series.max())
+            is_in_range = 0 <= data_range[0] <= 1 and 0 <= data_range[1] <= 1
+        else:
+            is_normalized = False
+            is_in_range = False
+            data_range = (series.min(), series.max())
+        
+        return {
+            "is_normalized": is_normalized,
+            "is_in_proper_range": is_in_range,
+            "data_range": [round(float(data_range[0]), 3), round(float(data_range[1]), 3)],
+            "normalization_method": param_normalized.get("method") if isinstance(param_normalized, dict) else None
+        }
+
+    def _analyze_precipitation_extremes(self, series: pd.Series, param: str) -> Dict[str, Any]:
+        """Analyze extreme precipitation events (0 vs 500mm range)"""
+        if param != "PRECTOTCORR":
+            return {}
+        
+        zero_ratio = (series == 0).sum() / len(series)
+        extreme_high = (series > 100).sum() / len(series)  # >100mm per day is extreme
+        
+        # Calculate range ratio (wide range affects LSTM)
+        data_range = series.max() - series.min()
+        range_impact = min(data_range / 500, 1.0)  # Normalize to 0-1
+        
+        return {
+            "zero_precipitation_ratio": round(float(zero_ratio), 3),
+            "extreme_precipitation_ratio": round(float(extreme_high), 3),
+            "range_impact": round(float(range_impact), 3),
+            "max_precipitation": round(float(series.max()), 2)
+        }
+
+    def _calculate_holt_winters_coverage(self, large_gaps, extreme_outliers, seasonality, stationarity, coverage_analysis) -> Dict[str, Any]:
+        """Calculate Holt-Winters model coverage"""
+        
+        base_coverage = 100.0
+        uncovered_reasons = {}
+        
+        # Penalize for large gaps (critical for HW)
+        large_gap_penalty = large_gaps.get("impact_percentage", 0)
+        base_coverage -= large_gap_penalty
+        if large_gap_penalty > 0:
+            uncovered_reasons["large_gaps"] = large_gap_penalty
+        
+        # Penalize for extreme outliers
+        outlier_penalty = extreme_outliers.get("impact_percentage", 0)
+        base_coverage -= outlier_penalty
+        if outlier_penalty > 0:
+            uncovered_reasons["extreme_outliers"] = outlier_penalty
+        
+        # Penalize for lack of seasonality (critical for HW)
+        if not seasonality.get("has_clear_seasonality", False):
+            seasonal_penalty = 15.0  # 15% penalty for no clear seasonality
+            base_coverage -= seasonal_penalty
+            uncovered_reasons["no_clear_seasonality"] = seasonal_penalty
+        
+        # Minor penalty for non-stationarity
+        if not stationarity.get("is_stationary", False):
+            stationarity_penalty = 5.0
+            base_coverage -= stationarity_penalty
+            uncovered_reasons["non_stationary"] = stationarity_penalty
+        
+        # Penalize for missing data
+        missing_penalty = coverage_analysis.get("missing_ratio", 0) * 10  # 10% penalty per 100% missing
+        base_coverage -= missing_penalty
+        if missing_penalty > 0:
+            uncovered_reasons["missing_data"] = missing_penalty
+        
+        final_coverage = max(0, base_coverage)  # Ensure non-negative
+        
+        return {
+            "coverage_percentage": round(final_coverage, 2),
+            "uncovered_reasons": uncovered_reasons
+        }
+
+    def _calculate_lstm_coverage(self, large_gaps, extreme_outliers, normalization, precipitation, stationarity, coverage_analysis) -> Dict[str, Any]:
+        """Calculate LSTM model coverage"""
+        
+        base_coverage = 100.0
+        uncovered_reasons = {}
+        
+        # Critical: Normalization (LSTM requires normalized input)
+        if not normalization.get("is_normalized", False):
+            normalization_penalty = 25.0  # 25% penalty for no normalization
+            base_coverage -= normalization_penalty
+            uncovered_reasons["not_normalized"] = normalization_penalty
+        elif not normalization.get("is_in_proper_range", False):
+            range_penalty = 15.0  # 15% penalty for improper range
+            base_coverage -= range_penalty
+            uncovered_reasons["improper_range"] = range_penalty
+        
+        # Penalize for large gaps
+        large_gap_penalty = large_gaps.get("impact_percentage", 0) * 0.8  # Slightly less critical than HW
+        base_coverage -= large_gap_penalty
+        if large_gap_penalty > 0:
+            uncovered_reasons["large_gaps"] = large_gap_penalty
+        
+        # Penalize for extreme outliers
+        outlier_penalty = extreme_outliers.get("impact_percentage", 0)
+        base_coverage -= outlier_penalty
+        if outlier_penalty > 0:
+            uncovered_reasons["extreme_outliers"] = outlier_penalty
+        
+        # Penalize for extreme precipitation events (if applicable)
+        if precipitation:
+            precip_penalty = precipitation.get("range_impact", 0) * 10  # Up to 10% penalty
+            base_coverage -= precip_penalty
+            if precip_penalty > 0:
+                uncovered_reasons["precipitation_extremes"] = precip_penalty
+        
+        # Penalize for missing data
+        missing_penalty = coverage_analysis.get("missing_ratio", 0) * 8  # 8% penalty per 100% missing
+        base_coverage -= missing_penalty
+        if missing_penalty > 0:
+            uncovered_reasons["missing_data"] = missing_penalty
+        
+        final_coverage = max(0, base_coverage)  # Ensure non-negative
+        
+        return {
+            "coverage_percentage": round(final_coverage, 2),
+            "uncovered_reasons": uncovered_reasons
+        }
+
+    def _aggregate_uncovered_breakdown(self, per_parameter_results: Dict, model_type: str) -> Dict[str, float]:
+        """Aggregate uncovered breakdown across all parameters"""
+        
+        uncovered_key = f"{model_type}_uncovered"
+        all_reasons = {}
+        
+        for param_result in per_parameter_results.values():
+            if isinstance(param_result, dict) and uncovered_key in param_result:
+                for reason, percentage in param_result[uncovered_key].items():
+                    if reason not in all_reasons:
+                        all_reasons[reason] = []
+                    all_reasons[reason].append(percentage)
+        
+        # Average the percentages across parameters
+        aggregated = {}
+        for reason, percentages in all_reasons.items():
+            aggregated[reason] = round(sum(percentages) / len(percentages), 2)
+        
+        return aggregated
+
+    def _determine_model_sustainability(self, coverage_percentage: float) -> str:
+        """Determine model sustainability based on coverage percentage"""
+        if coverage_percentage >= 85:
+            return "excellent"
+        elif coverage_percentage >= 75:
+            return "good"
+        elif coverage_percentage >= 60:
+            return "fair"
+        else:
+            return "poor"
     
     def _apply_smoothing(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply smoothing to appropriate parameters"""
@@ -822,5 +1507,3 @@ class NasaPreprocessor:
         }
         
         logger.info(f"Quality metrics: {completeness:.2f}% complete, {records_removed} records removed")
-        logger.info(f"Preprocessing completed - processed {len(processed_df)} records")
-        return processed_df

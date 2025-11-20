@@ -4,9 +4,26 @@ import { GetChartDataBySlug } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AlertCircle, TrendingUp, Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -37,7 +54,9 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
         </CardHeader>
         <CardContent>
           <div className="h-[400px] flex items-center justify-center">
-            <div className="text-muted-foreground">Sedang memuat data chart...</div>
+            <div className="text-muted-foreground">
+              Sedang memuat data chart...
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -49,7 +68,9 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
       <Alert variant="destructive" className="mt-6">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
-        <AlertDescription>Gagal memuat data chart. Silakan coba lagi.</AlertDescription>
+        <AlertDescription>
+          Gagal memuat data chart. Silakan coba lagi.
+        </AlertDescription>
       </Alert>
     );
   }
@@ -58,9 +79,12 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
     return (
       <Alert className="mt-6 border-yellow-500">
         <AlertCircle className="h-4 w-4 text-yellow-600" />
-        <AlertTitle className="text-yellow-600">Data Tidak Dapat Ditampilkan</AlertTitle>
+        <AlertTitle className="text-yellow-600">
+          Data Tidak Dapat Ditampilkan
+        </AlertTitle>
         <AlertDescription>
-          Dataset ini tidak memiliki kolom <strong>Date</strong> atau tidak ada data yang bisa ditampilkan.
+          Dataset ini tidak memiliki kolom <strong>Date</strong> atau tidak ada
+          data yang bisa ditampilkan.
         </AlertDescription>
       </Alert>
     );
@@ -70,8 +94,12 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
     return (
       <Alert className="mt-6 border-yellow-500">
         <AlertCircle className="h-4 w-4 text-yellow-600" />
-        <AlertTitle className="text-yellow-600">Data Tidak Dapat Ditampilkan</AlertTitle>
-        <AlertDescription>Dataset ini tidak memiliki kolom numerik yang bisa ditampilkan.</AlertDescription>
+        <AlertTitle className="text-yellow-600">
+          Data Tidak Dapat Ditampilkan
+        </AlertTitle>
+        <AlertDescription>
+          Dataset ini tidak memiliki kolom numerik yang bisa ditampilkan.
+        </AlertDescription>
       </Alert>
     );
   }
@@ -97,7 +125,9 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
               <TrendingUp className="h-5 w-5" />
               Visualisasi Data
             </CardTitle>
-            <CardDescription className="mt-1">Menampilkan {chartData.length} data point</CardDescription>
+            <CardDescription className="mt-1">
+              Menampilkan {chartData.length} data point
+            </CardDescription>
           </div>
           <Select value={selectedColumn} onValueChange={setSelectedColumn}>
             <SelectTrigger className="w-full sm:w-[250px]">
@@ -115,7 +145,11 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>
-          <LineChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>
+          <LineChart
+            accessibilityLayer
+            data={chartData}
+            margin={{ left: 12, right: 12 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="date"
@@ -136,8 +170,20 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
             />
             <YAxis domain={["dataMin - 3", "dataMax + 3"]} />
 
-            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-            <Line dataKey="value" type="linear" stroke="url(#colorUv)" dot={false} strokeWidth={2} filter="url(#rainbow-line-glow)" isAnimationActive={false} connectNulls />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
+            />
+            <Line
+              dataKey="value"
+              type="linear"
+              stroke="url(#colorUv)"
+              dot={false}
+              strokeWidth={2}
+              filter="url(#rainbow-line-glow)"
+              isAnimationActive={false}
+              connectNulls
+            />
             <defs>
               <linearGradient id="colorUv" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="#0B84CE" stopOpacity={0.8} />
@@ -147,7 +193,13 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
                 <stop offset="80%" stopColor="#C900BD" stopOpacity={0.8} />
                 <stop offset="100%" stopColor="#D80155" stopOpacity={0.8} />
               </linearGradient>
-              <filter id="rainbow-line-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <filter
+                id="rainbow-line-glow"
+                x="-20%"
+                y="-20%"
+                width="140%"
+                height="140%"
+              >
                 <feGaussianBlur stdDeviation="10" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
               </filter>
