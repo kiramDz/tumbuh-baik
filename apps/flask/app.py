@@ -536,14 +536,14 @@ def preprocess_nasa_dataset(collection_name):
         logger.error(f"Error in NASA preprocessing: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"message": f"Server error: {str(e)}"}), 500
-    
 
 @preprocessing_bp.route("/preprocess/nasa/<collection_name>/stream", methods=["GET"])
 def preprocess_nasa_stream(collection_name):
     """
-    SSE endpoint for real-time preprocessing logs
+    SSE endpoint for preprocessing logs
     Stream preprocessing progress to frontend
     """
+    
     def generate():
         # Create log queue for this session
         log_queue = Queue()
@@ -552,57 +552,55 @@ def preprocess_nasa_stream(collection_name):
         # Setup custom log handler that captures logs
         class SSELogHandler(logging.Handler):
             def emit(self, record):
-                log_entry = self.format(record)
-                
-                # Parse progress information
-                if "PROGRESS:" in log_entry:
-                    try:
-                        # Extract PROGRESS:percentage:stage:message
-                        progress_part = log_entry.split("PROGRESS:")[1]
-                        parts = progress_part.split(":", 2)  # Split into max 3 parts
-                        
-                        print(f"[DEBUG] Progress parts: {parts}")  # Debug log
-                        
-                        if len(parts) >= 3:
-                            # Parse percentage with error handling
-                            try:
-                                percentage_str = parts[0].strip()
-                                percentage = int(percentage_str) if percentage_str.isdigit() else 0
-                            except (ValueError, AttributeError):
-                                percentage = 0
-                                
-                            log_queue.put({
-                                'type': 'progress',
-                                'percentage': percentage,  # Now properly parsed
-                                'stage': parts[1].strip() if len(parts) > 1 else 'processing',
-                                'message': parts[2].strip() if len(parts) > 2 else 'Processing...'
-                            })
-                        else:
-                            # If parsing fails, treat as regular log but try to extract percentage
+                try:
+                    log_entry = self.format(record)
+                    # Parse progress information
+                    if "PROGRESS:" in log_entry:
+                        try:
+                            # Extract PROGRESS:percentage:stage:message
+                            progress_part = log_entry.split("PROGRESS:")[1]
+                            parts = progress_part.split(":", 2)  # Split into max 3 parts
+                            
+                            if len(parts) >= 3:
+                                # Parse percentage with error handling
+                                try:
+                                    percentage_str = parts[0].strip()
+                                    percentage = int(percentage_str) if percentage_str.isdigit() else 0
+                                except (ValueError, AttributeError):
+                                    percentage = 0
+                                    
+                                log_queue.put({
+                                    'type': 'progress',
+                                    'percentage': percentage,
+                                    'stage': parts[1].strip() if len(parts) > 1 else 'processing',
+                                    'message': parts[2].strip() if len(parts) > 2 else 'Processing...'
+                                })
+                            else:
+                                # If parsing fails, treat as regular log
+                                log_queue.put({
+                                    'type': 'log',
+                                    'level': record.levelname,
+                                    'message': log_entry,
+                                    'timestamp': time.time()
+                                })
+                        except (ValueError, IndexError) as e:
+                            # If parsing fails, treat as regular log
                             log_queue.put({
                                 'type': 'log',
                                 'level': record.levelname,
                                 'message': log_entry,
                                 'timestamp': time.time()
                             })
-                    except (ValueError, IndexError) as e:
-                        print(f"[DEBUG] Error parsing progress: {e}")  # Debug log
-                        # If parsing fails, treat as regular log
+                    else:
                         log_queue.put({
                             'type': 'log',
                             'level': record.levelname,
                             'message': log_entry,
                             'timestamp': time.time()
                         })
-                else:
-                    log_queue.put({
-                        'type': 'log',
-                        'level': record.levelname,
-                        'message': log_entry,
-                        'timestamp': time.time()
-                    })
+                except Exception as e:
+                    logger.error(f"SSE Log Handler error: {str(e)}")
         
-        # Add handler to preprocessing logger
         sse_handler = SSELogHandler()
         sse_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
         
@@ -614,11 +612,12 @@ def preprocess_nasa_stream(collection_name):
             # Send initial connection message
             yield f"data: {json.dumps({'type': 'connected', 'session_id': session_id, 'collection': collection_name})}\n\n"
             
-            # Get db and app instance from current request context
+            # Get db instance from current request context
             db_instance = current_app.config['MONGO_DB']
             
             # Start preprocessing in background thread
             preprocessing_result = {'status': None, 'data': None, 'error': None}
+            thread_completed = threading.Event()
             
             def run_preprocessing():
                 try:
@@ -638,7 +637,7 @@ def preprocess_nasa_stream(collection_name):
                     preprocessing_result['status'] = 'success'
                     preprocessing_result['data'] = result
                     
-                    # Send completion
+                    # ✅ FIXED: Send completion message immediately (no sleep)
                     log_queue.put({
                         'type': 'complete',
                         'status': 'success',
@@ -660,39 +659,99 @@ def preprocess_nasa_stream(collection_name):
                         'traceback': traceback.format_exc()
                     })
                 finally:
-                    # Signal completion
-                    log_queue.put({'type': 'done'})
+                    # ✅ FIXED: Mark thread as completed (no sleep, no done message)
+                    thread_completed.set()
             
             # Start preprocessing thread
             thread = threading.Thread(target=run_preprocessing)
             thread.daemon = True
             thread.start()
             
-            # Stream logs to client
+            # ✅ FIXED: Stream logs with proper queue flushing
+            timeout_count = 0
+            max_timeouts = 300  # 5 minutes max wait
+            
             while True:
                 try:
                     # Get log from queue (timeout to check if client disconnected)
                     log_data = log_queue.get(timeout=1)
                     
-                    # Check if done
-                    if log_data.get('type') == 'done':
-                        break
+                    # Reset timeout counter on successful message
+                    timeout_count = 0
                     
                     # Send log to client as SSE
                     yield f"data: {json.dumps(log_data)}\n\n"
                     
-                except:
-                    # Timeout - send keepalive
-                    yield ": keepalive\n\n"
+                    # ✅ FIXED: Check if this is completion message
+                    if log_data.get('type') == 'complete':
+                        # Wait a bit for any remaining logs, then flush queue
+                        remaining_messages = 0
+                        while not log_queue.empty() and remaining_messages < 10:
+                            try:
+                                remaining_log = log_queue.get_nowait()
+                                yield f"data: {json.dumps(remaining_log)}\n\n"
+                                remaining_messages += 1
+                            except:
+                                break
+                        
+                        # Send final stream complete and exit
+                        yield f"data: {json.dumps({'type': 'stream_complete', 'session_id': session_id})}\n\n"
+                        break
+                    
+                    # ✅ FIXED: Also break on error
+                    if log_data.get('type') == 'error':
+                        # Flush remaining logs
+                        while not log_queue.empty():
+                            try:
+                                remaining_log = log_queue.get_nowait()
+                                yield f"data: {json.dumps(remaining_log)}\n\n"
+                            except:
+                                break
+                        
+                        yield f"data: {json.dumps({'type': 'stream_complete', 'session_id': session_id})}\n\n"
+                        break
+                    
+                except Exception as e:
+                    # ✅ FIXED: Better timeout handling
+                    timeout_count += 1
+                    
+                    # Check if thread completed
+                    if thread_completed.is_set():
+                        # ✅ FIXED: Flush all remaining messages in queue
+                        while not log_queue.empty():
+                            try:
+                                remaining_log = log_queue.get_nowait()
+                                yield f"data: {json.dumps(remaining_log)}\n\n"
+                            except:
+                                break
+                        
+                        # Processing done, send final message and break
+                        yield f"data: {json.dumps({'type': 'stream_complete', 'session_id': session_id})}\n\n"
+                        break
+                    
+                    # Check for max timeouts (client disconnect)
+                    if timeout_count >= max_timeouts:
+                        logger.warning(f"Max timeouts reached for session {session_id}")
+                        break
+                    
+                    # Send keepalive every 10 seconds
+                    if timeout_count % 10 == 0:
+                        yield ": keepalive\n\n"
                     continue
                     
         except GeneratorExit:
             # Client disconnected
             logger.info(f"Client disconnected from preprocessing stream: {collection_name}")
+        except Exception as e:
+            # Log but dont crash on unexpected errors
+            logger.error(f"SSE stream error for {collection_name}: {str(e)}")
         finally:
-            # Cleanup
-            preprocessing_logger.removeHandler(sse_handler)
-    
+            try:
+                preprocessing_logger.removeHandler(sse_handler)
+                logger.info(f"Cleaned up SSE handler for session {session_id}")
+            except Exception as e:
+                logger.error(f"Error during SSE cleanup: {str(e)}")
+                
     return Response(
         stream_with_context(generate()),
         mimetype='text/event-stream',
@@ -700,9 +759,176 @@ def preprocess_nasa_stream(collection_name):
             'Cache-Control': 'no-cache',
             'X-Accel-Buffering': 'no',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*'  # Adjust for production
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Cache-Control' 
         }
     )
+
+# @preprocessing_bp.route("/preprocess/nasa/<collection_name>/stream", methods=["GET"])
+# def preprocess_nasa_stream(collection_name):
+#     """
+#     SSE endpoint for real-time preprocessing logs
+#     Stream preprocessing progress to frontend
+#     """
+#     def generate():
+#         # Create log queue for this session
+#         log_queue = Queue()
+#         session_id = f"{collection_name}_{int(time.time())}"
+        
+#         # Setup custom log handler that captures logs
+#         class SSELogHandler(logging.Handler):
+#             def emit(self, record):
+#                 log_entry = self.format(record)
+                
+#                 # Parse progress information
+#                 if "PROGRESS:" in log_entry:
+#                     try:
+#                         # Extract PROGRESS:percentage:stage:message
+#                         progress_part = log_entry.split("PROGRESS:")[1]
+#                         parts = progress_part.split(":", 2)  # Split into max 3 parts
+                        
+#                         print(f"[DEBUG] Progress parts: {parts}")  # Debug log
+                        
+#                         if len(parts) >= 3:
+#                             # Parse percentage with error handling
+#                             try:
+#                                 percentage_str = parts[0].strip()
+#                                 percentage = int(percentage_str) if percentage_str.isdigit() else 0
+#                             except (ValueError, AttributeError):
+#                                 percentage = 0
+                                
+#                             log_queue.put({
+#                                 'type': 'progress',
+#                                 'percentage': percentage,  # Now properly parsed
+#                                 'stage': parts[1].strip() if len(parts) > 1 else 'processing',
+#                                 'message': parts[2].strip() if len(parts) > 2 else 'Processing...'
+#                             })
+#                         else:
+#                             # If parsing fails, treat as regular log but try to extract percentage
+#                             log_queue.put({
+#                                 'type': 'log',
+#                                 'level': record.levelname,
+#                                 'message': log_entry,
+#                                 'timestamp': time.time()
+#                             })
+#                     except (ValueError, IndexError) as e:
+#                         print(f"[DEBUG] Error parsing progress: {e}")  # Debug log
+#                         # If parsing fails, treat as regular log
+#                         log_queue.put({
+#                             'type': 'log',
+#                             'level': record.levelname,
+#                             'message': log_entry,
+#                             'timestamp': time.time()
+#                         })
+#                 else:
+#                     log_queue.put({
+#                         'type': 'log',
+#                         'level': record.levelname,
+#                         'message': log_entry,
+#                         'timestamp': time.time()
+#                     })
+        
+#         # Add handler to preprocessing logger
+#         sse_handler = SSELogHandler()
+#         sse_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
+        
+#         preprocessing_logger = logging.getLogger('preprocessing.nasa.preprocessing_nasa')
+#         preprocessing_logger.addHandler(sse_handler)
+#         preprocessing_logger.setLevel(logging.INFO)
+        
+#         try:
+#             # Send initial connection message
+#             yield f"data: {json.dumps({'type': 'connected', 'session_id': session_id, 'collection': collection_name})}\n\n"
+            
+#             # Get db and app instance from current request context
+#             db_instance = current_app.config['MONGO_DB']
+            
+#             # Start preprocessing in background thread
+#             preprocessing_result = {'status': None, 'data': None, 'error': None}
+            
+#             def run_preprocessing():
+#                 try:
+#                     # Send starting message
+#                     log_queue.put({
+#                         'type': 'progress',
+#                         'stage': 'starting',
+#                         'percentage': 0,
+#                         'message': 'Initializing NASA POWER preprocessing...'
+#                     })
+                    
+#                     # Run actual preprocessing
+#                     preprocessor = NasaPreprocessor(db_instance, collection_name)
+#                     result = preprocessor.preprocess()
+                    
+#                     # Store result
+#                     preprocessing_result['status'] = 'success'
+#                     preprocessing_result['data'] = result
+                    
+#                     # Send completion
+#                     log_queue.put({
+#                         'type': 'complete',
+#                         'status': 'success',
+#                         'result': {
+#                             'recordCount': result.get('recordCount'),
+#                             'originalRecordCount': result.get('originalRecordCount'),
+#                             'cleanedCollection': result.get('cleanedCollection'),
+#                             'preprocessing_report': result.get('preprocessing_report')
+#                         }
+#                     })
+                    
+#                 except Exception as e:
+#                     preprocessing_result['status'] = 'error'
+#                     preprocessing_result['error'] = str(e)
+                    
+#                     log_queue.put({
+#                         'type': 'error',
+#                         'message': str(e),
+#                         'traceback': traceback.format_exc()
+#                     })
+#                 finally:
+#                     # Signal completion
+#                     log_queue.put({'type': 'done'})
+            
+#             # Start preprocessing thread
+#             thread = threading.Thread(target=run_preprocessing)
+#             thread.daemon = True
+#             thread.start()
+            
+#             # Stream logs to client
+#             while True:
+#                 try:
+#                     # Get log from queue (timeout to check if client disconnected)
+#                     log_data = log_queue.get(timeout=1)
+                    
+#                     # Check if done
+#                     if log_data.get('type') == 'done':
+#                         break
+                    
+#                     # Send log to client as SSE
+#                     yield f"data: {json.dumps(log_data)}\n\n"
+                    
+#                 except:
+#                     # Timeout - send keepalive
+#                     yield ": keepalive\n\n"
+#                     continue
+                    
+#         except GeneratorExit:
+#             # Client disconnected
+#             logger.info(f"Client disconnected from preprocessing stream: {collection_name}")
+#         finally:
+#             # Cleanup
+#             preprocessing_logger.removeHandler(sse_handler)
+    
+#     return Response(
+#         stream_with_context(generate()),
+#         mimetype='text/event-stream',
+#         headers={
+#             'Cache-Control': 'no-cache',
+#             'X-Accel-Buffering': 'no',
+#             'Connection': 'keep-alive',
+#             'Access-Control-Allow-Origin': '*'  # Adjust for production
+#         }
+    # )
 
 @preprocessing_bp.route("/preprocess/bmkg/<collection_name>", methods=["POST"])
 def preprocess_bmkg_dataset(collection_name):

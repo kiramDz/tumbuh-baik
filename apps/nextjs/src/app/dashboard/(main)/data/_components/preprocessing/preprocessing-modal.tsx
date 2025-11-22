@@ -145,7 +145,8 @@ export default function PreprocessingModal({
     setResult(null);
 
     try {
-      let eventSource: EventSource;
+      let streamResult: { eventSource: EventSource; cleanup: () => void };
+
       // Callback functions reusable for both types
       const onLog = (logData: any) => {
         if (logData.type === "info") {
@@ -194,7 +195,7 @@ export default function PreprocessingModal({
       // Choose preprocessing type
       if (isNasaDataset) {
         addLog("info", "Starting NASA POWER preprocessing...", "INFO");
-        eventSource = preprocessNasaDatasetWithStream(
+        streamResult = preprocessNasaDatasetWithStream(
           collectionName,
           onLog,
           onProgress,
@@ -203,7 +204,7 @@ export default function PreprocessingModal({
         );
       } else if (isBmkgDataset) {
         addLog("info", "Starting BMKG preprocessing...", "INFO");
-        eventSource = preprocessBmkgDatasetWithStream(
+        streamResult = preprocessBmkgDatasetWithStream(
           collectionName,
           onLog,
           onProgress,
@@ -215,7 +216,7 @@ export default function PreprocessingModal({
           "Unknown dataset type. Please specify isNasaDataset or isBmkgDataset."
         );
       }
-      eventSourceRef.current = eventSource;
+      eventSourceRef.current = streamResult.eventSource;
       addLog(
         "info",
         `Connecting to ${preprocessingType} preprocessing server...`,
@@ -455,7 +456,52 @@ export default function PreprocessingModal({
                       ?.completeness_percentage ?? "N/A"}
                     %
                   </span>
-                </div>
+                </div>{" "}
+                {/* Result Summary - Enhanced */}
+                {status === "success" && result && (
+                  <div className="px-6 pb-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-green-900 mb-2">
+                        Preprocessing Complete!
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-600">
+                            Records Processed:
+                          </span>
+                          <span className="ml-2 font-medium text-gray-900">
+                            {result.recordCount?.toLocaleString() ?? "N/A"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">
+                            Cleaned Collection:
+                          </span>
+                          <span className="ml-2 font-medium text-gray-900 text-xs break-all">
+                            {result.cleanedCollection ?? "N/A"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">
+                            Outliers Removed:
+                          </span>
+                          <span className="ml-2 font-medium text-gray-900">
+                            {result.preprocessing_report?.outliers
+                              ?.total_outliers ?? 0}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Completeness:</span>
+                          <span className="ml-2 font-medium text-gray-900">
+                            {result.preprocessing_report?.quality_metrics
+                              ?.completeness_percentage ?? "N/A"}
+                            %
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
