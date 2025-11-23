@@ -13,16 +13,45 @@ interface LogEntry {
   percentage?: number;
   stage?: string;
 }
+// interface PreprocessingResult {
+//   recordCount?: number;
+//   cleanedCollection?: string;
+//   preprocessing_report?: {
+//     outliers?: {
+//       total_outliers: number;
+//     };
+//     quality_metrics?: {
+//       completeness_percentage: number;
+//     };
+//   };
+// }
 interface PreprocessingResult {
   recordCount?: number;
+  originalRecordCount?: number;
   cleanedCollection?: string;
+  collection?: string;
+  message?: string;
+  preprocessedCollections?: string[];
   preprocessing_report?: {
+    missing_data?: any;
     outliers?: {
       total_outliers: number;
+      by_parameter: Record<string, number>;
+      methods_used: string[];
+      treatment: string;
     };
+    smoothing?: any;
+    gaps?: any;
+    r2_validation?: any;
+    model_coverage?: any;
     quality_metrics?: {
+      original_records: number;
+      processed_records: number;
+      records_removed: number;
       completeness_percentage: number;
+      data_quality: string;
     };
+    warnings?: string[];
   };
 }
 
@@ -169,21 +198,16 @@ export default function PreprocessingModal({
       const onComplete = (completionResult: any) => {
         const typedResult: PreprocessingResult = {
           recordCount: completionResult?.recordCount,
+          originalRecordCount: completionResult?.originalRecordCount,
           cleanedCollection: completionResult?.cleanedCollection,
+          collection: completionResult?.collection,
+          message: completionResult?.message,
+          preprocessedCollections: completionResult?.preprocessedCollections,
           preprocessing_report: completionResult?.preprocessing_report,
         };
 
         setStatus("success");
         setResult(typedResult);
-        addLog(
-          "success",
-          `✅ ${preprocessingType} preprocessing completed successfully!`,
-          "SUCCESS"
-        );
-
-        if (onSuccess) {
-          setTimeout(() => onSuccess(typedResult), 1000);
-        }
       };
 
       const onError = (errorMessage: string) => {
@@ -432,6 +456,12 @@ export default function PreprocessingModal({
               </h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
+                  <span className="text-gray-600">Original Records:</span>
+                  <span className="ml-2 font-medium text-gray-900">
+                    {result.originalRecordCount?.toLocaleString() ?? "N/A"}
+                  </span>
+                </div>
+                <div>
                   <span className="text-gray-600">Records Processed:</span>
                   <span className="ml-2 font-medium text-gray-900">
                     {result.recordCount?.toLocaleString() ?? "N/A"}
@@ -456,52 +486,7 @@ export default function PreprocessingModal({
                       ?.completeness_percentage ?? "N/A"}
                     %
                   </span>
-                </div>{" "}
-                {/* Result Summary - Enhanced */}
-                {status === "success" && result && (
-                  <div className="px-6 pb-4">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-green-900 mb-2">
-                        Preprocessing Complete!
-                      </h3>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-gray-600">
-                            Records Processed:
-                          </span>
-                          <span className="ml-2 font-medium text-gray-900">
-                            {result.recordCount?.toLocaleString() ?? "N/A"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">
-                            Cleaned Collection:
-                          </span>
-                          <span className="ml-2 font-medium text-gray-900 text-xs break-all">
-                            {result.cleanedCollection ?? "N/A"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">
-                            Outliers Removed:
-                          </span>
-                          <span className="ml-2 font-medium text-gray-900">
-                            {result.preprocessing_report?.outliers
-                              ?.total_outliers ?? 0}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Completeness:</span>
-                          <span className="ml-2 font-medium text-gray-900">
-                            {result.preprocessing_report?.quality_metrics
-                              ?.completeness_percentage ?? "N/A"}
-                            %
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           </div>

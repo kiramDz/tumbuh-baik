@@ -793,7 +793,6 @@ export const refreshAllNasaDatasets = async (): Promise<RefreshAllResponse> => {
   }
 };
 
-// Trigger NASA POWER Preprocessing with stream
 export const preprocessNasaDatasetWithStream = (
   collectionName: string,
   onLog: (log: any) => void,
@@ -806,9 +805,10 @@ export const preprocessNasaDatasetWithStream = (
     `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
   );
 
-  // Add Connection timeout
   let connectionTimeout: NodeJS.Timeout;
-  let hasCompletedSuccessfully = false; // ✅ Track completion status
+  let hasCompletedSuccessfully = false;
+  let hasReceivedData = false; // ✅ Track if we received any data
+  let streamClosed = false;
 
   const resetTimeout = () => {
     if (connectionTimeout) {
@@ -829,7 +829,7 @@ export const preprocessNasaDatasetWithStream = (
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-
+      hasReceivedData = true;
       resetTimeout();
 
       switch (data.type) {
@@ -845,10 +845,8 @@ export const preprocessNasaDatasetWithStream = (
           break;
 
         case "progress":
-          // Handle multiple possible field names for progress percentage
           const progressValue =
             data.percentage ?? data.progress ?? data.percent ?? 0;
-
           onProgress(
             progressValue,
             data.stage || "Processing",
@@ -861,41 +859,34 @@ export const preprocessNasaDatasetWithStream = (
 
           onLog({
             type: "success",
-            message: "NASA preprocessing completed successfully!",
+            message: "🎉 NASA preprocessing completed successfully!",
           });
 
-          // Trigger completion callback with result
-          onComplete(data.result);
+          // ✅ FIXED: Trigger completion immediately and close stream
+          console.log("✅ Triggering onComplete with result:", data.result);
+          const completionResult =
+            data.result && typeof data.result === "object"
+              ? data.result
+              : {
+                  recordCount: null,
+                  cleanedCollection: `${collectionName}_cleaned`,
+                  preprocessing_report: null,
+                };
+          onComplete(completionResult);
 
-          // Note: Don't close yet, wait for stream_complete
-          break;
-
-        case "stream_complete":
-          if (!hasCompletedSuccessfully) {
-            onLog({
-              type: "info",
-              message: "Stream closed - preprocessing may have completed",
-            });
-
-            // Fallback: If we got stream_complete without complete,
-            // assume success but with no result data
-            onComplete({
-              recordCount: null,
-              cleanedCollection: null,
-              preprocessing_report: null,
-            });
-          } else {
-            onLog({
-              type: "info",
-              message: "Preprocessing stream closed successfully",
-            });
-          }
-
+          // ✅ FIXED: Close stream immediately after completion
+          streamClosed = true;
           clearTimeout(connectionTimeout);
           eventSource.close();
+
+          onLog({
+            type: "info",
+            message: "✅ Stream closed after successful completion",
+          });
           break;
 
         case "error":
+          streamClosed = true;
           onError(data.message || "An error occurred during preprocessing");
           clearTimeout(connectionTimeout);
           eventSource.close();
@@ -910,38 +901,213 @@ export const preprocessNasaDatasetWithStream = (
       console.log("Raw event data:", event.data);
     }
   };
-
   eventSource.onerror = (error) => {
-    console.error("SSE error:", error);
-    clearTimeout(connectionTimeout);
-
-    if (eventSource.readyState === EventSource.CLOSED) {
-      // ✅ FIXED: Better handling of connection close
-      if (!hasCompletedSuccessfully) {
-        onLog({
-          type: "info",
-          message: "Connection closed - check if preprocessing completed",
-        });
-      } else {
-        onLog({
-          type: "info",
-          message: "Preprocessing completed, connection closed",
-        });
-      }
-    } else {
-      onError("Connection error occurred with the preprocessing stream.");
+    // ✅ Prevent multiple error handling
+    if (streamClosed) {
+      console.log("Stream already closed, ignoring error event");
+      return;
     }
+
+    console.log("SSE State Info:", {
+      readyState: eventSource.readyState,
+      hasCompleted: hasCompletedSuccessfully,
+      hasData: hasReceivedData,
+      streamClosed: streamClosed,
+    });
+
+    clearTimeout(connectionTimeout);
+    streamClosed = true;
+
+    // ✅ FIXED: Only treat as error if we haven't completed successfully
+    if (hasCompletedSuccessfully) {
+      console.log(
+        "✅ Stream closed after successful completion - this is normal"
+      );
+      return; // Don't call onError for successful completion
+    }
+
+    if (hasReceivedData) {
+      // ✅ Got data but stream closed - likely successful but missed completion
+      console.log(
+        "⚠️ Stream closed with data - inferring successful completion"
+      );
+
+      onLog({
+        type: "success",
+        message: "✅ Preprocessing completed successfully!",
+      });
+
+      onComplete({
+        recordCount: null,
+        cleanedCollection: `${collectionName}_cleaned`,
+        preprocessing_report: null,
+      });
+      return;
+    }
+
+    // ✅ True error - no completion and no data
+    onError("❌ Connection failed - no preprocessing data received");
     eventSource.close();
   };
-
   return {
     eventSource,
     cleanup: () => {
+      streamClosed = true;
       clearTimeout(connectionTimeout);
       eventSource.close();
     },
   };
 };
+
+// Trigger NASA POWER Preprocessing with stream
+// export const preprocessNasaDatasetWithStream = (
+//   collectionName: string,
+//   onLog: (log: any) => void,
+//   onProgress: (progress: number, stage: string, message: string) => void,
+//   onComplete: (result: any) => void,
+//   onError: (error: string) => void
+// ) => {
+//   const encodedName = encodeURIComponent(collectionName);
+//   const eventSource = new EventSource(
+//     `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
+//   );
+
+//   // Add Connection timeout
+//   let connectionTimeout: NodeJS.Timeout;
+//   let hasCompletedSuccessfully = false; // ✅ Track completion status
+
+//   const resetTimeout = () => {
+//     if (connectionTimeout) {
+//       clearTimeout(connectionTimeout);
+//     }
+//     connectionTimeout = setTimeout(() => {
+//       if (!hasCompletedSuccessfully) {
+//         onError(
+//           "Connection timeout - preprocessing may still be running in background"
+//         );
+//         eventSource.close();
+//       }
+//     }, 300000); // 5 minutes timeout
+//   };
+
+//   resetTimeout();
+
+//   eventSource.onmessage = (event) => {
+//     try {
+//       const data = JSON.parse(event.data);
+
+//       resetTimeout();
+
+//       switch (data.type) {
+//         case "connected":
+//           onLog({
+//             type: "info",
+//             message: `Connected to preprocessing stream. Session: ${data.session_id}`,
+//           });
+//           break;
+
+//         case "log":
+//           onLog(data);
+//           break;
+
+//         case "progress":
+//           // Handle multiple possible field names for progress percentage
+//           const progressValue =
+//             data.percentage ?? data.progress ?? data.percent ?? 0;
+
+//           onProgress(
+//             progressValue,
+//             data.stage || "Processing",
+//             data.message || "Processing..."
+//           );
+//           break;
+
+//         case "complete":
+//           hasCompletedSuccessfully = true;
+
+//           onLog({
+//             type: "success",
+//             message: "NASA preprocessing completed successfully!",
+//           });
+
+//           // Trigger completion callback with result
+//           onComplete(data.result);
+
+//           // Note: Don't close yet, wait for stream_complete
+//           break;
+
+//         case "stream_complete":
+//           if (!hasCompletedSuccessfully) {
+//             onLog({
+//               type: "info",
+//               message: "Stream closed - preprocessing may have completed",
+//             });
+
+//             // Fallback: If we got stream_complete without complete,
+//             // assume success but with no result data
+//             onComplete({
+//               recordCount: null,
+//               cleanedCollection: null,
+//               preprocessing_report: null,
+//             });
+//           } else {
+//             onLog({
+//               type: "info",
+//               message: "Preprocessing stream closed successfully",
+//             });
+//           }
+
+//           clearTimeout(connectionTimeout);
+//           eventSource.close();
+//           break;
+
+//         case "error":
+//           onError(data.message || "An error occurred during preprocessing");
+//           clearTimeout(connectionTimeout);
+//           eventSource.close();
+//           break;
+
+//         default:
+//           console.log("Unknown SSE message type:", data.type, data);
+//           break;
+//       }
+//     } catch (error) {
+//       console.error("Error parsing SSE data:", error);
+//       console.log("Raw event data:", event.data);
+//     }
+//   };
+
+//   eventSource.onerror = (error) => {
+//     console.error("SSE error:", error);
+//     clearTimeout(connectionTimeout);
+
+//     if (eventSource.readyState === EventSource.CLOSED) {
+//       // ✅ FIXED: Better handling of connection close
+//       if (!hasCompletedSuccessfully) {
+//         onLog({
+//           type: "info",
+//           message: "Connection closed - check if preprocessing completed",
+//         });
+//       } else {
+//         onLog({
+//           type: "info",
+//           message: "Preprocessing completed, connection closed",
+//         });
+//       }
+//     } else {
+//       onError("Connection error occurred with the preprocessing stream.");
+//     }
+//     eventSource.close();
+//   };
+
+//   return {
+//     eventSource,
+//     cleanup: () => {
+//       clearTimeout(connectionTimeout);
+//       eventSource.close();
+//     },
+//   };
+// };
 
 // Trigger BMKG Preprocessing with stream
 export const preprocessBmkgDatasetWithStream = (

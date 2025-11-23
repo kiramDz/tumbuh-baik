@@ -540,10 +540,9 @@ def preprocess_nasa_dataset(collection_name):
 @preprocessing_bp.route("/preprocess/nasa/<collection_name>/stream", methods=["GET"])
 def preprocess_nasa_stream(collection_name):
     """
-    SSE endpoint for preprocessing logs
+    SSE endpoint for real-time preprocessing logs
     Stream preprocessing progress to frontend
     """
-    
     def generate():
         # Create log queue for this session
         log_queue = Queue()
@@ -601,6 +600,7 @@ def preprocess_nasa_stream(collection_name):
                 except Exception as e:
                     logger.error(f"SSE Log Handler error: {str(e)}")
         
+        # Add handler to preprocessing logger
         sse_handler = SSELogHandler()
         sse_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
         
@@ -617,7 +617,6 @@ def preprocess_nasa_stream(collection_name):
             
             # Start preprocessing in background thread
             preprocessing_result = {'status': None, 'data': None, 'error': None}
-            thread_completed = threading.Event()
             
             def run_preprocessing():
                 try:
@@ -633,23 +632,43 @@ def preprocess_nasa_stream(collection_name):
                     preprocessor = NasaPreprocessor(db_instance, collection_name)
                     result = preprocessor.preprocess()
                     
+                    # Debug detailed logging result 
+                    logger.info(f"Raw preprocessing result: {result}")
+                    logger.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+                    
                     # Store result
                     preprocessing_result['status'] = 'success'
                     preprocessing_result['data'] = result
                     
-                    # ✅ FIXED: Send completion message immediately (no sleep)
+                    safe_result = {
+                        'recordCount': int(result['recordCount']) if 'recordCount' in result and result['recordCount'] is not None else 0,
+                        'originalRecordCount': int(result['originalRecordCount']) if 'originalRecordCount' in result and result['originalRecordCount'] is not None else 0,
+                        'cleanedCollection': result.get('cleanedCollection'),
+                        'collection': result.get('collection'),
+                        'message': result.get('message'),
+                        'preprocessedCollections': result.get('preprocessedCollections', []),
+                        'preprocessing_report': {
+                            'outliers': {
+                                'total_outliers': int(result.get('preprocessing_report', {}).get('outliers', {}).get('total_outliers', 0))
+                            },
+                            'quality_metrics': {
+                                'completeness_percentage': float(result.get('preprocessing_report', {}).get('quality_metrics', {}).get('completeness_percentage', 0))
+                            }
+                        } if result.get('preprocessing_report') else None
+                    }
+                    
+                    logger.info(f"📤 Sending safe result: {safe_result}")
+                    
                     log_queue.put({
                         'type': 'complete',
                         'status': 'success',
-                        'result': {
-                            'recordCount': result.get('recordCount'),
-                            'originalRecordCount': result.get('originalRecordCount'),
-                            'cleanedCollection': result.get('cleanedCollection'),
-                            'preprocessing_report': result.get('preprocessing_report')
-                        }
+                        'result': safe_result
                     })
                     
                 except Exception as e:
+                    logger.error(f"❌ Preprocessing error: {str(e)}")
+                    logger.error(f"❌ Traceback: {traceback.format_exc()}")
+                    
                     preprocessing_result['status'] = 'error'
                     preprocessing_result['error'] = str(e)
                     
@@ -659,99 +678,55 @@ def preprocess_nasa_stream(collection_name):
                         'traceback': traceback.format_exc()
                     })
                 finally:
-                    # ✅ FIXED: Mark thread as completed (no sleep, no done message)
-                    thread_completed.set()
+                    logger.info("🏁 Preprocessing thread completed, stream will close naturally")
+                    preprocessing_result['thread_complete'] = True
             
             # Start preprocessing thread
             thread = threading.Thread(target=run_preprocessing)
             thread.daemon = True
             thread.start()
             
-            # ✅ FIXED: Stream logs with proper queue flushing
-            timeout_count = 0
-            max_timeouts = 300  # 5 minutes max wait
-            
             while True:
                 try:
-                    # Get log from queue (timeout to check if client disconnected)
                     log_data = log_queue.get(timeout=1)
                     
-                    # Reset timeout counter on successful message
-                    timeout_count = 0
-                    
                     # Send log to client as SSE
+                    logger.info(f"📨 Sending SSE: {log_data.get('type')}")
                     yield f"data: {json.dumps(log_data)}\n\n"
                     
-                    # ✅ FIXED: Check if this is completion message
+                    # ✅ FIXED: After sending completion, wait briefly then close
                     if log_data.get('type') == 'complete':
-                        # Wait a bit for any remaining logs, then flush queue
-                        remaining_messages = 0
-                        while not log_queue.empty() and remaining_messages < 10:
-                            try:
-                                remaining_log = log_queue.get_nowait()
-                                yield f"data: {json.dumps(remaining_log)}\n\n"
-                                remaining_messages += 1
-                            except:
-                                break
+                        logger.info("🏁 Sent completion message")
                         
-                        # Send final stream complete and exit
-                        yield f"data: {json.dumps({'type': 'stream_complete', 'session_id': session_id})}\n\n"
-                        break
-                    
-                    # ✅ FIXED: Also break on error
-                    if log_data.get('type') == 'error':
-                        # Flush remaining logs
-                        while not log_queue.empty():
-                            try:
-                                remaining_log = log_queue.get_nowait()
-                                yield f"data: {json.dumps(remaining_log)}\n\n"
-                            except:
-                                break
+                        # ✅ Send one more keepalive to ensure delivery
+                        yield f": completion-sent\n\n"
                         
-                        yield f"data: {json.dumps({'type': 'stream_complete', 'session_id': session_id})}\n\n"
-                        break
-                    
-                except Exception as e:
-                    # ✅ FIXED: Better timeout handling
-                    timeout_count += 1
-                    
-                    # Check if thread completed
-                    if thread_completed.is_set():
-                        # ✅ FIXED: Flush all remaining messages in queue
-                        while not log_queue.empty():
-                            try:
-                                remaining_log = log_queue.get_nowait()
-                                yield f"data: {json.dumps(remaining_log)}\n\n"
-                            except:
-                                break
+                        # ✅ Give frontend time to process completion
+                        time.sleep(1.0)  # 1 second delay
                         
-                        # Processing done, send final message and break
-                        yield f"data: {json.dumps({'type': 'stream_complete', 'session_id': session_id})}\n\n"
+                        logger.info("🎯 Closing stream after completion processed")
                         break
-                    
-                    # Check for max timeouts (client disconnect)
-                    if timeout_count >= max_timeouts:
-                        logger.warning(f"Max timeouts reached for session {session_id}")
+                        
+                except Exception:
+                    # ✅ Check if thread completed (no more messages coming)
+                    if preprocessing_result.get('thread_complete'):
+                        logger.info("🏁 Thread completed, closing stream")
                         break
-                    
-                    # Send keepalive every 10 seconds
-                    if timeout_count % 10 == 0:
-                        yield ": keepalive\n\n"
+                        
+                    # Timeout - send keepalive
+                    yield ": keepalive\n\n"
                     continue
-                    
         except GeneratorExit:
             # Client disconnected
             logger.info(f"Client disconnected from preprocessing stream: {collection_name}")
-        except Exception as e:
-            # Log but dont crash on unexpected errors
-            logger.error(f"SSE stream error for {collection_name}: {str(e)}")
         finally:
+            # Cleanup
             try:
                 preprocessing_logger.removeHandler(sse_handler)
                 logger.info(f"Cleaned up SSE handler for session {session_id}")
             except Exception as e:
                 logger.error(f"Error during SSE cleanup: {str(e)}")
-                
+    
     return Response(
         stream_with_context(generate()),
         mimetype='text/event-stream',
@@ -759,8 +734,7 @@ def preprocess_nasa_stream(collection_name):
             'Cache-Control': 'no-cache',
             'X-Accel-Buffering': 'no',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Cache-Control' 
+            'Access-Control-Allow-Origin': '*'
         }
     )
 
@@ -928,7 +902,7 @@ def preprocess_nasa_stream(collection_name):
 #             'Connection': 'keep-alive',
 #             'Access-Control-Allow-Origin': '*'  # Adjust for production
 #         }
-    # )
+#     )
 
 @preprocessing_bp.route("/preprocess/bmkg/<collection_name>", methods=["POST"])
 def preprocess_bmkg_dataset(collection_name):
