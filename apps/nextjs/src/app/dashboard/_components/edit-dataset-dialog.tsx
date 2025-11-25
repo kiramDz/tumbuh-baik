@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Icons } from "@/app/dashboard/_components/icons";
 import { ConfirmationDeleteModal } from "@/components/ui/modal/confirmation-delete-modal";
 import { ConfirmationUpdateModal } from "@/components/ui/modal/confirmation-update-modal";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 
 interface EditDatasetDialogProps {
   dataset: {
@@ -135,20 +135,26 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         data.message?.includes("up to date") ||
         data.message?.includes("No new data")
       ) {
-        toast.info("Dataset sudah memiliki data terbaru", {
-          description: `Data terakhir: ${new Date(
+        toast(
+          `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
             data.data?.lastUpdated || dataset.lastUpdated || ""
           ).toLocaleDateString("id-ID")}`,
-          duration: 5000,
-        });
+          {
+            duration: 5000,
+            icon: "ℹ️",
+            position: "bottom-right",
+          }
+        );
       } else {
         toast.success(
-          `Berhasil memperbarui ${data.data?.newRecordsCount || 0} data baru`,
+          `Berhasil memperbarui ${
+            data.data?.newRecordsCount || 0
+          } data baru\nTotal data: ${
+            data.data?.dataset?.totalRecords || "N/A"
+          }`,
           {
-            description: `Total data: ${
-              data.data?.dataset?.totalRecords || "N/A"
-            }`,
             duration: 5000,
+            position: "bottom-right",
           }
         );
       }
@@ -173,12 +179,16 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         error?.response?.data?.message?.includes("up to date") ||
         error?.message?.includes("up to date")
       ) {
-        toast.info("Dataset sudah memiliki data terbaru", {
-          description: `Data terakhir: ${new Date(
-            dataset.lastUpdated || ""
+        toast(
+          `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
+            refreshStatus.lastRecordDate || dataset.lastUpdated || ""
           ).toLocaleDateString("id-ID")}`,
-          duration: 5000,
-        });
+          {
+            duration: 5000,
+            icon: "ℹ️",
+            position: "bottom-right",
+          }
+        );
 
         // Update refresh status
         setRefreshStatus({
@@ -207,7 +217,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
       return DeleteDatasetMeta(dataset.collectionName);
     },
     onSuccess: () => {
-      toast.success("Dataset berhasil dihapus");
+      toast.success(`Dataset "${dataset.name}" telah dihapus.`);
       queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
       setOpen(false);
       setIsDeleteConfirmOpen(false);
@@ -228,18 +238,25 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
   const handleRefreshClick = () => {
     // Prevent refresh if status check is still loading
     if (refreshStatus.isLoading) {
-      toast.info("Memeriksa status data...");
+      toast("Memeriksa status data...", {
+        icon: "ℹ️",
+        position: "bottom-right",
+      });
       return;
     }
 
     // Prevent refresh if data is already up-to-date
     if (!refreshStatus.canRefresh) {
-      toast.info("Dataset sudah memiliki data terbaru", {
-        description: `Data terakhir: ${new Date(
+      toast(
+        `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
           refreshStatus.lastRecordDate || dataset.lastUpdated || ""
         ).toLocaleDateString("id-ID")}`,
-        duration: 5000,
-      });
+        {
+          duration: 5000,
+          icon: "ℹ️",
+          position: "bottom-right",
+        }
+      );
       return;
     }
 
@@ -271,14 +288,14 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
             <Icons.menu className="h-5 w-5 text-gray-600 transition-colors duration-200 group-hover/menu:text-white" />
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
+          {" "}
           <DialogHeader>
             <DialogTitle>Edit Dataset</DialogTitle>
             <DialogDescription>
               Ubah metadata dataset atau hapus dataset.
             </DialogDescription>
           </DialogHeader>
-
           {/* Main form */}
           <form onSubmit={handleSubmitClick} className="space-y-4">
             <div className="grid gap-2">
@@ -328,10 +345,25 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
                 className="border rounded px-3 py-2"
+                //disabled={dataset.isAPI} // Optionally disable for API datasets
               >
-                <option value="raw">Raw</option>
-                <option value="cleaned">Cleaned</option>
-                <option value="validated">Validated</option>
+                {/* Show status options based on dataset source/type */}
+                {dataset.isAPI && dataset.apiConfig?.type === "nasa-power" ? (
+                  <>
+                    <option value="raw">Raw</option>
+                    <option value="latest">Latest</option>
+                    <option value="preprocessed">Preprocessed</option>
+                    <option value="validated">Validated</option>
+                    <option value="archived">Archived</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="raw">Raw</option>
+                    <option value="cleaned">Cleaned</option>
+                    <option value="validated">Validated</option>
+                    <option value="archived">Archived</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -409,14 +441,14 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               )}
 
               {/* Bottom Action Buttons */}
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 {/* Delete Button - Left */}
                 <Button
                   type="button"
                   variant="destructive"
                   onClick={handleDeleteClick}
                   disabled={isDeleting}
-                  className="flex items-center gap-2"
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
                   size="sm"
                 >
                   <Icons.trash className="h-4 w-4" />
@@ -424,16 +456,21 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                 </Button>
 
                 {/* Cancel & Save Buttons - Right */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <DialogClose asChild>
-                    <Button type="button" variant="outline" size="sm">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 sm:flex-none"
+                    >
                       Batal
                     </Button>
                   </DialogClose>
                   <Button
                     type="button"
                     disabled={isPending}
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-center gap-2 flex-1 sm:flex-none"
                     onClick={(e) => {
                       e.preventDefault();
                       setIsUpdateConfirmOpen(true);

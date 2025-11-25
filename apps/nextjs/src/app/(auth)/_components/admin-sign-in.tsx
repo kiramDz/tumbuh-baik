@@ -31,16 +31,16 @@ export default function AdminSignIn() {
       <Link href="/sign-in" className={cn(buttonVariants({ variant: "ghost" }), "absolute top-4 right-4 hidden md:top-8 md:right-8")}>
         Sign In
       </Link>
-      <div className="bg-muted relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r">
-        <div className="absolute inset-0 bg-zinc-900" />
+      <div className="bg-muted relative hidden h-full flex-col p-10 text-black lg:flex dark:border-r">
+        <div className="absolute inset-0 bg-[#d0e8ff]" />
         <div className="relative z-20 flex items-center text-lg font-medium">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-6 w-6">
             <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
           </svg>
-          Tumbuh Baik
+          Zona Petik
         </div>
         <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-2">
+          <blockquote className="space-y-2 text-black">
             <p className="text-lg">&ldquo;Climate change is real. It is happening right now, it is the most urgent threat facing our entire species and we need to work collectively together and stop procrastinating..&rdquo;</p>
             <footer className="text-sm">Leonardo Di Caprio</footer>
           </blockquote>

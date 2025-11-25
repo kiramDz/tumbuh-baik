@@ -1,3 +1,4 @@
+
 from pymongo import MongoClient
 import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -5,8 +6,6 @@ from datetime import datetime
 import numpy as np
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from statsmodels.tsa.seasonal import seasonal_decompose
-import itertools
-from scipy.stats import boxcox
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -67,7 +66,7 @@ def detect_seasonal_period(data, param_name):
     """
     Deteksi periode musiman menggunakan seasonal_decompose
     """
-    is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
+    is_ndvi = param_name in ["NDVI"]
     
     if is_ndvi:
         min_period = 4
@@ -89,11 +88,11 @@ def detect_seasonal_period(data, param_name):
                 continue
         return best_period
     else:
-        return 180  # Paksa periode 180 hari untuk curah hujan
+        return 365  
     
 
 
-def grid_search_hw_params(train_data, param_name, validation_ratio=0.25):
+def grid_search_hw_params(train_data, param_name, validation_ratio=0.30):
     """
     Grid search disesuaikan untuk pola curah hujan Indonesia
     """
@@ -132,8 +131,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.25):
             val_size = max(4, int(len(train_data) * validation_ratio))
     else:
         val_size = int(len(train_data) * validation_ratio)
-            # Opsional: tetap beri batasan minimum untuk memastikan validasi yang bermakna
-        val_size = max(30, val_size)  # minimal 30 hari untuk validasi
+        val_size = max(30, val_size) 
 
     split_point = len(train_data) - val_size    
     train_split = train_data[:split_point]
@@ -173,10 +171,10 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.25):
                         
                         # Calculate metrics
                         mae = mean_absolute_error(val_split, forecast)
+                        mad = np.mean(np.abs(val_split - np.mean(val_split)))
                         mse = mean_squared_error(val_split, forecast)
-                        rmse = np.sqrt(mse)
                         mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
-                        
+                        rmse = np.sqrt(mse)
                         score = mae * 0.7 + rmse * 0.3
                         
                         if score < best_score:
@@ -189,7 +187,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.25):
                             }
                             best_metrics = {
                                 'mae': mae,
-                                'rmse': rmse,
+                                'mad': mad,
                                 'mape': mape,
                                 'mse': mse,
                                 'valid_models': valid_models + 1
@@ -268,7 +266,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if is_ndvi:
             df = df.reindex(date_range).interpolate(method='linear')
         else:
-            df = df.reindex(date_range, fill_value=0)
+            df = df.reindex(date_range).interpolate(method='linear')
         
         print(f"Data range: {df.index[0]} to {df.index[-1]}")
         
@@ -291,6 +289,34 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         print(f"Non-zero values: {(param_data > 0).sum()}")
         print(f"Mean: {param_data.mean():.3f}, Std: {param_data.std():.3f}")
 
+        try:
+            best_period = detect_seasonal_period(param_data, target_column)
+            print(f"🔍 Starting decompose for {target_column}, data length: {len(param_data)}, period: {best_period}")
+            
+            decompose_result = seasonal_decompose(param_data, model='additive', period=best_period, extrapolate_trend='freq')
+            decompose_docs = []
+            for i, date in enumerate(param_data.index):
+                doc = {
+                    "date": date.to_pydatetime(),
+                    "config_id": config_id,
+                    "parameters": {
+                        target_column: {
+                            "trend": float(decompose_result.trend[i]) if not np.isnan(decompose_result.trend[i]) else None,
+                            "seasonal": float(decompose_result.seasonal[i]) if not np.isnan(decompose_result.seasonal[i]) else None,
+                            "resid": float(decompose_result.resid[i]) if not np.isnan(decompose_result.resid[i]) else None
+                        }
+                    }
+                }
+                decompose_docs.append(doc)
+            
+            db["temp-decompose"].insert_many(decompose_docs)
+            print(f"✅ Decompose success: {len(decompose_docs)} documents saved to temp-decompose")
+            
+        except Exception as e:
+            print(f"❌ Decompose failed for {target_column}: {str(e)}")
+            print(f"❌ Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
         # Grid search
         best_params, error_metrics = grid_search_hw_params(param_data, target_column)
         
@@ -307,15 +333,13 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
         
+        last_data_date = df.index[-1]
+        forecast_start_date = last_data_date + pd.Timedelta(days=1)
+        forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
+        date_increment = '16D' if is_ndvi else 'D'
 
-        forecast_start_date = pd.Timestamp("2025-09-20")
-        forecast_end_date = pd.Timestamp("2026-09-19")
-        forecast_days = (forecast_end_date - forecast_start_date).days + 1
-        if is_ndvi:
-            forecast_steps = (forecast_days // 16) + (1 if forecast_days % 16 > 0 else 0)
-            forecast_steps = max(forecast_steps, 2)  # minimal 2 titik
-        else:
-         forecast_steps = forecast_days
+        forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
+        forecast_steps = len(forecast_dates)
 
         
         print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
@@ -352,9 +376,8 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
         
         try:
-            for i in range(len(forecast)):
-                forecast_date = df.index[-1] + date_increment * (i + 1)
-                forecast_date_only = datetime.strptime(forecast_date.strftime('%Y-%m-%d'), '%Y-%m-%d')
+            for i, forecast_date in enumerate(forecast_dates):
+                forecast_value = float(forecast[i])
                 
                 forecast_value = float(forecast[i])
                 if np.isnan(forecast_value) or np.isinf(forecast_value):
@@ -362,7 +385,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                     continue
 
                 doc = {
-                    "forecast_date": forecast_date_only,
+                    "forecast_date": forecast_date.to_pydatetime(),
                     "timestamp": datetime.now().isoformat(),
                     "source_collection": collection_name,
                     "config_id": config_id,
@@ -392,13 +415,25 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # Upsert ke collection
         upsert_count = 0
         for doc in forecast_docs:
+            target_column = list(doc["parameters"].keys())[0]  # ambil nama parameter
             result = db[save_collection].update_one(
-                {"forecast_date": doc["forecast_date"]},
-                {"$set": doc},
+                {
+                    "forecast_date": doc["forecast_date"],
+                    "config_id": doc["config_id"]
+                },
+                {
+                    "$set": {
+                        f"parameters.{target_column}": doc["parameters"][target_column],  # hanya overwrite kolom ini
+                        "timestamp": doc["timestamp"],
+                        "source_collection": doc["source_collection"],
+                        "column_id": doc.get("column_id")
+                    }
+                },
                 upsert=True
             )
-            if result.upserted_id or result.modified_count > 0:
-                upsert_count += 1
+        if result.upserted_id or result.modified_count > 0:
+            upsert_count += 1
+
         
         print(f"✓ Upserted {upsert_count} forecast documents to {save_collection}")
         

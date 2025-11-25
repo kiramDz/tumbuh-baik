@@ -3,68 +3,46 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { signOut, useSession } from "@/lib/better-auth/auth-client";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
-import { paragraphVariants } from "@/components/custom/p";
-import { RiLogoutCircleFill } from "@remixicon/react";
+import Avatar from "boring-avatars";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const HeaderProfile = () => {
   const session = useSession();
   const router = useRouter();
-
   const { isPending, data } = session;
+
+  if (isPending) {
+    return <Skeleton className="size-10 rounded-full" />;
+  }
+
+  if (!data?.user) {
+    return (
+      <Button variant="outline" onClick={() => router.push("/sign-in")}>
+        Login
+      </Button>
+    );
+  }
+
   return (
-    <>
-      {isPending && <Skeleton className="size-10 rounded-full" />}
-
-      <DropdownMenu>
-        <DropdownMenuTrigger>
-          {!isPending && (
-            <Avatar>
-              <AvatarImage src={data?.user?.image as string} />
-              <AvatarFallback>
-                {(data?.user?.name as string)?.slice(0, 1)}
-              </AvatarFallback>
-            </Avatar>
-          )}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="px-2">
-          <DropdownMenuLabel
-            className={cn(
-              paragraphVariants({ size: "medium", weight: "bold" })
-            )}
-          >
-            Action
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="flex items-center justify-center gap-2 px-3 py-4"
-            onClick={async () => {
-              await signOut();
-
-              router.push("/sign-in");
-            }}
-          >
-            <RiLogoutCircleFill />
-            <span
-              className={cn(
-                paragraphVariants({ size: "small", weight: "medium" })
-              )}
-            >
-              Log Out
-            </span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <Avatar name={data.user.name || "User"} colors={["#0a0310", "#49007e", "#ff005b", "#ff7d10", "#ffb238"]} variant="sunset" size={40} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="px-2">
+        <DropdownMenuLabel>Action</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="flex items-center justify-center gap-2 px-3 py-4"
+          onClick={async () => {
+            await signOut();
+            router.push("/sign-in");
+          }}
+        >
+          Log Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

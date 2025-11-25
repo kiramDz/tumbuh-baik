@@ -4,10 +4,10 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import DashboardBreadcrumb from "./dashboard-breadcrumb";
-import AddDatasetDialog from "./add-dataset-unify-dialog";
+import AddDatasetDialog from "./dialog/add-dataset-unify-dialog";
 import HeaderProfile from "./header-profile";
 import { Separator } from "@/components/ui/separator";
-import RefreshAllDatasetsDialog from "./refresh-all-datasets-dialog";
+import RefreshAllDatasetsDialog from "./dialog/refresh-all-datasets-dialog";
 
 const DashboardHeader = () => {
   return (

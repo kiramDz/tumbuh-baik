@@ -1,65 +1,110 @@
 "use client";
 
-import { CartesianGrid, Line, LineChart, XAxis, ResponsiveContainer } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { TrendingDown } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
+import { getHoltWinterDaily } from "@/lib/fetch/files.fetch"; // Asumsi path ini benar, adjust jika perlu
 
-const chartData = [
-  { month: "January", desktop: 186 },
-  { month: "February", desktop: 305 },
-  { month: "March", desktop: 237 },
-  { month: "April", desktop: 73 },
-  { month: "May", desktop: 209 },
-  { month: "June", desktop: 214 },
-];
+export const description = "Line charts with forecast values";
 
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
+  value: {
+    label: "Forecast Value",
     color: "var(--chart-2)",
   },
 } satisfies ChartConfig;
 
 export function RainbowGlowGradientLineChart() {
-  return (
-    <div className="w-2/3 l aspect-square max-h-[250px]">
-      <div className="flex flex-col">
-        <h3 className="text-lg font-semibold flex items-center">
-          Rainbow Line Chart
-          <span className="ml-2 inline-flex items-center gap-1 rounded-md border-none bg-red-500/10 px-2 py-0.5 text-sm text-red-500">
-            <TrendingDown className="h-4 w-4" />
-            <span>-5.2%</span>
-          </span>
-        </h3>
-        <p className="text-sm text-muted-foreground">January - June 2024</p>
-      </div>
+  const { data: rawData, isLoading } = useQuery({
+    queryKey: ["hw-daily-full"],
+    queryFn: () => getHoltWinterDaily(1, 365), // Ambil hingga 365 hari (1 tahun), adjust jika perlu lebih
+    refetchOnWindowFocus: false,
+  });
 
-      <div className="mt-4">
-        <ChartContainer config={chartConfig} className="w-full">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData} margin={{ left: 4, right: 4 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => value.slice(0, 3)} />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-              <Line dataKey="desktop" type="bump" stroke="url(#colorUv)" dot={false} strokeWidth={2} filter="url(#rainbow-line-glow)" />
-              <defs>
-                <linearGradient id="colorUv" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#0B84CE" stopOpacity={0.8} />
-                  <stop offset="20%" stopColor="#224CD1" stopOpacity={0.8} />
-                  <stop offset="40%" stopColor="#3A11C7" stopOpacity={0.8} />
-                  <stop offset="60%" stopColor="#7107C6" stopOpacity={0.8} />
-                  <stop offset="80%" stopColor="#C900BD" stopOpacity={0.8} />
-                  <stop offset="100%" stopColor="#D80155" stopOpacity={0.8} />
-                </linearGradient>
-                <filter id="rainbow-line-glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="10" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-              </defs>
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </div>
+  if (isLoading) return <p>Loading line charts...</p>;
+
+  const items = rawData?.items || [];
+  if (items.length === 0) return <p>No forecast data available.</p>;
+
+  // Extract parameter unik
+  const parameters = new Set<string>();
+  items.forEach((item: any) => {
+    Object.keys(item.parameters || {}).forEach((param) => parameters.add(param));
+  });
+
+  const paramArray = Array.from(parameters);
+
+  // Group data per parameter, sort by date ascending
+  const groupedData: Record<string, Array<{ date: string; value: number }>> = {};
+  paramArray.forEach((param) => {
+    groupedData[param] = items
+      .filter((item: any) => item.parameters?.[param]?.forecast_value != null)
+      .map((item: any) => ({
+        date: new Date(item.forecast_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }), // Format X-axis: Bulan Tanggal
+        value: item.parameters[param].forecast_value,
+      }))
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Sort ascending
+  });
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      {" "}
+      {/* Adjust cols berdasarkan jumlah param, misal 3; atau gunakan auto */}
+      {paramArray.map((param, index) => {
+        const chartData = groupedData[param];
+        if (chartData.length === 0) return null;
+
+        // Hitung % change untuk trend indicator
+        const firstValue = chartData[0].value;
+        const lastValue = chartData[chartData.length - 1].value;
+        const percentChange = ((lastValue - firstValue) / firstValue) * 100;
+        const isDown = percentChange < 0;
+        const trendColor = isDown ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500";
+        const TrendIcon = isDown ? TrendingDown : TrendingUp;
+
+        return (
+          <div key={index} className="flex flex-col rounded-2xl bg-background p-4 aspect-video max-h-[300px]">
+            <div className="flex flex-col">
+              <h3 className="text-lg font-semibold flex items-center">
+                {param}
+                <span className={`ml-2 inline-flex items-center gap-1 rounded-md border-none ${trendColor} px-2 py-0.5 text-sm`}>
+                  <TrendIcon className="h-4 w-4" />
+                  <span>{percentChange.toFixed(1)}%</span>
+                </span>
+              </h3>
+            </div>
+
+            <div className="mt-4">
+              <ChartContainer config={chartConfig} className="w-full h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} interval="preserveStartEnd" />
+                    <YAxis hide={false} stroke="url(#colorUv)" /> {/* Sembunyikan Y-axis jika tidak perlu label, atau tampilkan jika mau */}
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                    <Line dataKey="value" type="monotone" stroke="url(#colorUv)" dot={false} strokeWidth={2} filter="url(#rainbow-line-glow)" />
+                    <defs>
+                      <linearGradient id="colorUv" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#0B84CE" stopOpacity={0.8} />
+                        <stop offset="20%" stopColor="#224CD1" stopOpacity={0.8} />
+                        <stop offset="40%" stopColor="#3A11C7" stopOpacity={0.8} />
+                        <stop offset="60%" stopColor="#7107C6" stopOpacity={0.8} />
+                        <stop offset="80%" stopColor="#C900BD" stopOpacity={0.8} />
+                        <stop offset="100%" stopColor="#D80155" stopOpacity={0.8} />
+                      </linearGradient>
+                      <filter id="rainbow-line-glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="10" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      </filter>
+                    </defs>
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
