@@ -548,7 +548,7 @@ export default function PreprocessingModal({
                       }
                     >
                       <span className="text-gray-500 mr-2">
-                        {new Date(log.timestamp).toLocaleTimeString()}
+                        {new Date(log.timestamp || Date.now()).toLocaleString()}
                       </span>
                       {log.message}
                     </div>
