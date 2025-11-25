@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import { Icons } from "@/app/dashboard/_components/icons";
 import {
   preprocessNasaDatasetWithStream,
   preprocessBmkgDatasetWithStream,
 } from "@/lib/fetch/files.fetch";
 import { useRouter } from "next/navigation";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LogEntry {
   type: "log" | "progress" | "error" | "complete" | "info" | "success";
@@ -14,18 +21,6 @@ interface LogEntry {
   percentage?: number;
   stage?: string;
 }
-// interface PreprocessingResult {
-//   recordCount?: number;
-//   cleanedCollection?: string;
-//   preprocessing_report?: {
-//     outliers?: {
-//       total_outliers: number;
-//     };
-//     quality_metrics?: {
-//       completeness_percentage: number;
-//     };
-//   };
-// }
 interface PreprocessingResult {
   recordCount?: number;
   originalRecordCount?: number;
@@ -86,11 +81,10 @@ export default function PreprocessingModal({
     "processing" | "success" | "error" | "idle"
   >("idle");
   const [result, setResult] = useState<PreprocessingResult | null>(null);
-  const [isAutoScroll, setIsAutoScroll] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const logsEndRef = useRef<HTMLDivElement | null>(null);
-  const logsContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
@@ -113,16 +107,27 @@ export default function PreprocessingModal({
     }
   }, []);
 
-  // Auto-scroll with user control
   const scrollToBottom = useCallback(() => {
-    if (isAutoScroll) {
-      logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (status === "processing") {
+      requestAnimationFrame(() => {
+        const viewport = scrollAreaRef.current?.querySelector(
+          "[data-radix-scroll-area-viewport]"
+        );
+        if (viewport) {
+          viewport.scrollTo({
+            top: viewport.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      });
     }
-  }, [isAutoScroll]);
+  }, [status]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [logs, scrollToBottom]);
+  useLayoutEffect(() => {
+    if (status === "processing" && logs.length > 0) {
+      scrollToBottom();
+    }
+  }, [logs.length, status, scrollToBottom]);
 
   // Start preprocessing when modal opens
   useEffect(() => {
@@ -139,13 +144,26 @@ export default function PreprocessingModal({
     };
   }, [isOpen]); // ← Only depend on isOpen
 
-  // Detect manual scroll - disable auto-scroll
-  const handleLogScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const element = e.currentTarget;
-    const isAtBottom =
-      element.scrollHeight - element.scrollTop - element.clientHeight < 50;
-    setIsAutoScroll(isAtBottom);
-  }, []);
+  useEffect(() => {
+    if (isOpen) {
+      // Lock body scroll when modal opens
+      const originalOverflow = document.body.style.overflow;
+      const originalPaddingRight = document.body.style.paddingRight;
+
+      // Get scrollbar width to prevent layout shift
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
+
+      document.body.style.overflow = "hidden";
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+
+      // Cleanup when modal closes
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.paddingRight = originalPaddingRight;
+      };
+    }
+  }, [isOpen]);
 
   const addLog = useCallback(
     (type: LogEntry["type"], message: string, level: string) => {
@@ -172,7 +190,6 @@ export default function PreprocessingModal({
     setLogs([]);
     setProgress(0);
     setCurrentStage("Connecting...");
-    setIsAutoScroll(true);
     setResult(null);
 
     try {
@@ -210,6 +227,7 @@ export default function PreprocessingModal({
 
         setStatus("success");
         setResult(typedResult);
+
         addLog(
           "success",
           `✅ ${preprocessingType} preprocessing completed successfully!`,
@@ -285,7 +303,6 @@ export default function PreprocessingModal({
       setProgress(0);
       setCurrentStage("");
       setResult(null);
-      setIsAutoScroll(true);
       setIsClosing(false);
     }, CLOSE_DELAY);
   }, [status, cleanup, onClose, isClosing]);
@@ -315,7 +332,6 @@ export default function PreprocessingModal({
         setProgress(0);
         setCurrentStage("");
         setResult(null);
-        setIsAutoScroll(true);
         setIsClosing(false);
       }, CLOSE_DELAY);
     } else {
@@ -357,17 +373,12 @@ export default function PreprocessingModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="preprocessing-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          handleClose();
-        }
-      }}
     >
       <div
         className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Header*/}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
             {getStatusIcon()}
@@ -386,12 +397,13 @@ export default function PreprocessingModal({
             className="text-gray-400 hover:text-gray-600 transition-colors"
             aria-label={status === "processing" ? "Stop and close" : "Close"}
             title={status === "processing" ? "Stop and close" : "Close"}
+            disabled={status === "processing"}
           >
             <Icons.closeX className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Bar*/}
         {status === "processing" && (
           <div className="px-6 pt-4">
             <div className="flex justify-between text-sm mb-2">
@@ -411,55 +423,76 @@ export default function PreprocessingModal({
           </div>
         )}
 
-        {/* Live Logs with Enhanced Controls */}
+        {/* ✅ REFACTORED: Logs with ScrollArea */}
         <div className="flex-1 overflow-hidden p-6 min-h-0">
           <div className="h-full flex flex-col">
-            {/* Scroll controls */}
+            {/* ✅ SIMPLIFIED: Header with manual scroll controls */}
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 font-medium">
                 Live Logs ({logs.length})
               </span>
-              <div className="flex items-center gap-2">
-                {!isAutoScroll && (
+
+              {/* ✅ SIMPLIFIED: Only show manual controls when completed */}
+              {status === "success" && (
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      setIsAutoScroll(true);
-                      scrollToBottom();
+                      const viewport = scrollAreaRef.current?.querySelector(
+                        "[data-radix-scroll-area-viewport]"
+                      );
+                      if (viewport) {
+                        viewport.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    }}
+                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors flex items-center gap-1"
+                  >
+                    <Icons.up className="h-3 w-3" />
+                    Top
+                  </button>
+                  <button
+                    onClick={() => {
+                      const viewport = scrollAreaRef.current?.querySelector(
+                        "[data-radix-scroll-area-viewport]"
+                      );
+                      if (viewport) {
+                        viewport.scrollTo({
+                          top: viewport.scrollHeight,
+                          behavior: "smooth",
+                        });
+                      }
                     }}
                     className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors flex items-center gap-1"
                   >
                     <Icons.down className="h-3 w-3" />
-                    Scroll to bottom
+                    Bottom
                   </button>
-                )}
-                <div className="flex items-center gap-1">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      isAutoScroll ? "bg-green-500" : "bg-gray-400"
-                    }`}
-                  />
-                  <span className="text-xs text-gray-500">
-                    {isAutoScroll ? "Auto-scroll ON" : "Auto-scroll OFF"}
+                  <span className="text-xs text-gray-500 flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    Free scroll
                   </span>
                 </div>
-              </div>
+              )}
+
+              {/* ✅ Processing indicator */}
+              {status === "processing" && (
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs text-gray-500">Auto-scrolling</span>
+                </div>
+              )}
             </div>
 
-            {/* Logs container */}
-            <div
-              ref={logsContainerRef}
-              onScroll={handleLogScroll}
-              className="bg-gray-900 rounded-lg flex-1 overflow-y-auto p-4 font-mono text-sm"
-              role="log"
-              aria-live="polite"
-              aria-label="Preprocessing logs"
+            {/* ✅ MAIN CHANGE: Replace complex scroll logic with ScrollArea */}
+            <ScrollArea
+              ref={scrollAreaRef}
+              className="flex-1 rounded-lg bg-gray-900 p-4"
             >
               {logs.length === 0 ? (
-                <div className="text-gray-400 text-center py-8">
+                <div className="text-gray-400 text-center py-8 font-mono text-sm">
                   Waiting for logs...
                 </div>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-1 font-mono text-sm">
                   {logs.map((log, index) => (
                     <div
                       key={`${log.timestamp}-${index}`}
@@ -481,14 +514,15 @@ export default function PreprocessingModal({
                       {log.message}
                     </div>
                   ))}
+                  {/* ✅ Keep this for auto-scroll during processing */}
                   <div ref={logsEndRef} />
                 </div>
               )}
-            </div>
+            </ScrollArea>
           </div>
         </div>
 
-        {/* Result Summary - Enhanced */}
+        {/* Result Summary*/}
         {status === "success" && result && (
           <div className="px-6 pb-4">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -549,7 +583,6 @@ export default function PreprocessingModal({
         )}
 
         {/* Footer */}
-
         <div className="flex justify-between items-center gap-3 p-6 border-t bg-gray-50">
           {status === "success" && (
             <div className="flex items-center gap-2">
@@ -589,6 +622,13 @@ export default function PreprocessingModal({
                 ? "bg-green-600 text-white hover:bg-green-700"
                 : "bg-gray-600 text-white hover:bg-gray-700"
             }`}
+            title={
+              status === "processing"
+                ? "Stop preprocessing and close modal"
+                : status === "success"
+                ? "Close modal and redirect to cleaned dataset"
+                : "Close modal"
+            }
           >
             {isClosing
               ? "Closing..."
@@ -599,25 +639,6 @@ export default function PreprocessingModal({
               : "Close"}
           </button>
         </div>
-        {/* <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
-          <button
-            onClick={handleClose}
-            disabled={isClosing}
-            className={`px-4 py-2 rounded-lg transition-colors disabled:opacity-50 ${
-              status === "processing"
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            {isClosing
-              ? "Closing..."
-              : status === "processing"
-              ? "Stop & Close"
-              : status === "success"
-              ? "Done"
-              : "Close"}
-          </button>
-        </div> */}
       </div>
     </div>
   );
