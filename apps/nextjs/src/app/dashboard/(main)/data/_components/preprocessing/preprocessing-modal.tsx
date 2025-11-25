@@ -4,6 +4,7 @@ import {
   preprocessNasaDatasetWithStream,
   preprocessBmkgDatasetWithStream,
 } from "@/lib/fetch/files.fetch";
+import { useRouter } from "next/navigation";
 
 interface LogEntry {
   type: "log" | "progress" | "error" | "complete" | "info" | "success";
@@ -91,6 +92,7 @@ export default function PreprocessingModal({
   const logsEndRef = useRef<HTMLDivElement | null>(null);
   const logsContainerRef = useRef<HTMLDivElement | null>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
 
   // Determine preprocessing type
   const preprocessingType = isNasaDataset
@@ -208,6 +210,11 @@ export default function PreprocessingModal({
 
         setStatus("success");
         setResult(typedResult);
+        addLog(
+          "success",
+          `✅ ${preprocessingType} preprocessing completed successfully!`,
+          "SUCCESS"
+        );
       };
 
       const onError = (errorMessage: string) => {
@@ -282,6 +289,40 @@ export default function PreprocessingModal({
       setIsClosing(false);
     }, CLOSE_DELAY);
   }, [status, cleanup, onClose, isClosing]);
+
+  const handleDoneClick = useCallback(() => {
+    if (status === "success" && result?.cleanedCollection) {
+      // Trigger success callback first
+      if (onSuccess) {
+        onSuccess(result);
+      }
+
+      // Close modal
+      setIsClosing(true);
+      cleanup();
+
+      // Redirect to cleaned dataset
+      const cleanedCollection = result.cleanedCollection;
+      router.push(`/dashboard/data/${encodeURIComponent(cleanedCollection)}`);
+
+      // Close modal after redirect
+      onClose();
+
+      // Reset state
+      closeTimeoutRef.current = setTimeout(() => {
+        setStatus("idle");
+        setLogs([]);
+        setProgress(0);
+        setCurrentStage("");
+        setResult(null);
+        setIsAutoScroll(true);
+        setIsClosing(false);
+      }, CLOSE_DELAY);
+    } else {
+      // Regular close for non-success states
+      handleClose();
+    }
+  }, [status, result, onSuccess, router, cleanup, onClose, handleClose]);
 
   const getLogColor = (level?: string) => {
     switch (level) {
@@ -508,7 +549,57 @@ export default function PreprocessingModal({
         )}
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
+
+        <div className="flex justify-between items-center gap-3 p-6 border-t bg-gray-50">
+          {status === "success" && (
+            <div className="flex items-center gap-2">
+              <Icons.checked className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-600">
+                Processing completed successfully!
+              </span>
+            </div>
+          )}
+
+          {/* ✅ Processing status */}
+          {status === "processing" && (
+            <div className="flex items-center gap-2">
+              <Icons.spinner className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm text-gray-600">Processing...</span>
+            </div>
+          )}
+
+          {/* ✅ Error status */}
+          {status === "error" && (
+            <div className="flex items-center gap-2">
+              <Icons.closeX className="h-4 w-4 text-red-600" />
+              <span className="text-sm text-red-600">Processing failed</span>
+            </div>
+          )}
+
+          <div className="flex-1" />
+
+          {/* ✅ Close button */}
+          <button
+            onClick={status === "success" ? handleDoneClick : handleClose}
+            disabled={isClosing}
+            className={`px-4 py-2 rounded-lg transition-colors disabled:opacity-50 ${
+              status === "processing"
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : status === "success"
+                ? "bg-green-600 text-white hover:bg-green-700"
+                : "bg-gray-600 text-white hover:bg-gray-700"
+            }`}
+          >
+            {isClosing
+              ? "Closing..."
+              : status === "processing"
+              ? "Stop & Close"
+              : status === "success"
+              ? "Done"
+              : "Close"}
+          </button>
+        </div>
+        {/* <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
           <button
             onClick={handleClose}
             disabled={isClosing}
@@ -526,7 +617,7 @@ export default function PreprocessingModal({
               ? "Done"
               : "Close"}
           </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );

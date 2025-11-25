@@ -691,24 +691,17 @@ def preprocess_nasa_stream(collection_name):
                     log_data = log_queue.get(timeout=1)
                     
                     # Send log to client as SSE
-                    logger.info(f"📨 Sending SSE: {log_data.get('type')}")
                     yield f"data: {json.dumps(log_data)}\n\n"
                     
                     # ✅ FIXED: After sending completion, wait briefly then close
                     if log_data.get('type') == 'complete':
-                        logger.info("🏁 Sent completion message")
                         
-                        # ✅ Send one more keepalive to ensure delivery
                         yield f": completion-sent\n\n"
-                        
-                        # ✅ Give frontend time to process completion
                         time.sleep(1.0)  # 1 second delay
-                        
                         logger.info("🎯 Closing stream after completion processed")
                         break
                         
                 except Exception:
-                    # ✅ Check if thread completed (no more messages coming)
                     if preprocessing_result.get('thread_complete'):
                         logger.info("🏁 Thread completed, closing stream")
                         break

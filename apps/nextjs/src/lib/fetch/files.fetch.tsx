@@ -807,7 +807,7 @@ export const preprocessNasaDatasetWithStream = (
 
   let connectionTimeout: NodeJS.Timeout;
   let hasCompletedSuccessfully = false;
-  let hasReceivedData = false; // ✅ Track if we received any data
+  let hasReceivedData = false;
   let streamClosed = false;
 
   const resetTimeout = () => {
@@ -856,14 +856,13 @@ export const preprocessNasaDatasetWithStream = (
 
         case "complete":
           hasCompletedSuccessfully = true;
+          streamClosed = true;
 
           onLog({
             type: "success",
             message: "🎉 NASA preprocessing completed successfully!",
           });
 
-          // ✅ FIXED: Trigger completion immediately and close stream
-          console.log("✅ Triggering onComplete with result:", data.result);
           const completionResult =
             data.result && typeof data.result === "object"
               ? data.result
@@ -872,17 +871,10 @@ export const preprocessNasaDatasetWithStream = (
                   cleanedCollection: `${collectionName}_cleaned`,
                   preprocessing_report: null,
                 };
-          onComplete(completionResult);
 
-          // ✅ FIXED: Close stream immediately after completion
-          streamClosed = true;
+          onComplete(completionResult);
           clearTimeout(connectionTimeout);
           eventSource.close();
-
-          onLog({
-            type: "info",
-            message: "✅ Stream closed after successful completion",
-          });
           break;
 
         case "error":
@@ -893,45 +885,26 @@ export const preprocessNasaDatasetWithStream = (
           break;
 
         default:
-          console.log("Unknown SSE message type:", data.type, data);
           break;
       }
     } catch (error) {
       console.error("Error parsing SSE data:", error);
-      console.log("Raw event data:", event.data);
     }
   };
+
   eventSource.onerror = (error) => {
-    // ✅ Prevent multiple error handling
     if (streamClosed) {
-      console.log("Stream already closed, ignoring error event");
       return;
     }
-
-    console.log("SSE State Info:", {
-      readyState: eventSource.readyState,
-      hasCompleted: hasCompletedSuccessfully,
-      hasData: hasReceivedData,
-      streamClosed: streamClosed,
-    });
 
     clearTimeout(connectionTimeout);
     streamClosed = true;
 
-    // ✅ FIXED: Only treat as error if we haven't completed successfully
     if (hasCompletedSuccessfully) {
-      console.log(
-        "✅ Stream closed after successful completion - this is normal"
-      );
       return; // Don't call onError for successful completion
     }
 
     if (hasReceivedData) {
-      // ✅ Got data but stream closed - likely successful but missed completion
-      console.log(
-        "⚠️ Stream closed with data - inferring successful completion"
-      );
-
       onLog({
         type: "success",
         message: "✅ Preprocessing completed successfully!",
@@ -945,10 +918,10 @@ export const preprocessNasaDatasetWithStream = (
       return;
     }
 
-    // ✅ True error - no completion and no data
     onError("❌ Connection failed - no preprocessing data received");
     eventSource.close();
   };
+
   return {
     eventSource,
     cleanup: () => {
