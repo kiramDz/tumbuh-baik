@@ -957,34 +957,67 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
     await db();
     const { collectionName } = c.req.param();
 
-    // 1. Hapus metadata
+    // 1. Get metadata to check if it's preprocessed
+    const metadata = await DatasetMeta.findOne({ collectionName }).lean();
+
+    if (!metadata) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+    // 2. Determine collection names to delete
+    const collectionsToDelete: string[] = [];
+
+    // Type assertion to fix the TypeScript error
+    const metaStatus = (metadata as any).status as string;
+
+    if (metaStatus === "preprocessed" && collectionName.endsWith("_cleaned")) {
+      // If current collection is preprocessed (_cleaned)
+      // Add both the cleaned and original collection
+      collectionsToDelete.push(collectionName); // e.g., "dataset_cleaned"
+      collectionsToDelete.push(collectionName.replace(/_cleaned$/, "")); // e.g., "dataset"
+    } else if (metaStatus === "raw") {
+      // If it's raw, only delete the original
+      collectionsToDelete.push(collectionName);
+    } else {
+      // Fallback: just delete whatever is in collectionName
+      collectionsToDelete.push(collectionName);
+    }
+
+    // 3. Delete metadata
     await DatasetMeta.deleteOne({ collectionName });
 
-    // 2. Drop koleksi MongoDB menggunakan model
-    try {
-      // Cek apakah model sudah ada
-      let Model;
-      if (mongoose.models[collectionName]) {
-        Model = mongoose.models[collectionName];
-      } else {
-        Model = mongoose.model(
-          collectionName,
-          new mongoose.Schema({}, { strict: false }),
-          collectionName
-        );
-      }
+    // 4. Drop all identified collections
+    for (const colName of collectionsToDelete) {
+      try {
+        let Model;
+        if (mongoose.models[colName]) {
+          Model = mongoose.models[colName];
+        } else {
+          Model = mongoose.model(
+            colName,
+            new mongoose.Schema({}, { strict: false }),
+            colName
+          );
+        }
 
-      // Drop collection menggunakan model
-      await Model.collection.drop();
-    } catch (dropError: any) {
-      // Jika collection tidak ada, abaikan error
-      if (dropError.code !== 26) {
-        // 26 = NamespaceNotFound
-        throw dropError;
+        await Model.collection.drop();
+        console.log(`✅ Dropped collection: ${colName}`);
+      } catch (dropError: any) {
+        // Ignore if collection doesn't exist (code 26 = NamespaceNotFound)
+        if (dropError.code !== 26) {
+          console.error(`⚠️ Error dropping collection ${colName}:`, dropError);
+        } else {
+          console.log(`ℹ️ Collection ${colName} not found, skipping`);
+        }
       }
     }
 
-    return c.json({ message: "Dataset deleted successfully" }, 200);
+    return c.json(
+      {
+        message: "Dataset deleted successfully",
+        deletedCollections: collectionsToDelete,
+      },
+      200
+    );
   } catch (error) {
     console.error("Delete dataset error:", error);
     const { message, status } = parseError(error);
