@@ -1369,9 +1369,7 @@ class NasaPreprocessor:
         base_coverage = 100.0
         uncovered_reasons = {}
         
-        # ========================================================================
         # PENALTY 1: GCV Smoothing Quality
-        # ========================================================================
         smoothing_quality = self._get_smoothing_quality(param)
         gcv_penalty = smoothing_quality["penalty"]
         
@@ -1379,9 +1377,7 @@ class NasaPreprocessor:
             base_coverage -= gcv_penalty
             uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
         
-        # ========================================================================
-        # PENALTY 2: Trend Preservation (NEW - Phase 1)
-        # ========================================================================
+        # PENALTY 2: Trend Preservation ( Phase 1)
         trend_value = smoothing_quality.get("trend_value", 0.0)
         
         if trend_value > 0:  # Only if smoothing was applied
@@ -1398,27 +1394,21 @@ class NasaPreprocessor:
                         f"({trend_value*100:.1f}%) - High forecast uncertainty"
                     )
         
-        # ========================================================================
         # PENALTY 3: Large Gaps
-        # ========================================================================
         large_gap_penalty = large_gaps.get("impact_percentage", 0)
         
         if large_gap_penalty > 0:
             base_coverage -= large_gap_penalty
             uncovered_reasons["large_gaps"] = round(large_gap_penalty, 2)
         
-        # ========================================================================
         # PENALTY 4: Extreme Outliers
-        # ========================================================================
         outlier_penalty = extreme_outliers.get("impact_percentage", 0)
         
         if outlier_penalty > 0:
             base_coverage -= outlier_penalty
             uncovered_reasons["extreme_outliers"] = round(outlier_penalty, 2)
         
-        # ========================================================================
         # PENALTY 5: Weak Seasonality (REFINED - Phase 1)
-        # ========================================================================
         seasonal_strength = seasonality.get("seasonal_strength", 0)
         has_clear_seasonality = seasonality.get("has_clear_seasonality", False)
         
@@ -1441,26 +1431,20 @@ class NasaPreprocessor:
                     f"(strength={seasonal_strength:.3f}) - Holt-Winters suboptimal"
                 )
         
-        # ========================================================================
         # PENALTY 6: Non-Stationarity
-        # ========================================================================
         if not stationarity.get("is_stationary", False):
             stationarity_penalty = 5.0
             base_coverage -= stationarity_penalty
             uncovered_reasons["non_stationary"] = round(stationarity_penalty, 2)
         
-        # ========================================================================
         # PENALTY 7: Missing Data
-        # ========================================================================
         missing_penalty = coverage_analysis.get("missing_ratio", 0) * 25
         
         if missing_penalty > 0:
             base_coverage -= missing_penalty
             uncovered_reasons["missing_data"] = round(missing_penalty, 2)
         
-        # ========================================================================
         # PENALTY 8: Compound Penalty (if multiple serious issues)
-        # ========================================================================
         issue_count = 0
         
         if large_gap_penalty > 5:
@@ -1484,9 +1468,7 @@ class NasaPreprocessor:
                 f"- Compound penalty applied (forecasting highly uncertain)"
             )
         
-        # ========================================================================
         # FINAL COVERAGE
-        # ========================================================================
         final_coverage = max(0, base_coverage)
         
         return {
@@ -1518,9 +1500,7 @@ class NasaPreprocessor:
         base_coverage = 100.0
         uncovered_reasons = {}
         
-        # ========================================================================
         # PENALTY 1: GCV Smoothing Quality (80% weight vs HW)
-        # ========================================================================
         smoothing_quality = self._get_smoothing_quality(param)
         gcv_penalty = smoothing_quality["penalty"] * 0.8  # Slightly less critical than HW
         
@@ -1528,9 +1508,7 @@ class NasaPreprocessor:
             base_coverage -= gcv_penalty
             uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
         
-        # ========================================================================
-        # PENALTY 2: Trend Preservation (NEW - Phase 1, 80% weight)
-        # ========================================================================
+        # PENALTY 2: Trend Preservation (Phase 1, 80% weight)
         trend_value = smoothing_quality.get("trend_value", 0.0)
         
         if trend_value > 0:  # Only if smoothing was applied
@@ -1541,27 +1519,21 @@ class NasaPreprocessor:
                 base_coverage -= trend_penalty
                 uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
         
-        # ========================================================================
         # PENALTY 3: Large Gaps (80% weight vs HW)
-        # ========================================================================
         large_gap_penalty = large_gaps.get("impact_percentage", 0) * 0.8
         
         if large_gap_penalty > 0:
             base_coverage -= large_gap_penalty
             uncovered_reasons["large_gaps"] = round(large_gap_penalty, 2)
         
-        # ========================================================================
         # PENALTY 4: Extreme Outliers
-        # ========================================================================
         outlier_penalty = extreme_outliers.get("impact_percentage", 0)
         
         if outlier_penalty > 0:
             base_coverage -= outlier_penalty
             uncovered_reasons["extreme_outliers"] = round(outlier_penalty, 2)
         
-        # ========================================================================
         # PENALTY 5: Precipitation Extremes (if applicable)
-        # ========================================================================
         precip_penalty = 0
         
         if precipitation:
@@ -1571,18 +1543,14 @@ class NasaPreprocessor:
                 base_coverage -= precip_penalty
                 uncovered_reasons["precipitation_extremes"] = round(precip_penalty, 2)
         
-        # ========================================================================
         # PENALTY 6: Missing Data
-        # ========================================================================
         missing_penalty = coverage_analysis.get("missing_ratio", 0) * 25
         
         if missing_penalty > 0:
             base_coverage -= missing_penalty
             uncovered_reasons["missing_data"] = round(missing_penalty, 2)
         
-        # ========================================================================
         # PENALTY 7: Compound Penalty (if multiple serious issues)
-        # ========================================================================
         issue_count = 0
         
         if large_gap_penalty > 4:  # Slightly lower threshold than HW
@@ -1606,9 +1574,7 @@ class NasaPreprocessor:
                 f"- Compound penalty applied (LSTM forecasting uncertain)"
             )
         
-        # ========================================================================
         # FINAL COVERAGE
-        # ========================================================================
         final_coverage = max(0, base_coverage)
         
         return {
@@ -1699,7 +1665,7 @@ class NasaPreprocessor:
             if param not in df.columns:
                 continue
             
-            # ✅ SIMPLE FIX: Check smoothing_summary instead of config
+            # Check smoothing_summary instead of config
             smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
             param_smoothing_applied = smoothing_summary.get(param, "none")
             
@@ -1828,14 +1794,14 @@ class NasaPreprocessor:
         # Calculate Mean Squared Error
         mse = np.mean((original - smoothed) ** 2)
         
-        # ✅ FIX: Get parameter-specific smoothing method (not global!)
+        # Get parameter-specific smoothing method (not global!)
         param_config = self.options.get("parameter_configs", {}).get(param, {})
         smoothing_method = param_config.get(
             "smoothing_method", 
             self.options.get("smoothing_method", "exponential")  # Fallback to global
         )
         
-        # ✅ FIX: Handle case where smoothing_method is None (defensive programming)
+        # Handle case where smoothing_method is None (defensive programming)
         if smoothing_method is None:
             logger.warning(f"GCV called for parameter {param} with no smoothing method")
             return 0.0  # Return 0 to indicate no smoothing was applied
@@ -1845,14 +1811,14 @@ class NasaPreprocessor:
             window_size = self.options.get("window_size", 5)
             edf = window_size
         elif smoothing_method == "exponential":
-            # ✅ FIXED: Get parameter-specific alpha correctly
+            # Get parameter-specific alpha correctly
             if param:
                 param_config = self.options.get("parameter_configs", {}).get(param, {})
                 alpha = param_config.get("exponential_alpha", self.options.get("exponential_alpha", 0.15))
             else:
                 alpha = self.options.get("exponential_alpha", 0.15)
             
-            # ✅ ADDED: Prevent division by zero
+            # Prevent division by zero
             if alpha <= 0:
                 alpha = 0.01  # Minimum alpha
             elif alpha >= 1:
