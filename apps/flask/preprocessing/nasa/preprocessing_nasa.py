@@ -410,10 +410,6 @@ class NasaPreprocessor:
             self._calculate_model_coverage(processed_df)
             
         self.log_detailed_coverage_analysis(processed_df)
-
-        # STEP 9: Generate quality metrics
-        # log_progress("quality_metrics", "Generating quality metrics...")
-        # self._apply_smoothing_generate_quality_metrics(df, processed_df)
         
         log_progress("quality_metrics", "Generating quality metrics...")
         self._generate_quality_metrics(df, processed_df) 
