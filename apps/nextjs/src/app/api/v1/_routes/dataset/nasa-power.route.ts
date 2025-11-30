@@ -4,7 +4,6 @@ import db from "@/lib/database/db";
 import { DatasetMeta } from "@/lib/database/schema/feature/dataset-meta.model";
 import mongoose from "mongoose";
 import { parseError } from "@/lib/utils";
-import { constructFromSymbol } from "date-fns/constants";
 
 interface NasaPowerRecord {
   Date?: Date;
@@ -327,12 +326,14 @@ nasaPowerRoute.post("/save", async (c) => {
 nasaPowerRoute.get("/refreshable", async (c) => {
   try {
     await db();
+
+    // Only get datasets that can actually be refreshed according to lifecycle
     const datasets = await DatasetMeta.find({
       isAPI: true,
       "apiConfig.type": "nasa-power",
+      status: { $nin: ["archived"] }, // Exclude archived datasets
     }).lean();
 
-    // create current date refresh status
     const today = new Date();
     const todayFormatted = today.toISOString().slice(0, 10).replace(/-/g, "");
 
@@ -344,6 +345,37 @@ nasaPowerRoute.get("/refreshable", async (c) => {
         let canRefresh = false;
         let startDate = null;
         let daysSinceLastRecord = null;
+        let refreshEligibility = "unknown";
+
+        // ADDED: Check status eligibility first
+        const currentStatus = (dataset as any).status as string;
+        const statusAllowsRefresh = [
+          "raw",
+          "latest",
+          "preprocessed",
+          "validated",
+        ].includes(currentStatus);
+
+        if (!statusAllowsRefresh) {
+          refreshEligibility = `Status '${currentStatus}' cannot be refreshed`;
+          return {
+            ...dataset,
+            refreshInfo: {
+              canRefresh: false,
+              lastRecordDate: null,
+              startDate: null,
+              endDate: todayFormatted,
+              daysSinceLastRecord: null,
+              refreshEligibility,
+              statusInfo: {
+                current: currentStatus,
+                allowsRefresh: false,
+                willBecomeAfterRefresh: null,
+                willDeleteCleanedCollection: false,
+              },
+            },
+          };
+        }
 
         try {
           // Get the dynamic model for this dataset
@@ -354,11 +386,13 @@ nasaPowerRoute.get("/refreshable", async (c) => {
               new mongoose.Schema({}, { strict: false }),
               dataset.collectionName
             );
+
           // Find the most recent record in collectionName
           const latestRecord = (await dynamicModel
             .findOne({})
             .sort({ Date: -1 })
             .lean()) as unknown as NasaPowerRecord;
+
           if (latestRecord && latestRecord.Date) {
             // If we found a record with a date, use that as the last record date
             lastRecordDate = new Date(latestRecord.Date);
@@ -376,6 +410,11 @@ nasaPowerRoute.get("/refreshable", async (c) => {
 
             // Can refresh if the last record is at least 1 day old
             canRefresh = daysSinceLastRecord >= 1;
+            refreshEligibility = canRefresh
+              ? `Can refresh (${daysSinceLastRecord} days since last record)`
+              : `Up to date (last record: ${
+                  lastRecordDate.toISOString().split("T")[0]
+                })`;
           } else {
             // No records found, fallback to metadata dates
             if (dataset.lastUpdated) {
@@ -389,6 +428,9 @@ nasaPowerRoute.get("/refreshable", async (c) => {
                   (1000 * 60 * 60 * 24)
               );
               canRefresh = daysSinceLastRecord >= 1;
+              refreshEligibility = canRefresh
+                ? `Can refresh from metadata (${daysSinceLastRecord} days since last update)`
+                : "Up to date according to metadata";
             } else if (dataset.apiConfig?.params?.end) {
               // Use end date from API params as fallback
               const endDate = dataset.apiConfig.params.end;
@@ -405,6 +447,12 @@ nasaPowerRoute.get("/refreshable", async (c) => {
                   (1000 * 60 * 60 * 24)
               );
               canRefresh = daysSinceLastRecord >= 1;
+              refreshEligibility = canRefresh
+                ? `Can refresh from API config (${daysSinceLastRecord} days since configured end date)`
+                : "Up to date according to API configuration";
+            } else {
+              refreshEligibility =
+                "Cannot determine refresh eligibility - no date reference found";
             }
           }
         } catch (error) {
@@ -412,49 +460,61 @@ nasaPowerRoute.get("/refreshable", async (c) => {
             `Error while checking records for ${dataset.name}:`,
             error
           );
-          // Use metadaata dates as fallback
-          if (dataset.lastUpdated) {
-            lastRecordDate = new Date(dataset.lastUpdated);
-            const nextDate = new Date(lastRecordDate);
-            nextDate.setDate(nextDate.getDate() + 1);
-            startDate = nextDate.toISOString().slice(0, 10).replace(/-/g, "");
-            daysSinceLastRecord = Math.floor(
-              (today.getTime() - lastRecordDate.getTime()) /
-                (1000 * 60 * 60 * 24)
-            );
-            canRefresh = daysSinceLastRecord >= 1;
-          } else if (dataset.apiConfig?.params?.end) {
-            const endDate = dataset.apiConfig.params.end;
-            const year = parseInt(endDate.substring(0, 4));
-            const month = parseInt(endDate.substring(4, 6)) - 1;
-            const day = parseInt(endDate.substring(6, 8));
-            lastRecordDate = new Date(year, month, day);
-
-            const nextDate = new Date(lastRecordDate);
-            nextDate.setDate(nextDate.getDate() + 1);
-            startDate = nextDate.toISOString().slice(0, 10).replace(/-/g, "");
-            daysSinceLastRecord = Math.floor(
-              (today.getTime() - lastRecordDate.getTime()) /
-                (1000 * 60 * 60 * 24)
-            );
-            canRefresh = daysSinceLastRecord >= 1;
-          }
+          refreshEligibility = `Error checking records: ${error}`;
         }
+
+        // ADDED: Determine what will happen after refresh
+        const wasPreprocessed =
+          currentStatus === "preprocessed" || currentStatus === "validated";
+        let willBecomeAfterRefresh: string;
+
+        if (wasPreprocessed) {
+          willBecomeAfterRefresh = "raw";
+        } else if (currentStatus === "raw") {
+          willBecomeAfterRefresh = "latest";
+        } else {
+          willBecomeAfterRefresh = "latest";
+        }
+
         return {
           ...dataset,
           refreshInfo: {
-            canRefresh,
+            canRefresh: canRefresh && statusAllowsRefresh,
             lastRecordDate: lastRecordDate?.toISOString(),
             startDate, // When to start fetching new data
             endDate: todayFormatted, // Today's date (to fetch up to)
             daysSinceLastRecord, // How many days since the last record
+            refreshEligibility,
+            statusInfo: {
+              current: currentStatus,
+              allowsRefresh: statusAllowsRefresh,
+              willBecomeAfterRefresh,
+              willDeleteCleanedCollection: wasPreprocessed,
+            },
           },
         };
       })
     );
+
+    // ADDED: Summary statistics
+    const summary = {
+      total: datasetsWithRefreshInfo.length,
+      canRefresh: datasetsWithRefreshInfo.filter(
+        (d) => d.refreshInfo.canRefresh
+      ).length,
+      upToDate: datasetsWithRefreshInfo.filter(
+        (d) =>
+          !d.refreshInfo.canRefresh && d.refreshInfo.statusInfo.allowsRefresh
+      ).length,
+      statusBlocked: datasetsWithRefreshInfo.filter(
+        (d) => !d.refreshInfo.statusInfo.allowsRefresh
+      ).length,
+    };
+
     return c.json(
       {
-        message: "Retrieved NASA POWER datasets that can be refreshed",
+        message: "Retrieved NASA POWER datasets refresh status",
+        summary,
         data: datasetsWithRefreshInfo,
       },
       200
@@ -466,18 +526,86 @@ nasaPowerRoute.get("/refreshable", async (c) => {
   }
 });
 
+// Single dataset refresh endpoint with status logic
+// ENHANCED: Single dataset refresh with improved status logic
 nasaPowerRoute.post("/refresh/:id", async (c) => {
   const requestedId = c.req.param("id");
   try {
     await db();
 
-    // Find dastaset by Id
+    // Find dataset by Id
     const dataset = (await DatasetMeta.findById(
       requestedId
     ).lean()) as DatasetMetaDocument;
 
+    if (!dataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
+    // Check if dataset is NASA POWER API type
+    if (!dataset.isAPI || dataset.apiConfig?.type !== "nasa-power") {
+      return c.json(
+        { message: "Dataset is not a NASA POWER API dataset" },
+        400
+      );
+    }
+
+    // ADDED: Validate dataset status can be refreshed
+    const currentStatus = dataset.status;
+    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
+
+    if (!refreshableStatuses.includes(currentStatus)) {
+      return c.json(
+        {
+          message: `Cannot refresh dataset with status '${currentStatus}'. Only datasets with status: ${refreshableStatuses.join(
+            ", "
+          )} can be refreshed.`,
+          currentStatus,
+          refreshableStatuses,
+        },
+        400
+      );
+    }
+
     const today = new Date();
     const todayFormatted = today.toISOString().slice(0, 10).replace(/-/g, "");
+
+    // ENHANCED: Handle _cleaned collection deletion with better logging
+    const wasPreprocessed =
+      dataset.status === "preprocessed" || dataset.status === "validated";
+
+    if (wasPreprocessed) {
+      console.log(
+        `Dataset was ${dataset.status}, will delete _cleaned collection and reset to raw`
+      );
+
+      // Delete the _cleaned collection
+      const cleanedCollectionName = `${dataset.collectionName}_cleaned`;
+      try {
+        const CleanedModel =
+          mongoose.models[cleanedCollectionName] ||
+          mongoose.model(
+            cleanedCollectionName,
+            new mongoose.Schema({}, { strict: false }),
+            cleanedCollectionName
+          );
+        await CleanedModel.collection.drop();
+        console.log(`✅ Deleted cleaned collection: ${cleanedCollectionName}`);
+      } catch (error: any) {
+        // Collection might not exist, which is fine
+        if (error.code !== 26) {
+          // 26 = NamespaceNotFound
+          console.warn(
+            `⚠️ Warning deleting cleaned collection ${cleanedCollectionName}:`,
+            error.message
+          );
+        } else {
+          console.log(
+            `ℹ️ Cleaned collection ${cleanedCollectionName} not found (already deleted)`
+          );
+        }
+      }
+    }
 
     try {
       const dynamicModel =
@@ -487,11 +615,14 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
           new mongoose.Schema({}, { strict: false }),
           dataset.collectionName
         );
+
       const latestRecord = (await dynamicModel
         .findOne({})
         .sort({ Date: -1 })
         .lean()) as unknown as NasaPowerRecord;
+
       let startDateFormatted;
+
       if (latestRecord && latestRecord.Date) {
         const latestDate = new Date(latestRecord.Date);
         latestDate.setDate(latestDate.getDate() + 1);
@@ -537,20 +668,24 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
           400
         );
       }
+
       // Check if dataset is already up to date
       if (startDateFormatted > todayFormatted) {
         return c.json(
           {
-            message: "dataset is up to date",
+            message: "Dataset is already up to date",
             data: {
               name: dataset.name,
               lastUpdated: dataset.lastUpdated,
               status: dataset.status,
+              newRecordsCount: 0,
+              refreshResult: "up-to-date",
             },
           },
           200
         );
       }
+
       console.log(
         `Refreshing dataset '${dataset.name}' from ${startDateFormatted} to ${todayFormatted}`
       );
@@ -564,12 +699,13 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
           parameters: dataset.apiConfig?.params.parameters.join(","),
           community: dataset.apiConfig?.params.community || "ag",
           format: "JSON",
-          user: "tumbuhbaik", // Use dash instead of underscore
+          user: "tumbuhbaik",
           header: "true",
           "time-standard": "LST",
         },
         timeout: 30000,
       });
+
       if (
         !response.data ||
         !response.data.properties ||
@@ -580,13 +716,15 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
           400
         );
       }
+
       if (!dataset.apiConfig?.params?.parameters) {
         return c.json(
           { message: "Dataset API configuration is missing or incomplete" },
           400
         );
       }
-      // Transform NASA POWER data into array of objects (same as original data)
+
+      // Transform NASA POWER data into array of objects
       const parameters = dataset.apiConfig.params.parameters;
       const properties = response.data.properties;
       const paramData = properties.parameter;
@@ -594,21 +732,22 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
 
       // If no data available
       if (timespan.length === 0) {
-        // Don't use "no-new-data" as status
         return c.json(
           {
             message: "No new data available for this dataset",
             data: {
               name: dataset.name,
               lastUpdated: dataset.lastUpdated,
-              status: dataset.status, // Use the actual dataset status
-              refreshResult: "no-new-data", // Add this property to indicate refresh outcome
+              status: dataset.status,
+              refreshResult: "no-new-data",
+              newRecordsCount: 0,
             },
           },
           200
         );
       }
-      // Convert date strings to records (Date Objects MONGODB)
+
+      // Convert date strings to records
       const newRecords = timespan.map((date) => {
         const year = parseInt(date.substring(0, 4));
         const month = parseInt(date.substring(4, 6)) - 1;
@@ -627,13 +766,43 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
         });
         return record;
       });
-      console.log(
-        `Found ${newRecords.length} new records added to dataset '${dataset.name}'`
-      );
-      // Await the new newRecords
-      await dynamicModel.insertMany(newRecords);
 
+      console.log(
+        `Found ${newRecords.length} new records to add to dataset '${dataset.name}'`
+      );
+
+      // Insert new records
+      await dynamicModel.insertMany(newRecords);
       const totalRecords = await dynamicModel.countDocuments();
+
+      // ENHANCED: Status logic according to your lifecycle
+      let newStatus: string;
+      if (wasPreprocessed) {
+        // If dataset was preprocessed/validated, reset to raw (needs reprocessing)
+        newStatus = "raw";
+        console.log(
+          `✅ Status changed from ${dataset.status} to raw (dataset was preprocessed, needs reprocessing)`
+        );
+      } else if (dataset.status === "raw") {
+        // If it was raw, set to latest (data is now current)
+        newStatus = "latest";
+        console.log(
+          `✅ Status changed from raw to latest (data is now current)`
+        );
+      } else if (dataset.status === "latest") {
+        // If it was latest, keep as latest (still current)
+        newStatus = "latest";
+        console.log(
+          `✅ Status remains latest (data updated and still current)`
+        );
+      } else {
+        // Fallback for any other status
+        newStatus = "latest";
+        console.log(
+          `✅ Status set to latest (fallback from ${dataset.status})`
+        );
+      }
+
       const updatedDataset = await DatasetMeta.findByIdAndUpdate(
         requestedId,
         {
@@ -641,22 +810,31 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
             lastUpdated: today,
             totalRecords,
             "apiConfig.params.end": todayFormatted,
-            // status: "latest",
-            status:
-              dataset.status === "preprocessed" ||
-              dataset.status === "validated"
-                ? "raw"
-                : "latest",
+            status: newStatus,
           },
         },
         { new: true }
       );
+
       return c.json(
         {
           message: `Successfully refreshed dataset with ${newRecords.length} new records`,
           data: {
             dataset: updatedDataset,
+            refreshResult: "success",
             newRecordsCount: newRecords.length,
+            statusTransition: {
+              from: dataset.status,
+              to: newStatus,
+              reason: wasPreprocessed
+                ? "Dataset was preprocessed, reset to raw for reprocessing"
+                : "Data refreshed and marked as current",
+            },
+            cleanedCollectionDeleted: wasPreprocessed,
+            dateRange: {
+              from: startDateFormatted,
+              to: todayFormatted,
+            },
             newRecordsSample: newRecords.slice(0, 3), // Sample of new records
           },
         },
@@ -665,7 +843,7 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
     } catch (error: any) {
       console.error(`Error refreshing dataset ${requestedId}:`, error);
 
-      // Handle specific API errors
+      // Enhanced error handling with better categorization
       if (error.response) {
         console.error("NASA API Response Error:", {
           status: error.response.status,
@@ -678,8 +856,19 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
             {
               message:
                 "NASA POWER API rate limit exceeded. Please try again later.",
+              refreshResult: "rate-limited",
             },
             429
+          );
+        }
+
+        if (error.response.status >= 500) {
+          return c.json(
+            {
+              message: "NASA POWER API server error. Please try again later.",
+              refreshResult: "api-server-error",
+            },
+            503
           );
         }
       }
@@ -689,6 +878,7 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
         return c.json(
           {
             message: `Database error while refreshing dataset: ${error.message}`,
+            refreshResult: "database-error",
             code: error.code,
           },
           500
@@ -701,6 +891,7 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
           {
             message:
               "Connection timed out while fetching data from NASA POWER API. Try with a smaller date range.",
+            refreshResult: "timeout",
           },
           504
         );
@@ -711,9 +902,8 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
           message: `Error refreshing dataset: ${
             error.message || "Unknown error"
           }`,
-          details: error.stack
-            ? error.stack.split("\n").slice(0, 3).join("\n")
-            : "No stack trace available",
+          refreshResult: "error",
+          details: error.response?.data || error.message,
         },
         500
       );
@@ -726,6 +916,7 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
       return c.json(
         {
           message: "Invalid dataset ID format",
+          refreshResult: "invalid-id",
           details: `Provided ID '${requestedId}' is not a valid ObjectId`,
         },
         400
@@ -740,6 +931,7 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
       return c.json(
         {
           message: "Database connection failed",
+          refreshResult: "database-connection-error",
           details: "Could not connect to MongoDB server",
         },
         503
@@ -751,31 +943,43 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
     return c.json(
       {
         message,
+        refreshResult: "system-error",
         endpoint: "refresh/:id",
-        id: c.req.param("id"),
+        id: requestedId,
       },
       status
     );
   }
 });
 
-// POST - Refresh all NASA POWER at once
 nasaPowerRoute.post("/refresh-all", async (c) => {
   try {
     await db();
 
-    // Find all NASA POWER datasets
+    // FIXED: Find all NASA POWER datasets (exclude archived ones)
     const datasets = (await DatasetMeta.find({
       isAPI: true,
       "apiConfig.type": "nasa-power",
+      status: { $nin: ["archived"] }, // FIXED: Exclude archived datasets properly
     }).lean()) as DatasetMetaDocument[];
 
     if (datasets.length === 0) {
       return c.json(
-        { message: "No NASA POWER datasets found to refresh" },
+        {
+          message: "No NASA POWER datasets found to refresh",
+          data: {
+            total: 0,
+            refreshed: 0,
+            alreadyUpToDate: 0,
+            failed: 0,
+            statusBlocked: 0,
+            details: [],
+          },
+        },
         200
       );
     }
+
     const today = new Date();
     const todayFormatted = today.toISOString().slice(0, 10).replace(/-/g, "");
 
@@ -784,21 +988,78 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
       refreshed: 0,
       alreadyUpToDate: 0,
       failed: 0,
+      statusBlocked: 0, // ADDED: Count datasets blocked by status
       details: [] as any[],
     };
 
     // Process each dataset
     for (const dataset of datasets) {
       try {
-        if (!dataset.apiConfig?.params) {
+        // ADDED: Validate status can be refreshed
+        const currentStatus = dataset.status;
+        const refreshableStatuses = [
+          "raw",
+          "latest",
+          "preprocessed",
+          "validated",
+        ];
+
+        if (!refreshableStatuses.includes(currentStatus)) {
+          results.statusBlocked++;
           results.details.push({
             id: dataset._id,
             name: dataset.name,
-            status: dataset.status, // Keep actual DB status
-            refreshResult: "failed", // Use refreshResult for operation outcome
+            status: dataset.status,
+            refreshResult: "status-blocked",
+            reason: `Status '${currentStatus}' cannot be refreshed`,
+          });
+          continue;
+        }
+
+        if (!dataset.apiConfig?.params) {
+          results.failed++;
+          results.details.push({
+            id: dataset._id,
+            name: dataset.name,
+            status: dataset.status,
+            refreshResult: "failed",
             reason: "Missing API parameters",
           });
           continue;
+        }
+
+        // Handle _cleaned collection deletion if dataset was preprocessed
+        const wasPreprocessed =
+          dataset.status === "preprocessed" || dataset.status === "validated";
+
+        if (wasPreprocessed) {
+          console.log(
+            `Dataset '${dataset.name}' was ${dataset.status}, deleting _cleaned collection`
+          );
+
+          // Delete the _cleaned collection
+          const cleanedCollectionName = `${dataset.collectionName}_cleaned`;
+          try {
+            const CleanedModel =
+              mongoose.models[cleanedCollectionName] ||
+              mongoose.model(
+                cleanedCollectionName,
+                new mongoose.Schema({}, { strict: false }),
+                cleanedCollectionName
+              );
+            await CleanedModel.collection.drop();
+            console.log(
+              `✅ Deleted cleaned collection: ${cleanedCollectionName}`
+            );
+          } catch (error: any) {
+            if (error.code !== 26) {
+              // 26 = NamespaceNotFound
+              console.warn(
+                `⚠️ Warning deleting cleaned collection ${cleanedCollectionName}:`,
+                error.message
+              );
+            }
+          }
         }
 
         // Get dynamic model dataset
@@ -809,16 +1070,17 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
             new mongoose.Schema({}, { strict: false }),
             dataset.collectionName
           );
+
         // Find latest record in collectionName
         const latestRecord = (await dynamicModel
           .findOne({})
           .sort({ Date: -1 })
           .lean()) as unknown as NasaPowerRecord;
+
         let startDateFormatted;
 
         // Determine start date based on latest record
         if (latestRecord && latestRecord.Date) {
-          // Use latest record date
           const latestDate = new Date(latestRecord.Date);
           latestDate.setDate(latestDate.getDate() + 1);
           startDateFormatted = latestDate
@@ -826,7 +1088,6 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
             .slice(0, 10)
             .replace(/-/g, "");
         } else if (dataset.lastUpdated) {
-          // Use day after lastUpdated as fallback
           const lastUpdated = new Date(dataset.lastUpdated);
           lastUpdated.setDate(lastUpdated.getDate() + 1);
           startDateFormatted = lastUpdated
@@ -834,7 +1095,6 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
             .slice(0, 10)
             .replace(/-/g, "");
         } else if (dataset.apiConfig?.params?.end) {
-          // Use day after original end date as last resort
           const endDate = dataset.apiConfig.params.end;
           const year = parseInt(endDate.substring(0, 4));
           const month = parseInt(endDate.substring(4, 6)) - 1;
@@ -850,6 +1110,7 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
             id: dataset._id,
             name: dataset.name,
             status: dataset.status,
+            refreshResult: "failed",
             reason: "Cannot determine start date",
           });
           continue;
@@ -862,14 +1123,17 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
             id: dataset._id,
             name: dataset.name,
             status: dataset.status,
+            refreshResult: "up-to-date",
             lastRecord:
               latestRecord?.Date?.toISOString() || dataset.lastUpdated,
           });
           continue;
         }
+
         console.log(
           `Refreshing dataset '${dataset.name}' from ${startDateFormatted} to ${todayFormatted}`
         );
+
         // Fetch new data from NASA POWER API
         const response = await axios.get(BASE_URL, {
           params: {
@@ -886,6 +1150,7 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
           },
           timeout: 30000,
         });
+
         if (
           !response.data ||
           !response.data.properties ||
@@ -896,11 +1161,13 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
             id: dataset._id,
             name: dataset.name,
             status: dataset.status,
+            refreshResult: "failed",
             reason: "Invalid data received from NASA POWER API",
           });
           continue;
         }
-        // Transfrom data into array of objects
+
+        // Transform data into array of objects
         const parameters = dataset.apiConfig.params.parameters;
         const properties = response.data.properties;
         const paramData = properties.parameter;
@@ -912,13 +1179,14 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
           results.details.push({
             id: dataset._id,
             name: dataset.name,
-            status: dataset.status, // Keep using the actual status from database
-            refreshResult: "no-new-data", // Use a separate field for the refresh result
+            status: dataset.status,
+            refreshResult: "no-new-data",
             lastRecord:
               latestRecord?.Date?.toISOString() || dataset.lastUpdated,
           });
           continue;
         }
+
         const newRecords = timespan.map((date) => {
           const year = parseInt(date.substring(0, 4));
           const month = parseInt(date.substring(4, 6)) - 1;
@@ -940,31 +1208,49 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
 
         // Insert new records
         await dynamicModel.insertMany(newRecords);
-        // Update  metadata
+
+        // ENHANCED: Status logic according to lifecycle
+        let newStatus: string;
+        if (wasPreprocessed) {
+          // If dataset was preprocessed/validated, reset to raw
+          newStatus = "raw";
+        } else if (dataset.status === "raw") {
+          // If it was raw, set to latest
+          newStatus = "latest";
+        } else if (dataset.status === "latest") {
+          // If it was latest, keep as latest
+          newStatus = "latest";
+        } else {
+          // Fallback
+          newStatus = "latest";
+        }
+
+        // Update metadata
         const totalRecords = await dynamicModel.countDocuments();
         await DatasetMeta.findByIdAndUpdate(dataset._id, {
           $set: {
             lastUpdated: today,
             totalRecords,
             "apiConfig.params.end": todayFormatted,
-            status:
-              dataset.status === "preprocessed" ||
-              dataset.status === "validated"
-                ? "raw"
-                : "latest",
+            status: newStatus,
           },
         });
+
         results.refreshed++;
         results.details.push({
           id: dataset._id,
           name: dataset.name,
-          status:
-            dataset.status === "preprocessed" || dataset.status === "validated"
-              ? "raw"
-              : "latest",
-
-          refreshResult: "success", // Operation result
+          status: newStatus,
+          refreshResult: "success",
           newRecordsCount: newRecords.length,
+          statusTransition: {
+            from: dataset.status,
+            to: newStatus,
+            reason: wasPreprocessed
+              ? "Dataset was preprocessed, reset to raw for reprocessing"
+              : "Data refreshed and marked as current",
+          },
+          cleanedCollectionDeleted: wasPreprocessed,
           lastRecord:
             newRecords.length > 0
               ? newRecords[newRecords.length - 1].Date?.toISOString()
@@ -977,13 +1263,15 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
           id: dataset._id,
           name: dataset.name,
           status: dataset.status,
+          refreshResult: "failed",
           reason: error.message || "Unknown error",
         });
       }
     }
+
     return c.json(
       {
-        message: `Completed refresh operation: ${results.refreshed} refreshed, ${results.alreadyUpToDate} up-to-date, ${results.failed} failed`,
+        message: `Completed refresh operation: ${results.refreshed} refreshed, ${results.alreadyUpToDate} up-to-date, ${results.failed} failed, ${results.statusBlocked} status-blocked`,
         data: results,
       },
       200
@@ -995,51 +1283,651 @@ nasaPowerRoute.post("/refresh-all", async (c) => {
   }
 });
 
-// // PATCH - Move NASA POWER dataset to recycle bin if status: archived
-// nasaPowerRoute.patch("/:collectionName/recycle-bin", async (c) => {
+// nasaPowerRoute.post("/refresh/:id", async (c) => {
+//   const requestedId = c.req.param("id");
 //   try {
 //     await db();
-//     const { collectionName } = c.req.param();
 
-//     // Find dataset meta
-//     const meta = await DatasetMeta.findOne({ collectionName }).lean();
-//     if (!meta) {
+//     // Find dataset by Id
+//     const dataset = (await DatasetMeta.findById(
+//       requestedId
+//     ).lean()) as DatasetMetaDocument;
+
+//     if (!dataset) {
 //       return c.json({ message: "Dataset not found" }, 404);
 //     }
 
-//     // Only allow soft delete if status is archived and isAPI NASA POWER
-//     if (
-//       meta.isAPI &&
-//       meta.apiConfig?.type === "nasa-power" &&
-//       meta.status === "archived"
-//     ) {
-//       // Set deletedAt timestamp
-//       const updated = await DatasetMeta.findOneAndUpdate(
-//         { collectionName },
-//         { $set: { deletedAt: new Date() } },
+//     // Check if dataset is NASA POWER API type
+//     if (!dataset.isAPI || dataset.apiConfig?.type !== "nasa-power") {
+//       return c.json(
+//         { message: "Dataset is not a NASA POWER API dataset" },
+//         400
+//       );
+//     }
+
+//     const today = new Date();
+//     const todayFormatted = today.toISOString().slice(0, 10).replace(/-/g, "");
+
+//     // ADDED: Handle _cleaned collection deletion if dataset was preprocessed
+//     const wasPreprocessed =
+//       dataset.status === "preprocessed" || dataset.status === "validated";
+
+//     if (wasPreprocessed) {
+//       console.log(
+//         `Dataset was ${dataset.status}, will delete _cleaned collection and reset to raw`
+//       );
+
+//       // Delete the _cleaned collection
+//       const cleanedCollectionName = `${dataset.collectionName}_cleaned`;
+//       try {
+//         const CleanedModel =
+//           mongoose.models[cleanedCollectionName] ||
+//           mongoose.model(
+//             cleanedCollectionName,
+//             new mongoose.Schema({}, { strict: false }),
+//             cleanedCollectionName
+//           );
+//         await CleanedModel.collection.drop();
+//         console.log(`✅ Deleted cleaned collection: ${cleanedCollectionName}`);
+//       } catch (error: any) {
+//         // Collection might not exist, which is fine
+//         if (error.code !== 26) {
+//           // 26 = NamespaceNotFound
+//           console.warn(
+//             `⚠️ Warning deleting cleaned collection ${cleanedCollectionName}:`,
+//             error.message
+//           );
+//         } else {
+//           console.log(
+//             `ℹ️ Cleaned collection ${cleanedCollectionName} not found (already deleted)`
+//           );
+//         }
+//       }
+//     }
+
+//     try {
+//       const dynamicModel =
+//         mongoose.models[dataset.collectionName] ||
+//         mongoose.model(
+//           dataset.collectionName,
+//           new mongoose.Schema({}, { strict: false }),
+//           dataset.collectionName
+//         );
+//       const latestRecord = (await dynamicModel
+//         .findOne({})
+//         .sort({ Date: -1 })
+//         .lean()) as unknown as NasaPowerRecord;
+//       let startDateFormatted;
+//       if (latestRecord && latestRecord.Date) {
+//         const latestDate = new Date(latestRecord.Date);
+//         latestDate.setDate(latestDate.getDate() + 1);
+//         startDateFormatted = latestDate
+//           .toISOString()
+//           .slice(0, 10)
+//           .replace(/-/g, "");
+//         console.log(`Latest record date found: ${latestRecord.Date}`);
+//         console.log(`Starting refresh from: ${startDateFormatted}`);
+//       }
+//       // If no records found, fallback to metadata
+//       else if (dataset.lastUpdated) {
+//         const lastUpdated = new Date(dataset.lastUpdated);
+//         lastUpdated.setDate(lastUpdated.getDate() + 1);
+//         startDateFormatted = lastUpdated
+//           .toISOString()
+//           .slice(0, 10)
+//           .replace(/-/g, "");
+//         console.log(
+//           `No records found, using lastUpdated from metadata: ${dataset.lastUpdated}`
+//         );
+//         console.log(`Starting refresh from: ${startDateFormatted}`);
+//       }
+//       // Final fallback to original API end date
+//       else if (dataset.apiConfig?.params?.end) {
+//         const endDate = dataset.apiConfig.params.end;
+//         const year = parseInt(endDate.substring(0, 4));
+//         const month = parseInt(endDate.substring(4, 6)) - 1; // JS months are 0-based
+//         const day = parseInt(endDate.substring(6, 8)) + 1;
+//         const nextDate = new Date(year, month, day);
+//         startDateFormatted = nextDate
+//           .toISOString()
+//           .slice(0, 10)
+//           .replace(/-/g, "");
+
+//         console.log(
+//           `No records or lastUpdated found, using original end date: ${dataset.apiConfig?.params?.end}`
+//         );
+//         console.log(`Starting refresh from: ${startDateFormatted}`);
+//       } else {
+//         return c.json(
+//           { message: "Cannot determine start date for refresh" },
+//           400
+//         );
+//       }
+//       // Check if dataset is already up to date
+//       if (startDateFormatted > todayFormatted) {
+//         return c.json(
+//           {
+//             message: "Dataset is already up to date",
+//             data: {
+//               name: dataset.name,
+//               lastUpdated: dataset.lastUpdated,
+//               status: dataset.status,
+//               newRecordsCount: 0,
+//             },
+//           },
+//           200
+//         );
+//       }
+//       console.log(
+//         `Refreshing dataset '${dataset.name}' from ${startDateFormatted} to ${todayFormatted}`
+//       );
+
+//       const response = await axios.get(BASE_URL, {
+//         params: {
+//           start: startDateFormatted,
+//           end: todayFormatted,
+//           latitude: dataset.apiConfig?.params.latitude,
+//           longitude: dataset.apiConfig?.params.longitude,
+//           parameters: dataset.apiConfig?.params.parameters.join(","),
+//           community: dataset.apiConfig?.params.community || "ag",
+//           format: "JSON",
+//           user: "tumbuhbaik", // Use dash instead of underscore
+//           header: "true",
+//           "time-standard": "LST",
+//         },
+//         timeout: 30000,
+//       });
+//       if (
+//         !response.data ||
+//         !response.data.properties ||
+//         !response.data.properties.parameter
+//       ) {
+//         return c.json(
+//           { message: "Invalid data received from NASA POWER API" },
+//           400
+//         );
+//       }
+//       if (!dataset.apiConfig?.params?.parameters) {
+//         return c.json(
+//           { message: "Dataset API configuration is missing or incomplete" },
+//           400
+//         );
+//       }
+//       // Transform NASA POWER data into array of objects (same as original data)
+//       const parameters = dataset.apiConfig.params.parameters;
+//       const properties = response.data.properties;
+//       const paramData = properties.parameter;
+//       const timespan = Object.keys(paramData[parameters[0]]);
+
+//       // If no data available
+//       if (timespan.length === 0) {
+//         return c.json(
+//           {
+//             message: "No new data available for this dataset",
+//             data: {
+//               name: dataset.name,
+//               lastUpdated: dataset.lastUpdated,
+//               status: dataset.status,
+//               refreshResult: "no-new-data",
+//               newRecordsCount: 0,
+//             },
+//           },
+//           200
+//         );
+//       }
+//       // Convert date strings to records (Date Objects MONGODB)
+//       const newRecords = timespan.map((date) => {
+//         const year = parseInt(date.substring(0, 4));
+//         const month = parseInt(date.substring(4, 6)) - 1;
+//         const day = parseInt(date.substring(6, 8));
+
+//         const record: Record<string, any> = {
+//           Date: new Date(Date.UTC(year, month, day)),
+//           Year: year,
+//           month: month + 1,
+//           day: day,
+//         };
+//         parameters.forEach((param: string) => {
+//           if (paramData[param] && paramData[param][date] !== undefined) {
+//             record[param] = paramData[param][date];
+//           }
+//         });
+//         return record;
+//       });
+//       console.log(
+//         `Found ${newRecords.length} new records to add to dataset '${dataset.name}'`
+//       );
+//       // Insert new records
+//       await dynamicModel.insertMany(newRecords);
+
+//       const totalRecords = await dynamicModel.countDocuments();
+
+//       // FIXED: Correct status logic according to lifecycle
+//       let newStatus: string;
+//       if (wasPreprocessed) {
+//         // If dataset was preprocessed/validated, reset to raw
+//         newStatus = "raw";
+//         console.log(
+//           `✅ Status changed from ${dataset.status} to raw (dataset was preprocessed)`
+//         );
+//       } else if (dataset.status === "raw") {
+//         // If it was raw, set to latest (data is now current)
+//         newStatus = "latest";
+//         console.log(`✅ Status changed from raw to latest`);
+//       } else {
+//         // For other statuses (latest, archived), keep as latest
+//         newStatus = "latest";
+//         console.log(`✅ Status set to latest`);
+//       }
+
+//       const updatedDataset = await DatasetMeta.findByIdAndUpdate(
+//         requestedId,
+//         {
+//           $set: {
+//             lastUpdated: today,
+//             totalRecords,
+//             "apiConfig.params.end": todayFormatted,
+//             status: newStatus,
+//           },
+//         },
 //         { new: true }
 //       );
 //       return c.json(
 //         {
-//           message: "NASA POWER dataset moved to recycle bin",
-//           data: updated,
+//           message: `Successfully refreshed dataset with ${newRecords.length} new records`,
+//           data: {
+//             dataset: updatedDataset,
+//             newRecordsCount: newRecords.length,
+//             statusChanged: wasPreprocessed
+//               ? `${dataset.status} → raw`
+//               : `${dataset.status} → ${newStatus}`,
+//             cleanedCollectionDeleted: wasPreprocessed,
+//             newRecordsSample: newRecords.slice(0, 3), // Sample of new records
+//           },
 //         },
 //         200
 //       );
-//     } else {
+//     } catch (error: any) {
+//       console.error(`Error refreshing dataset ${requestedId}:`, error);
+
+//       // Handle specific API errors
+//       if (error.response) {
+//         console.error("NASA API Response Error:", {
+//           status: error.response.status,
+//           data: error.response.data,
+//           headers: error.response.headers,
+//         });
+
+//         if (error.response.status === 429) {
+//           return c.json(
+//             {
+//               message:
+//                 "NASA POWER API rate limit exceeded. Please try again later.",
+//             },
+//             429
+//           );
+//         }
+//       }
+
+//       // Handle MongoDB errors
+//       if (error.name === "MongoServerError") {
+//         return c.json(
+//           {
+//             message: `Database error while refreshing dataset: ${error.message}`,
+//             code: error.code,
+//           },
+//           500
+//         );
+//       }
+
+//       // Handle network/timeout errors
+//       if (error.code === "ECONNABORTED" || error.message.includes("timeout")) {
+//         return c.json(
+//           {
+//             message:
+//               "Connection timed out while fetching data from NASA POWER API. Try with a smaller date range.",
+//           },
+//           504
+//         );
+//       }
+
 //       return c.json(
 //         {
-//           message:
-//             "Only NASA POWER datasets with status 'archived' can be moved to recycle bin",
+//           message: `Error refreshing dataset: ${
+//             error.message || "Unknown error"
+//           }`,
+//           status: "failed", // API response status, not DB status
+//           details: error.response?.data || error.message,
+//         },
+//         500
+//       );
+//     }
+//   } catch (error: any) {
+//     console.error("Error in refresh/:id endpoint:", error);
+
+//     // Handle missing or invalid dataset
+//     if (error.name === "CastError" && error.kind === "ObjectId") {
+//       return c.json(
+//         {
+//           message: "Invalid dataset ID format",
+//           details: `Provided ID '${requestedId}' is not a valid ObjectId`,
 //         },
 //         400
 //       );
 //     }
+
+//     // Handle database connection errors
+//     if (
+//       error.name === "MongooseError" &&
+//       error.message.includes("failed to connect")
+//     ) {
+//       return c.json(
+//         {
+//           message: "Database connection failed",
+//           details: "Could not connect to MongoDB server",
+//         },
+//         503
+//       );
+//     }
+
+//     // Use parseError utility for consistent error handling
+//     const { message, status } = parseError(error);
+//     return c.json(
+//       {
+//         message,
+//         status: "failed", // API response status, not DB status
+//         endpoint: "refresh/:id",
+//         id: c.req.param("id"),
+//       },
+//       status
+//     );
+//   }
+// });
+
+// POST - Refresh all NASA POWER at once with proper lifecycle handling
+// nasaPowerRoute.post("/refresh-all", async (c) => {
+//   try {
+//     await db();
+
+//     // Find all NASA POWER datasets (exclude archived ones)
+//     const datasets = (await DatasetMeta.find({
+//       isAPI: true,
+//       "apiConfig.type": "nasa-power",
+//       status: { $ne: "archived" }, // Don't refresh archived datasets
+//     }).lean()) as DatasetMetaDocument[];
+
+//     if (datasets.length === 0) {
+//       return c.json(
+//         {
+//           message: "No NASA POWER datasets found to refresh",
+//           data: null,
+//         },
+//         200
+//       );
+//     }
+//     const today = new Date();
+//     const todayFormatted = today.toISOString().slice(0, 10).replace(/-/g, "");
+
+//     const results = {
+//       total: datasets.length,
+//       refreshed: 0,
+//       alreadyUpToDate: 0,
+//       failed: 0,
+//       details: [] as any[],
+//     };
+
+//     // Process each dataset
+//     for (const dataset of datasets) {
+//       try {
+//         if (!dataset.apiConfig?.params) {
+//           results.failed++;
+//           results.details.push({
+//             id: dataset._id,
+//             name: dataset.name,
+//             status: dataset.status,
+//             refreshResult: "failed",
+//             reason: "Missing API parameters",
+//           });
+//           continue;
+//         }
+
+//         // ADDED: Handle _cleaned collection deletion if dataset was preprocessed
+//         const wasPreprocessed =
+//           dataset.status === "preprocessed" || dataset.status === "validated";
+
+//         if (wasPreprocessed) {
+//           console.log(
+//             `Dataset '${dataset.name}' was ${dataset.status}, deleting _cleaned collection`
+//           );
+
+//           // Delete the _cleaned collection
+//           const cleanedCollectionName = `${dataset.collectionName}_cleaned`;
+//           try {
+//             const CleanedModel =
+//               mongoose.models[cleanedCollectionName] ||
+//               mongoose.model(
+//                 cleanedCollectionName,
+//                 new mongoose.Schema({}, { strict: false }),
+//                 cleanedCollectionName
+//               );
+//             await CleanedModel.collection.drop();
+//             console.log(`Deleted cleaned collection: ${cleanedCollectionName}`);
+//           } catch (error: any) {
+//             if (error.code !== 26) {
+//               // 26 = NamespaceNotFound
+//               console.warn(
+//                 `Warning deleting cleaned collection ${cleanedCollectionName}:`,
+//                 error.message
+//               );
+//             }
+//           }
+//         }
+
+//         // Get dynamic model dataset
+//         const dynamicModel =
+//           mongoose.models[dataset.collectionName] ||
+//           mongoose.model(
+//             dataset.collectionName,
+//             new mongoose.Schema({}, { strict: false }),
+//             dataset.collectionName
+//           );
+//         // Find latest record in collectionName
+//         const latestRecord = (await dynamicModel
+//           .findOne({})
+//           .sort({ Date: -1 })
+//           .lean()) as unknown as NasaPowerRecord;
+//         let startDateFormatted;
+
+//         // Determine start date based on latest record
+//         if (latestRecord && latestRecord.Date) {
+//           // Use latest record date
+//           const latestDate = new Date(latestRecord.Date);
+//           latestDate.setDate(latestDate.getDate() + 1);
+//           startDateFormatted = latestDate
+//             .toISOString()
+//             .slice(0, 10)
+//             .replace(/-/g, "");
+//         } else if (dataset.lastUpdated) {
+//           // Use day after lastUpdated as fallback
+//           const lastUpdated = new Date(dataset.lastUpdated);
+//           lastUpdated.setDate(lastUpdated.getDate() + 1);
+//           startDateFormatted = lastUpdated
+//             .toISOString()
+//             .slice(0, 10)
+//             .replace(/-/g, "");
+//         } else if (dataset.apiConfig?.params?.end) {
+//           // Use day after original end date as last resort
+//           const endDate = dataset.apiConfig.params.end;
+//           const year = parseInt(endDate.substring(0, 4));
+//           const month = parseInt(endDate.substring(4, 6)) - 1;
+//           const day = parseInt(endDate.substring(6, 8)) + 1;
+//           const nextDate = new Date(year, month, day);
+//           startDateFormatted = nextDate
+//             .toISOString()
+//             .slice(0, 10)
+//             .replace(/-/g, "");
+//         } else {
+//           results.failed++;
+//           results.details.push({
+//             id: dataset._id,
+//             name: dataset.name,
+//             status: dataset.status,
+//             refreshResult: "failed",
+//             reason: "Cannot determine start date",
+//           });
+//           continue;
+//         }
+
+//         // Check if dataset is already up to date
+//         if (startDateFormatted > todayFormatted) {
+//           results.alreadyUpToDate++;
+//           results.details.push({
+//             id: dataset._id,
+//             name: dataset.name,
+//             status: dataset.status,
+//             refreshResult: "no-new-data",
+//             lastRecord:
+//               latestRecord?.Date?.toISOString() || dataset.lastUpdated,
+//           });
+//           continue;
+//         }
+//         console.log(
+//           `Refreshing dataset '${dataset.name}' from ${startDateFormatted} to ${todayFormatted}`
+//         );
+//         // Fetch new data from NASA POWER API
+//         const response = await axios.get(BASE_URL, {
+//           params: {
+//             start: startDateFormatted,
+//             end: todayFormatted,
+//             latitude: dataset.apiConfig.params.latitude,
+//             longitude: dataset.apiConfig.params.longitude,
+//             parameters: dataset.apiConfig.params.parameters.join(","),
+//             community: dataset.apiConfig.params.community || "ag",
+//             format: "JSON",
+//             user: "tumbuhbaik",
+//             header: "true",
+//             "time-standard": "LST",
+//           },
+//           timeout: 30000,
+//         });
+//         if (
+//           !response.data ||
+//           !response.data.properties ||
+//           !response.data.properties.parameter
+//         ) {
+//           results.failed++;
+//           results.details.push({
+//             id: dataset._id,
+//             name: dataset.name,
+//             status: dataset.status,
+//             refreshResult: "failed",
+//             reason: "Invalid data received from NASA POWER API",
+//           });
+//           continue;
+//         }
+//         // Transform data into array of objects
+//         const parameters = dataset.apiConfig.params.parameters;
+//         const properties = response.data.properties;
+//         const paramData = properties.parameter;
+//         const timespan = Object.keys(paramData[parameters[0]]);
+
+//         // If no new data available
+//         if (timespan.length === 0) {
+//           results.alreadyUpToDate++;
+//           results.details.push({
+//             id: dataset._id,
+//             name: dataset.name,
+//             status: dataset.status,
+//             refreshResult: "no-new-data",
+//             lastRecord:
+//               latestRecord?.Date?.toISOString() || dataset.lastUpdated,
+//           });
+//           continue;
+//         }
+//         const newRecords = timespan.map((date) => {
+//           const year = parseInt(date.substring(0, 4));
+//           const month = parseInt(date.substring(4, 6)) - 1;
+//           const day = parseInt(date.substring(6, 8));
+
+//           const record: Record<string, any> = {
+//             Date: new Date(Date.UTC(year, month, day)),
+//             Year: year,
+//             month: month + 1,
+//             day: day,
+//           };
+//           parameters.forEach((param: string) => {
+//             if (paramData[param] && paramData[param][date] !== undefined) {
+//               record[param] = paramData[param][date];
+//             }
+//           });
+//           return record;
+//         });
+
+//         // Insert new records
+//         await dynamicModel.insertMany(newRecords);
+
+//         // FIXED: Correct status logic according to lifecycle
+//         let newStatus: string;
+//         if (wasPreprocessed) {
+//           // If dataset was preprocessed/validated, reset to raw
+//           newStatus = "raw";
+//         } else if (dataset.status === "raw") {
+//           // If it was raw, set to latest
+//           newStatus = "latest";
+//         } else {
+//           // For other statuses, keep as latest
+//           newStatus = "latest";
+//         }
+
+//         // Update metadata
+//         const totalRecords = await dynamicModel.countDocuments();
+//         await DatasetMeta.findByIdAndUpdate(dataset._id, {
+//           $set: {
+//             lastUpdated: today,
+//             totalRecords,
+//             "apiConfig.params.end": todayFormatted,
+//             status: newStatus,
+//           },
+//         });
+//         results.refreshed++;
+//         results.details.push({
+//           id: dataset._id,
+//           name: dataset.name,
+//           status: newStatus,
+//           refreshResult: "success",
+//           newRecordsCount: newRecords.length,
+//           statusChanged: wasPreprocessed
+//             ? `${dataset.status} → raw`
+//             : `${dataset.status} → ${newStatus}`,
+//           cleanedCollectionDeleted: wasPreprocessed,
+//           lastRecord:
+//             newRecords.length > 0
+//               ? newRecords[newRecords.length - 1].Date?.toISOString()
+//               : null,
+//         });
+//       } catch (error: any) {
+//         console.error(`Error refreshing dataset ${dataset._id}:`, error);
+//         results.failed++;
+//         results.details.push({
+//           id: dataset._id,
+//           name: dataset.name,
+//           status: dataset.status,
+//           refreshResult: "failed",
+//           reason: error.message || "Unknown error",
+//         });
+//       }
+//     }
+//     return c.json(
+//       {
+//         message: `Completed refresh operation: ${results.refreshed} refreshed, ${results.alreadyUpToDate} up-to-date, ${results.failed} failed`,
+//         data: results,
+//       },
+//       200
+//     );
 //   } catch (error) {
-//     console.error("Soft delete NASA dataset error:", error);
+//     console.error("Error in batch refresh endpoint:", error);
 //     const { message, status } = parseError(error);
 //     return c.json({ message }, status);
 //   }
 // });
-
 export default nasaPowerRoute;

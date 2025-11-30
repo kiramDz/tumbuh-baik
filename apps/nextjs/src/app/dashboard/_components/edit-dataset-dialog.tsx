@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import {
   UpdateDatasetMeta,
   DeleteDatasetMeta,
-  getNasaPowerRefreshStatus,
+  getDatasetRefreshStatus,
   refreshNasaPowerDataset,
 } from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     if (open && dataset.isAPI && dataset.apiConfig?.type === "nasa-power") {
       setRefreshStatus((prev) => ({ ...prev, isLoading: true }));
 
-      getNasaPowerRefreshStatus(dataset._id)
+      getDatasetRefreshStatus(dataset._id)
         .then((status) => {
           setRefreshStatus({
             canRefresh: status.canRefresh,

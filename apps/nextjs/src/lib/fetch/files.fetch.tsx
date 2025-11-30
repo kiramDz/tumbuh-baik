@@ -155,51 +155,6 @@ export async function exportDatasetCsv(
     };
   }
 }
-
-// export async function exportDatasetCsv(
-//   collectionName: string,
-//   sortBy = "Date",
-//   sortOrder = "desc"
-// ) {
-//   try {
-//     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
-//       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
-//       responseType: "blob",
-//     });
-
-//     if (response.status === 200) {
-//       const blob = new Blob([response.data], { type: "text/csv" });
-//       const url = window.URL.createObjectURL(blob);
-//       const link = document.createElement("a");
-
-//       const contentDisposition = response.headers["content-disposition"];
-//       let filename = `${collectionName}_data_${
-//         new Date().toISOString().split("T")[0]
-//       }.csv`;
-
-//       if (contentDisposition) {
-//         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-//         if (filenameMatch) {
-//           filename = filenameMatch[1];
-//         }
-//       }
-
-//       link.href = url;
-//       link.download = filename;
-//       link.style.display = "none";
-
-//       document.body.appendChild(link);
-//       link.click();
-//       document.body.removeChild(link);
-//       window.URL.revokeObjectURL(url);
-
-//       return { success: true, message: "File downloaded successfully" };
-//     }
-//   } catch (error) {
-//     console.error("Error exporting CSV:", error);
-//     return { success: false, message: "Export failed" };
-//   }
-// }
 export async function exportHoltWinterCsv(
   sortBy = "forecast_date",
   sortOrder = "asc"
@@ -724,57 +679,58 @@ export const saveNasaPowerData = async (data: {
   }
 };
 
-export const getNasaPowerRefreshStatus = async (datasetId: string) => {
-  try {
-    const response = await axios.get(`/api/v1/nasa-power/refreshable`);
-    const datasets = (response.data.data || []) as DatasetMetaType[];
-
-    // Find the specified dataset - add proper type annotation
-    const dataset = datasets.find((d) => d._id === datasetId);
-
-    if (!dataset) {
-      return { canRefresh: false, message: "Dataset not found" };
-    }
-
-    return {
-      canRefresh: dataset.refreshInfo.canRefresh,
-      daysSinceLastRecord: dataset.refreshInfo.daysSinceLastRecord,
-      lastRecordDate: dataset.refreshInfo.lastRecordDate,
-      message: dataset.refreshInfo.canRefresh
-        ? `Dataset can be refreshed with ${dataset.refreshInfo.daysSinceLastRecord} days of new data`
-        : "Dataset is already up-to-date",
-    };
-  } catch (error) {
-    console.error("Error checking refresh status:", error);
-    // Default to allowing refresh if we can't determine status
-    return { canRefresh: true, message: "Unable to check refresh status" };
-  }
-};
-
 // Modify refreshNasaPowerDataset to check first
 export const refreshNasaPowerDataset = async (datasetId: string) => {
   try {
-    // First check if refresh is needed
-    const refreshStatus = await getNasaPowerRefreshStatus(datasetId);
+    // First check if refresh is available and get status info
+    const refreshStatus = await getDatasetRefreshStatus(datasetId, true);
+
+    // If dataset status doesn't allow refresh
+    if (!refreshStatus.allowsRefresh) {
+      return {
+        success: false,
+        message: `Cannot refresh dataset with status '${refreshStatus.status}'`,
+        refreshResult: "status-blocked",
+        statusInfo: refreshStatus,
+      };
+    }
 
     // If dataset is already up-to-date
-    if (!refreshStatus.canRefresh) {
+    if (!refreshStatus.canRefresh && refreshStatus.allowsRefresh) {
       return {
+        success: true,
         message: "Dataset is already up-to-date",
+        refreshResult: "up-to-date",
         data: {
           newRecordsCount: 0,
           lastUpdated: refreshStatus.lastRecordDate,
+          statusInfo: refreshStatus,
         },
       };
     }
 
-    // Proceed with refresh if needed
+    // Proceed with refresh
     const response = await axios.post(
       `/api/v1/nasa-power/refresh/${datasetId}`
     );
-    return response.data;
-  } catch (error) {
+
+    return {
+      success: true,
+      ...response.data,
+    };
+  } catch (error: any) {
     console.error("Error refreshing NASA POWER dataset:", error);
+
+    // Enhanced error categorization based on your route implementation
+    if (error.response?.data?.refreshResult) {
+      return {
+        success: false,
+        message: error.response.data.message,
+        refreshResult: error.response.data.refreshResult,
+        details: error.response.data.details,
+      };
+    }
+
     throw error;
   }
 };
@@ -931,156 +887,6 @@ export const preprocessNasaDatasetWithStream = (
     },
   };
 };
-
-// Trigger NASA POWER Preprocessing with stream
-// export const preprocessNasaDatasetWithStream = (
-//   collectionName: string,
-//   onLog: (log: any) => void,
-//   onProgress: (progress: number, stage: string, message: string) => void,
-//   onComplete: (result: any) => void,
-//   onError: (error: string) => void
-// ) => {
-//   const encodedName = encodeURIComponent(collectionName);
-//   const eventSource = new EventSource(
-//     `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
-//   );
-
-//   // Add Connection timeout
-//   let connectionTimeout: NodeJS.Timeout;
-//   let hasCompletedSuccessfully = false; // ✅ Track completion status
-
-//   const resetTimeout = () => {
-//     if (connectionTimeout) {
-//       clearTimeout(connectionTimeout);
-//     }
-//     connectionTimeout = setTimeout(() => {
-//       if (!hasCompletedSuccessfully) {
-//         onError(
-//           "Connection timeout - preprocessing may still be running in background"
-//         );
-//         eventSource.close();
-//       }
-//     }, 300000); // 5 minutes timeout
-//   };
-
-//   resetTimeout();
-
-//   eventSource.onmessage = (event) => {
-//     try {
-//       const data = JSON.parse(event.data);
-
-//       resetTimeout();
-
-//       switch (data.type) {
-//         case "connected":
-//           onLog({
-//             type: "info",
-//             message: `Connected to preprocessing stream. Session: ${data.session_id}`,
-//           });
-//           break;
-
-//         case "log":
-//           onLog(data);
-//           break;
-
-//         case "progress":
-//           // Handle multiple possible field names for progress percentage
-//           const progressValue =
-//             data.percentage ?? data.progress ?? data.percent ?? 0;
-
-//           onProgress(
-//             progressValue,
-//             data.stage || "Processing",
-//             data.message || "Processing..."
-//           );
-//           break;
-
-//         case "complete":
-//           hasCompletedSuccessfully = true;
-
-//           onLog({
-//             type: "success",
-//             message: "NASA preprocessing completed successfully!",
-//           });
-
-//           // Trigger completion callback with result
-//           onComplete(data.result);
-
-//           // Note: Don't close yet, wait for stream_complete
-//           break;
-
-//         case "stream_complete":
-//           if (!hasCompletedSuccessfully) {
-//             onLog({
-//               type: "info",
-//               message: "Stream closed - preprocessing may have completed",
-//             });
-
-//             // Fallback: If we got stream_complete without complete,
-//             // assume success but with no result data
-//             onComplete({
-//               recordCount: null,
-//               cleanedCollection: null,
-//               preprocessing_report: null,
-//             });
-//           } else {
-//             onLog({
-//               type: "info",
-//               message: "Preprocessing stream closed successfully",
-//             });
-//           }
-
-//           clearTimeout(connectionTimeout);
-//           eventSource.close();
-//           break;
-
-//         case "error":
-//           onError(data.message || "An error occurred during preprocessing");
-//           clearTimeout(connectionTimeout);
-//           eventSource.close();
-//           break;
-
-//         default:
-//           console.log("Unknown SSE message type:", data.type, data);
-//           break;
-//       }
-//     } catch (error) {
-//       console.error("Error parsing SSE data:", error);
-//       console.log("Raw event data:", event.data);
-//     }
-//   };
-
-//   eventSource.onerror = (error) => {
-//     console.error("SSE error:", error);
-//     clearTimeout(connectionTimeout);
-
-//     if (eventSource.readyState === EventSource.CLOSED) {
-//       // ✅ FIXED: Better handling of connection close
-//       if (!hasCompletedSuccessfully) {
-//         onLog({
-//           type: "info",
-//           message: "Connection closed - check if preprocessing completed",
-//         });
-//       } else {
-//         onLog({
-//           type: "info",
-//           message: "Preprocessing completed, connection closed",
-//         });
-//       }
-//     } else {
-//       onError("Connection error occurred with the preprocessing stream.");
-//     }
-//     eventSource.close();
-//   };
-
-//   return {
-//     eventSource,
-//     cleanup: () => {
-//       clearTimeout(connectionTimeout);
-//       eventSource.close();
-//     },
-//   };
-// };
 
 // Trigger BMKG Preprocessing with stream
 export const preprocessBmkgDatasetWithStream = (
@@ -1264,6 +1070,423 @@ export const checkBmkgDatasetForPreprocessing = async (
     return response.data;
   } catch (error) {
     console.error("Error validating BMKG dataset:", error);
+    throw error;
+  }
+};
+
+// Archive dataset function
+export const archiveDataset = async (idOrSlug: string) => {
+  try {
+    // First check current status to provide better feedback
+    let currentDataset;
+    try {
+      if (idOrSlug.match(/^[0-9a-fA-F]{24}$/)) {
+        // It's an ObjectId, get by ID
+        const allDatasets = await GetAllDatasetMeta();
+        currentDataset = allDatasets.find((d) => d._id === idOrSlug);
+      } else {
+        // It's a collection name, get status info
+        const statusInfo = await getDatasetStatusInfo(idOrSlug);
+        currentDataset = { status: statusInfo.status, isAPI: statusInfo.isAPI };
+      }
+    } catch (statusError) {
+      console.warn(
+        "Could not get current dataset status, proceeding with archive request"
+      );
+    }
+
+    const res = await axios.put(
+      `/api/v1/dataset-meta/${idOrSlug}`,
+      {
+        status: "archived",
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ Dataset archived successfully:", res.data);
+    return {
+      success: true,
+      data: res.data.data,
+      message: "Dataset archived successfully",
+    };
+  } catch (error: any) {
+    console.error("❌ Archive dataset error:", error);
+
+    // Handle status transition validation errors from your route
+    if (error.response?.data?.message?.includes("Invalid status transition")) {
+      return {
+        success: false,
+        message: `Cannot archive dataset: ${error.response.data.message}`,
+        currentStatus: error.response.data.currentStatus,
+        attemptedStatus: error.response.data.attemptedStatus,
+        validTransitions: error.response.data.validTransitions,
+      };
+    }
+
+    throw error;
+  }
+};
+
+// Reactivate archive dataset function
+export const reactivateArchivedDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/reactivate`
+    );
+
+    return {
+      success: true,
+      data: res.data.data,
+      message: res.data.message,
+      statusTransition: res.data.statusTransition,
+    };
+  } catch (error: any) {
+    console.error("❌ Reactivate dataset error:", error);
+
+    if (error.response?.data?.message) {
+      return {
+        success: false,
+        message: error.response.data.message,
+      };
+    }
+
+    throw error;
+  }
+};
+
+export const canDatasetBeArchived = (
+  currentStatus: string
+): { canArchive: boolean; reason?: string } => {
+  if (currentStatus === "archived") {
+    return {
+      canArchive: false,
+      reason: "Dataset is already archived",
+    };
+  }
+
+  return { canArchive: true };
+};
+
+export const canDatasetBeRefreshed = (
+  currentStatus: string,
+  isAPI: boolean = false
+): { canRefresh: boolean; reason?: string } => {
+  if (currentStatus === "archived") {
+    return {
+      canRefresh: false,
+      reason: "Archived datasets cannot be refreshed",
+    };
+  }
+
+  if (isAPI) {
+    // API datasets can be refreshed from any non-archived status
+    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
+
+    if (!refreshableStatuses.includes(currentStatus)) {
+      return {
+        canRefresh: false,
+        reason: `API dataset with status '${currentStatus}' cannot be refreshed`,
+      };
+    }
+  } else {
+    // Non-API datasets have manual refresh (to be implemented)
+    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
+
+    if (!refreshableStatuses.includes(currentStatus)) {
+      return {
+        canRefresh: false,
+        reason: `Non-API dataset with status '${currentStatus}' cannot be refreshed`,
+      };
+    }
+  }
+
+  return { canRefresh: true };
+};
+
+export const getDatasetRefreshInfo = async (idOrCollectionName: string) => {
+  try {
+    // First try to get dataset info to determine if it's API or not
+    let isAPI = false;
+    let collectionName = idOrCollectionName;
+
+    // If it looks like an ObjectId, find the collection name first
+    if (idOrCollectionName.match(/^[0-9a-fA-F]{24}$/)) {
+      const allDatasets = await GetAllDatasetMeta();
+      const dataset = allDatasets.find((d) => d._id === idOrCollectionName);
+      if (dataset) {
+        isAPI = dataset.isAPI;
+        collectionName = dataset.collectionName;
+      }
+    } else {
+      // Get status info to determine API type
+      const statusInfo = await getDatasetStatusInfo(idOrCollectionName);
+      isAPI = statusInfo.isAPI;
+    }
+
+    // Get appropriate refresh status
+    const refreshStatus = await getDatasetRefreshStatus(
+      isAPI ? idOrCollectionName : collectionName,
+      isAPI
+    );
+
+    return {
+      isAPI,
+      collectionName,
+      refreshMethod: isAPI ? "nasa-power-api" : "manual-upload",
+      ...refreshStatus,
+    };
+  } catch (error) {
+    console.error("❌ Get dataset refresh info error:", error);
+    return {
+      isAPI: false,
+      collectionName: idOrCollectionName,
+      refreshMethod: "unknown",
+      canRefresh: false,
+      message: "Could not determine dataset refresh information",
+    };
+  }
+};
+
+// Check if dataset can be preprocessed
+export const canDatasetBePreprocessed = (
+  currentStatus: string
+): { canPreprocess: boolean; reason?: string } => {
+  const allowedStatuses = ["raw", "latest"];
+
+  if (!allowedStatuses.includes(currentStatus)) {
+    return {
+      canPreprocess: false,
+      reason: `Cannot preprocess dataset with status '${currentStatus}'. Only 'raw' and 'latest' datasets can be preprocessed.`,
+    };
+  }
+
+  return { canPreprocess: true };
+};
+
+// Function to get dataset status info
+export const getDatasetStatusInfo = async (collectionName: string) => {
+  try {
+    const res = await axios.get(
+      `/api/v1/dataset-meta/${collectionName}/status`
+    );
+    return res.data;
+  } catch (error) {
+    console.error("Get dataset status error:", error);
+    throw error;
+  }
+};
+
+// ENHANCED: Get single dataset refresh status (works for both API and non-API)
+export const getDatasetRefreshStatus = async (
+  idOrCollectionName: string,
+  isAPI: boolean = false
+) => {
+  try {
+    if (isAPI) {
+      // For NASA Power API datasets, get comprehensive refresh info
+      const response = await axios.get(`/api/v1/nasa-power/refreshable`);
+      const datasets = response.data.data || [];
+
+      const dataset = datasets.find(
+        (d: any) =>
+          d._id === idOrCollectionName ||
+          d.collectionName === idOrCollectionName
+      );
+
+      if (!dataset) {
+        return {
+          canRefresh: false,
+          message: "Dataset not found",
+          status: "unknown",
+        };
+      }
+
+      return {
+        canRefresh: dataset.refreshInfo.canRefresh,
+        status: dataset.refreshInfo.statusInfo.current,
+        allowsRefresh: dataset.refreshInfo.statusInfo.allowsRefresh,
+        willBecomeAfterRefresh:
+          dataset.refreshInfo.statusInfo.willBecomeAfterRefresh,
+        willDeleteCleanedCollection:
+          dataset.refreshInfo.statusInfo.willDeleteCleanedCollection,
+        daysSinceLastRecord: dataset.refreshInfo.daysSinceLastRecord,
+        lastRecordDate: dataset.refreshInfo.lastRecordDate,
+        refreshEligibility: dataset.refreshInfo.refreshEligibility,
+        message: dataset.refreshInfo.refreshEligibility,
+      };
+    } else {
+      // For non-API datasets, use dataset-meta status endpoint
+      const response = await axios.get(
+        `/api/v1/dataset-meta/${idOrCollectionName}/status`
+      );
+      return response.data;
+    }
+  } catch (error) {
+    console.error("Error checking dataset refresh status:", error);
+    return {
+      canRefresh: false,
+      message: "Unable to check refresh status",
+      status: "unknown",
+    };
+  }
+};
+
+export const updateDatasetStatus = async (
+  idOrSlug: string,
+  newStatus: string,
+  additionalData?: Record<string, any>
+) => {
+  try {
+    const updateData = {
+      status: newStatus,
+      ...additionalData,
+    };
+
+    const res = await axios.put(
+      `/api/v1/dataset-meta/${idOrSlug}`,
+      updateData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ Dataset status updated successfully:", res.data);
+    return {
+      success: true,
+      data: res.data.data,
+      message: res.data.message,
+    };
+  } catch (error: any) {
+    console.error("❌ Update dataset status error:", error);
+
+    // Handle status transition validation errors
+    if (error.response?.data?.message?.includes("Invalid status transition")) {
+      return {
+        success: false,
+        message: error.response.data.message,
+        currentStatus: error.response.data.currentStatus,
+        attemptedStatus: error.response.data.attemptedStatus,
+        validTransitions: error.response.data.validTransitions,
+        transitionError: true,
+      };
+    }
+
+    throw error;
+  }
+};
+
+export const checkDatasetOperations = async (collectionName: string) => {
+  try {
+    const statusInfo = await getDatasetStatusInfo(collectionName);
+
+    return {
+      collectionName: statusInfo.collectionName,
+      currentStatus: statusInfo.status,
+      isAPI: statusInfo.isAPI,
+      operations: {
+        canPreprocess: statusInfo.canPreprocess,
+        canRefresh: statusInfo.canRefresh,
+        canArchive: statusInfo.status !== "archived",
+        canReactivate: statusInfo.canReactivate,
+      },
+      hasCleanedCollection: statusInfo.hasCleanedCollection,
+      operationDetails: statusInfo.operations,
+    };
+  } catch (error) {
+    console.error("❌ Check dataset operations error:", error);
+    return {
+      collectionName,
+      currentStatus: "unknown",
+      isAPI: false,
+      operations: {
+        canPreprocess: false,
+        canRefresh: false,
+        canArchive: false,
+        canReactivate: false,
+      },
+      hasCleanedCollection: false,
+      operationDetails: {},
+      error: "Could not determine operation eligibility",
+    };
+  }
+};
+
+export const validateStatusTransition = (
+  currentStatus: string,
+  newStatus: string
+): {
+  isValid: boolean;
+  reason?: string;
+  validTransitions?: string[];
+} => {
+  const validTransitions: Record<string, string[]> = {
+    raw: ["latest", "preprocessed", "archived"],
+    latest: ["raw", "preprocessed", "archived"],
+    preprocessed: ["raw", "validated", "archived"],
+    validated: ["raw", "archived"],
+    archived: ["raw", "latest"], // Reactivation
+  };
+
+  const allowedTransitions = validTransitions[currentStatus];
+
+  if (!allowedTransitions) {
+    return {
+      isValid: false,
+      reason: `Unknown current status: ${currentStatus}`,
+      validTransitions: [],
+    };
+  }
+
+  if (!allowedTransitions.includes(newStatus)) {
+    return {
+      isValid: false,
+      reason: `Invalid transition from ${currentStatus} to ${newStatus}`,
+      validTransitions: allowedTransitions,
+    };
+  }
+
+  return { isValid: true };
+};
+
+export const refreshNonApiDataset = async (collectionName: string) => {
+  try {
+    const response = await axios.post(
+      `/api/v1/dataset-meta/${collectionName}/refresh`
+    );
+
+    return {
+      success: true,
+      ...response.data,
+    };
+  } catch (error: any) {
+    console.error("❌ Non-API refresh error:", error);
+
+    // Handle the 501 Not Implemented response from your route
+    if (error.response?.status === 501) {
+      return {
+        success: false,
+        notImplemented: true,
+        message: error.response.data.message,
+        note: error.response.data.note,
+        implementation: error.response.data.implementation,
+      };
+    }
+
+    throw error;
+  }
+};
+export const getNasaPowerRefreshableDatasets = async () => {
+  try {
+    const response = await axios.get(`/api/v1/nasa-power/refreshable`);
+    return response.data;
+  } catch (error) {
+    console.error("Error getting NASA Power refreshable datasets:", error);
     throw error;
   }
 };

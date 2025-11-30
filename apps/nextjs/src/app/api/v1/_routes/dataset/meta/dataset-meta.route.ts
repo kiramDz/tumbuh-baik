@@ -225,8 +225,8 @@ datasetMetaRoute.put("/:idOrSlug", async (c) => {
 
     const { idOrSlug } = c.req.param();
 
-    // Definisikan tipe data untuk body
-    let body: Record<string, any> = {}; // atau bisa menggunakan interface yang lebih spesifik
+    // Get request body (existing logic remains the same)
+    let body: Record<string, any> = {};
 
     try {
       const contentType = c.req.header("content-type") || "";
@@ -234,21 +234,18 @@ datasetMetaRoute.put("/:idOrSlug", async (c) => {
       if (contentType.includes("application/json")) {
         body = (await c.req.json()) as Record<string, any>;
       } else {
-        // Gunakan query parameters
         const queries = c.req.queries();
         Object.keys(queries).forEach((key) => {
-          body[key] = queries[key][0]; // Ambil nilai pertama jika array
+          body[key] = queries[key][0];
         });
       }
     } catch (parseError) {
-      // Fallback ke query parameters jika parsing JSON gagal
       const queries = c.req.queries();
       Object.keys(queries).forEach((key) => {
         body[key] = queries[key][0];
       });
     }
 
-    // Validasi bahwa ada data untuk di-update
     if (Object.keys(body).length === 0) {
       return c.json(
         {
@@ -256,6 +253,65 @@ datasetMetaRoute.put("/:idOrSlug", async (c) => {
             "No data provided for update. Send data as JSON body or query parameters.",
         },
         400
+      );
+    }
+
+    // ADDED: Status transition validation
+    if (body.status) {
+      const allowedStatuses = [
+        "raw",
+        "latest",
+        "preprocessed",
+        "validated",
+        "archived",
+      ];
+
+      if (!allowedStatuses.includes(body.status)) {
+        return c.json({ message: `Invalid status: ${body.status}` }, 400);
+      }
+
+      // Get current dataset to check current status
+      let currentDataset;
+      if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+        currentDataset = await DatasetMeta.findById(idOrSlug).lean();
+      } else {
+        currentDataset = await DatasetMeta.findOne({
+          collectionName: idOrSlug,
+        }).lean();
+      }
+
+      if (!currentDataset) {
+        return c.json({ message: "Dataset not found" }, 404);
+      }
+
+      // ADDED: Validate status transitions according to lifecycle
+      const currentStatus = (currentDataset as any).status;
+      const newStatus = body.status;
+
+      const validTransitions: Record<string, string[]> = {
+        raw: ["latest", "preprocessed", "archived"],
+        latest: ["raw", "preprocessed", "archived"],
+        preprocessed: ["raw", "validated", "archived"],
+        validated: ["raw", "archived"],
+        archived: ["raw", "latest"], // Allow reactivation
+      };
+
+      if (!validTransitions[currentStatus]?.includes(newStatus)) {
+        return c.json(
+          {
+            message: `Invalid status transition: ${currentStatus} → ${newStatus}. Valid transitions from ${currentStatus}: ${
+              validTransitions[currentStatus]?.join(", ") || "none"
+            }`,
+            currentStatus,
+            attemptedStatus: newStatus,
+            validTransitions: validTransitions[currentStatus] || [],
+          },
+          400
+        );
+      }
+
+      console.log(
+        `✅ Status transition validated: ${currentStatus} → ${newStatus}`
       );
     }
 
@@ -303,11 +359,12 @@ datasetMetaRoute.post("/", async (c) => {
 
     const contentType = c.req.header("content-type") || "";
 
-    // Handle XLSX via multipart/form-data for single upload and multi-file upload
+    // Handle XLSX via multipart/form-data
     if (contentType.includes("multipart/form-data")) {
       return await handleXlsxUpload(c);
     }
-    // ✅ Handle CSV/JSON via JSON body (existing logic)
+
+    // Handle CSV/JSON via JSON body
     const body = await c.req.json();
 
     const requiredFields = ["name", "source", "fileType", "data"];
@@ -328,7 +385,7 @@ datasetMetaRoute.post("/", async (c) => {
       data,
       filename = `${name}.${fileType}`,
       description = "",
-      status = "raw",
+      status: requestedStatus, // Don't use default here
       collectionName: rawCollectionName,
     } = body;
 
@@ -336,13 +393,68 @@ datasetMetaRoute.post("/", async (c) => {
       return c.json({ message: "data must be a non-empty array" }, 400);
     }
 
+    // ADDED: Smart status detection based on data freshness
+    let finalStatus = requestedStatus || "raw"; // Default to raw
+
+    if (!requestedStatus) {
+      // Auto-detect status based on data freshness
+      const today = new Date();
+      const todayString = today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Find the newest date in the dataset
+      let newestDate: Date | null = null;
+
+      for (const item of data) {
+        if (item.Date) {
+          const itemDate = new Date(item.Date);
+          if (!newestDate || itemDate > newestDate) {
+            newestDate = itemDate;
+          }
+        }
+      }
+
+      if (newestDate) {
+        const newestDateString = newestDate.toISOString().slice(0, 10);
+        console.log(
+          `Newest date in dataset: ${newestDateString}, Today: ${todayString}`
+        );
+
+        // If newest date matches today, set status to "latest"
+        if (newestDateString === todayString) {
+          finalStatus = "latest";
+          console.log(
+            `✅ Dataset contains today's data, setting status to 'latest'`
+          );
+        } else if (newestDate < today) {
+          // Data is older than today, keep as "raw"
+          const daysDiff = Math.floor(
+            (today.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          finalStatus = "raw";
+          console.log(
+            `Dataset is ${daysDiff} days behind, setting status to 'raw'`
+          );
+        } else {
+          // Future date (shouldn't happen but handle gracefully)
+          finalStatus = "raw";
+          console.log(`Dataset contains future dates, setting status to 'raw'`);
+        }
+      } else {
+        console.log("No Date column found in dataset, defaulting to 'raw'");
+        finalStatus = "raw";
+      }
+    }
+
     const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
+
+    // FIXED: Collection name should be original, not _cleaned
     const collectionName =
       rawCollectionName?.trim() ||
       name
         .trim()
-        .replace(/[^a-zA-Z0-9\s]/g, "") // Keep spaces, remove special chars
-        .replace(/\s+/g, " "); // Normalize spaces
+        .replace(/[^a-zA-Z0-9\s]/g, "")
+        .replace(/\s+/g, " ");
+
     const fileSize = Buffer.byteLength(JSON.stringify(data));
 
     if (fileSize > MAX_FILE_SIZE) {
@@ -352,13 +464,12 @@ datasetMetaRoute.post("/", async (c) => {
     const totalRecords = data.length || 0;
     const columns = data[0] ? Object.keys(data[0]) : [];
 
-    // Insert data ke collection dinamis
+    // Insert data to dynamic collection
     const parsedData = data.map((item) => ({
       ...item,
       Date: item.Date ? new Date(item.Date) : null,
     }));
 
-    // Check if model already exists, if not create it
     let dynamicModel;
     try {
       dynamicModel = mongoose.model(collectionName);
@@ -372,25 +483,33 @@ datasetMetaRoute.post("/", async (c) => {
 
     await dynamicModel.insertMany(parsedData);
 
-    // Simpan metadata
+    // FIXED: Save metadata pointing to original collection
     const newDataset = await DatasetMeta.create({
       name: name.trim(),
       source: source.trim(),
       filename,
-      collectionName,
+      collectionName, // FIXED: Points to original collection, not _cleaned
       fileType,
-      status,
+      status: finalStatus, // Use smart-detected status
       description,
       fileSize,
       totalRecords,
       columns,
-      isAPI: false,
+      isAPI: false, // Always false for manual uploads
     });
 
     return c.json(
       {
         message: "Dataset uploaded and metadata saved successfully",
         data: newDataset,
+        statusInfo: {
+          detectedStatus: finalStatus,
+          reason:
+            finalStatus === "latest"
+              ? "Dataset contains today's data"
+              : "Dataset requires refresh or preprocessing",
+          wasAutoDetected: !requestedStatus,
+        },
       },
       201
     );
@@ -400,6 +519,7 @@ datasetMetaRoute.post("/", async (c) => {
     return c.json({ message }, status);
   }
 });
+
 async function handleXlsxUpload(c: any) {
   try {
     const formData = await c.req.formData();
@@ -408,9 +528,8 @@ async function handleXlsxUpload(c: any) {
     const name = (formData.get("name") as string)?.trim();
     const source = (formData.get("source") as string)?.trim();
     const description = ((formData.get("description") as string) || "").trim();
-    const status = ((formData.get("status") as string) || "raw").trim();
+    const requestedStatus = ((formData.get("status") as string) || "").trim();
     const isMultiFile = formData.get("isMultiFile") === "true";
-
     // Basic validation
     if (!name || !source) {
       return c.json({ message: "name and source are required" }, 400);
@@ -660,6 +779,60 @@ async function handleXlsxUpload(c: any) {
       return c.json({ message: "Conversion resulted in empty data" }, 400);
     }
 
+    // Status detection for XLSX uploads
+    let finalStatus = requestedStatus || "raw";
+
+    if (!requestedStatus) {
+      // Auto-detect status based on data freshness
+      const today = new Date();
+      const todayString = today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Find the newest date in the processed data
+      let newestDate: Date | null = null;
+
+      for (const item of processedData) {
+        if (item.Date) {
+          const itemDate = new Date(item.Date);
+          if (!newestDate || itemDate > newestDate) {
+            newestDate = itemDate;
+          }
+        }
+      }
+
+      if (newestDate) {
+        const newestDateString = newestDate.toISOString().slice(0, 10);
+        console.log(
+          `XLSX - Newest date: ${newestDateString}, Today: ${todayString}`
+        );
+
+        // If newest date matches today, set status to "latest"
+        if (newestDateString === todayString) {
+          finalStatus = "latest";
+          console.log(
+            `✅ XLSX dataset contains today's data, setting status to 'latest'`
+          );
+        } else if (newestDate < today) {
+          const daysDiff = Math.floor(
+            (today.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          finalStatus = "raw";
+          console.log(
+            `XLSX dataset is ${daysDiff} days behind, setting status to 'raw'`
+          );
+        } else {
+          finalStatus = "raw";
+          console.log(
+            `XLSX dataset contains future dates, setting status to 'raw'`
+          );
+        }
+      } else {
+        console.log(
+          "No Date column found in XLSX dataset, defaulting to 'raw'"
+        );
+        finalStatus = "raw";
+      }
+    }
+
     // Generate collection name
     const collectionName = name
       .trim()
@@ -701,7 +874,7 @@ async function handleXlsxUpload(c: any) {
       filename,
       collectionName,
       fileType: "csv", // Always saved as CSV after conversion
-      status: status.trim(),
+      status: finalStatus,
       description: description.trim(),
       fileSize,
       totalRecords,
@@ -737,10 +910,20 @@ async function handleXlsxUpload(c: any) {
       };
     }
 
+    // Status information in response
+    (response as any).statusInfo = {
+      detectedStatus: finalStatus,
+      reason:
+        finalStatus === "latest"
+          ? "XLSX dataset contains today's data"
+          : "XLSX dataset requires refresh or preprocessing",
+      wasAutoDetected: !requestedStatus,
+    };
+
     console.log(
       `✅ XLSX conversion completed: ${
         isMultiFile ? "Multi-file" : "Single"
-      } upload successful`
+      } upload successful with status: ${finalStatus}`
     );
     return c.json(response, 201);
   } catch (error) {
@@ -750,269 +933,335 @@ async function handleXlsxUpload(c: any) {
   }
 }
 
-// datasetMetaRoute.post("/", async (c) => {
-//   try {
-//     await db();
-//     const body = await c.req.json();
-
-//     const requiredFields = ["name", "source", "fileType", "data"];
-//     for (const field of requiredFields) {
-//       if (!body[field]) {
-//         return c.json({ message: `${field} is required` }, 400);
-//       }
-//     }
-
-//     if (!["csv", "json"].includes(body.fileType)) {
-//       return c.json({ message: "fileType must be 'csv' or 'json'" }, 400);
-//     }
-
-//     const {
-//       name,
-//       source,
-//       fileType,
-//       data, // data records (parsed JSON/CSV)
-//       filename = `${name}.${fileType}`,
-//       description = "",
-//       status = "raw",
-//       collectionName: rawCollectionName,
-//     } = body;
-
-//     if (!Array.isArray(data) || data.length === 0) {
-//       return c.json({ message: "data must be a non-empty array" }, 400);
-//     }
-
-//     const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
-//     const collectionName = rawCollectionName?.trim() || name.trim();
-//     const fileSize = Buffer.byteLength(JSON.stringify(body.data));
-
-//     if (fileSize > MAX_FILE_SIZE) {
-//       return c.json({ message: "File size exceeds 16MB limit" }, 400);
-//     }
-
-//     const totalRecords = data.length || 0;
-//     const columns = data[0] ? Object.keys(data[0]) : [];
-
-//     // Insert data ke collection dinamis
-//     const parsedData = data.map((item) => ({
-//       ...item,
-//       Date: item.Date ? new Date(item.Date) : null, // konversi ke tipe Date
-//     }));
-
-//     // Check if model already exists, if not create it
-//     let dynamicModel;
-//     try {
-//       dynamicModel = mongoose.model(collectionName);
-//     } catch {
-//       dynamicModel = mongoose.model(
-//         collectionName,
-//         new mongoose.Schema({}, { strict: false }),
-//         collectionName
-//       );
-//     }
-
-//     await dynamicModel.insertMany(parsedData);
-
-//     // Simpan metadata
-//     const newDataset = await DatasetMeta.create({
-//       name: name.trim(),
-//       source: source.trim(),
-//       filename,
-//       collectionName,
-//       fileType,
-//       status,
-//       description,
-//       fileSize,
-//       totalRecords,
-//       columns,
-//       isAPI: false,
-//     });
-
-//     console.log({
-//       name,
-//       source,
-//       filename,
-//       collectionName,
-//       fileType,
-//       status,
-//       description,
-//       fileSize,
-//       totalRecords,
-//       columns,
-//       isAPI: false,
-//     });
-
-//     return c.json(
-//       {
-//         message: "Dataset uploaded and metadata saved successfully",
-//         data: newDataset,
-//       },
-//       201
-//     );
-//   } catch (error) {
-//     console.error("Upload dataset error:", error);
-//     const { message, status } = parseError(error);
-//     return c.json({ message }, status);
-//   }
-// });
-// datasetMetaRoute.post("/", async (c) => {
-//   try {
-//     await db();
-//     const body = await c.req.json();
-
-//     const requiredFields = ["name", "source", "fileType", "data"];
-//     for (const field of requiredFields) {
-//       if (!body[field]) {
-//         return c.json({ message: `${field} is required` }, 400);
-//       }
-//     }
-
-//     if (!["csv", "json"].includes(body.fileType)) {
-//       return c.json({ message: "fileType must be 'csv' or 'json'" }, 400);
-//     }
-
-//     const {
-//       name,
-//       source,
-//       fileType,
-//       data, // data records (parsed JSON/CSV)
-//       filename = `${name}.${fileType}`,
-//       description = "",
-//       status = "raw",
-//       collectionName: rawCollectionName,
-//     } = body;
-
-//     if (!Array.isArray(data) || data.length === 0) {
-//       return c.json({ message: "data must be a non-empty array" }, 400);
-//     }
-
-//     const MAX_FILE_SIZE = 16 * 1024 * 1024; // 16 MB
-//     const collectionName = rawCollectionName?.trim() || name.trim();
-//     const fileSize = Buffer.byteLength(JSON.stringify(body.data));
-
-//     if (fileSize > MAX_FILE_SIZE) {
-//       return c.json({ message: "File size exceeds 16MB limit" }, 400);
-//     }
-
-//     const totalRecords = data.length || 0;
-//     const columns = data[0] ? Object.keys(data[0]) : [];
-
-//     // Insert data ke collection dinamis
-//     const parsedData = data.map((item) => ({
-//       ...item,
-//       Date: item.Date ? new Date(item.Date) : null, // konversi ke tipe Date
-//     }));
-//     const dynamicModel = mongoose.model(
-//       collectionName,
-//       new mongoose.Schema({}, { strict: false }),
-//       collectionName
-//     );
-//     await dynamicModel.insertMany(parsedData);
-
-//     // Simpan metadata
-//     const newDataset = await DatasetMeta.create({
-//       name: name.trim(),
-//       source: source.trim(),
-//       filename,
-//       collectionName,
-//       fileType,
-//       status,
-//       description,
-//       fileSize,
-//       totalRecords,
-//       columns,
-//       isAPI: false,
-//     });
-
-//     console.log({
-//       name,
-//       source,
-//       filename,
-//       collectionName,
-//       fileType,
-//       status,
-//       description,
-//       fileSize,
-//       totalRecords,
-//       columns,
-//       isAPI: false,
-//     });
-
-//     return c.json(
-//       {
-//         message: "Dataset uploaded and metadata saved successfully",
-//         data: newDataset,
-//       },
-//       201
-//     );
-//   } catch (error) {
-//     console.error("Upload dataset error:", error);
-//     const { message, status } = parseError(error);
-//     return c.json({ message }, status);
-//   }
-// });
-
 // DELETE - Hapus dataset (metadata + collection)
 datasetMetaRoute.delete("/:collectionName", async (c) => {
   try {
     await db();
     const { collectionName } = c.req.param();
 
-    // 1. Hapus metadata
+    // 1. Get metadata
+    const metadata = await DatasetMeta.findOne({ collectionName }).lean();
+
+    if (!metadata) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
+    // 2. FIXED: Determine collections to delete based on proper architecture
+    const collectionsToDelete: string[] = [];
+    const metaStatus = (metadata as any).status as string;
+
+    // Always delete the original collection (metadata always points to original)
+    collectionsToDelete.push(collectionName);
+
+    // If dataset is preprocessed/validated, also delete the _cleaned collection
+    if (metaStatus === "preprocessed" || metaStatus === "validated") {
+      const cleanedCollectionName = `${collectionName}_cleaned`;
+      collectionsToDelete.push(cleanedCollectionName);
+      console.log(
+        `Dataset is ${metaStatus}, will also delete cleaned collection: ${cleanedCollectionName}`
+      );
+    }
+
+    // 3. Delete metadata first
     await DatasetMeta.deleteOne({ collectionName });
 
-    // 2. Drop koleksi MongoDB menggunakan model
-    try {
-      // Cek apakah model sudah ada
-      let Model;
-      if (mongoose.models[collectionName]) {
-        Model = mongoose.models[collectionName];
-      } else {
-        Model = mongoose.model(
-          collectionName,
-          new mongoose.Schema({}, { strict: false }),
-          collectionName
-        );
-      }
+    // 4. Drop all identified collections
+    const deletedCollections: string[] = [];
+    const failedDeletions: string[] = [];
 
-      // Drop collection menggunakan model
-      await Model.collection.drop();
-    } catch (dropError: any) {
-      // Jika collection tidak ada, abaikan error
-      if (dropError.code !== 26) {
-        // 26 = NamespaceNotFound
-        throw dropError;
+    for (const colName of collectionsToDelete) {
+      try {
+        let Model;
+        if (mongoose.models[colName]) {
+          Model = mongoose.models[colName];
+        } else {
+          Model = mongoose.model(
+            colName,
+            new mongoose.Schema({}, { strict: false }),
+            colName
+          );
+        }
+
+        await Model.collection.drop();
+        deletedCollections.push(colName);
+        console.log(`✅ Dropped collection: ${colName}`);
+      } catch (dropError: any) {
+        if (dropError.code !== 26) {
+          // 26 = NamespaceNotFound
+          console.error(`⚠️ Error dropping collection ${colName}:`, dropError);
+          failedDeletions.push(colName);
+        } else {
+          console.log(`ℹ️ Collection ${colName} not found, skipping`);
+        }
       }
     }
 
-    return c.json({ message: "Dataset deleted successfully" }, 200);
+    return c.json(
+      {
+        message: "Dataset deleted successfully",
+        deletedCollections,
+        failedDeletions:
+          failedDeletions.length > 0 ? failedDeletions : undefined,
+        originalStatus: metaStatus,
+      },
+      200
+    );
   } catch (error) {
     console.error("Delete dataset error:", error);
     const { message, status } = parseError(error);
     return c.json({ message }, status);
   }
 });
-// datasetMetaRoute.delete("/:collectionName", async (c) => {
-//   try {
-//     await db();
-//     const { collectionName } = c.req.param();
 
-//     // 1. Hapus metadata
-//     await DatasetMeta.deleteOne({ collectionName });
+// Status endpoint with enhanced logic
+datasetMetaRoute.get("/:collectionName/status", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
 
-//     // 2. Drop koleksi MongoDB
-//     const connection = mongoose.connection;
-//     const collections = await connection.db.listCollections().toArray();
-//     const exists = collections.some((col) => col.name === collectionName);
+    const dataset = await DatasetMeta.findOne({ collectionName }).lean();
 
-//     if (exists) {
-//       await connection.db.dropCollection(collectionName);
-//     }
+    if (!dataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
 
-//     return c.json({ message: "Dataset deleted successfully" }, 200);
-//   } catch (error) {
-//     console.error("Delete dataset error:", error);
-//     const { message, status } = parseError(error);
-//     return c.json({ message }, status);
-//   }
-// });
+    const status = (dataset as any).status as string;
+
+    // Determine what operations are allowed
+    const canPreprocess = ["raw", "latest"].includes(status);
+
+    // ENHANCED: Different refresh logic for API vs non-API datasets
+    const canRefresh = (dataset as any).isAPI
+      ? status !== "archived" // API datasets can refresh unless archived
+      : ["raw", "latest", "preprocessed", "validated"].includes(status); // Non-API datasets (manual refresh)
+
+    const canReactivate = status === "archived";
+
+    // Check if cleaned collection exists
+    let hasCleanedCollection = false;
+    if (status === "preprocessed" || status === "validated") {
+      try {
+        const cleanedCollectionName = `${collectionName}_cleaned`;
+        const CleanedModel =
+          mongoose.models[cleanedCollectionName] ||
+          mongoose.model(
+            cleanedCollectionName,
+            new mongoose.Schema({}, { strict: false }),
+            cleanedCollectionName
+          );
+
+        const count = await CleanedModel.countDocuments().limit(1);
+        hasCleanedCollection = count > 0;
+      } catch (error) {
+        hasCleanedCollection = false;
+      }
+    }
+
+    return c.json({
+      collectionName,
+      status,
+      isAPI: (dataset as any).isAPI,
+      canPreprocess,
+      canRefresh,
+      canReactivate,
+      hasCleanedCollection,
+      operations: {
+        preprocessing: canPreprocess
+          ? "allowed"
+          : `not allowed - status is ${status}`,
+        refresh: canRefresh
+          ? (dataset as any).isAPI
+            ? "allowed via NASA Power refresh"
+            : "manual refresh (to be implemented)"
+          : (dataset as any).isAPI
+          ? `not allowed - status is ${status}`
+          : `not allowed - status is ${status}`,
+        reactivation: canReactivate ? "allowed" : "not allowed - not archived",
+      },
+    });
+  } catch (error) {
+    console.error("Get dataset status error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+datasetMetaRoute.patch("/:collectionName/reactivate", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    const dataset = await DatasetMeta.findOne({ collectionName });
+    if (!dataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
+    if ((dataset as any).status !== "archived") {
+      return c.json(
+        { message: "Only archived datasets can be reactivated" },
+        400
+      );
+    }
+
+    // ENHANCED: Determine new status based on dataset type and data freshness
+    let newStatus: string;
+
+    if ((dataset as any).isAPI) {
+      // API datasets go to "latest" when reactivated (will be refreshed via API)
+      newStatus = "latest";
+    } else {
+      // Non-API datasets: check data freshness to determine raw vs latest
+      try {
+        const dynamicModel =
+          mongoose.models[collectionName] ||
+          mongoose.model(
+            collectionName,
+            new mongoose.Schema({}, { strict: false }),
+            collectionName
+          );
+
+        // FIXED: Properly type the query result and handle potential array/single document
+        const latestRecord = (await dynamicModel
+          .findOne({})
+          .sort({ Date: -1 })
+          .lean()) as any; // Type assertion to any to access Date property
+
+        if (latestRecord && latestRecord.Date) {
+          const today = new Date();
+          const recordDate = new Date(latestRecord.Date);
+          const todayString = today.toISOString().slice(0, 10);
+          const recordString = recordDate.toISOString().slice(0, 10);
+
+          if (recordString === todayString) {
+            newStatus = "latest"; // Data is current
+          } else {
+            newStatus = "raw"; // Data needs refresh/preprocessing
+          }
+        } else {
+          newStatus = "raw"; // No date data found, default to raw
+        }
+      } catch (error) {
+        console.warn(
+          "Could not check data freshness, defaulting to raw:",
+          error
+        );
+        newStatus = "raw";
+      }
+    }
+
+    const updated = await DatasetMeta.findOneAndUpdate(
+      { collectionName },
+      { $set: { status: newStatus } },
+      { new: true }
+    );
+
+    return c.json({
+      message: "Dataset reactivated successfully",
+      data: updated,
+      statusTransition: {
+        from: "archived",
+        to: newStatus,
+        reason: (dataset as any).isAPI
+          ? "API dataset reactivated to latest for refresh"
+          : "Non-API dataset reactivated based on data freshness",
+      },
+    });
+  } catch (error: any) {
+    console.error("Reactivate dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+datasetMetaRoute.post("/:collectionName/refresh", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    const dataset = await DatasetMeta.findOne({ collectionName }).lean();
+
+    if (!dataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
+    // Only allow refresh for non-API datasets
+    if ((dataset as any).isAPI) {
+      return c.json(
+        {
+          message: "API datasets should use NASA Power refresh endpoints",
+          suggestedEndpoint: "/api/v1/nasa-power/refresh/:id",
+        },
+        400
+      );
+    }
+
+    // Validate status can be refreshed
+    const currentStatus = (dataset as any).status as string;
+    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
+
+    if (!refreshableStatuses.includes(currentStatus)) {
+      return c.json(
+        {
+          message: `Cannot refresh dataset with status '${currentStatus}'`,
+          refreshableStatuses,
+        },
+        400
+      );
+    }
+
+    // Check if dataset was preprocessed/validated (has _cleaned collection)
+    const wasPreprocessed =
+      currentStatus === "preprocessed" || currentStatus === "validated";
+
+    if (wasPreprocessed) {
+      // Delete the _cleaned collection if it exists
+      const cleanedCollectionName = `${collectionName}_cleaned`;
+      try {
+        const CleanedModel =
+          mongoose.models[cleanedCollectionName] ||
+          mongoose.model(
+            cleanedCollectionName,
+            new mongoose.Schema({}, { strict: false }),
+            cleanedCollectionName
+          );
+        await CleanedModel.collection.drop();
+        console.log(
+          `✅ Deleted cleaned collection: ${cleanedCollectionName} (manual refresh)`
+        );
+      } catch (error: any) {
+        if (error.code !== 26) {
+          // 26 = NamespaceNotFound
+          console.warn(
+            `⚠️ Warning deleting cleaned collection ${cleanedCollectionName}:`,
+            error.message
+          );
+        }
+      }
+    }
+
+    // PLACEHOLDER: For future manual refresh implementation
+    return c.json(
+      {
+        message:
+          "Manual refresh for user-uploaded datasets will be implemented later",
+        currentStatus: currentStatus,
+        collectionName: collectionName,
+        wasPreprocessed,
+        cleanedCollectionDeleted: wasPreprocessed,
+        note: "This endpoint is reserved for future manual refresh functionality",
+        implementation: {
+          suggestion:
+            "Users can re-upload newer data files to refresh non-API datasets",
+          expectedFlow:
+            "Upload new file → Smart status detection → Replace data",
+        },
+      },
+      501
+    ); // Not Implemented
+  } catch (error: any) {
+    console.error("Non-API refresh error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
 export default datasetMetaRoute;
