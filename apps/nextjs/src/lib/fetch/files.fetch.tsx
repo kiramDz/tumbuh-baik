@@ -1,5 +1,4 @@
 import axios from "axios";
-import { trackAllowedDynamicAccess } from "next/dist/server/app-render/dynamic-rendering";
 
 export interface DatasetMetaType {
   _id: string;
@@ -39,6 +38,73 @@ export interface RefreshAllResponse {
     alreadyUpToDate: number;
     failed: number;
     details: RefreshResult[];
+  };
+}
+
+export interface SpatialAnalysisParams {
+  districts?: string;
+  parameters?: string;
+  year_start?: number;
+  year_end?: number;
+  season?: "wet" | "dry" | "all";
+  aggregation?: "mean" | "median" | "percentile";
+}
+
+export interface SpatialAnalysisResponse {
+  type: "FeatureCollection";
+  metadata: {
+    analysis_date: string;
+    // ✅ ADD THESE MISSING FIELDS:
+    parameters_used: {
+      districts: string;
+      climate_parameters: string;
+      analysis_period: {
+        start_year: number;
+        end_year: number;
+      };
+      season_filter: string;
+      aggregation_method: string;
+      include_geometry: boolean;
+      output_format: string;
+    };
+    total_districts: number;
+    analyzed_districts: number;
+    data_source: string;
+    processing_backend: string;
+    analysis_method: string;
+  };
+  features: SpatialFeature[];
+}
+
+export interface SpatialFeature {
+  type: "Feature";
+  id: string;
+  geometry: {
+    type: "MultiPolygon";
+    coordinates: number[][][];
+  };
+  bbox: number[];
+  properties: {
+    GID_3: string;
+    NAME_1: string;
+    NAME_2: string;
+    NAME_3: string;
+    TYPE_3: string;
+    avg_temperature: number;
+    avg_precipitation: number;
+    avg_humidity: number;
+    suitability_score: number;
+    classification: string;
+    confidence_level: "very_high" | "high" | "medium" | "low" | "none";
+    temperature_score: number;
+    precipitation_score: number;
+    humidity_score: number;
+    overall_risk: "low" | "medium" | "high" | "unknown";
+    nasa_lat: number;
+    nasa_lng: number;
+    centroid_lat: number;
+    centroid_lng: number;
+    nasa_match: string;
   };
 }
 
@@ -155,51 +221,6 @@ export async function exportDatasetCsv(
     };
   }
 }
-
-// export async function exportDatasetCsv(
-//   collectionName: string,
-//   sortBy = "Date",
-//   sortOrder = "desc"
-// ) {
-//   try {
-//     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
-//       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
-//       responseType: "blob",
-//     });
-
-//     if (response.status === 200) {
-//       const blob = new Blob([response.data], { type: "text/csv" });
-//       const url = window.URL.createObjectURL(blob);
-//       const link = document.createElement("a");
-
-//       const contentDisposition = response.headers["content-disposition"];
-//       let filename = `${collectionName}_data_${
-//         new Date().toISOString().split("T")[0]
-//       }.csv`;
-
-//       if (contentDisposition) {
-//         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-//         if (filenameMatch) {
-//           filename = filenameMatch[1];
-//         }
-//       }
-
-//       link.href = url;
-//       link.download = filename;
-//       link.style.display = "none";
-
-//       document.body.appendChild(link);
-//       link.click();
-//       document.body.removeChild(link);
-//       window.URL.revokeObjectURL(url);
-
-//       return { success: true, message: "File downloaded successfully" };
-//     }
-//   } catch (error) {
-//     console.error("Error exporting CSV:", error);
-//     return { success: false, message: "Export failed" };
-//   }
-// }
 export async function exportHoltWinterCsv(
   sortBy = "forecast_date",
   sortOrder = "asc"
@@ -932,156 +953,6 @@ export const preprocessNasaDatasetWithStream = (
   };
 };
 
-// Trigger NASA POWER Preprocessing with stream
-// export const preprocessNasaDatasetWithStream = (
-//   collectionName: string,
-//   onLog: (log: any) => void,
-//   onProgress: (progress: number, stage: string, message: string) => void,
-//   onComplete: (result: any) => void,
-//   onError: (error: string) => void
-// ) => {
-//   const encodedName = encodeURIComponent(collectionName);
-//   const eventSource = new EventSource(
-//     `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
-//   );
-
-//   // Add Connection timeout
-//   let connectionTimeout: NodeJS.Timeout;
-//   let hasCompletedSuccessfully = false; // ✅ Track completion status
-
-//   const resetTimeout = () => {
-//     if (connectionTimeout) {
-//       clearTimeout(connectionTimeout);
-//     }
-//     connectionTimeout = setTimeout(() => {
-//       if (!hasCompletedSuccessfully) {
-//         onError(
-//           "Connection timeout - preprocessing may still be running in background"
-//         );
-//         eventSource.close();
-//       }
-//     }, 300000); // 5 minutes timeout
-//   };
-
-//   resetTimeout();
-
-//   eventSource.onmessage = (event) => {
-//     try {
-//       const data = JSON.parse(event.data);
-
-//       resetTimeout();
-
-//       switch (data.type) {
-//         case "connected":
-//           onLog({
-//             type: "info",
-//             message: `Connected to preprocessing stream. Session: ${data.session_id}`,
-//           });
-//           break;
-
-//         case "log":
-//           onLog(data);
-//           break;
-
-//         case "progress":
-//           // Handle multiple possible field names for progress percentage
-//           const progressValue =
-//             data.percentage ?? data.progress ?? data.percent ?? 0;
-
-//           onProgress(
-//             progressValue,
-//             data.stage || "Processing",
-//             data.message || "Processing..."
-//           );
-//           break;
-
-//         case "complete":
-//           hasCompletedSuccessfully = true;
-
-//           onLog({
-//             type: "success",
-//             message: "NASA preprocessing completed successfully!",
-//           });
-
-//           // Trigger completion callback with result
-//           onComplete(data.result);
-
-//           // Note: Don't close yet, wait for stream_complete
-//           break;
-
-//         case "stream_complete":
-//           if (!hasCompletedSuccessfully) {
-//             onLog({
-//               type: "info",
-//               message: "Stream closed - preprocessing may have completed",
-//             });
-
-//             // Fallback: If we got stream_complete without complete,
-//             // assume success but with no result data
-//             onComplete({
-//               recordCount: null,
-//               cleanedCollection: null,
-//               preprocessing_report: null,
-//             });
-//           } else {
-//             onLog({
-//               type: "info",
-//               message: "Preprocessing stream closed successfully",
-//             });
-//           }
-
-//           clearTimeout(connectionTimeout);
-//           eventSource.close();
-//           break;
-
-//         case "error":
-//           onError(data.message || "An error occurred during preprocessing");
-//           clearTimeout(connectionTimeout);
-//           eventSource.close();
-//           break;
-
-//         default:
-//           console.log("Unknown SSE message type:", data.type, data);
-//           break;
-//       }
-//     } catch (error) {
-//       console.error("Error parsing SSE data:", error);
-//       console.log("Raw event data:", event.data);
-//     }
-//   };
-
-//   eventSource.onerror = (error) => {
-//     console.error("SSE error:", error);
-//     clearTimeout(connectionTimeout);
-
-//     if (eventSource.readyState === EventSource.CLOSED) {
-//       // ✅ FIXED: Better handling of connection close
-//       if (!hasCompletedSuccessfully) {
-//         onLog({
-//           type: "info",
-//           message: "Connection closed - check if preprocessing completed",
-//         });
-//       } else {
-//         onLog({
-//           type: "info",
-//           message: "Preprocessing completed, connection closed",
-//         });
-//       }
-//     } else {
-//       onError("Connection error occurred with the preprocessing stream.");
-//     }
-//     eventSource.close();
-//   };
-
-//   return {
-//     eventSource,
-//     cleanup: () => {
-//       clearTimeout(connectionTimeout);
-//       eventSource.close();
-//     },
-//   };
-// };
-
 // Trigger BMKG Preprocessing with stream
 export const preprocessBmkgDatasetWithStream = (
   collectionName: string,
@@ -1265,5 +1136,170 @@ export const checkBmkgDatasetForPreprocessing = async (
   } catch (error) {
     console.error("Error validating BMKG dataset:", error);
     throw error;
+  }
+};
+
+// Spatial Analysis Response for flask
+const getFlaskBaseUrl = () => {
+  return process.env.NEXT_PUBLIC_FLASK_URL || "http://localhost:5001";
+};
+
+export const getSpatialAnalysis = async (
+  params: SpatialAnalysisParams = {}
+): Promise<SpatialAnalysisResponse> => {
+  try {
+    const {
+      districts = "all",
+      parameters = "all",
+      year_start = 2020,
+      year_end = 2023,
+      season = "all",
+      aggregation = "mean",
+    } = params;
+
+    const queryParams = new URLSearchParams({
+      districts,
+      parameters,
+      year_start: year_start.toString(),
+      year_end: year_end.toString(),
+      season,
+      aggregation,
+    });
+
+    const response = await axios.get(
+      `${getFlaskBaseUrl()}/api/v1/spatial-map?${queryParams}`,
+      {
+        timeout: 60000,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Spatial analysis fetch error:", error);
+
+    if (error.code === "ECONNABORTED") {
+      throw new Error("Spatial analysis timeout - try with smaller date range");
+    }
+
+    if (error.code === "ECONNREFUSED") {
+      throw new Error("Flask backend service unavailable");
+    }
+
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+
+    throw new Error("Failed to fetch spatial analysis");
+  }
+};
+
+export const getSpatialDistricts = async () => {
+  try {
+    const response = await axios.get(
+      `${getFlaskBaseUrl()}/api/v1/spatial-map/districts`,
+      {
+        timeout: 10000,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Spatial districts fetch error:", error);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw new Error("Failed to fetch spatial districts");
+  }
+};
+
+export const getSpatialParameters = async () => {
+  try {
+    const response = await axios.get(
+      `${getFlaskBaseUrl()}/api/v1/spatial-map/parameters`,
+      {
+        timeout: 10000,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ Parameters fetch error:", error);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw new Error("Failed to fetch climate parameters");
+  }
+};
+
+export const exportSpatialAnalysisCsv = async (
+  analysisData: SpatialAnalysisResponse,
+  filename?: string
+) => {
+  try {
+    const csvData = analysisData.features.map((feature) => ({
+      district_name: feature.properties.NAME_3,
+      kabupaten: feature.properties.NAME_2,
+      suitability_score: feature.properties.suitability_score,
+      classification: feature.properties.classification,
+      confidence_level: feature.properties.confidence_level,
+      overall_risk: feature.properties.overall_risk,
+      avg_temperature: feature.properties.avg_temperature,
+      avg_precipitation: feature.properties.avg_precipitation,
+      avg_humidity: feature.properties.avg_humidity,
+      temperature_score: feature.properties.temperature_score,
+      precipitation_score: feature.properties.precipitation_score,
+      humidity_score: feature.properties.humidity_score,
+    }));
+
+    const headers = Object.keys(csvData[0]);
+    let csvContent = headers.join(",") + "\n";
+    csvData.forEach((row) => {
+      const values = headers.map((header) => {
+        let value = row[header as keyof typeof row];
+        if (
+          typeof value === "string" &&
+          (value.includes(",") || value.includes('"'))
+        ) {
+          value = `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      });
+      csvContent += values.join(",") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    const defaultFilename = `rice_suitability_analysis_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
+
+    link.href = url;
+    link.download = filename || defaultFilename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    return {
+      success: true,
+      message: `Successfully exported ${csvData.length} districts`,
+      filename: filename || defaultFilename,
+    };
+  } catch (error) {
+    console.error("❌ Error exporting spatial analysis CSV:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Export failed",
+    };
   }
 };

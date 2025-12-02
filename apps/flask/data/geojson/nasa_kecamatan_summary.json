@@ -1,0 +1,117 @@
+{
+  "total_kecamatan": 10,
+  "nasa_locations_count": 11,
+  "kabupaten_distribution": {
+    "AcehBesar": 3,
+    "AcehJaya": 2,
+    "Pidie": 2,
+    "Bireuen": 2,
+    "AcehUtara": 1
+  },
+  "coordinate_validation": {
+    "within_polygon": 10,
+    "total_checked": 10
+  },
+  "matched_locations": [
+    {
+      "NAME_3": "Indrapuri",
+      "nasa_match": "Indrapuri",
+      "NAME_2": "AcehBesar",
+      "nasa_lat": 5.4218918,
+      "nasa_lng": 95.4463322,
+      "centroid_lat": 5.419379888570382,
+      "centroid_lng": 95.45429547533024
+    },
+    {
+      "NAME_3": "Montasik",
+      "nasa_match": "Montasik",
+      "NAME_2": "AcehBesar",
+      "nasa_lat": 5.4803,
+      "nasa_lng": 95.4594,
+      "centroid_lat": 5.489691053370919,
+      "centroid_lng": 95.4594785557019
+    },
+    {
+      "NAME_3": "Darussalam",
+      "nasa_match": "Darussalam",
+      "NAME_2": "AcehBesar",
+      "nasa_lat": 5.5945451,
+      "nasa_lng": 95.4201377,
+      "centroid_lat": 5.5950281037022345,
+      "centroid_lng": 95.4201604628689
+    },
+    {
+      "NAME_3": "Sampoiniet",
+      "nasa_match": "Setia Bakti",
+      "NAME_2": "AcehJaya",
+      "nasa_lat": 4.8333007,
+      "nasa_lng": 95.4867971,
+      "centroid_lat": 4.93181999882821,
+      "centroid_lng": 95.56331383524059
+    },
+    {
+      "NAME_3": "Teunom",
+      "nasa_match": "Teunom",
+      "NAME_2": "AcehJaya",
+      "nasa_lat": 4.4999535,
+      "nasa_lng": 95.7700208,
+      "centroid_lat": 4.560234819534318,
+      "centroid_lng": 95.91629384714255
+    },
+    {
+      "NAME_3": "Grong-Grong",
+      "nasa_match": "Pidie",
+      "NAME_2": "Pidie",
+      "nasa_lat": 5.3759998,
+      "nasa_lng": 95.9148038,
+      "centroid_lat": 5.373823955283738,
+      "centroid_lng": 95.90214330090367
+    },
+    {
+      "NAME_3": "Delima",
+      "nasa_match": "Indrajaya",
+      "NAME_2": "Pidie",
+      "nasa_lat": 5.3114261,
+      "nasa_lng": 95.8978653,
+      "centroid_lat": 5.336904426298803,
+      "centroid_lng": 95.89972785409162
+    },
+    {
+      "NAME_3": "Lhoksukon",
+      "nasa_match": "Lhoksukon",
+      "NAME_2": "AcehUtara",
+      "nasa_lat": 5.051701,
+      "nasa_lng": 97.318123,
+      "centroid_lat": 5.029883558263109,
+      "centroid_lng": 97.35933308872376
+    },
+    {
+      "NAME_3": "Peudada",
+      "nasa_match": "Juli",
+      "NAME_2": "Bireuen",
+      "nasa_lat": 5.0735373,
+      "nasa_lng": 96.5879472,
+      "centroid_lat": 5.062552687744548,
+      "centroid_lng": 96.56779852349126
+    },
+    {
+      "NAME_3": "Jeumpa",
+      "nasa_match": "Kota Juang",
+      "NAME_2": "Bireuen",
+      "nasa_lat": 5.190849,
+      "nasa_lng": 96.6728368,
+      "centroid_lat": 5.149474946002682,
+      "centroid_lng": 96.65548789056473
+    }
+  ],
+  "nasa_locations_not_found": [
+    "Jaya"
+  ],
+  "removed_invalid_locations": [
+    "Pasie Raya"
+  ],
+  "crs_info": {
+    "output_crs": "EPSG:4326",
+    "projection_used": "EPSG:32647 (UTM Zone 47N)"
+  }
+}

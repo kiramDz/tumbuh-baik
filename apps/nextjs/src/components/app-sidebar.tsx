@@ -1,18 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  ArrowUpCircleIcon,
-  BarChartIcon,
-  ClipboardListIcon,
-  DatabaseIcon,
-  FileIcon,
-  LayoutDashboardIcon,
-  Trash,
-  Users,
-  Bean,
-} from "lucide-react";
-
+import { Icons } from "@/app/dashboard/_components/icons";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import {
@@ -41,12 +30,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     {
       title: "Dashboard",
       url: "/dashboard",
-      icon: LayoutDashboardIcon,
+      icon: Icons.dashboard,
     },
     {
       title: "Kalender Tanam",
       url: "/dashboard/kaltam",
-      icon: BarChartIcon,
+      icon: Icons.calendar,
       items: [
         {
           title: "Holt Winter",
@@ -59,25 +48,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ],
     },
     {
+      title: "Spatial Analysis",
+      url: "/dashboard/spatial-analysis",
+      icon: Icons.map,
+    },
+    {
       title: "Data bibit",
       url: "/dashboard/bibit",
-      icon: Bean,
+      icon: Icons.seed,
     },
     {
       title: "User Management",
-      url: "dashboard/users",
-      icon: Users,
+      url: "/dashboard/users",
+      icon: Icons.users,
     },
     {
       title: "Recycle Bin",
-      url: "dashboard/recycle-bin",
-      icon: Trash,
+      url: "/dashboard/recycle-bin",
+      icon: Icons.trash,
     },
   ];
   const documents = [
-    { name: "Data Library", url: "#", icon: DatabaseIcon },
-    { name: "Reports", url: "#", icon: ClipboardListIcon },
-    { name: "Word Assistant", url: "#", icon: FileIcon },
+    { name: "Data Library", url: "#", icon: Icons.database },
+    { name: "Reports", url: "#", icon: Icons.fileCheck },
+    { name: "Word Assistant", url: "#", icon: Icons.fileUpload },
   ];
 
   return (
@@ -90,7 +84,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <a href="#">
-                <ArrowUpCircleIcon className="h-5 w-5" />
+                <Icons.logo className="h-5 w-5" />
                 <span className="text-base font-semibold">Tumbuh Baik.</span>
               </a>
             </SidebarMenuButton>

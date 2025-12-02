@@ -64,6 +64,7 @@
     "geist": "^1.3.1",
     "hono": "^4.6.16",
     "input-otp": "^1.4.2",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.471.1",
     "mapbox-gl": "^2.15.0",
     "mongodb": "^6.12.0",
@@ -81,6 +82,7 @@
     "react-hot-toast": "^2.6.0",
     "react-intersection-observer": "^9.15.0",
     "react-katex": "^3.0.1",
+    "react-leaflet": "^5.0.0",
     "recharts": "2.15.4",
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.6.0",
@@ -91,6 +93,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tanstack/react-query-devtools": "^5.64.1",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^20.19.1",
     "@types/papaparse": "^5.3.15",
     "@types/react": "^19",
