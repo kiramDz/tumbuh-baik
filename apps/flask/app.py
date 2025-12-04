@@ -37,6 +37,7 @@ from services.spatial_analysis import create_spatial_connector
 from routes.spatial_api import spatial_api
 from routes.bps_api_routes import bps_api_bp
 from routes.nasa_api_routes import nasa_api_bp
+from routes.two_level_api import two_level_api
 
 
 # Configure logging
@@ -1296,6 +1297,7 @@ app.register_blueprint(preprocessing_bp)
 app.register_blueprint(spatial_api)
 app.register_blueprint(bps_api_bp)
 app.register_blueprint(nasa_api_bp)
+app.register_blueprint(two_level_api)
 
 if __name__ == "__main__":
     port = int(os.getenv("FLASK_PORT", 5001))
