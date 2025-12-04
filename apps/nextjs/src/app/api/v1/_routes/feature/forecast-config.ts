@@ -8,14 +8,16 @@ const forecastConfigRoute = new Hono();
 forecastConfigRoute.post("/", async (c) => {
   try {
     await db();
-    const { name, columns } = await c.req.json();
+    const { name, columns, startDate } = await c.req.json();
 
-    // Validasi input
     if (!name || !Array.isArray(columns) || columns.length === 0) {
       return c.json({ message: "Name and columns are required" }, 400);
     }
 
-    // Validasi setiap column
+    if (!startDate) {
+      return c.json({ message: "Start date is required" }, 400);
+    }
+
     for (const column of columns) {
       if (!column.collectionName || !column.columnName) {
         return c.json(
@@ -27,10 +29,15 @@ forecastConfigRoute.post("/", async (c) => {
       }
     }
 
-    // Buat SATU dokumen dengan array columns
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+
     const doc = {
       name: name.trim(),
-      columns, // langsung simpan array columns
+      columns,
+      startDate: start,
+      endDate: end,
       status: "pending",
       forecastResultCollection: `forecast_${name.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`,
     };
@@ -46,7 +53,6 @@ forecastConfigRoute.post("/", async (c) => {
   }
 });
 
-
 forecastConfigRoute.get("/", async (c) => {
   try {
     await db();
@@ -57,6 +63,5 @@ forecastConfigRoute.get("/", async (c) => {
     return c.json({ message: "Failed to fetch configs" }, 500);
   }
 });
-
 
 export default forecastConfigRoute;

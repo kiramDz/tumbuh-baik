@@ -416,7 +416,11 @@ export const getForecastConfigs = async () => {
   return response.data.data;
 };
 
-export const createForecastConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
+export const createForecastConfig = async (data: {
+  name: string;
+  columns: { collectionName: string; columnName: string }[];
+  startDate: string; // Format: "2025-01-15"
+}) => {
   const response = await axios.post("/api/v1/forecast-config", data);
   return response.data;
 };

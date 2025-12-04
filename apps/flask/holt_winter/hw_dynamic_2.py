@@ -95,7 +95,7 @@ def detect_seasonal_period(data, param_name):
     
 
 
-def grid_search_hw_params(train_data, param_name, validation_ratio=0.30):
+def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     """
     Grid search disesuaikan untuk pola curah hujan Indonesia
     """
@@ -211,13 +211,12 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.30):
 
 
 
-def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None):
+def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None, start_date=None, end_date=None):
     """
     Fungsi Holt-Winter yang dinamis berdasarkan parameter dari forecast_config
     """
     print(f"=== Start Holt-Winter Analysis for {collection_name}.{target_column} ===")
     
-    # MongoDB connection
     if client is None:
         from dotenv import load_dotenv
         import os
@@ -337,9 +336,18 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
         
-        last_data_date = df.index[-1]
-        forecast_start_date = last_data_date + pd.Timedelta(days=1)
-        forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
+        if start_date is not None and end_date is not None:
+            # Convert ke pandas datetime jika belum
+            forecast_start_date = pd.to_datetime(start_date)
+            forecast_end_date = pd.to_datetime(end_date)
+            print(f"[INFO] Using custom date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
+        else:
+            # Fallback ke logika lama (tanggal terakhir data + 1 tahun)
+            last_data_date = df.index[-1]
+            forecast_start_date = last_data_date + pd.Timedelta(days=1)
+            forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
+            print(f"[INFO] Using default date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
+        
         date_increment = '16D' if is_ndvi else 'D'
 
         forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
@@ -450,6 +458,8 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             "model_params": best_params,
             "error_metrics": error_metrics,  
             "forecast_range": {
+                "start": forecast_start_date.strftime("%Y-%m-%d"),
+                "end": forecast_end_date.strftime("%Y-%m-%d"),
                 "min": float(forecast.min()),
                 "max": float(forecast.max())
             }

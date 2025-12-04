@@ -70,6 +70,32 @@ def run_forecast_from_config():
         forecast_coll = config.get("forecastResultCollection")
         config_id = str(config["_id"])
 
+        start_date_str = config.get("startDate")  # ISO format dari MongoDB
+        end_date_str = config.get("endDate")
+
+        # Validasi tanggal
+        if not start_date_str or not end_date_str:
+            error_msg = "startDate and endDate are required in config"
+            db.forecast_configs.update_one(
+                {"_id": config["_id"]},
+                {"$set": {"status": "failed", "errorMessage": error_msg}}
+            )
+            return jsonify({"error": error_msg}), 400
+        
+        # Parse tanggal ke format yang bisa digunakan
+        try:
+            start_date = pd.to_datetime(start_date_str).date()
+            end_date = pd.to_datetime(end_date_str).date()
+            print(f"[INFO] Forecast range: {start_date} to {end_date}")
+        except Exception as e:
+            error_msg = f"Invalid date format: {str(e)}"
+            db.forecast_configs.update_one(
+                {"_id": config["_id"]},
+                {"$set": {"status": "failed", "errorMessage": error_msg}}
+            )
+            return jsonify({"error": error_msg}), 400
+        
+
         for item in columns:
             collection = item["collectionName"]
             column = item["columnName"]
@@ -97,10 +123,12 @@ def run_forecast_from_config():
                 result = run_optimized_hw_analysis(
                     collection_name=collection,
                     target_column=column,
-                    save_collection="temp-hw",  # Simpan sementara
+                    save_collection="temp-hw", 
                     config_id=config_id,
                     append_column_id=True,
-                    client=client
+                    client=client,
+                    start_date=start_date,  
+                    end_date=end_date
                 )
                 results.append(result)
 
