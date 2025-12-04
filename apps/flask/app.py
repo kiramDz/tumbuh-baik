@@ -1,27 +1,21 @@
 from flask import Flask, jsonify, request, Blueprint, Response, stream_with_context, current_app
 from flask_cors import CORS
-from helpers.objectid_converter import convert_objectid
 from jobs.run_forecast_from_config import run_forecast_from_config
 from pymongo import MongoClient
 from bson import ObjectId
 import json
 from bson.json_util import dumps
 import os
-import requests
 from dotenv import load_dotenv
 from datetime import datetime
 import logging
 import traceback
-import tempfile
-import shutil
 from queue import Queue
 import threading
 import time
 from typing import Dict, Any
 from preprocessing.buoys.preprocessing_buoys import (
     DataValidator,
-    MongoDataLoader,
-    QualityFilter,
     BuoyPreprocessor,
     MongoDataSaver,
     PreprocessingError
@@ -29,13 +23,11 @@ from preprocessing.buoys.preprocessing_buoys import (
 from preprocessing.nasa.preprocessing_nasa import (
     NasaPreprocessor,
     NasaDataValidator,
-    NasaDataSaver,
     NasaPreprocessingError,
 )
 from preprocessing.bmkg.preprocessing_bmkg import (
     BmkgPreprocessor,
     BmkgDataValidator,
-    BmkgDataSaver,
     BmkgPreprocessingError,
 )
 
@@ -43,6 +35,8 @@ from preprocessing.convert.xlsx_to_csv import convert_single_xlsx
 from preprocessing.convert.xlsx_merge_csv import merge_multiple_xlsx
 from services.spatial_analysis import create_spatial_connector
 from routes.spatial_api import spatial_api
+from routes.bps_api_routes import bps_api_bp
+from routes.nasa_api_routes import nasa_api_bp
 
 
 # Configure logging
@@ -1296,151 +1290,12 @@ def convert_multi_xlsx_to_csv():
         logger.error(f"Error in multi-XLSX conversion: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
-@app.route("/climate/datasets", methods=["GET"])
-def get_nasa_datasets():
-    """Get all available NASA POWER datasets for spatial analysis"""
-    try:
-        logger.info("🗺️ Getting NASA POWER datasets for spatial analysis")
-        
-        # Create spatial connector
-        spatial_connector = create_spatial_connector(db)
-        
-        # Get datasets summary
-        summary = spatial_connector.get_datasets_summary()
-        
-        return jsonify({
-            "message": "NASA POWER datasets retrieved successfully",
-            "data": summary
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"❌ Error getting NASA datasets: {str(e)}")
-        return jsonify({
-            "message": "Failed to get NASA datasets",
-            "error": str(e)
-        }), 500    
-
-@app.route("/climate/potential", methods=["POST"])
-def climate_potential_analysis():
-    """Main endpoint for climate potential spatial analysis"""
-    try:
-        logger.info("🗺️ Starting climate potential analysis")
-        
-        # Get request data
-        request_data = request.get_json() or {}
-        
-        # Extract parameters
-        districts = request_data.get('districts', 'all')
-        climate_parameters = request_data.get('climate_parameters', 'all')
-        analysis_period = request_data.get('analysis_period', {})
-        season_filter = request_data.get('season_filter', 'all')
-        aggregation_method = request_data.get('aggregation_method', 'mean')
-        
-        logger.info(f"📊 Analysis parameters: districts={districts}, parameters={climate_parameters}")
-        
-        # Create spatial connector
-        spatial_connector = create_spatial_connector(db)
-        
-        # Get available NASA datasets
-        datasets = spatial_connector.get_nasa_datasets()
-        
-        if not datasets:
-            return jsonify({
-                "message": "No NASA POWER datasets available for analysis",
-                "error": "No data found"
-            }), 404
-        
-        # For now, return the available datasets as GeoJSON-like structure
-        # This will be expanded with actual spatial analysis
-        features = []
-        for dataset in datasets:
-            feature = {
-                "type": "Feature",
-                "properties": {
-                    "name": dataset.name,
-                    "collection_name": dataset.collection_name,
-                    "total_records": dataset.total_records,
-                    "date_range": {
-                        "start": dataset.date_range[0].isoformat(),
-                        "end": dataset.date_range[1].isoformat()
-                    },
-                    "parameters": dataset.parameters,
-                    "suitability_score": 0.0,  # Placeholder - will be calculated
-                    "final_score": 0.0,  # Placeholder - will be calculated
-                    "classification": "Pending Analysis"  # Placeholder
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [dataset.longitude, dataset.latitude]
-                }
-            }
-            features.append(feature)
-        
-        geojson_response = {
-            "type": "FeatureCollection",
-            "features": features
-        }
-        
-        logger.info(f"✅ Climate potential analysis completed: {len(features)} locations")
-        
-        return jsonify(geojson_response), 200
-        
-    except Exception as e:
-        logger.error(f"❌ Error in climate potential analysis: {str(e)}")
-        return jsonify({
-            "message": "Climate potential analysis failed",
-            "error": str(e)
-        }), 500
-
-@app.route("/climate/districts", methods=["GET"])
-def get_available_districts():
-    """Get available districts/locations from NASA POWER datasets"""
-    try:
-        logger.info("📍 Getting available districts from NASA datasets")
-        
-        # Create spatial connector
-        spatial_connector = create_spatial_connector(db)
-        
-        # Get datasets
-        datasets = spatial_connector.get_nasa_datasets()
-        
-        districts = []
-        for i, dataset in enumerate(datasets):
-            # Extract district name from dataset name
-            district_name = dataset.name.replace("Nasa", "").replace("Data NASA", "").strip()
-            
-            districts.append({
-                "id": f"district_{i+1}",
-                "name": district_name,
-                "collection_name": dataset.collection_name,
-                "coordinates": {
-                    "latitude": dataset.latitude,
-                    "longitude": dataset.longitude
-                },
-                "data_availability": {
-                    "start_date": dataset.date_range[0].isoformat(),
-                    "end_date": dataset.date_range[1].isoformat(),
-                    "total_records": dataset.total_records
-                }
-            })
-        
-        return jsonify({
-            "message": "Available districts retrieved successfully",
-            "districts": districts,
-            "total": len(districts)
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"❌ Error getting districts: {str(e)}")
-        return jsonify({
-            "message": "Failed to get available districts",
-            "error": str(e)
-        }), 500
 
 # TAMBAHKAN BARIS INI
 app.register_blueprint(preprocessing_bp)
 app.register_blueprint(spatial_api)
-
+app.register_blueprint(bps_api_bp)
+app.register_blueprint(nasa_api_bp)
 
 if __name__ == "__main__":
     port = int(os.getenv("FLASK_PORT", 5001))

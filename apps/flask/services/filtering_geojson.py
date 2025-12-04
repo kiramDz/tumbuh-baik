@@ -18,7 +18,6 @@ nasa_coordinates = {
     "Darussalam": (5.5945451, 95.4201377),     # Aceh Besar
     "Jaya": (5.1526721, 95.1509617),           # Aceh Jaya (Jaya/Lamno)
     "Setia Bakti": (4.8333007, 95.4867971),    # Aceh Jaya
-    # "Pasie Raya": (4.6136123, 95.8614504),   # ❌ REMOVED - Not in GADM data
     "Teunom": (4.4999535, 95.7700208),         # Aceh Jaya
     "Pidie": (5.3759998, 95.9148038),          # Pidie
     "Indrajaya": (5.3114261, 95.8978653),      # Pidie
