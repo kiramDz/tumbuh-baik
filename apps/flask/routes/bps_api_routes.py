@@ -44,7 +44,6 @@ def get_kabupaten_historical_production(kabupaten_name: str):
             multi_year_production[str(year)] = {
                 "produksi_padi_ton": record.produksi_padi_ton,
                 "produksi_beras_ton": record.produksi_beras_ton,
-                "conversion_rate_percent": round((record.produksi_beras_ton / record.produksi_padi_ton) * 100, 2) if record.produksi_padi_ton > 0 else 0
             }
         
         response_data = {
@@ -107,27 +106,17 @@ def get_multi_year_production_summary():
                     yearly_data[str(year)] = {
                         "produksi_padi_ton": record.produksi_padi_ton,
                         "produksi_beras_ton": record.produksi_beras_ton,
-                        "conversion_rate_percent": round((record.produksi_beras_ton / record.produksi_padi_ton) * 100, 2) if record.produksi_padi_ton > 0 else 0
                     }
                 
                 # Simple kabupaten summary
                 kabupaten_summaries[kabupaten_name] = {
                     "kode_wilayah": list(kabupaten_historical.values())[0].kode_wilayah,
-                    "years_with_data": sorted(kabupaten_historical.keys()),
-                    "data_coverage": f"{len(kabupaten_historical)}/{end_year - start_year + 1} years",
                     "yearly_production": yearly_data,
-                    "latest_production": {
-                        "year": max(kabupaten_historical.keys()),
-                        "produksi_padi_ton": kabupaten_historical[max(kabupaten_historical.keys())].produksi_padi_ton,
-                        "produksi_beras_ton": kabupaten_historical[max(kabupaten_historical.keys())].produksi_beras_ton
-                    }
                 }
         
         return jsonify({
             'status': 'success',
             'analysis_period': f"{start_year}-{end_year}",
-            'total_years_requested': end_year - start_year + 1,
-            'years_with_data': sorted(multi_year_data.keys()),
             'data_completeness': f"{len(multi_year_data)}/{end_year - start_year + 1} years",
             'kabupaten_analysis': kabupaten_summaries,
             'fetch_timestamp': datetime.now().isoformat()
