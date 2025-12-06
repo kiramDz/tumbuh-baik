@@ -15,9 +15,6 @@ export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
 
-// dont forget to integrate to app
-
-
 app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d UI
 
 //fetch : http://localhost:3000/api/v1/bmkg-fetch
