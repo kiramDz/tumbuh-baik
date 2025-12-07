@@ -7,13 +7,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { TrendingDown, TrendingUp, Minus, Calendar, Activity } from "lucide-react"
 import { getLSTMDaily } from "@/lib/fetch/files.fetch"
+import { useState } from "react"
+import axios from "axios"
 
 const chartConfig = {
     value: {
         label: "Nilai",
         color: "hsl(var(--chart-1))",
+    },
+    historical: {
+        label: "Historis",
+        color: "hsl(var(--chart-2))",
     },
 } satisfies ChartConfig
 
@@ -45,6 +53,14 @@ const paramUnits: Record<string, string> = {
     "NDVI_imputed": "",
 }
 
+// Mapping parameter ke collection dan column name
+const paramToCollection: Record<string, { collectionName: string; columnName: string }> = {
+    "ALLSKY_SFC_SW_DWN": { collectionName: "Nasa Aceh Besar Kec Darussalam", columnName: "ALLSKY_SFC_SW_DWN" },
+    "RH_AVG_preprocessed": { collectionName: "kelembapan", columnName: "RH_AVG_preprocessed" },
+    "TAVG": { collectionName: "suhu bmkg", columnName: "TAVG" },
+    "RR_imputed": { collectionName: "rainfall", columnName: "RR_imputed" }
+}
+
 function getParamLabel(param: string): string {
     return paramLabels[param] || param
 }
@@ -56,6 +72,7 @@ function getParamUnit(param: string): string {
 function LoadingSkeleton() {
     return (
         <div className="space-y-4">
+            <Skeleton className="h-10 w-64" />
             <div className="flex gap-2">
                 {[...Array(4)].map((_, i) => (
                     <Skeleton key={i} className="h-9 w-24 rounded-lg" />
@@ -92,23 +109,31 @@ interface ChartData {
     date: string
     fullDate: string
     value: number
+    isHistorical?: boolean
+    year: number
 }
 
 interface ParamChartProps {
     param: string
     data: ChartData[]
+    mode: "forecast-only" | "combined"
 }
 
-function ParamChart({ param, data }: ParamChartProps) {
+function ParamChart({ param, data, mode }: ParamChartProps) {
     if (data.length === 0) return null
 
-    const firstValue = data[0].value
-    const lastValue = data[data.length - 1].value
+    const forecastData = data.filter(d => !d.isHistorical)
+    const historicalData = data.filter(d => d.isHistorical)
+
+    const displayData = mode === "forecast-only" ? forecastData : data
+
+    const firstValue = displayData[0].value
+    const lastValue = displayData[displayData.length - 1].value
     const percentChange = firstValue !== 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0
     
-    const minValue = Math.min(...data.map(d => d.value))
-    const maxValue = Math.max(...data.map(d => d.value))
-    const avgValue = data.reduce((sum, d) => sum + d.value, 0) / data.length
+    const minValue = Math.min(...displayData.map(d => d.value))
+    const maxValue = Math.max(...displayData.map(d => d.value))
+    const avgValue = displayData.reduce((sum, d) => sum + d.value, 0) / displayData.length
 
     const isUp = percentChange > 1
     const isDown = percentChange < -1
@@ -116,6 +141,26 @@ function ParamChart({ param, data }: ParamChartProps) {
     
     const trendVariant = isDown ? "destructive" : isUp ? "default" : "secondary"
     const unit = getParamUnit(param)
+
+    // Hitung rentang tahun untuk menentukan interval
+    const years = [...new Set(displayData.map(d => d.year))].sort()
+    const yearRange = years.length
+    
+    // Tentukan interval berdasarkan rentang tahun
+    let tickInterval: number
+    if (mode === "combined") {
+        // Untuk data gabungan (historis + peramalan)
+        if (yearRange > 20) {
+            tickInterval = Math.ceil(displayData.length / 10) // ~10 ticks
+        } else if (yearRange > 10) {
+            tickInterval = Math.ceil(displayData.length / 15) // ~15 ticks
+        } else {
+            tickInterval = Math.ceil(displayData.length / 20) // ~20 ticks
+        }
+    } else {
+        // Untuk hanya peramalan (1 tahun)
+        tickInterval = Math.ceil(displayData.length / 12) // ~12 ticks (monthly)
+    }
 
     return (
         <Card>
@@ -127,7 +172,10 @@ function ParamChart({ param, data }: ParamChartProps) {
                         </CardTitle>
                         <CardDescription className="flex items-center gap-2">
                             <Calendar className="h-3.5 w-3.5" />
-                            Prediksi 365 hari ke depan
+                            {mode === "combined" 
+                                ? `Data historis (${years[0]}-${years[years.length - 1]}) & prediksi` 
+                                : `Prediksi 365 hari ke depan`
+                            }
                         </CardDescription>
                     </div>
                     <Badge variant={trendVariant} className="flex items-center gap-1">
@@ -162,13 +210,17 @@ function ParamChart({ param, data }: ParamChartProps) {
             <CardContent className="pt-4">
                 <ChartContainer config={chartConfig} className="h-[280px] w-full">
                     <AreaChart 
-                        data={data} 
+                        data={displayData} 
                         margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                     >
                         <defs>
-                            <linearGradient id={`gradient-${param}`} x1="0" y1="0" x2="0" y2="1">
+                            <linearGradient id={`gradient-forecast-${param}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
                                 <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
+                            </linearGradient>
+                            <linearGradient id={`gradient-historical-${param}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3} />
+                                <stop offset="100%" stopColor="hsl(var(--chart-2))" stopOpacity={0.05} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid 
@@ -181,7 +233,7 @@ function ParamChart({ param, data }: ParamChartProps) {
                             tickLine={false} 
                             axisLine={false} 
                             tickMargin={8}
-                            interval="preserveStartEnd"
+                            interval={tickInterval}
                             className="text-xs"
                             tick={{ fill: 'hsl(var(--muted-foreground))' }}
                         />
@@ -198,7 +250,10 @@ function ParamChart({ param, data }: ParamChartProps) {
                             cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                             content={
                                 <ChartTooltipContent 
-                                    formatter={(value) => [`${Number(value).toFixed(2)} ${unit}`, getParamLabel(param)]}
+                                    formatter={(value, name, item) => {
+                                        const label = item.payload.isHistorical ? "Historis" : "Prediksi"
+                                        return [`${Number(value).toFixed(2)} ${unit}`, label]
+                                    }}
                                     labelFormatter={(label, payload) => {
                                         if (payload?.[0]?.payload?.fullDate) {
                                             return payload[0].payload.fullDate
@@ -208,14 +263,27 @@ function ParamChart({ param, data }: ParamChartProps) {
                                 />
                             } 
                         />
+                        {mode === "combined" && historicalData.length > 0 && (
+                            <Area
+                                type="monotone"
+                                dataKey={(item) => item.isHistorical ? item.value : null}
+                                stroke="hsl(var(--chart-2))"
+                                strokeWidth={2}
+                                fill={`url(#gradient-historical-${param})`}
+                                dot={false}
+                                activeDot={{ r: 4, fill: 'hsl(var(--chart-2))' }}
+                                connectNulls={false}
+                            />
+                        )}
                         <Area
                             type="monotone"
-                            dataKey="value"
+                            dataKey={(item) => mode === "combined" ? (!item.isHistorical ? item.value : null) : item.value}
                             stroke="hsl(var(--chart-1))"
                             strokeWidth={2}
-                            fill={`url(#gradient-${param})`}
+                            fill={`url(#gradient-forecast-${param})`}
                             dot={false}
                             activeDot={{ r: 4, fill: 'hsl(var(--chart-1))' }}
+                            connectNulls={mode === "forecast-only"}
                         />
                     </AreaChart>
                 </ChartContainer>
@@ -224,14 +292,98 @@ function ParamChart({ param, data }: ParamChartProps) {
     )
 }
 
+// Fungsi untuk fetch SEMUA data historis dari collection
+async function fetchHistoricalData(collectionName: string, columnName: string) {
+    try {
+        // First, get total count
+        const countResponse = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
+            params: { 
+                page: 1, 
+                pageSize: 10,
+                sortBy: "Date",
+                sortOrder: "asc"
+            }
+        })
+        
+        const total = countResponse.data?.data?.total || 0
+        
+        if (total === 0) return []
+
+        // Fetch all data
+        const response = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
+            params: { 
+                page: 1, 
+                pageSize: total, // Ambil semua data
+                sortBy: "Date",
+                sortOrder: "asc"
+            }
+        })
+        
+        const items = response.data?.data?.items || []
+        return items
+            .filter((item: any) => item.Date && item[columnName] != null)
+            .map((item: any) => ({
+                date: item.Date,
+                value: item[columnName]
+            }))
+    } catch (error) {
+        console.error(`Error fetching historical data for ${collectionName}:`, error)
+        return []
+    }
+}
+
 export function LSTMLineChart() {
+    const [viewMode, setViewMode] = useState<"forecast-only" | "combined">("forecast-only")
+
     const { data: rawData, isLoading } = useQuery({
         queryKey: ["lstm-daily-full"],
         queryFn: () => getLSTMDaily(1, 365),
         refetchOnWindowFocus: false,
     })
 
-    if (isLoading) return <LoadingSkeleton />
+    // Fetch data historis untuk semua parameter
+    const { data: historicalDataMap, isLoading: isLoadingHistorical } = useQuery({
+        queryKey: ["lstm-historical-data", viewMode],
+        queryFn: async () => {
+            if (viewMode === "forecast-only") return {}
+
+            const items = rawData?.items || []
+            if (items.length === 0) return {}
+
+            // Ambil parameter unik
+            const parameters = new Set<string>()
+            items.forEach((item: any) => {
+                Object.keys(item.parameters || {}).forEach((param) => parameters.add(param))
+            })
+
+            const paramArray = Array.from(parameters)
+            const historicalMap: Record<string, any[]> = {}
+
+            // Fetch historical data untuk setiap parameter
+            await Promise.all(
+                paramArray.map(async (param) => {
+                    const mapping = paramToCollection[param]
+                    if (mapping) {
+                        console.log(`Fetching historical data for ${param} from ${mapping.collectionName}`)
+                        const data = await fetchHistoricalData(
+                            mapping.collectionName, 
+                            mapping.columnName
+                        )
+                        console.log(`Fetched ${data.length} historical records for ${param}`)
+                        historicalMap[param] = data
+                    }
+                })
+            )
+
+            return historicalMap
+        },
+        enabled: viewMode === "combined" && !!rawData,
+        refetchOnWindowFocus: false,
+    })
+
+    const loading = isLoading || (viewMode === "combined" && isLoadingHistorical)
+
+    if (loading) return <LoadingSkeleton />
 
     const items = rawData?.items || []
     if (items.length === 0) return <EmptyState />
@@ -245,12 +397,12 @@ export function LSTMLineChart() {
 
     const groupedData: Record<string, ChartData[]> = {}
     paramArray.forEach((param) => {
-        groupedData[param] = items
+        const forecastData = items
             .filter((item: any) => item.parameters?.[param]?.forecast_value != null)
             .map((item: any) => {
                 const dateObj = new Date(item.forecast_date)
                 return {
-                    date: dateObj.toLocaleDateString("id-ID", { month: "short", day: "numeric" }),
+                    date: dateObj.getFullYear().toString(),
                     fullDate: dateObj.toLocaleDateString("id-ID", { 
                         weekday: "long", 
                         year: "numeric", 
@@ -258,32 +410,77 @@ export function LSTMLineChart() {
                         day: "numeric" 
                     }),
                     value: item.parameters[param].forecast_value,
+                    isHistorical: false,
+                    year: dateObj.getFullYear(),
                 }
             })
-            .sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime())
+
+        // Gabungkan dengan data historis jika mode combined
+        if (viewMode === "combined" && historicalDataMap?.[param]) {
+            const historical = historicalDataMap[param].map((item: any) => {
+                const dateObj = new Date(item.date)
+                return {
+                    date: dateObj.getFullYear().toString(),
+                    fullDate: dateObj.toLocaleDateString("id-ID", { 
+                        weekday: "long", 
+                        year: "numeric", 
+                        month: "long", 
+                        day: "numeric" 
+                    }),
+                    value: item.value,
+                    isHistorical: true,
+                    year: dateObj.getFullYear(),
+                }
+            })
+            groupedData[param] = [...historical, ...forecastData]
+        } else {
+            groupedData[param] = forecastData
+        }
+
+        // Sort by date
+        groupedData[param].sort((a: any, b: any) => {
+            return new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime()
+        })
     })
 
     if (paramArray.length === 0) return <EmptyState />
 
     return (
-        <Tabs defaultValue={paramArray[0]} className="w-full">
-            <TabsList className="mb-4 flex-wrap h-auto gap-2 bg-transparent p-0">
-                {paramArray.map((param) => (
-                    <TabsTrigger 
-                        key={param} 
-                        value={param}
-                        className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2 border"
-                    >
-                        {getParamLabel(param)}
-                    </TabsTrigger>
-                ))}
-            </TabsList>
+        <div className="space-y-4">
+            <div className="flex items-center gap-4">
+                <div className="space-y-2 flex-1 max-w-xs">
+                    <Label htmlFor="view-mode">Mode Tampilan</Label>
+                    <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+                        <SelectTrigger id="view-mode">
+                            <SelectValue placeholder="Pilih mode tampilan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="forecast-only">Hanya Peramalan</SelectItem>
+                            <SelectItem value="combined">Historis + Peramalan</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
 
-            {paramArray.map((param) => (
-                <TabsContent key={param} value={param} className="mt-0">
-                    <ParamChart param={param} data={groupedData[param]} />
-                </TabsContent>
-            ))}
-        </Tabs>
+            <Tabs defaultValue={paramArray[0]} className="w-full">
+                <TabsList className="mb-4 flex-wrap h-auto gap-2 bg-transparent p-0">
+                    {paramArray.map((param) => (
+                        <TabsTrigger 
+                            key={param} 
+                            value={param}
+                            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-4 py-2 border"
+                        >
+                            {getParamLabel(param)}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+
+                {paramArray.map((param) => (
+                    <TabsContent key={param} value={param} className="mt-0">
+                        <ParamChart param={param} data={groupedData[param]} mode={viewMode} />
+                    </TabsContent>
+                ))}
+            </Tabs>
+        </div>
     )
 }
