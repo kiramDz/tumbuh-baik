@@ -388,7 +388,7 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
 };
 
 // for dataset table
-// lib/fetch/files.fetch.ts
+// lib/fetch/files.fetch.tsx
 export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "asc" | "desc" = "desc") {
   try {
     const res = await axios.get(`/api/v1/dataset-meta/${slug}`, {
@@ -421,6 +421,8 @@ export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 1
     };
   }
 }
+
+
 
 export const AddDatasetMeta = async (data: {
   name: string;
@@ -563,5 +565,38 @@ export const deleteFarm = async (id: string) => {
   } catch (error) {
     console.error("Delete farm error:", error);
     throw error;
+  }
+};
+
+// ==================== DECOMPOSE LSTM API FUNCTIONS ====================
+
+export const getDecomposeLSTM = async () => {
+  try {
+    const res = await axios.get("/api/v1/decompose-lstm/all");
+    console.log("✅ Decompose LSTM API response:", res.data);
+    return res.data.data || [];
+  } catch (error) {
+    console.error("Error fetching Decompose LSTM:", error);
+    return [];
+  }
+};
+
+export const getDecomposeLSTMByDate = async (date: string) => {
+  try {
+    const res = await axios.get(`/api/v1/decompose-lstm/date/${date}`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Error fetching Decompose LSTM by date:", error);
+    throw error;
+  }
+};
+
+export const getDecomposeLSTMByConfigId = async (configId: string) => {
+  try {
+    const res = await axios.get(`/api/v1/decompose-lstm/config/${configId}`);
+    return res.data.data || [];
+  } catch (error) {
+    console.error("Error fetching Decompose LSTM by config:", error);
+    return [];
   }
 };
