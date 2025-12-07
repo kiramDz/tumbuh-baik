@@ -31,6 +31,14 @@ export const SeedSchema = z.object({
   }),
 });
 
+export const RecycleBinSchema = z.object({
+  _id: z.union([z.string(), z.object({ $oid: z.string() })]),
+  name: z.string(),
+  source: z.string(),
+  collectionName: z.string(),
+  description: z.string().optional(),
+});
+
 export const UserSchema = z.object({
   _id: z.union([z.string(), z.object({ $oid: z.string() })]),
   name: z.string(),
@@ -45,4 +53,5 @@ export const UserSchema = z.object({
 export type BMKGDataItem = z.infer<typeof BMKGDataItemSchema>;
 export type BMKGApiData = z.infer<typeof BMKGApi>;
 export type SeedType = z.infer<typeof SeedSchema>;
+export type RecycleBinType = z.infer<typeof RecycleBinSchema>;
 export type UserType = z.infer<typeof UserSchema>;

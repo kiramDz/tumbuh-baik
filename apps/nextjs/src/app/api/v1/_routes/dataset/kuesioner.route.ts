@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { KuesionerPetani, KuesionerManajemen } from "@/lib/database/schema/dataset/kuesioner-petani";
+import { KuesionerPetani, KuesionerManajemen, KuesionerPeriode } from "@/lib/database/schema/dataset/kuesioner-petani";
 import db from "@/lib/database/db";
 import { parseError } from "@/lib/utils";
 
@@ -90,5 +90,19 @@ kuesionerManajemenRoute.get("/manajemen", async (c) => {
     }
 });
 
+const kuesionerPeriodeRoute = new Hono();
 
-export { kuesionerRoute, kuesionerManajemenRoute };
+kuesionerPeriodeRoute.get("/periode", async (c) => {
+    try {
+        await db();
+        const allEntries = await KuesionerPeriode.find().sort({ createdAt: -1 }).lean();
+        console.log("All Kuesioner Periode Entries:", allEntries);
+        return c.json( allEntries,  { status: 200 } );
+    } catch (err: any) {
+        const errMsg = parseError(err);
+        return c.json({ message: "Error", description: errMsg }, { status: 500 });
+    }
+});
+
+
+export { kuesionerRoute, kuesionerManajemenRoute, kuesionerPeriodeRoute };

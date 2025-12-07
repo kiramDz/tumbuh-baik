@@ -12,7 +12,9 @@ import forecastConfigRoute from "../_routes/feature/forecast-config";
 import holtWinter from "../_routes/model/holt-winter.route";
 import lstmConfigRoute from "../_routes/feature/lstm-config";
 import lstm from "../_routes/model/lstm.route";
-import { kuesionerRoute, kuesionerManajemenRoute } from "../_routes/dataset/kuesioner.route";
+import bmkgLiveRoute from "../_routes/dataset/newBmkg.route";
+import { kuesionerRoute, kuesionerManajemenRoute, kuesionerPeriodeRoute } from "../_routes/dataset/kuesioner.route";
+import { farmRoute } from "../_routes/farm/farm.route";
 
 export const runtime = "nodejs";
 
@@ -25,6 +27,7 @@ app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d 
 
 //fetch : http://localhost:3000/api/v1/bmkg-fetch
 
+app.route("/bmkg-live", bmkgLiveRoute);
 app.route("/bmkg-fetch", bmkgFetcherRoute); //api untuk ambik dari bmkg api dan masukin ke mongodb
 app.route("/bmkg-summary", bmkgSummaryRoute);
 app.route("/bmkg-daily", bmkgDailyRoute);
@@ -38,7 +41,10 @@ app.route("/lstm-config", lstmConfigRoute);
 app.route("/lstm", lstm);
 app.route("/kuesioner", kuesionerRoute);
 app.route("/kuesioner-manajemen", kuesionerManajemenRoute);
+app.route("/kuesioner-periode", kuesionerPeriodeRoute);
+app.route("/farm", farmRoute); // Tambahan route untuk farm
 
 export const GET = handle(app);
 export const POST = handle(app);
 export const PUT = handle(app);
+export const DELETE = handle(app); // Tambahkan DELETE handler

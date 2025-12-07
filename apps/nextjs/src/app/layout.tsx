@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { fontMono, fontSans } from "@/lib/font";
+import { fontMono, fontMonserrat } from "@/lib/font";
 import { cn } from "@/lib/utils";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import QueryProvider from "@/context/query-provider";
@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cn(`min-h-svh bg-background font-mono antialiased`, fontSans.variable, fontMono.variable)}>
+      <body className={cn(`min-h-svh bg-background font-mono antialiased`, fontMonserrat.variable, fontMono.variable)}>
         <QueryProvider>
           {children}
           <Sonner />

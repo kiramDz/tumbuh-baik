@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { Card } from "@/components/ui/card"; // Assuming you have a Card component from your UI library
+import { Card, CardContent } from "@/components/ui/card";
 import { ElementType } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowRight } from "lucide-react";
+
 interface DashboardCardProps {
   href: string;
   icon: ElementType;
@@ -11,19 +13,29 @@ interface DashboardCardProps {
 
 const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description }) => {
   return (
-    <Link href={href} passHref>
-      <Card className="relative flex h-48 w-full flex-col overflow-hidden rounded-xl">
-        <div className="group relative cursor-pointer overflow-hidden bg-white px-6 pb-8 pt-6 ring-gray-900/5 transition-all duration-300 sm:mx-auto sm:max-w-sm sm:rounded-lg sm:px-10">
-          <span className="absolute top-6 z-0 h-10 w-10 rounded-full bg-sky-500 transition-all duration-300 group-hover:scale-[100]"></span>
+    <Link href={href} className="group block">
+      <Card className="h-full transition-all duration-300 hover:shadow-lg hover:border-primary/50">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4">
+            {/* Icon Container */}
+            <div className="flex items-center justify-between">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
+                <Icon className="h-6 w-6" />
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
+            </div>
 
-          <div className="relative z-10 mx-auto max-w-md">
-            <span className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 transition-all duration-300 group-hover:bg-sky-400">
-              <Icon className="h-5 w-5 text-white" />
-            </span>
-            <div className="line-clamp-1 md:mt-6 flex gap-2 font-medium">{title}</div>
-            <div className="text-base text-muted-foreground">{description}</div>
+            {/* Content */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-lg leading-tight line-clamp-1 transition-colors group-hover:text-primary">
+                {title}
+              </h3>
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {description}
+              </p>
+            </div>
           </div>
-        </div>
+        </CardContent>
       </Card>
     </Link>
   );
@@ -31,16 +43,23 @@ const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, 
 
 const DashboardCardSkeleton: React.FC = () => {
   return (
-    <Card className="relative flex h-48 w-full flex-col overflow-hidden rounded-xl">
-      <div className="relative overflow-hidden bg-white px-6 pb-8 pt-6 ring-gray-900/5 sm:mx-auto sm:max-w-sm sm:rounded-lg sm:px-10">
-        <Skeleton className="absolute top-6 z-0 h-10 w-10 rounded-full" />
+    <Card className="h-full">
+      <CardContent className="p-6">
+        <div className="flex flex-col gap-4">
+          {/* Icon Container Skeleton */}
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-12 w-12 rounded-lg" />
+            <Skeleton className="h-5 w-5 rounded" />
+          </div>
 
-        <div className="relative z-10 mx-auto max-w-md">
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <Skeleton className="mt-6 h-6 w-32" />
-          <Skeleton className="mt-2 h-4 w-full" />
+          {/* Content Skeleton */}
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 };

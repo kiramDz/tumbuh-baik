@@ -1,75 +1,110 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Users, Building2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Building2, Calendar } from "lucide-react";
 import ChartKuesionerPetani from "./chartkuesion";
 import ChartManajemen from "./chartmanajemen";
+import ChartPeriode from "./chartperiode";
 
-type DataType = "petani" | "manajemen";
+type DataType = "petani" | "manajemen" | "periode";
 
 export default function ChartKuesioner() {
   const [selectedDataType, setSelectedDataType] = useState<DataType>("petani");
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-gray-900">Dashboard Kuesioner</h2>
-          <p className="text-sm text-gray-600">Analisis data kuesioner petani dan manajemen usaha</p>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Data Type Selection */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-gray-700">
-              {selectedDataType === "petani" ? (
-                <Users className="w-5 h-5 text-green-600" />
-              ) : (
-                <Building2 className="w-5 h-5 text-blue-600" />
-              )}
-              <span className="text-sm font-medium">Jenis Data:</span>
-            </div>
-            <Select value={selectedDataType} onValueChange={(value: DataType) => setSelectedDataType(value)}>
-              <SelectTrigger className="w-64 bg-white">
-                <SelectValue placeholder="Pilih jenis data" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="petani">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-green-600" />
-                    👨‍🌾 Data Petani
-                  </div>
-                </SelectItem>
-                <SelectItem value="manajemen">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-blue-600" />
-                    🏢 Data Manajemen Usaha
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Badge variant={selectedDataType === "petani" ? "default" : "secondary"} className="px-3 py-1">
-              {selectedDataType === "petani" ? "Data Petani" : "Data Manajemen"}
-            </Badge>
-          </div>
-        </CardContent>
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">Data Kuesioner</CardTitle>
+          <CardDescription>
+            Analisis hasil kuesioner dari berbagai aspek
+          </CardDescription>
+        </CardHeader>
       </Card>
 
-      {/* Render Selected Chart */}
-      {selectedDataType === "petani" ? (
-        <ChartKuesionerPetani />
-      ) : (
-        <ChartManajemen />
-      )}
+      <Tabs value={selectedDataType} onValueChange={(value) => setSelectedDataType(value as DataType)} className="space-y-4">
+        <Card className="border-none shadow-sm">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="petani">
+                  <Users className="w-4 h-4 mr-2" />
+                  Petani
+                </TabsTrigger>
+                <TabsTrigger value="manajemen">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Manajemen
+                </TabsTrigger>
+                <TabsTrigger value="periode">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Periode Tanam
+                </TabsTrigger>
+              </TabsList>
+
+              {selectedDataType === "petani" && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  Data Petani
+                </Badge>
+              )}
+              {selectedDataType === "manajemen" && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  Data Manajemen
+                </Badge>
+              )}
+              {selectedDataType === "periode" && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  Data Periode
+                </Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <TabsContent value="petani">
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Petani</CardTitle>
+              <CardDescription>
+                Informasi demografi dan karakteristik petani responden
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartKuesionerPetani />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="manajemen">
+          <Card>
+            <CardHeader>
+              <CardTitle>Manajemen Usaha Tani</CardTitle>
+              <CardDescription>
+                Data pengelolaan dan praktik usaha tani
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartManajemen />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="periode">
+          <Card>
+            <CardHeader>
+              <CardTitle>Periode Tanam</CardTitle>
+              <CardDescription>
+                Informasi waktu tanam dan pola musim
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartPeriode />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

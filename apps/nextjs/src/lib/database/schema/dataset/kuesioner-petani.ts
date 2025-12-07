@@ -47,5 +47,34 @@ const KuesionerManajemenSchema = new Schema(
     { timestamps: true }
 );
 
+const KuesionerPeriodeSchema = new Schema(
+    {
+        id_petani: { type: String, required: true },
+        kab_kota : { type: String, required: true },
+        bulan_tanam : { type: String, required: true },
+        luas_tanam_m2 : { type: Number, required: true },
+        bulan_panen : { type: String, required: true },
+        luas_panen_m2 : { type: Number, required: true },
+        gunca_kg : { type: Number, required: true },
+        pengeluaran_rp : { type: Number, required: true },
+        harga_jual_perkg : { type: Number, required: true },
+        hasil_panen_dijual : { type: String, required: true },
+        status_pengelolaan : { type: String, required: true },
+        jml_tanam_padi_1th : { type: Number, required: true },
+        jenis_lahan : { type: String, required: true },
+        air_multi_tanam : { type: String, required: true },
+        pemupukan : { type: String, required: true },
+        jenis_pupuk : { type: String, required: true },
+        pengendalian_hama : { type: String, required: true },
+        jenis_hama : { type: String, required: true },
+        penyakit_padi : { type: String, required: true },
+        pestisida : { type: String, required: true },
+        pengendalian_gulma : { type: String, required: true },
+    },
+    { timestamps: true }
+);
+
+
 export const KuesionerPetani = mongoose.models.KuesionerPetani || mongoose.model("KuesionerPetani", KuesionerPetaniSchema, "keusioner_petani");
 export const KuesionerManajemen = mongoose.models.KuesionerManajemen || mongoose.model("KuesionerManajemen", KuesionerManajemenSchema, "kuesioner_manajemen");
+export const KuesionerPeriode = mongoose.models.KuesionerPeriode || mongoose.model("KuesionerPeriode", KuesionerPeriodeSchema, "kuesioner_periode");

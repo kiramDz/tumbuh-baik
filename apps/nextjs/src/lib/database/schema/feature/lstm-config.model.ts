@@ -11,6 +11,8 @@ const LSTMConfigSchema = new Schema(
         ],
         status: { type: String, required: true, enum: ["pending", "running", "done", "failed"] },
         forecastResultCollection: { type: String },
+        startDate: { type: Date },
+        endDate: { type: Date },
         errorMessage: { type: String },
         error_metrics: [
             {
@@ -19,6 +21,8 @@ const LSTMConfigSchema = new Schema(
                 metrics: {
                     mae: Number,
                     rmse: Number,
+                    aic: Number,
+                    mse: Number,
                     mape: Number
                 }
             }

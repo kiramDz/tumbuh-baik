@@ -76,6 +76,55 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
   }
 }
 
+export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
+  try {
+    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", { page, pageSize });
+
+    const res = await axios.get("/api/v1/dataset-meta/recycle-bin", {
+      params: { page, pageSize },
+    });
+
+    console.log("[GetRecycleBinDatasets] Response status:", res.status);
+    console.log("[GetRecycleBinDatasets] Response data:", res.data);
+
+    if (res.status === 200) {
+      const result = res.data.data || {
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 1,
+        pageSize,
+      };
+
+      console.log("[GetRecycleBinDatasets] Final result:", result);
+      return result;
+    }
+  } catch (error) {
+    console.error("Get recycle bin error:", error);
+    throw error;
+  }
+};
+
+export const RestoreDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/restore`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Restore dataset error:", error);
+    throw error;
+  }
+};
+
+export const PermanentDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
+    return res.data;
+  } catch (error) {
+    console.error("Permanent delete dataset error:", error);
+    throw error;
+  }
+};
+
 export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder = "desc") {
   try {
     const response = await axios.get("/api/v1/export-csv/lstm/daily", {
@@ -106,6 +155,16 @@ export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder 
     return { success: false, message: "Export failed" };
   }
 }
+
+export const getBmkgLive = async () => {
+  try {
+    const response = await axios.get("/api/v1/bmkg-live/all");
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG live data:", error);
+    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG live data");
+  }
+};
 
 //bmkg api
 export const getBmkgApi = async () => {
@@ -283,6 +342,17 @@ export const getAllKuesionerManajemen = async () => {
   }
 };
 
+export const getAllKuesionerPeriode = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner-periode/periode");
+    console.log("getAllKuesionerPeriode", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner periode:", error);
+    throw error;
+  }
+};
+
 export const updateUserRole = async (userId: string, role: "user" | "admin") => {
   try {
     const res = await axios.put(`/api/v1/user/${userId}/role`, { role });
@@ -396,7 +466,7 @@ export const getLSTMConfigs = async () => {
   return response.data.data;
 };
 
-export const createLSTMConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
+export const createLSTMConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[]; startDate: string; }) => {
   const response = await axios.post("/api/v1/lstm-config", data);
   return response.data;
 };
@@ -417,6 +487,81 @@ export const triggerLSTMForecast = async () => {
     return res.data;
   } catch (error) {
     console.error("Trigger LSTM forecast failed:", error);
+    throw error;
+  }
+};
+
+// ==================== FARM API FUNCTIONS ====================
+
+// Get all farms (optional filter by userId)
+export const getAllFarms = async (userId?: string) => {
+  try {
+    const params = userId ? { userId } : {};
+    const res = await axios.get("/api/v1/farm", { params });
+    console.log("getAllFarms", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching all farms:", error);
+    throw error;
+  }
+};
+
+// Get farm by ID
+export const getFarmById = async (id: string) => {
+  try {
+    const res = await axios.get(`/api/v1/farm/${id}`);
+    console.log("getFarmById", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching farm by ID:", error);
+    throw error;
+  }
+};
+
+// Get all farms by user ID
+export const getFarmsByUserId = async (userId: string) => {
+  try {
+    const res = await axios.get(`/api/v1/farm/user/${userId}`);
+    console.log("getFarmsByUserId", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching farms by user ID:", error);
+    throw error;
+  }
+};
+
+// Create new farm
+export const createFarm = async (data: any) => {
+  try {
+    const res = await axios.post("/api/v1/farm", data);
+    console.log("createFarm", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Create farm error:", error);
+    throw error;
+  }
+};
+
+// Update farm by ID
+export const updateFarm = async (id: string, data: any) => {
+  try {
+    const res = await axios.put(`/api/v1/farm/${id}`, data);
+    console.log("updateFarm", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Update farm error:", error);
+    throw error;
+  }
+};
+
+// Delete farm by ID
+export const deleteFarm = async (id: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/farm/${id}`);
+    console.log("deleteFarm", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Delete farm error:", error);
     throw error;
   }
 };
