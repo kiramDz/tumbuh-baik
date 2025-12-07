@@ -6,6 +6,7 @@ import os
 from flask import jsonify
 from dotenv import load_dotenv
 from lstm.lstm_dynamic_2 import run_lstm_analysis
+import pandas as pd
 
 
 load_dotenv()
@@ -34,7 +35,6 @@ def is_valid_column(collection_name, column_name, client):
     if any(keyword in column_name.lower() for keyword in forbidden_keywords):
         return False, f"Column {column_name} contains forbidden keyword for forecasting"
     
-    # Optional: Check if column contains numeric data
     try:
         sample_doc = client["tugas_akhir"][collection_name].find_one({column_name: {"$exists": True}})
         if sample_doc and not isinstance(sample_doc[column_name], (int, float)):
@@ -43,93 +43,53 @@ def is_valid_column(collection_name, column_name, client):
     except Exception as e:
         return False, f"Error checking column {column_name}: {str(e)}"
 
-def update_lstm_status(config_id, status, error_message=None, error_metrics=None):
-    """Update LSTM execution status in lstm_configs collection only"""
-    try:
-        from bson import ObjectId
-        
-        update_doc = {
-            "status": status,
-            "updated_at": datetime.now(),
-            "last_status_update": datetime.now().isoformat()
-        }
-        
-        if error_message:
-            update_doc["error_message"] = error_message
-        else:
-            # Clear error message if status is successful
-            if status in ["running", "done", "completed"]:
-                update_doc["error_message"] = None
-            
-        if error_metrics:
-            update_doc["error_metrics"] = error_metrics
-            
-        # Add completion timestamp for successful runs
-        if status in ["done", "completed"]:
-            update_doc["completed_at"] = datetime.now()
-            
-        # Update only lstm_configs collection
-        result = db["lstm_configs"].update_one(
-            {"_id": ObjectId(config_id)},
-            {"$set": update_doc}
-        )
-        
-        if result.modified_count > 0:
-            print(f"✓ LSTM status updated: {config_id} → {status}")
-        else:
-            print(f"⚠️ No document updated for config_id: {config_id}")
-        
-    except Exception as e:
-        print(f"❌ Error updating LSTM status: {str(e)}")
-
-def get_pending_lstm_config():
-    """Get pending config and update status to running"""
-    try:
-        # Cari config yang pending di lstm_configs
-        config = db.lstm_configs.find_one({"status": "pending"})
-        
-        if not config:
-            print("📋 No pending LSTM config found")
-            return None
-            
-        config_id = str(config["_id"])
-        print(f"📋 Found pending LSTM config: {config_id}")
-        
-        # Update status ke running di lstm_configs collection
-        update_lstm_status(config_id, "running")
-        
-        # Update last_execution timestamp
-        db.lstm_configs.update_one(
-            {"_id": config["_id"]},
-            {"$set": {"last_execution": datetime.now()}}
-        )
-        
-        return config
-        
-    except Exception as e:
-        print(f"❌ Error getting pending config: {str(e)}")
-        return None
-
 def run_lstm_from_config():
     try:
         # Kosongkan collection temp-lstm di awal
         db["temp-lstm"].delete_many({})
 
-        # Get pending config tanpa mengubah status di lstm_configs
-        config = get_pending_lstm_config()
+        config = db.lstm_configs.find_one_and_update(
+            {"status": "pending"},
+            {"$set": {"status": "running"}},
+            return_document=True
+        )
         
         if not config:
             return jsonify({"message": "No pending LSTM config found."}), 404
 
         config_id = str(config["_id"])
         
-        # Kosongkan collection lstm-forecast di awal (tanpa perlu pengecekan)
+        # Kosongkan collection lstm-forecast di awal
         db["lstm-forecast"].delete_many({})
         
         # Ambil info kolom yang akan dianalisis
         name = config.get("name", f"lstm_forecast_{int(time.time())}")
         columns = config.get("columns", [])
         forecast_coll = config.get("forecastResultCollection", "lstm-forecast")
+        config_id = str(config["_id"])
+
+        start_date_str = config.get("startDate")
+        end_date_str = config.get("endDate")
+
+        if not start_date_str or not end_date_str:
+            error_msg = "startDate and endDate must be specified in the config."
+            db.lstm_configs.update_one(
+                {"_id": config["_id"]},
+                {"$set": {"status": "failed", "error_message": error_msg}}
+            )
+            return jsonify({"error": error_msg}), 400
+        
+        try:
+            start_date= pd.to_datetime(start_date_str).date()
+            end_date = pd.to_datetime(end_date_str).date()
+            print(f"[INFO] Using startDate: {start_date}, endDate: {end_date}")
+        except Exception as e:
+            error_msg = f"Invalid date format for startDate or endDate: {str(e)}"
+            db.lstm_configs.update_one(
+                {"_id": config["_id"]},
+                {"$set": {"status": "failed", "error_message": error_msg}}
+            )
+            return jsonify({"error": error_msg}), 400
 
         # Validasi kolom
         for item in columns:
@@ -137,8 +97,10 @@ def run_lstm_from_config():
             column = item["columnName"]
             is_valid, error_msg = is_valid_column(collection, column, client)
             if not is_valid:
-                # Update status ke failed di lstm_configs collection
-                update_lstm_status(config_id, "failed", error_msg)
+                db.lstm_configs.update_one(
+                    {"_id": config["_id"]},
+                    {"$set": {"status": "failed", "error_message": error_msg}}
+                )
                 return jsonify({"error": error_msg}), 400
         
         results = []
@@ -159,7 +121,9 @@ def run_lstm_from_config():
                     save_collection="temp-lstm",  # Simpan sementara
                     config_id=config_id,
                     append_column_id=True,
-                    client=client
+                    client=client,
+                    start_date=start_date,
+                    end_date=end_date
                 )
                 results.append(result)
 
@@ -168,20 +132,23 @@ def run_lstm_from_config():
                     error_metrics_list.append({
                         "collectionName": collection,
                         "columnName": column,
-                        "model_type": "LSTM",
                         "metrics": {
                             "mae": result["error_metrics"].get("mae"),
+                            "mse": result["error_metrics"].get("mse"),
                             "rmse": result["error_metrics"].get("rmse"),
-                            "mape": result["error_metrics"].get("mape")
-                        },
-                        "model_params": result.get("model_params", {})
+                            "mape": result["error_metrics"].get("mape"),  # ✅ Ganti ke sMAPE
+                            "mad": result["error_metrics"].get("mad"),
+                            "aic": result["error_metrics"].get("aic"),
+                            "val_size": result["error_metrics"].get("val_size"),
+                            "num_params": result["error_metrics"].get("num_params"),
+                        }
                     })
                 
                 # Ambil hasil forecast untuk digabung
                 temp_forecasts = list(db["temp-lstm"].find({"config_id": config_id}))
                 
                 for forecast_doc in temp_forecasts:
-                    forecast_date = forecast_doc["forecast_date"]
+                    forecast_date = pd.to_datetime(forecast_doc["forecast_date"]).strftime("%Y-%m-%d")
                     
                     if forecast_date not in forecast_data:
                         forecast_data[forecast_date] = {
@@ -200,10 +167,10 @@ def run_lstm_from_config():
                 
             except Exception as e:
                 error_msg = f"LSTM failed for {collection}:{column} → {str(e)}"
-                
-                # Update status ke failed di lstm_configs collection
-                update_lstm_status(config_id, "failed", error_msg)
-                
+                db.lstm_configs.update_one(
+                    {"_id": config["_id"]},
+                    {"$set": {"status": "failed", "error_message": error_msg}}
+                )
                 traceback.print_exc()
                 return jsonify({"error": error_msg}), 500
         
@@ -221,8 +188,16 @@ def run_lstm_from_config():
         # Bersihkan collection temporary
         db["temp-lstm"].delete_many({})
         
-        # Update status ke done di lstm_configs collection dengan error metrics
-        update_lstm_status(config_id, "done", None, error_metrics_list)
+        # Update status config dan simpan error metrics
+        update_data = {
+            "status": "done",
+            "error_metrics": error_metrics_list
+        }
+
+        db.lstm_configs.update_one(
+            {"_id": config["_id"]},
+            {"$set": update_data}
+        )
 
         return jsonify({
             "message": f"LSTM Forecasting completed for config: {name}",
@@ -231,15 +206,16 @@ def run_lstm_from_config():
             "model_type": "LSTM",
             "results": convert_objectid(results),
             "total_forecast_dates": len(forecast_data),
-            "error_metrics": error_metrics_list,
-            "status_collection": "lstm_configs"
+            "error_metrics": error_metrics_list
         }), 200
         
     except Exception as e:
         error_msg = f"Internal server error: {str(e)}"
-        if 'config_id' in locals():
-            # Update status ke failed di lstm_configs collection
-            update_lstm_status(config_id, "failed", error_msg)
+        if 'config' in locals():
+            db.lstm_configs.update_one(
+                {"_id": config["_id"]},
+                {"$set": {"status": "failed", "error_message": error_msg}}
+            )
         traceback.print_exc()
         return jsonify({"error": error_msg}), 500
 
