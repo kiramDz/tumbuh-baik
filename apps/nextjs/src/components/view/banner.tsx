@@ -5,9 +5,9 @@ export function Banner() {
     <div className="relative mb-2 h-96">
       {/* Background Image */}
       <div
-        className="absolute inset-0 h-full w-full bg-cover bg-center"
+        className="absolute inset-0 h-full w-full bg-cover bg-no-repeat  bg-center"
         style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1434725039720-aaad6dd32dfe?q=80&w=2842&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
+          backgroundImage: "url('https://images.pexels.com/photos/5111999/pexels-photo-5111999.jpeg')",
           backgroundBlendMode: "overlay",
         }}
       >
