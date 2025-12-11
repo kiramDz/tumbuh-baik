@@ -5,7 +5,7 @@ import { Icons } from "@/app/dashboard/_components/icons";
 import type {
   SpatialAnalysisParams,
   SpatialAnalysisResponse,
-} from "@/lib/fetch/files.fetch";
+} from "@/lib/fetch/spatial.map.fetch";
 
 interface District {
   id: string;

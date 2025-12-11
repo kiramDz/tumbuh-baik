@@ -48,8 +48,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       ],
     },
     {
-      title: "Spatial Analysis",
-      url: "/dashboard/spatial-analysis",
+      title: "Food Security",
+      url: "/dashboard/food-security",
       icon: Icons.map,
     },
     {

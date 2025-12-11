@@ -171,6 +171,83 @@ def get_kabupaten_summary():
     except Exception as e:
         logger.error(f"Error in kabupaten summary: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+@two_level_api.route('/bps-historical/<kabupaten>', methods=['GET'])
+def get_bps_historical_data(kabupaten: str):
+    """
+    Get BPS historical production data for specific kabupaten
+    Integrates with existing BPS service
+    """
+    try:
+        from services.bps_api_service import BPSApiService
+        
+        start_year = int(request.args.get('start_year', 2018))
+        end_year = int(request.args.get('end_year', 2024))
+        
+        logger.info(f"BPS historical request for {kabupaten}: {start_year}-{end_year}")
+        
+        # Initialize BPS service
+        bps_service = BPSApiService()
+        
+        # Fetch historical data
+        historical_data = bps_service.fetch_kabupaten_historical_data(
+            kabupaten, start_year, end_year
+        )
+        
+        if not historical_data:
+            return jsonify({
+                "message": f"No BPS historical data found for {kabupaten}",
+                "error": "Data not available",
+                "available_kabupaten": bps_service.target_kabupaten
+            }), 404
+        
+        # Format response for two-level compatibility
+        yearly_production = []
+        for year, record in historical_data.items():
+            yearly_production.append({
+                "year": year,
+                "production_tons": record.produksi_padi_ton,
+                "luas_tanam_ha": getattr(record, 'luas_tanam_ha', 0),
+                "luas_panen_ha": getattr(record, 'luas_panen_ha', 0),
+                "produktivitas_ton_ha": getattr(record, 'produktivitas_ton_ha', 0),
+                "harvest_success_rate": getattr(record, 'harvest_success_rate', 0)
+            })
+        
+        # Calculate production statistics
+        production_values = [record.produksi_padi_ton for record in historical_data.values()]
+        
+        return jsonify({
+            "kabupaten_name": kabupaten,
+            "bps_compatible_name": kabupaten,
+            "data_period": f"{start_year}-{end_year}",
+            "data_coverage_years": len(historical_data),
+            "yearly_production_data": yearly_production,
+            "production_statistics": {
+                "total_production_tons": sum(production_values),
+                "average_annual_production": sum(production_values) / len(production_values),
+                "max_production": max(production_values),
+                "min_production": min(production_values),
+                "production_volatility_percent": (
+                    (max(production_values) - min(production_values)) / 
+                    (sum(production_values) / len(production_values)) * 100
+                )
+            },
+            "trend_analysis": {
+                "overall_change_percent": (
+                    (production_values[-1] - production_values[0]) / production_values[0] * 100
+                    if len(production_values) > 1 else 0
+                ),
+                "most_productive_year": max(historical_data.keys(), key=lambda y: historical_data[y].produksi_padi_ton),
+                "least_productive_year": min(historical_data.keys(), key=lambda y: historical_data[y].produksi_padi_ton)
+            }
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in BPS historical endpoint: {str(e)}")
+        return jsonify({
+            "message": "Failed to fetch BPS historical data",
+            "error": str(e)
+        }), 500
 
 @two_level_api.route('/validation', methods=['GET'])
 def get_validation_report():

@@ -9,4 +9,4 @@ export type {
   SpatialAnalysisParams,
   SpatialAnalysisResponse,
   SpatialFeature,
-} from "@/lib/fetch/files.fetch";
+} from "@/lib/fetch/spatial.map.fetch";

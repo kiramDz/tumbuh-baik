@@ -1,14 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
-import {
-  getSuitabilityColor,
-  getSuitabilityClass,
-  getFeatureStyle,
-  getHighlightStyle,
-  ACEH_BOUNDS,
-} from "@/lib/spatial-map.utils";
-import type { SpatialAnalysisResponse } from "@/lib/fetch/files.fetch";
+import type { SpatialAnalysisResponse } from "@/lib/fetch/spatial.map.fetch";
 import "leaflet/dist/leaflet.css";
 import type L from "leaflet";
 
@@ -78,72 +71,6 @@ export function SpatialMap({
     const props = feature.properties;
 
     // Popup content
-    const popupContent = `
-      <div class="p-3 min-w-64">
-        <h3 class="font-bold text-lg mb-2">${props.NAME_3}</h3>
-        <p class="text-sm text-gray-600 mb-3">${props.NAME_2} Regency</p>
-        
-        <div class="space-y-2">
-          <div class="flex justify-between">
-            <span class="font-medium">Suitability Score:</span>
-            <span class="font-bold text-lg" style="color: ${getSuitabilityColor(
-              props.suitability_score
-            )}">
-              ${props.suitability_score?.toFixed(1) || "N/A"}
-            </span>
-          </div>
-          
-          <div class="flex justify-between">
-            <span>Classification:</span>
-            <span class="font-medium">${
-              props.classification ||
-              getSuitabilityClass(props.suitability_score)
-            }</span>
-          </div>
-          
-          <div class="flex justify-between">
-            <span>Risk Level:</span>
-            <span class="capitalize">${props.overall_risk}</span>
-          </div>
-        </div>
-        
-        <hr class="my-3">
-        
-        <div class="space-y-1 text-sm">
-          <h4 class="font-medium mb-2">Climate Averages</h4>
-          <div class="flex justify-between">
-            <span>🌡️ Temperature:</span>
-            <span>${props.avg_temperature?.toFixed(1)}°C</span>
-          </div>
-          <div class="flex justify-between">
-            <span>🌧️ Precipitation:</span>
-            <span>${props.avg_precipitation?.toFixed(1)} mm/day</span>
-          </div>
-          <div class="flex justify-between">
-            <span>💧 Humidity:</span>
-            <span>${props.avg_humidity?.toFixed(1)}%</span>
-          </div>
-        </div>
-        
-        <hr class="my-3">
-        
-        <div class="space-y-1 text-sm">
-          <h4 class="font-medium mb-2">Component Scores</h4>
-          <div class="flex justify-between">
-            <span>Temperature:</span>
-            <span>${props.temperature_score?.toFixed(0)}%</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Precipitation:</span>
-            <span>${props.precipitation_score?.toFixed(0)}%</span>
-          </div>
-          <div class="flex justify-between">
-            <span>Humidity:</span>
-            <span>${props.humidity_score?.toFixed(0)}%</span>
-          </div>
-        </div>
-      </div>
-    `;
 
     // Bind popup
     layer.bindPopup(popupContent, {
@@ -170,7 +97,7 @@ export function SpatialMap({
         }
       },
       click: (e: any) => {
-        setSelectedFeature(feature);
+      setSelectedFeature(feature);
 
         // Callback for parent component
         if (onFeatureClick) {
@@ -201,14 +128,15 @@ export function SpatialMap({
         </div>
       </div>
     );
-  }      <MapContainer
-        key={mapKey}
-        center={[4.5, 96.5]} // Center of Aceh
-        zoom={8}
-        style={{ height: "100%", width: "100%" }}
-        zoomControl={true}
-        scrollWheelZoom={true}
-      ></MapContainer>
+  }
+  <MapContainer
+    key={mapKey}
+    center={[4.5, 96.5]} // Center of Aceh
+    zoom={8}
+    style={{ height: "100%", width: "100%" }}
+    zoomControl={true}
+    scrollWheelZoom={true}
+  ></MapContainer>;
 
   // No data state
   if (

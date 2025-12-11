@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { exportSpatialAnalysisCsv } from "@/lib/fetch/files.fetch";
-import type { SpatialAnalysisResponse } from "@/lib/fetch/files.fetch";
+import { exportSpatialAnalysisCsv } from "@/lib/fetch/spatial.map.fetch";
+import type { SpatialAnalysisResponse } from "@/lib/fetch/spatial.map.fetch";
 
 interface ExportCsvButtonProps {
   data: SpatialAnalysisResponse | null;

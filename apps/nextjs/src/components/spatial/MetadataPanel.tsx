@@ -1,6 +1,5 @@
 "use client";
-import type { SpatialAnalysisResponse } from "@/lib/fetch/files.fetch";
-import { is } from "date-fns/locale";
+import type { SpatialAnalysisResponse } from "@/lib/fetch/spatial.map.fetch";
 
 interface MetadataPanelProps {
   metadata: SpatialAnalysisResponse["metadata"] | null;
