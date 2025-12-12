@@ -276,12 +276,42 @@ export interface KecamatanAnalysis {
   kabupaten_name: string;
   area_km2: number;
   area_weight: number;
-  fsci_score: number;
-  fsci_class: string;
-  pci_score: number;
-  psi_score: number;
-  crs_score: number;
+
+  // ✅ NEW: Direct FSCI properties (flattened from backend response)
+  fsci_score: number; // Direct access, not nested
+  pci_score: number; // Direct access, not nested
+  psi_score: number; // Direct access, not nested
+  crs_score: number; // Direct access, not nested
+  fsci_class: string; // FSCI classification
+
   investment_recommendation: string;
+
+  // ✅ DEPRECATED: Keep for backward compatibility, but mark as optional
+  fsci_analysis?: {
+    fsci_score: number;
+    fsci_class: string;
+    pci: {
+      pci_score: number;
+    };
+    psi: {
+      psi_score: number;
+    };
+    crs: {
+      crs_score: number;
+    };
+  };
+
+  // ✅ NEW: Additional properties from boundaries API response
+  nasa_lat?: number;
+  nasa_lng?: number;
+  nasa_match?: string;
+  centroid_lat?: number;
+  centroid_lng?: number;
+  GID_3?: string;
+  NAME_1?: string;
+  NAME_2?: string;
+  NAME_3?: string;
+  TYPE_3?: string;
 }
 
 export interface KabupatenAnalysis {

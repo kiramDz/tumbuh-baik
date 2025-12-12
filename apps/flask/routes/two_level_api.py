@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, current_app
 import logging
 from datetime import datetime
 from services.geojson_loader import GeojsonLoader
+import json
+import geopandas as gpd
 from services.climate_data_service import ClimateDataService
 from services.rice_analyzer_service import RiceAnalyzer
 from services.food_security_analyzer import FoodSecurityAnalyzer
@@ -533,3 +535,157 @@ def _generate_policy_recommendations(kabupaten_data):
         })
     
     return recommendations
+
+@two_level_api.route('/boundaries/<level>', methods=['GET'])
+def get_boundaries(level: str):
+    """
+    Serve real GeoJSON boundaries for kecamatan or kabupaten levels
+    Integrates with existing FSCI analysis data
+    """
+    try:
+        logger.info(f"Fetching {level} boundaries...")
+        
+        geojson_loader = GeojsonLoader()
+        kecamatan_gdf = geojson_loader.load_kecamatan_geojson()
+        
+        if kecamatan_gdf is None:
+            return jsonify({"error": "Boundary data not available"}), 404
+        
+        if level == "kecamatan":
+            # Return kecamatan-level boundaries
+            boundary_gdf = kecamatan_gdf.copy()
+            
+        elif level == "kabupaten":
+            # Create kabupaten-level boundaries by dissolving kecamatan
+            logger.info("Creating kabupaten boundaries from kecamatan...")
+            boundary_gdf = kecamatan_gdf.dissolve(by='NAME_2').reset_index()
+            
+            # Calculate kabupaten centroids
+            boundary_gdf_utm = boundary_gdf.to_crs("EPSG:32647")  # UTM for accurate centroid
+            centroids_geo = boundary_gdf_utm.geometry.centroid.to_crs("EPSG:4326")
+            boundary_gdf["centroid_lat"] = centroids_geo.y
+            boundary_gdf["centroid_lng"] = centroids_geo.x
+            
+            # Add kabupaten metadata
+            boundary_gdf["GID_2"] = boundary_gdf["NAME_2"]  # Use kabupaten name as ID
+            boundary_gdf["TYPE_2"] = "Kabupaten"
+            
+        else:
+            return jsonify({"error": "Invalid level. Use 'kecamatan' or 'kabupaten'"}), 400
+        
+        # Convert to GeoJSON format
+        geojson_str = boundary_gdf.to_json()
+        geojson_data = json.loads(geojson_str)
+        
+        logger.info(f"{level} boundaries ready: {len(boundary_gdf)} features")
+        
+        geojson_response = {
+            "type": "FeatureCollection",
+            "features": geojson_data["features"],
+            "metadata": {
+                "level": level,
+                "feature_count": len(boundary_gdf),
+                "crs": "EPSG:4326",
+                "data_source": "aceh_nasa_kecamatan.geojson",
+                "boundary_type": "real_administrative_polygons"
+            }
+        }
+        return jsonify(geojson_response), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Error loading {level} boundaries: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@two_level_api.route('/analysis-with-boundaries', methods=['GET'])  
+def get_analysis_with_boundaries():
+    """
+    Combined endpoint: FSCI analysis + real polygon boundaries
+    Perfect for FSCIMap component
+    """
+    try:
+        logger.info("Starting FSCI analysis with real boundaries...")
+        
+        # Get parameters
+        level = request.args.get('level', 'kabupaten')
+        
+        # Step 1: Get FSCI analysis data
+        params = {k: v for k, v in request.args.items() if k != 'level'}
+        
+        logger.info("Getting FSCI analysis data...")
+        # Reuse existing analysis logic
+        response = perform_two_level_analysis()
+        if response[1] != 200:  # Check status code
+            return response
+            
+        analysis_data = response[0].get_json()
+        
+        # Step 2: Get boundary data
+        logger.info("Loading boundary polygons...")
+        boundary_response = get_boundaries(level)
+        if boundary_response[1] != 200:
+            return boundary_response
+            
+        boundary_data = boundary_response[0].get_json()
+        
+        # Step 3: Merge FSCI data with boundaries
+        logger.info("Merging FSCI analysis with real boundaries...")
+        
+        source_data = analysis_data[f"level_{'2' if level == 'kabupaten' else '1'}_{level}_analysis"]["data"]
+        boundary_features = boundary_data["features"]
+        
+        merged_features = []
+        for feature in boundary_features:
+            # Match by region name
+            region_name = feature["properties"]["NAME_2"] if level == "kabupaten" else feature["properties"]["NAME_3"]
+            
+            # Find matching FSCI data
+            fsci_match = None
+            for item in source_data:
+                item_name = item.get("kabupaten_name") if level == "kabupaten" else item.get("kecamatan_name")
+                if item_name == region_name:
+                    fsci_match = item
+                    break
+            
+            if fsci_match:
+                # Merge FSCI properties into boundary feature
+                enhanced_properties = {
+                    **feature["properties"],  # Original boundary properties
+                    
+                    # FSCI scores
+                    "fsci_score": (fsci_match.get("aggregated_fsci_score", 0) if level == "kabupaten"
+                                   else fsci_match.get("fsci_score", 0)),
+                    "pci_score": fsci_match.get("aggregated_pci_score" if level == "kabupaten" else "pci_score", 0),
+                    "psi_score": fsci_match.get("aggregated_psi_score" if level == "kabupaten" else "psi_score", 0),
+                    "crs_score": fsci_match.get("aggregated_crs_score" if level == "kabupaten" else "crs_score", 0),
+                    
+                    # Additional analysis data
+                    "investment_recommendation": fsci_match.get("investment_recommendation", "moderate"),
+                    "area_km2": fsci_match.get("total_area_km2" if level == "kabupaten" else "area_km2", 0),
+                    
+                    # Production data (kabupaten only)
+                    **({"production_tons": fsci_match.get("latest_production_tons", 0),
+                        "climate_correlation": fsci_match.get("climate_production_correlation", 0)} 
+                       if level == "kabupaten" else {})
+                }
+                
+                merged_features.append({
+                    "type": "Feature",
+                    "properties": enhanced_properties,
+                    "geometry": feature["geometry"]  # Real polygon geometry!
+                })
+        
+        return jsonify({
+            "type": "FeatureCollection",
+            "metadata": {
+                "analysis_type": f"fsci_with_real_boundaries_{level}",
+                "feature_count": len(merged_features),
+                "geometry_type": "Polygon/MultiPolygon",
+                "data_integration": "fsci_analysis_merged_with_administrative_boundaries",
+                **analysis_data["metadata"]
+            },
+            "features": merged_features
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Error in analysis with boundaries: {str(e)}")
+        return jsonify({"error": str(e)}), 500

@@ -91,8 +91,29 @@ export function FSCIMap({
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["fsci-map-analysis", params, level],
-    queryFn: () => getTwoLevelAnalysis(params),
+    queryKey: ["fsci-boundaries", params, level],
+    queryFn: async () => {
+      const stringParams = {
+        level,
+        year_start: (params.year_start || 2018).toString(),
+        year_end: (params.year_end || 2024).toString(),
+        bps_start_year: (params.bps_start_year || 2018).toString(),
+        bps_end_year: (params.bps_end_year || 2024).toString(),
+        season: params.season || "all",
+        aggregation: params.aggregation || "mean",
+        districts: params.districts || "all",
+      };
+
+      const searchParams = new URLSearchParams(stringParams);
+
+      // ✅ FIX: Use localhost:5001 to match your Flask server
+      const response = await fetch(
+        `http://localhost:5001/api/v1/two-level/analysis-with-boundaries?${searchParams}`
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch FSCI boundaries");
+      return response.json();
+    },
     refetchOnWindowFocus: false,
   });
 
@@ -100,227 +121,28 @@ export function FSCIMap({
   const processedData = useMemo(() => {
     if (!analysisData) return null;
 
-    const sourceData =
-      level === "kabupaten"
-        ? analysisData.level_2_kabupaten_analysis?.data || []
-        : analysisData.level_1_kecamatan_analysis?.data || [];
+    if (analysisData.type === "FeatureCollection" && analysisData.features) {
+      console.log(`✅ Direct GeoJSON usage - ${level} level:`, {
+        featureCount: analysisData.features.length,
+        geometryType:
+          analysisData.metadata?.geometry_type || "Polygon/MultiPolygon",
+        analysisType:
+          analysisData.metadata?.analysis_type || "fsci_with_boundaries",
+        dataIntegration: analysisData.metadata?.data_integration || "merged",
+      });
 
-    if (sourceData.length === 0) return null;
-
-    // Helper function to safely get values
-    const getValue = (item: any, ...keys: string[]): number => {
-      for (const key of keys) {
-        const value = item[key];
-        if (typeof value === "number" && !isNaN(value)) return value;
-      }
-      return 0;
-    };
-
-    // ✅ Transform analysis data with REAL coordinates from two-level API
-    const features = sourceData
-      .map((item: any, index: number) => {
-        // Get FSCI score based on level
-        const fsciScore =
-          level === "kabupaten"
-            ? item.aggregated_fsci_score
-            : item.fsci_analysis?.fsci_score;
-
-        // ✅ NEW: Extract real coordinates from two-level API data
-        const coordinates =
-          level === "kabupaten"
-            ? [
-                // For kabupaten: use centroid or aggregated coordinates
-                item.centroid_longitude ||
-                  item.aggregated_longitude ||
-                  getValue(item, "longitude", "lng") ||
-                  96.5, // Fallback to Aceh center
-                item.centroid_latitude ||
-                  item.aggregated_latitude ||
-                  getValue(item, "latitude", "lat") ||
-                  4.5, // Fallback to Aceh center
-              ]
-            : [
-                // For kecamatan: use NASA location or direct coordinates
-                item.nasa_location_longitude ||
-                  item.longitude ||
-                  getValue(item, "lng", "nasa_lng") ||
-                  96.5, // Fallback to Aceh center
-                item.nasa_location_latitude ||
-                  item.latitude ||
-                  getValue(item, "lat", "nasa_lat") ||
-                  4.5, // Fallback to Aceh center
-              ];
-
-        const production =
-          level === "kabupaten"
-            ? item.bps_validation?.latest_production_tons ||
-              item.latest_production_tons ||
-              0
-            : 0; // Level 1 doesn't have production data
-
-        const correlation =
-          level === "kabupaten"
-            ? item.climate_production_correlation ||
-              getValue(item, "correlation") ||
-              0
-            : 0; // Level 1 doesn't have correlation
-
-        const regionName =
-          level === "kabupaten" ? item.kabupaten_name : item.kecamatan_name;
-
-        if (!regionName || fsciScore === 0) return null;
-
-        return {
-          type: "Feature" as const,
-          id: `fsci_feature_${item.id || index}`,
-          properties: {
-            // Basic identification
-            NAME_2:
-              level === "kabupaten" ? item.kabupaten_name : item.kabupaten_name,
-            NAME_3:
-              level === "kabupaten" ? item.kabupaten_name : item.kecamatan_name,
-            GID_3: item.id || `${level}_${index}`,
-            region_type: level,
-
-            // ✅ NEW: Enhanced FSCI component data
-            fsci_score: fsciScore,
-            pci_score:
-              level === "kabupaten"
-                ? item.aggregated_pci_score || getValue(item, "pci_score") || 0
-                : item.fsci_analysis?.pci?.pci_score ||
-                  getValue(item, "pci_score") ||
-                  0,
-            psi_score:
-              level === "kabupaten"
-                ? item.aggregated_psi_score || getValue(item, "psi_score") || 0
-                : item.fsci_analysis?.psi?.psi_score ||
-                  getValue(item, "psi_score") ||
-                  0,
-            crs_score:
-              level === "kabupaten"
-                ? item.aggregated_crs_score || getValue(item, "crs_score") || 0
-                : item.fsci_analysis?.crs?.crs_score ||
-                  getValue(item, "crs_score") ||
-                  0,
-
-            area_km2:
-              level === "kabupaten"
-                ? item.total_area_km2 || getValue(item, "area_km2") || 0
-                : item.area_km2 || getValue(item, "area") || 0,
-            area_weight: item.area_weight || 0,
-
-            // Production and validation data
-            production_tons: production,
-            climate_correlation: correlation,
-
-            investment_recommendation:
-              level === "kabupaten"
-                ? item.investment_recommendation || "moderate"
-                : item.investment_recommendation || "low",
-            performance_gap_category:
-              level === "kabupaten"
-                ? item.performance_gap_category || "aligned"
-                : "not_applicable",
-
-            ...(level === "kabupaten" && {
-              bps_data_available: !!item.bps_validation,
-              production_trend:
-                item.production_trend ||
-                item.bps_validation?.production_trend ||
-                "stable",
-              data_coverage_years:
-                item.data_coverage_years ||
-                item.bps_validation?.data_coverage_years ||
-                0,
-              efficiency_score: item.production_efficiency_score || 0,
-            }),
-
-            // Classification and display
-            fsci_classification: getFSCIClassification(fsciScore),
-            performance_level: getFSCIPerformanceLevel(fsciScore),
-
-            production_display:
-              production > 0
-                ? `${(production / 1000).toFixed(1)}K tons`
-                : "No data",
-            correlation_display:
-              correlation > 0 ? correlation.toFixed(3) : "N/A",
-            area_display:
-              level === "kabupaten"
-                ? `${((item.total_area_km2 || 0) / 1000).toFixed(1)}K km²`
-                : `${(item.area_km2 || 0).toFixed(1)} km²`,
-
-            component_summary: {
-              pci:
-                level === "kabupaten"
-                  ? item.aggregated_pci_score
-                  : item.fsci_analysis?.pci?.pci_score,
-              psi:
-                level === "kabupaten"
-                  ? item.aggregated_psi_score
-                  : item.fsci_analysis?.psi?.psi_score,
-              crs:
-                level === "kabupaten"
-                  ? item.aggregated_crs_score
-                  : item.fsci_analysis?.crs?.crs_score,
-            },
-          },
-          geometry: {
-            type: "Point" as const,
-            coordinates: coordinates as [number, number],
-          },
-        };
-      })
-      .filter(
-        (feature): feature is NonNullable<typeof feature> => feature !== null
-      );
-
-    return {
-      type: "FeatureCollection" as const,
-      features,
-      metadata: {
-        total_regions: features.length,
-        analysis_date: new Date().toISOString(),
-        level_analyzed: level,
-        avg_fsci:
-          features.length > 0
-            ? features.reduce((sum, f) => sum + f.properties.fsci_score, 0) /
-              features.length
-            : 0,
-        avg_pci:
-          features.length > 0
-            ? features.reduce(
-                (sum, f) => sum + (f.properties.pci_score || 0),
-                0
-              ) / features.length
-            : 0,
-        avg_psi:
-          features.length > 0
-            ? features.reduce(
-                (sum, f) => sum + (f.properties.psi_score || 0),
-                0
-              ) / features.length
-            : 0,
-        avg_crs:
-          features.length > 0
-            ? features.reduce(
-                (sum, f) => sum + (f.properties.crs_score || 0),
-                0
-              ) / features.length
-            : 0,
-        coordinate_source:
-          level === "kabupaten" ? "centroid_aggregated" : "nasa_locations",
-        regions_with_production: features.filter(
-          (f) => f.properties.production_tons > 0
-        ).length,
-      },
-    };
+      return analysisData;
+    }
+    console.warn("❌ Invalid GeoJSON structure received:", analysisData);
+    return null;
   }, [analysisData, level]);
 
   // Feature styling
   const getFeatureStyle = (feature: any) => {
-    const score = feature.properties.fsci_score;
-    const isSelected = selectedRegion === feature.properties.NAME_2;
+    const score = feature.properties.fsci_score || 0;
+    const isSelected =
+      selectedRegion ===
+      (feature.properties.NAME_3 || feature.properties.NAME_2);
 
     return {
       fillColor: getFSCIColor(score),
@@ -328,7 +150,7 @@ export function FSCIMap({
       opacity: 1,
       color: isSelected ? "#1f2937" : "#ffffff",
       dashArray: isSelected ? "5, 5" : "",
-      fillOpacity: 0.7,
+      fillOpacity: 0.8,
     };
   };
 
@@ -352,62 +174,103 @@ export function FSCIMap({
   const onEachFeature = (feature: any, layer: any) => {
     const props = feature.properties;
 
-    // Popup content with FSCI data
+    // ✅ Safe property access
+    const safeScore =
+      typeof props.fsci_score === "number" && !isNaN(props.fsci_score)
+        ? props.fsci_score
+        : 0;
+
+    const regionName = props.NAME_3 || props.NAME_2 || "Unknown Region";
+    const safePerformance =
+      props.performance_level || getFSCIPerformanceLevel(safeScore);
+    const safeProduction = props.production_display || "No Production Data";
+    const safeCorrelation = props.correlation_display || "N/A";
+
+    // ✅ Enhanced popup content for boundaries data
     const popupContent = `
-      <div class="p-3 min-w-[250px]">
-        <div class="font-semibold text-lg text-gray-900 mb-2">
-          ${props.NAME_2}
+    <div class="p-3 min-w-[250px]">
+      <div class="font-semibold text-lg text-gray-900 mb-2">
+        ${regionName}
+      </div>
+      <div class="text-xs text-gray-600 mb-2">
+        ${level === "kabupaten" ? "Kabupaten" : "Kecamatan"} Level
+      </div>
+      
+      <div class="space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-600">FSCI Score:</span>
+          <span class="font-semibold text-lg" style="color: ${getFSCIColor(
+            safeScore
+          )}">
+            ${safeScore.toFixed(1)}
+          </span>
         </div>
         
-        <div class="space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-600">Performance:</span>
+          <span class="text-sm font-medium">${safePerformance}</span>
+        </div>
+        
+        <div class="border-t pt-2 mt-2">
           <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">FSCI Score:</span>
-            <span class="font-semibold text-lg" style="color: ${getFSCIColor(
-              props.fsci_score
-            )}">
-              ${props.fsci_score.toFixed(1)}
-            </span>
+            <span class="text-xs text-gray-600">${
+              level === "kabupaten" ? "Rice Production" : "Climate Analysis"
+            }:</span>
+            <span class="text-sm font-medium">${safeProduction}</span>
           </div>
           
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-gray-600">Performance:</span>
-            <span class="text-sm font-medium">${props.performance_level}</span>
-          </div>
-          
-          <div class="border-t pt-2 mt-2">
-            <div class="flex justify-between items-center">
-              <span class="text-xs text-gray-600">Wheat Production:</span>
-              <span class="text-sm font-medium">${
-                props.production_display
-              }</span>
-            </div>
-            
+          ${
+            level === "kabupaten"
+              ? `
             <div class="flex justify-between items-center">
               <span class="text-xs text-gray-600">Climate Correlation:</span>
-              <span class="text-sm font-medium">${
-                props.correlation_display
-              }</span>
+              <span class="text-sm font-medium">${safeCorrelation}</span>
             </div>
-          </div>
-          
-          <div class="text-xs text-gray-500 mt-2">
-            Classification: ${props.fsci_classification}
-          </div>
+          `
+              : ""
+          }
         </div>
+        
+        <div class="text-xs text-gray-500 mt-2">
+          Area: ${props.area_km2?.toFixed(1) || "N/A"} km²
+        </div>
+        
+        ${
+          level === "kecamatan" && props.nasa_match
+            ? `
+          <div class="text-xs text-blue-600 mt-2">
+            NASA Match: ${props.nasa_match}
+          </div>
+        `
+            : ""
+        }
+        
+        ${
+          props.investment_recommendation
+            ? `
+          <div class="text-xs text-green-600 mt-2">
+            ${props.investment_recommendation}
+          </div>
+        `
+            : ""
+        }
       </div>
-    `;
+    </div>
+  `;
 
-    // Bind popup
     layer.bindPopup(popupContent, {
       maxWidth: 300,
       className: "custom-fsci-popup",
     });
 
-    // Mouse events
     layer.on({
       mouseover: (e: any) => {
         const layer = e.target;
-        layer.setStyle(getHighlightStyle);
+        layer.setStyle({
+          weight: 3,
+          color: "#1f2937",
+          fillOpacity: 0.9,
+        });
         layer.bringToFront();
 
         if (onFeatureHover) {
@@ -500,8 +363,8 @@ export function FSCIMap({
       <MapContainer
         key={mapKey}
         ref={mapRef}
-        center={[-2.5, 118]} // Center of Indonesia
-        zoom={5}
+        center={[4.695135, 96.749397]}
+        zoom={8}
         style={{ height: "100%", width: "100%" }}
         zoomControl={true}
         scrollWheelZoom={true}
@@ -531,11 +394,14 @@ export function FSCIMap({
             {level === "kabupaten" ? "Kabupaten" : "Kecamatan"} Level
           </div>
           <div className="text-2xl font-bold text-blue-600">
-            {processedData.metadata?.total_regions || 0}
+            {analysisData?.metadata?.feature_count || 0}
           </div>
           <div className="text-xs text-gray-600">regions analyzed</div>
           <div className="text-xs text-gray-500 pt-1 border-t">
-            Avg FSCI: {processedData.metadata?.avg_fsci?.toFixed(1) || "N/A"}
+            Real Administrative Boundaries
+          </div>
+          <div className="text-xs text-gray-500">
+            {analysisData?.metadata?.geometry_type || "Polygon/MultiPolygon"}
           </div>
         </div>
       </div>
@@ -582,10 +448,12 @@ export function FSCIMap({
         <div className="absolute bottom-4 left-4 bg-white bg-opacity-95 p-4 rounded-lg shadow-lg z-[1000] max-w-sm">
           <div className="text-sm space-y-2">
             <div className="font-semibold text-gray-900">
-              {selectedFeature.properties.NAME_2}
+              {selectedFeature.properties.NAME_3 ||
+                selectedFeature.properties.NAME_2 ||
+                "Unknown Region"}
             </div>
             <div className="text-xs text-gray-600 capitalize">
-              {selectedFeature.properties.region_type}
+              {level} Level Analysis
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t">
@@ -593,27 +461,67 @@ export function FSCIMap({
               <span
                 className="text-xl font-bold"
                 style={{
-                  color: getFSCIColor(selectedFeature.properties.fsci_score),
+                  color: getFSCIColor(
+                    selectedFeature.properties.fsci_score || 0
+                  ),
                 }}
               >
-                {selectedFeature.properties.fsci_score.toFixed(1)}
+                {typeof selectedFeature.properties.fsci_score === "number" &&
+                !isNaN(selectedFeature.properties.fsci_score)
+                  ? selectedFeature.properties.fsci_score.toFixed(1)
+                  : "0.0"}
               </span>
             </div>
 
             <div className="text-xs">
               <span className="font-medium">
-                {selectedFeature.properties.performance_level}
+                {selectedFeature.properties.performance_level ||
+                  getFSCIPerformanceLevel(
+                    selectedFeature.properties.fsci_score || 0
+                  )}
               </span>
+            </div>
+
+            {/* Component Scores */}
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t text-xs">
+              <div className="text-center">
+                <div className="text-gray-500">PCI</div>
+                <div className="font-medium">
+                  {(selectedFeature.properties.pci_score || 0).toFixed(1)}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-gray-500">PSI</div>
+                <div className="font-medium">
+                  {(selectedFeature.properties.psi_score || 0).toFixed(1)}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-gray-500">CRS</div>
+                <div className="font-medium">
+                  {(selectedFeature.properties.crs_score || 0).toFixed(1)}
+                </div>
+              </div>
             </div>
 
             <div className="text-xs text-gray-600 space-y-1 pt-2 border-t">
               <div>
-                Production: {selectedFeature.properties.production_display}
+                Area: {selectedFeature.properties.area_km2?.toFixed(1) || "N/A"}{" "}
+                km²
               </div>
-              <div>
-                Climate Correlation:{" "}
-                {selectedFeature.properties.correlation_display}
-              </div>
+
+              {level === "kecamatan" &&
+                selectedFeature.properties.nasa_match && (
+                  <div className="text-blue-600">
+                    NASA: {selectedFeature.properties.nasa_match}
+                  </div>
+                )}
+
+              {selectedFeature.properties.investment_recommendation && (
+                <div className="text-green-600">
+                  {selectedFeature.properties.investment_recommendation}
+                </div>
+              )}
             </div>
           </div>
         </div>
