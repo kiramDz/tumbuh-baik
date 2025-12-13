@@ -11,33 +11,45 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DATASET_COLUMNS, getForecastValue } from "@/lib/dataset-columns";
+
 const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
   const criteria = {
-    isRainSesuai: rain >= 5.7 && rain <= 16.7,
-    isTempSesuai: temp >= 24 && temp <= 29,
-    isHumiditySesuai: humidity >= 33 && humidity <= 90,
-    isRadiationSesuai: radiation >= 13,
+    isRainSesuai: rain >= 2 && rain <= 16.7,
+    isTempSesuai: temp >= 25 && temp <= 28,
+    isHumiditySesuai: humidity >= 65 && humidity <= 90,
+    isRadiationSesuai: radiation >= 13 && radiation <= 25,
   };
 
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
 
+  // PRIORITAS HUJAN: Kalau hujan tidak sesuai, langsung tidak cocok!
+  if (!criteria.isRainSesuai) {
+    return {
+      color: "bg-red-400",
+      label: "Tidak Cocok (Hujan Tidak Memadai)",
+      count: sesuaiCount,
+    };
+  }
+
+  // Kalau hujan OK, baru cek parameter lain
   if (sesuaiCount === 4) {
     return {
-      color: "bg-green-300",
-      label: "Sangat Cocok",
+      color: "bg-green-400",
+      label: "Sangat Cocok Tanam",
       count: 4,
     };
   }
   if (sesuaiCount === 3) {
     return {
-      color: "bg-green-100",
-      label: "Cukup Cocok",
+      color: "bg-yellow-300",
+      label: "Cukup Cocok (Hujan OK)",
       count: 3,
     };
   }
+  // 2 atau kurang tapi hujan OK
   return {
-    color: "bg-red-300",
-    label: "Tidak Cocok",
+    color: "bg-orange-300",
+    label: "Kurang Ideal (Hujan OK)",
     count: sesuaiCount,
   };
 };
@@ -231,16 +243,20 @@ export default function PeriodCalendar() {
       {/* --- Legend Diperbarui Disini --- */}
       <div className="flex flex-col gap-2 mt-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-4 bg-green-300 border" />
-          <span>Sangat Cocok Tanam (4/4 parameter sesuai)</span>
+          <div className="w-6 h-4 bg-green-400 border" />
+          <span>Sangat Cocok Tanam (4/4 sesuai)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-4 bg-green-100 border" />
-          <span>Cukup Cocok Tanam (3/4 parameter sesuai)</span>
+          <div className="w-6 h-4 bg-yellow-300 border" />
+          <span>Cukup Cocok (3/4 sesuai, hujan OK)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-4 bg-red-300 border" />
-          <span>Tidak Cocok Tanam (&lt;3 parameter sesuai)</span>
+          <div className="w-6 h-4 bg-orange-300 border" />
+          <span>Kurang Ideal (hujan OK, parameter lain kurang)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-4 bg-red-400 border" />
+          <span className="font-semibold">❌ Tidak Cocok (Hujan Tidak Memadai)</span>
         </div>
       </div>
     </div>

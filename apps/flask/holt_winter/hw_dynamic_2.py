@@ -42,24 +42,33 @@ def fit_robust_model(data, best_params, param_name="NDVI"):
         except:
             return None
 
+
+
 def post_process_forecast(forecast, param_name, lam=None):
     """
     Post-processing untuk memastikan forecast masuk akal
     """
     forecast = np.array(forecast)
     if param_name in ["RR", "RR_imputed", "PRECTOTCORR"]: 
-        if lam is not None:  # Balikkan Box-Cox
+        if lam is not None:  
             forecast = (forecast * lam + 1) ** (1/lam) - 1
-        forecast = np.clip(forecast, 0, 300)
+        # Beda threshold saja
+        if param_name == "PRECTOTCORR":
+            forecast = np.clip(forecast, 0, 50)  
+        else:
+            forecast = np.clip(forecast, 0, 300)
     elif param_name == "NDVI":  
-        forecast = np.clip(forecast, -1, 1)  # Rentang NDVI
+        forecast = np.clip(forecast, -1, 1) 
     elif param_name in ["RH_AVG", "RH_AVG_preprocessed", "RH2M"]:  
         forecast = np.clip(forecast, 0, 100)  
     elif param_name in ["TAVG", "TMAX", "TMIN", "T2M"]:  
-        forecast = np.clip(forecast, 10, 50)  # Celsius, rentang realistis
+        forecast = np.clip(forecast, 10, 50)  
     elif param_name in ["ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]:
-        # Radiasi Matahari (W/m²), tidak mungkin negatif
-        forecast = np.clip(forecast, 0, 1400) 
+    # NASA ALLSKY dalam MJ/m²/day, bukan W/m²
+        if param_name == "ALLSKY_SFC_SW_DWN":
+            forecast = np.clip(forecast, 0, 30)  # Range realistis MJ/m²/day
+        else:
+            forecast = np.clip(forecast, 0, 1400)  # BMKG masih W/m²
     else:
         print(f"Warning: No post-processing defined for {param_name}")
     return forecast
