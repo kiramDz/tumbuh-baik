@@ -47,15 +47,15 @@ def post_process_forecast(forecast, param_name, lam=None):
     Post-processing untuk memastikan forecast masuk akal
     """
     forecast = np.array(forecast)
-    if param_name in ["RR", "RR_imputed"]: 
+    if param_name in ["RR", "RR_imputed", "PRECTOTCORR"]: 
         if lam is not None:  # Balikkan Box-Cox
             forecast = (forecast * lam + 1) ** (1/lam) - 1
         forecast = np.clip(forecast, 0, 300)
     elif param_name == "NDVI":  
         forecast = np.clip(forecast, -1, 1)  # Rentang NDVI
-    elif param_name in ["RH_AVG", "RH_AVG_preprocessed"]:  
+    elif param_name in ["RH_AVG", "RH_AVG_preprocessed", "RH2M"]:  
         forecast = np.clip(forecast, 0, 100)  
-    elif param_name in ["TAVG", "TMAX", "TMIN"]:  
+    elif param_name in ["TAVG", "TMAX", "TMIN", "T2M"]:  
         forecast = np.clip(forecast, 10, 50)  # Celsius, rentang realistis
     elif param_name in ["ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]:
         # Radiasi Matahari (W/m²), tidak mungkin negatif

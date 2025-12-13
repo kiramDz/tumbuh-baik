@@ -9,7 +9,7 @@ import { Combobox } from "@/components/combobox";
 import { format, addDays } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
-
+import { getForecastValue, DATASET_COLUMNS } from "@/lib/dataset-columns";
 interface SeedItem {
   name: string;
   duration: number;
@@ -101,7 +101,7 @@ export default function CalendarSeedPlanner() {
       const date = addDays(projectStartDate, i);
       let type = "";
       let bgColor = "";
-      let rain = 0,
+      const rain = 0,
         temp = 0,
         hum = 0;
 
@@ -124,9 +124,11 @@ export default function CalendarSeedPlanner() {
         const forecastDay = forecastData.items.find((f: any) => format(new Date(f.forecast_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd"));
 
         if (forecastDay) {
-          rain = forecastDay.parameters?.RR_imputed?.forecast_value ?? 0;
-          temp = forecastDay.parameters?.TAVG?.forecast_value ?? 0;
-          hum = forecastDay.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
+          const params = forecastDay.parameters;
+
+          const rain = getForecastValue(params, DATASET_COLUMNS.rain);
+          const temp = getForecastValue(params, DATASET_COLUMNS.temperature);
+          const hum = getForecastValue(params, DATASET_COLUMNS.humidity);
           bgColor = getWeatherColor(rain, temp, hum);
         } else {
           bgColor = "bg-gray-200";
@@ -216,7 +218,7 @@ export default function CalendarSeedPlanner() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="benih-choice">Benih</Label>
-          <Combobox  options={seedsData?.items.map((s: SeedItem) => s.name) || []} value={selectedSeedName} onValueChange={handleSeedChange} />
+          <Combobox options={seedsData?.items.map((s: SeedItem) => s.name) || []} value={selectedSeedName} onValueChange={handleSeedChange} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="benih-duration">Durasi Benih (hari)</Label>

@@ -10,7 +10,7 @@ import { id } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { DATASET_COLUMNS, getForecastValue } from "@/lib/dataset-columns";
 const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
   const criteria = {
     isRainSesuai: rain >= 5.7 && rain <= 16.7,
@@ -143,15 +143,14 @@ export default function PeriodCalendar() {
 
                     {periodRows[period][rowIdx]?.map((dayData, colIdx) => {
                       if (dayData && !dayData.isPlaceholder) {
-                        const rain = dayData.parameters?.RR_imputed?.forecast_value ?? 0;
-                        const temp = dayData.parameters?.TAVG?.forecast_value ?? 0;
-                        const humid = dayData.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
-
-                        const radiation = dayData.parameters?.ALLSKY_SFC_SW_DWN?.forecast_value ?? 0;
+                        const params = dayData.parameters;
+                        const rain = getForecastValue(params, DATASET_COLUMNS.rain);
+                        const temp = getForecastValue(params, DATASET_COLUMNS.temperature);
+                        const humid = getForecastValue(params, DATASET_COLUMNS.humidity);
+                        const radiation = getForecastValue(params, DATASET_COLUMNS.radiation);
 
                         const suitability = getSuitability(rain, temp, humid, radiation);
                         // --- Akhir Logika Diperbarui ---
-
                         return (
                           <Tooltip key={colIdx}>
                             <TooltipTrigger asChild>
