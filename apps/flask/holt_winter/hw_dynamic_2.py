@@ -54,7 +54,7 @@ def post_process_forecast(forecast, param_name, lam=None):
             forecast = (forecast * lam + 1) ** (1/lam) - 1
         # Beda threshold saja
         if param_name == "PRECTOTCORR":
-            forecast = np.clip(forecast, 0, 50)  
+            forecast = np.clip(forecast, 0, 200)  
         else:
             forecast = np.clip(forecast, 0, 300)
     elif param_name == "NDVI":  
@@ -275,10 +275,26 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         print(f"Missing dates: {missing_dates}")
 
          # Reindex dengan interpolasi untuk NDVI, fill_value=0 untuk lainnya
-        if is_ndvi:
-            df = df.reindex(date_range).interpolate(method='linear')
+        df = df.reindex(date_range)
+
+        if target_column in ["PRECTOTCORR", "RR"]:
+            # Curah hujan: missing = tidak hujan
+            df[target_column] = df[target_column].fillna(0)
+
+        elif is_ndvi:
+            # NDVI relatif smooth
+            df[target_column] = df[target_column].interpolate(
+                method="linear",
+                limit_direction="both"
+            )
+
         else:
-            df = df.reindex(date_range).interpolate(method='linear')
+            # Variabel kontinu lain (T2M, RH2M, ALLSKY, dll)
+            df[target_column] = df[target_column].interpolate(
+                method="time",
+                limit_direction="both"
+    )
+
         
         print(f"Data range: {df.index[0]} to {df.index[-1]}")
         
