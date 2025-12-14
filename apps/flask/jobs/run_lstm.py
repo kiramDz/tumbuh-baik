@@ -45,8 +45,10 @@ def is_valid_column(collection_name, column_name, client):
 
 def run_lstm_from_config():
     try:
-        # Kosongkan collection temp-lstm di awal
+        # Kosongkan collection temp-lstm dan decompose di awal
         db["temp-lstm"].delete_many({})
+        db["decompose-lstm-temp"].delete_many({})  # ✅ TAMBAH
+        db["decompose-lstm"].delete_many({})       # ✅ TAMBAH
 
         config = db.lstm_configs.find_one_and_update(
             {"status": "pending"},
@@ -104,7 +106,8 @@ def run_lstm_from_config():
                 return jsonify({"error": error_msg}), 400
         
         results = []
-        forecast_data = {}  # Untuk menyimpan semua forecast berdasarkan tanggal
+        forecast_data = {}
+        decompose_data = {}  # ✅ TAMBAH untuk decompose
         error_metrics_list = []
 
         for item in columns:
@@ -118,7 +121,7 @@ def run_lstm_from_config():
                 result = run_lstm_analysis(
                     collection_name=collection,
                     target_column=column,
-                    save_collection="temp-lstm",  # Simpan sementara
+                    save_collection="temp-lstm",
                     config_id=config_id,
                     append_column_id=True,
                     client=client,
@@ -132,7 +135,7 @@ def run_lstm_from_config():
                     error_metrics_list.append({
                         "collectionName": collection,
                         "columnName": column,
-                        "metrics": {
+                        "metrics_lstm": {
                             "mae": result["error_metrics"].get("mae"),
                             "mse": result["error_metrics"].get("mse"),
                             "rmse": result["error_metrics"].get("rmse"),
@@ -165,6 +168,25 @@ def run_lstm_from_config():
                             forecast_doc["parameters"]
                         )
                 
+                # ✅ TAMBAH: Ambil hasil decompose untuk digabung
+                temp_decompose = list(db["decompose-lstm-temp"].find({"config_id": config_id}))
+                
+                for decompose_doc in temp_decompose:
+                    date_str = decompose_doc["date"]
+                    
+                    if date_str not in decompose_data:
+                        decompose_data[date_str] = {
+                            "date": date_str,
+                            "timestamp": datetime.now().isoformat(),
+                            "config_id": config_id,
+                            "parameters": {}
+                        }
+                    
+                    if "parameters" in decompose_doc:
+                        decompose_data[date_str]["parameters"].update(
+                            decompose_doc["parameters"]
+                        )
+                
             except Exception as e:
                 error_msg = f"LSTM failed for {collection}:{column} → {str(e)}"
                 db.lstm_configs.update_one(
@@ -174,7 +196,7 @@ def run_lstm_from_config():
                 traceback.print_exc()
                 return jsonify({"error": error_msg}), 500
         
-        # Simpan hasil gabungan ke collection final
+        # Simpan hasil gabungan forecast ke collection final
         if forecast_data:
             # Hapus data lama untuk config ini
             db["lstm-forecast"].delete_many({"config_id": config_id})
@@ -185,8 +207,16 @@ def run_lstm_from_config():
             
             print(f"✓ Inserted {len(combined_docs)} combined LSTM forecast documents")
         
+        # ✅ TAMBAH: Simpan hasil gabungan decompose ke collection final
+        if decompose_data:
+            db["decompose-lstm"].delete_many({"config_id": config_id})
+            combined_decompose = list(decompose_data.values())
+            db["decompose-lstm"].insert_many(combined_decompose)
+            print(f"✓ Inserted {len(combined_decompose)} combined decompose documents")
+        
         # Bersihkan collection temporary
         db["temp-lstm"].delete_many({})
+        db["decompose-lstm-temp"].delete_many({})  # ✅ TAMBAH
         
         # Update status config dan simpan error metrics
         update_data = {
@@ -206,6 +236,7 @@ def run_lstm_from_config():
             "model_type": "LSTM",
             "results": convert_objectid(results),
             "total_forecast_dates": len(forecast_data),
+            "total_decompose_dates": len(decompose_data),  # ✅ TAMBAH
             "error_metrics": error_metrics_list
         }), 200
         

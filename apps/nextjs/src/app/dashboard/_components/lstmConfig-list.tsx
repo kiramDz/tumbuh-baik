@@ -158,8 +158,8 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                                 </Badge>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                                <p className="text-xs">
-                                    Kolom: <code className="bg-muted px-1 rounded">{col.columnName}</code>
+                                <p className="text-xs text-white">
+                                    Kolom: <code className="bg-muted px-1 rounded text-foreground">{col.columnName}</code>
                                 </p>
                             </TooltipContent>
                         </Tooltip>

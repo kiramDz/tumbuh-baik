@@ -42,10 +42,13 @@ const paramLabels: Record<string, string> = {
     "ALLSKY_SFC_SW_DWN": "Radiasi Matahari",
     "RH_AVG_preprocessed": "Kelembaban Udara",
     "RH_AVG": "Kelembaban Udara",
+    "RH2M": "Kelembaban Udara",
     "TAVG": "Suhu Rata-rata",
     "TMAX": "Suhu Maksimum",
     "TMIN": "Suhu Minimum",
+    "T2M": "Suhu Udara",
     "RR_imputed": "Curah Hujan",
+    "PRECTOTCORR": "Curah Hujan",
     "RR": "Curah Hujan",
     "NDVI": "Indeks Vegetasi",
     "NDVI_imputed": "Indeks Vegetasi",
@@ -56,21 +59,75 @@ const paramUnits: Record<string, string> = {
     "ALLSKY_SFC_SW_DWN": "MJ/m²",
     "RH_AVG_preprocessed": "%",
     "RH_AVG": "%",
+    "RH2M": "%",
     "TAVG": "°C",
     "TMAX": "°C",
     "TMIN": "°C",
+    "T2M": "°C",
     "RR_imputed": "mm",
     "RR": "mm",
+    "PRECTOTCORR": "mm",
     "NDVI": "",
     "NDVI_imputed": "",
 }
 
 // Mapping parameter ke collection dan column name
 const paramToCollection: Record<string, { collectionName: string; columnName: string }> = {
-    "ALLSKY_SFC_SW_DWN": { collectionName: "Nasa Aceh Besar Kec Darussalam", columnName: "ALLSKY_SFC_SW_DWN" },
-    "RH_AVG_preprocessed": { collectionName: "kelembapan", columnName: "RH_AVG_preprocessed" },
-    "TAVG": { collectionName: "suhu bmkg", columnName: "TAVG" },
-    "RR_imputed": { collectionName: "rainfall", columnName: "RR_imputed" }
+    // NASA Parameters - dari collection yang sama
+    "ALLSKY_SFC_SW_DWN_AcehBesar": { 
+        collectionName: "Nasa Aceh Besar Kec Darussalam", 
+        columnName: "ALLSKY_SFC_SW_DWN" 
+    },
+    "ALLSKY_SFC_SW_DWN_AcehUtara": {
+        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
+        columnName: "ALLSKY_SFC_SW_DWN"
+    },
+    "RH2M": { 
+        collectionName: "Nasa Aceh Besar Kec Darussalam", 
+        columnName: "RH2M" 
+    },
+    "RH2M_AcehUtara": {
+        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
+        columnName: "RH2M"
+    },
+    "T2M": { 
+        collectionName: "Nasa Aceh Besar Kec Darussalam", 
+        columnName: "T2M" 
+    },
+    "T2M_AcehUtara": {
+        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
+        columnName: "T2M"
+    },
+    "PRECTOTCORR": { 
+        collectionName: "Nasa Aceh Besar Kec Darussalam", 
+        columnName: "PRECTOTCORR" 
+    },
+    "PRECTOTCORR_AcehUtara": {
+        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
+        columnName: "PRECTOTCORR"
+    },
+    "WS2M": { 
+        collectionName: "Nasa Aceh Besar Kec Darussalam", 
+        columnName: "WS2M" 
+    },
+    "PS": { 
+        collectionName: "Nasa Aceh Besar Kec Darussalam", 
+        columnName: "PS" 
+    },
+    
+    // BMKG Parameters - dari collection berbeda
+    "RH_AVG_preprocessed": { 
+        collectionName: "kelembapan", 
+        columnName: "RH_AVG_preprocessed" 
+    },
+    "TAVG": { 
+        collectionName: "suhu bmkg", 
+        columnName: "TAVG" 
+    },
+    "RR_imputed": { 
+        collectionName: "rainfall", 
+        columnName: "RR_imputed" 
+    },
 }
 
 function getParamLabel(param: string): string {

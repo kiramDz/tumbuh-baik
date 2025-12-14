@@ -1,8 +1,3 @@
-"""
-LSTM Dynamic Forecasting with Seasonal Decomposition
-Version: 2.3 (With Grid Search for All Parameters)
-"""
-
 import os
 import warnings
 from datetime import datetime
@@ -27,10 +22,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 use_cuda = device.type == 'cuda'
 
-RAINFALL_PARAMS = ["RR", "RR_imputed"]
+RAINFALL_PARAMS = ["RR", "RR_imputed", "PRECTOTCORR"]
 NDVI_PARAMS = ["NDVI", "NDVI_imputed"]
-TEMP_PARAMS = ["TAVG", "TMAX", "TMIN"]
-HUMIDITY_PARAMS = ["RH_AVG", "RH_AVG_preprocessed"]
+TEMP_PARAMS = ["TAVG", "TMAX", "TMIN", "T2M"]
+HUMIDITY_PARAMS = ["RH_AVG", "RH_AVG_preprocessed", 'RH2M']
 SOLAR_PARAMS = ["ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]
 
 
@@ -313,7 +308,7 @@ def calculate_metrics(actual, forecast, param_name):
 
 
 # ============================================================
-# GRID CONFIG (termasuk rainfall)
+# GRID CONFIG
 # ============================================================
 
 def get_grid_config(param_name):
@@ -451,7 +446,7 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers,
     return metrics, actual_epochs
 
 
-def grid_search_lstm_params(train_data, param_name, validation_ratio=0.30):
+def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
     """Grid search untuk SEMUA parameters termasuk rainfall"""
     global use_cuda
     
@@ -650,7 +645,7 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
     
     try:
         source_data = list(db[collection_name].find().sort("Date", 1))
-        print(f"📥 Fetched {len(source_data)} records")
+        print(f"📥 Fetched {len(source_data)} records from {collection_name}")
         
         if not source_data:
             raise ValueError(f"No data in {collection_name}")
@@ -678,9 +673,11 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
             raise ValueError(f"Insufficient data: {len(param_data)} < 100")
         
         print(f"📊 Data: {len(param_data)} values, mean={param_data.mean():.3f}, std={param_data.std():.3f}")
+        print(f"   Column: {target_column}")
+        print(f"   Collection: {collection_name}")
         
         # ============================================================
-        # GRID SEARCH (untuk semua parameter termasuk rainfall)
+        # GRID SEARCH
         # ============================================================
         best_params, error_metrics, decomposition, transform_params = grid_search_lstm_params(
             param_data, target_column
@@ -688,6 +685,50 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         
         if best_params is None:
             raise ValueError("No valid model found")
+        
+        # ============================================================
+        # SAVE DECOMPOSITION DATA (PERBAIKAN DI SINI)
+        # ============================================================
+        if decomposition is not None:
+            print(f"\n{'='*60}")
+            print(f"🔍 DECOMPOSITION INFO FOR {target_column}")
+            print(f"{'='*60}")
+            
+            # PENTING: Decompose dilakukan pada data SEBELUM transform
+            # Tapi jika rainfall, decomposition sudah pada transformed data
+            # Jadi kita perlu decompose data ASLI untuk save
+            
+            if is_rainfall(target_column) and transform_params:
+                print(f"   ℹ️ Rainfall detected - decomposing ORIGINAL data (not log-transformed)")
+                # Decompose ulang dari data asli (bukan log-transformed)
+                decomposition_original = seasonal_decompose_data(param_data, target_column)
+                
+                if decomposition_original is not None:
+                    decompose_count = save_decompose_data(
+                        df_index=param_data.index,
+                        decomposition=decomposition_original,
+                        param_name=target_column,
+                        config_id=config_id,
+                        collection_name="decompose-lstm-temp",
+                        client=client,
+                        original_data=param_data.values
+                    )
+                else:
+                    print(f"   ⚠️ Failed to decompose original data")
+                    decompose_count = 0
+            else:
+                # Untuk non-rainfall, gunakan decomposition yang sudah ada
+                decompose_count = save_decompose_data(
+                    df_index=param_data.index,
+                    decomposition=decomposition,
+                    param_name=target_column,
+                    config_id=config_id,
+                    collection_name="decompose-lstm-temp",
+                    client=client,
+                    original_data=param_data.values
+                )
+            
+            print(f"✅ Saved {decompose_count} decompose documents for {target_column}")
         
         # Prepare data untuk final model
         if is_rainfall(target_column) and transform_params:
@@ -707,27 +748,152 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
             raise ValueError("Failed to fit model")
         
         # Setup forecast dates
+        # SMART AUTO-ADJUSTMENT WITH AUTO-DETECT BACKTEST
+        last_historical_date = param_data.index[-1]
+        print(f"\n📊 Last historical data: {last_historical_date.date()}")
+        
+        gap_warning = None
+        
         if start_date is not None and end_date is not None:
-            forecast_start = pd.to_datetime(start_date)
-            forecast_end = pd.to_datetime(end_date)
-            forecast_start_date = forecast_start  # ✅ TAMBAH INI
-            forecast_end_date = forecast_end      # ✅ TAMBAH INI
-            print(f"\n📅 Custom forecast range: {forecast_start.date()} to {forecast_end.date()}")
+            user_start = pd.to_datetime(start_date)
+            user_end = pd.to_datetime(end_date)
+            requested_duration = (user_end - user_start).days
+            
+            print(f"   User requested: {user_start.date()} to {user_end.date()} ({requested_duration + 1} days)")
+            
+            # ============================================================
+            # AUTO-DETECT BACKTEST: User start < last historical
+            # ============================================================
+            if user_start < last_historical_date:
+                # Hitung overlap dengan historical data
+                if user_end <= last_historical_date:
+                    # Full backtest (seluruh range ada historical data)
+                    backtest_days = (user_end - user_start).days + 1
+                    true_forecast_days = 0
+                    mode = "FULL_BACKTEST"
+                    
+                    print(f"\n🔬 AUTO-DETECTED: FULL BACKTEST MODE")
+                    print(f"   → All {backtest_days} days have historical data")
+                    print(f"   → This is for validation/evaluation purposes")
+                    
+                else:
+                    # Hybrid mode (sebagian backtest, sebagian forecast)
+                    backtest_days = (last_historical_date - user_start).days + 1
+                    true_forecast_days = (user_end - last_historical_date).days
+                    mode = "HYBRID_BACKTEST"
+                    
+                    print(f"\n🔬 AUTO-DETECTED: HYBRID MODE")
+                    print(f"   → Backtest: {backtest_days} days ({user_start.date()} to {last_historical_date.date()})")
+                    print(f"   → True forecast: {true_forecast_days} days ({(last_historical_date + pd.Timedelta(days=1)).date()} to {user_end.date()})")
+                
+                # Use user dates as-is untuk backtest
+                forecast_start_date = user_start
+                forecast_end_date = user_end
+                
+                print(f"   ✅ Proceeding with user-specified dates for backtest")
+                print(f"   → You can compare forecast vs actual data for validation")
+                
+                gap_warning = {
+                    "type": mode,
+                    "start": forecast_start_date.date(),
+                    "end": forecast_end_date.date(),
+                    "backtest_days": backtest_days,
+                    "true_forecast_days": true_forecast_days,
+                    "last_historical": last_historical_date.date(),
+                    "reason": "Auto-detected backtest mode. Historical data available for validation."
+                }
+            
+            # ============================================================
+            # KASUS 2: User start = last historical + 1 (Perfect continuity)
+            # ============================================================
+            elif user_start == last_historical_date + pd.Timedelta(days=1):
+                print(f"\n✅ CONTINUOUS FORECAST:")
+                print(f"   Last historical: {last_historical_date.date()}")
+                print(f"   Forecast start: {user_start.date()}")
+                print(f"   → Perfect continuity! Optimal accuracy expected")
+                
+                forecast_start_date = user_start
+                forecast_end_date = user_end
+                
+                gap_warning = {
+                    "type": "CONTINUOUS",
+                    "start": forecast_start_date.date(),
+                    "end": forecast_end_date.date(),
+                    "gap_days": 0,
+                    "reason": "Data is continuous. Optimal accuracy expected."
+                }
+            
+            # ============================================================
+            # KASUS 3: User start > last historical (Ada gap)
+            # ============================================================
+            else:
+                gap_days = (user_start - last_historical_date).days - 1
+                
+                # CRITICAL GAP (> 30 hari) - AUTO-ADJUST
+                if gap_days > 30:
+                    print(f"\n🔧 CRITICAL GAP AUTO-ADJUSTMENT:")
+                    print(f"   ❌ Gap detected: {gap_days} days (> 30 days threshold)")
+                    print(f"   Last historical: {last_historical_date.date()}")
+                    print(f"   User requested: {user_start.date()}")
+                    print(f"   → Automatically adjusting to continuous date for better accuracy")
+                    
+                    # Auto-adjust to continuous date
+                    forecast_start_date = last_historical_date + pd.Timedelta(days=1)
+                    forecast_end_date = forecast_start_date + pd.Timedelta(days=requested_duration)
+                    
+                    print(f"   ✅ Adjusted forecast: {forecast_start_date.date()} to {forecast_end_date.date()}")
+                    print(f"   → Duration maintained: {requested_duration + 1} days")
+                    print(f"   → Accuracy: HIGH (continuous data)")
+                    
+                    gap_warning = {
+                        "type": "CRITICAL_GAP_AUTO_ADJUSTED",
+                        "gap_days": gap_days,
+                        "original_start": user_start.date(),
+                        "original_end": user_end.date(),
+                        "adjusted_start": forecast_start_date.date(),
+                        "adjusted_end": forecast_end_date.date(),
+                        "reason": f"Critical gap of {gap_days} days detected. Auto-adjusted for better accuracy.",
+                        "collection": collection_name,
+                        "parameter": target_column
+                    }
+                
+                # SMALL GAP (1-30 hari) - Proceed with warning
+                else:
+                    print(f"\n⚠️  SMALL GAP DETECTED:")
+                    print(f"   Gap: {gap_days} days (within acceptable threshold)")
+                    print(f"   Last historical: {last_historical_date.date()}")
+                    print(f"   Forecast start: {user_start.date()}")
+                    print(f"   → Proceeding with user-specified dates")
+                    print(f"   → Accuracy: MEDIUM (small gap acceptable)")
+                    
+                    forecast_start_date = user_start
+                    forecast_end_date = user_end
+                    
+                    gap_warning = {
+                        "type": "SMALL_GAP_WARNING",
+                        "gap_days": gap_days,
+                        "start": forecast_start_date.date(),
+                        "end": forecast_end_date.date(),
+                        "reason": f"Small gap of {gap_days} days detected. Accuracy may be slightly reduced."
+                    }
+
         else:
-            last_data_date = param_data.index[-1]
-            forecast_start_date = last_data_date + pd.Timedelta(days=1)
+            # Default: mulai dari hari setelah data historis terakhir
+            forecast_start_date = last_historical_date + pd.Timedelta(days=1)
             forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
-            forecast_start = forecast_start_date
-            forecast_end = forecast_end_date
-            print(f"[INFO] Using default data range: {forecast_start_date.date()} to {forecast_end_date.date()}")
-            forecast_start = forecast_start_date
-            forecast_end = forecast_end_date
+            gap_warning = {
+                "type": "DEFAULT",
+                "start": forecast_start_date.date(),
+                "end": forecast_end_date.date(),
+                "reason": "Default 365-day forecast from last historical date."
+            }
+            print(f"\n📅 Default forecast: {forecast_start_date.date()} to {forecast_end_date.date()} (365 days)")
         
         freq = '16D' if is_ndvi(target_column) else 'D'
-        forecast_dates = pd.date_range(start=forecast_start, end=forecast_end, freq=freq)
+        forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=freq)
         forecast_steps = len(forecast_dates)
         
-        print(f"\n🔮 Generating forecast: {forecast_steps} steps ({forecast_start.date()} to {forecast_end.date()})")
+        print(f"\n🔮 Generating forecast: {forecast_steps} steps ({forecast_start_date.date()} to {forecast_end_date.date()})")
         
         # Generate forecast
         if decomposition is not None:
@@ -798,7 +964,7 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                 "parameters": {
                     target_column: {
                         "forecast_value": value,
-                        "model_metadata": {
+                        "model_metadata_lstm": {
                             **best_params,
                             "decomposition_used": decomposition is not None,
                             "transform_method": transform_params['method'] if transform_params else None
@@ -842,12 +1008,44 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                 "max": float(forecast.max()),
                 "mean": float(forecast.mean()),
                 "std": float(forecast.std())
-            }
+            },
+            "gap_warning": convert_to_python_types(gap_warning) if gap_warning else None  # ← TAMBAHAN
         }
-        
+
         print(f"\n{'#'*60}")
         print(f"# ✅ COMPLETED: {collection_name}.{target_column}")
         print(f"{'#'*60}\n")
+
+        # ============================================================
+        # BACKTEST VALIDATION (jika applicable)
+        # ============================================================
+        if gap_warning and gap_warning.get('type') in ['FULL_BACKTEST', 'HYBRID_BACKTEST']:
+            print(f"\n🔬 BACKTEST VALIDATION:")
+            
+            backtest_days = gap_warning.get('backtest_days', 0)
+            if backtest_days > 0:
+                # Ambil actual data untuk backtest period
+                backtest_forecast = forecast[:backtest_days]
+                
+                # Get actual data from historical
+                backtest_start = forecast_dates[0]
+                backtest_end = forecast_dates[backtest_days - 1]
+                
+                actual_data = param_data.loc[backtest_start:backtest_end].values
+                
+                if len(actual_data) == len(backtest_forecast):
+                    # Calculate validation metrics
+                    val_metrics = calculate_metrics(actual_data, backtest_forecast, target_column)
+                    
+                    print(f"   Backtest period: {backtest_start.date()} to {backtest_end.date()}")
+                    print(f"   Backtest MAE: {val_metrics['mae']:.4f}")
+                    print(f"   Backtest MAPE: {val_metrics['mape']:.2f}%")
+                    print(f"   Backtest RMSE: {val_metrics['rmse']:.4f}")
+                    
+                    # Update gap_warning dengan backtest metrics
+                    result_summary['gap_warning']['backtest_metrics'] = convert_to_python_types(val_metrics)  # ← TAMBAHAN
+                else:
+                    print(f"   ⚠️ Length mismatch: actual={len(actual_data)}, forecast={len(backtest_forecast)}")
         
         return result_summary
         
@@ -859,6 +1057,103 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
     finally:
         if should_close:
             client.close()
+
+
+def save_decompose_data(df_index, decomposition, param_name, config_id, collection_name, client, original_data=None):
+    """Save decomposition data to MongoDB with detailed debugging"""
+    print(f"\n{'='*60}")
+    print(f"💾 SAVING DECOMPOSE DATA: {param_name}")
+    print(f"{'='*60}")
+    
+    if decomposition is None:
+        print(f"   ⚠️ No decomposition to save for {param_name}")
+        return 0
+    
+    db = client["tugas_akhir"]
+    saved_count = 0
+    
+    # Siapkan data decompose
+    trend = decomposition['trend']
+    seasonal = decomposition['seasonal']
+    residual = decomposition['residual']
+    
+    print(f"📊 Decompose Stats for {param_name}:")
+    print(f"   Data length: {len(df_index)}")
+    print(f"   Trend length: {len(trend)}")
+    print(f"   Seasonal length: {len(seasonal)}")
+    print(f"   Residual length: {len(residual)}")
+    print(f"   Date range: {df_index[0]} to {df_index[-1]}")
+    print(f"   Trend range: [{np.nanmin(trend):.3f}, {np.nanmax(trend):.3f}]")
+    print(f"   Seasonal range: [{np.nanmin(seasonal):.3f}, {np.nanmax(seasonal):.3f}]")
+    print(f"   Residual range: [{np.nanmin(residual):.3f}, {np.nanmax(residual):.3f}]")
+    
+    if original_data is not None:
+        print(f"   Original data range: [{original_data.min():.3f}, {original_data.max():.3f}]")
+    
+    # Verify lengths match
+    if len(df_index) != len(trend) or len(df_index) != len(seasonal) or len(df_index) != len(residual):
+        print(f"   ❌ ERROR: Length mismatch!")
+        print(f"      Index: {len(df_index)}, Trend: {len(trend)}, Seasonal: {len(seasonal)}, Residual: {len(residual)}")
+        return 0
+    
+    # Group by date untuk menggabungkan parameter
+    decompose_data = {}
+    nan_count = 0
+    
+    for i, date in enumerate(df_index):
+        date_str = pd.to_datetime(date).strftime("%Y-%m-%d")
+        
+        # Skip jika nilai NaN
+        if np.isnan(trend[i]) or np.isnan(seasonal[i]) or np.isnan(residual[i]):
+            nan_count += 1
+            continue
+        
+        if date_str not in decompose_data:
+            decompose_data[date_str] = {
+                "date": date_str,
+                "timestamp": datetime.now().isoformat(),
+                "config_id": config_id,
+                "parameters": {}
+            }
+        
+        decompose_data[date_str]["parameters"][param_name] = {
+            "trend": float(trend[i]),
+            "seasonal": float(seasonal[i]),
+            "resid": float(residual[i])
+        }
+    
+    if nan_count > 0:
+        print(f"   ⚠️ Skipped {nan_count} NaN values")
+    
+    print(f"\n📝 Prepared {len(decompose_data)} unique dates for {param_name}")
+    
+    # Show first 3 entries untuk debug
+    sample_dates = list(decompose_data.keys())[:3]
+    print(f"\n🔍 Sample entries (first 3):")
+    for date_str in sample_dates:
+        doc = decompose_data[date_str]
+        if param_name in doc["parameters"]:
+            params = doc["parameters"][param_name]
+            print(f"   {date_str}: trend={params['trend']:.3f}, seasonal={params['seasonal']:.3f}, resid={params['resid']:.3f}")
+    
+    # Upsert ke MongoDB
+    print(f"\n💾 Upserting to {collection_name}...")
+    for date_str, doc in decompose_data.items():
+        result = db[collection_name].update_one(
+            {"date": date_str, "config_id": config_id},
+            {"$set": {
+                f"parameters.{param_name}": doc["parameters"][param_name],
+                "timestamp": doc["timestamp"]
+            }},
+            upsert=True
+        )
+        if result.upserted_id or result.modified_count > 0:
+            saved_count += 1
+    
+    print(f"✅ Successfully saved {saved_count} decompose records for {param_name}")
+    print(f"{'='*60}\n")
+    
+    return saved_count
 
 
 # ============================================================

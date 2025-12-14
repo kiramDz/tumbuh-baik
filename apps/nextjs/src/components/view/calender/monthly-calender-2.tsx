@@ -26,15 +26,45 @@ type ModelType = "holt-winters" | "lstm";
 // HELPER FUNCTIONS
 // ============================================================
 
+// Helper function untuk mengambil nilai parameter dengan fallback
+const getParameterValue = (parameters: any, paramNames: string[]): number => {
+  if (!parameters) return 0;
+  
+  for (const name of paramNames) {
+    const value = parameters?.[name]?.forecast_value;
+    if (value !== undefined && value !== null && !isNaN(value)) {
+      return value;
+    }
+  }
+  return 0;
+};
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
 const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
   const criteria = {
-    isRainSesuai: rain >= 5.7 && rain <= 16.7,
-    isTempSesuai: temp >= 24 && temp <= 29,
+    isRainSesuai: rain >= 2 && rain <= 16.7,
+    isTempSesuai: temp >= 25 && temp <= 28,
     isHumiditySesuai: humidity >= 33 && humidity <= 90,
     isRadiationSesuai: radiation >= 13,
   };
 
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
+
+  // Prioritas: Hujan tidak memadai = Tidak Cocok
+  if (!criteria.isRainSesuai) {
+    return {
+      color: "bg-red-300 hover:bg-red-400 border-red-400",
+      label: "Tidak Cocok (Hujan Tidak Memadai)",
+      icon: "✕",
+      iconColor: "text-red-700",
+      count: sesuaiCount,
+      criteria,
+      type: "tidakCocok" as const,
+    };
+  }
 
   if (sesuaiCount === 4) {
     return {
@@ -49,7 +79,6 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
   }
   if (sesuaiCount === 3) {
     return {
-      // Ganti dari yellow ke green-100/green-200 (hijau muda)
       color: "bg-green-100 hover:bg-green-200 border-green-300",
       label: "Cukup Cocok",
       count: 3,
@@ -126,10 +155,10 @@ const getSuitabilitySummary = (data: any[]): SuitabilitySummary => {
     const year = date.getFullYear();
     const day = date.getDate();
 
-    const rain = item.parameters?.RR_imputed?.forecast_value ?? 0;
-    const temp = item.parameters?.TAVG?.forecast_value ?? 0;
-    const humidity = item.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
-    const radiation = item.parameters?.ALLSKY_SFC_SW_DWN?.forecast_value ?? 0;
+    const rain = getParameterValue(item.parameters, ['RR_imputed', 'RR', 'PRECTOTCORR']);
+    const temp = getParameterValue(item.parameters, ['TAVG', 'T2M', 'T2M_MAX', 'TMAX']);
+    const humidity = getParameterValue(item.parameters, ['RH_AVG_preprocessed', 'RH_AVG', 'RH2M']);
+    const radiation = getParameterValue(item.parameters, ['ALLSKY_SFC_SW_DWN']);
 
     const suitability = getSuitability(rain, temp, humidity, radiation);
 
@@ -148,7 +177,9 @@ const getSuitabilitySummary = (data: any[]): SuitabilitySummary => {
     }
 
     const monthData = monthsMap.get(monthKey)!;
-    monthData.days.set(day, suitability.type);
+    if (suitability.type) {
+      monthData.days.set(day, suitability.type);
+    }
   });
 
   const months: MonthCalendarData[] = Array.from(monthsMap.entries()).map(([key, data]) => {
@@ -225,7 +256,6 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ monthData }) => {
       case "sangatCocok":
         return "bg-green-400 text-green-900 font-medium";
       case "cukupCocok":
-        // Ganti dari yellow ke hijau muda
         return "bg-green-200 text-green-800 font-medium";
       case "tidakCocok":
         return "bg-red-400 text-red-900 font-medium";
@@ -234,10 +264,16 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ monthData }) => {
     }
   };
 
+  // Tentukan apakah bulan ini cocok untuk tanam atau tidak
+  const isBulanCocokTanam = monthData.totalTidakCocok <= 15;
+  const headerBgColor = isBulanCocokTanam 
+    ? "bg-green-100 border-green-300" 
+    : "bg-red-100 border-red-300";
+
   return (
     <div className="border rounded-lg overflow-hidden">
       {/* Month Header */}
-      <div className="bg-muted/50 px-2 py-1.5 border-b">
+      <div className={clsx("px-2 py-1.5 border-b", headerBgColor)}>
         <div className="flex items-center justify-between">
           <span className="font-semibold text-xs">{monthData.month} {monthData.year}</span>
           <div className="flex items-center gap-1.5 text-[10px]">
@@ -246,7 +282,6 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ monthData }) => {
               {monthData.totalSangatCocok}
             </span>
             <span className="flex items-center gap-0.5">
-              {/* Ganti dari yellow ke hijau muda */}
               <span className="w-1.5 h-1.5 rounded-full bg-green-200"></span>
               {monthData.totalCukupCocok}
             </span>
@@ -299,7 +334,7 @@ interface YearlyCalendarProps {
 }
 
 const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false); // Ubah default ke false (tertutup)
 
   // Hitung rentang tahun dari data
   const yearRange = useMemo(() => {
@@ -337,7 +372,6 @@ const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
                   <span className="text-sm font-medium">{summary.totalSangatCocok}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {/* Ganti dari yellow ke hijau muda */}
                   <div className="w-3 h-3 rounded-full bg-green-200" />
                   <span className="text-sm font-medium">{summary.totalCukupCocok}</span>
                 </div>
@@ -349,7 +383,7 @@ const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
               
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1">
-                  <span className="text-xs">{isOpen ? "Tutup" : "Buka"}</span>
+                  <span className="text-xs">{isOpen ? "Tutup Detail" : "Lihat Detail"}</span>
                   <ChevronDown className={clsx("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
                 </Button>
               </CollapsibleTrigger>
@@ -363,7 +397,6 @@ const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
               <span className="text-sm">Sangat Cocok: <strong>{summary.totalSangatCocok}</strong></span>
             </div>
             <div className="flex items-center gap-1.5">
-              {/* Ganti dari yellow ke hijau muda */}
               <div className="w-3 h-3 rounded-full bg-green-200" />
               <span className="text-sm">Cukup: <strong>{summary.totalCukupCocok}</strong></span>
             </div>
@@ -374,6 +407,64 @@ const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
           </div>
         </CardHeader>
 
+        {/* Ringkasan Per Bulan (Tampil saat ditutup) */}
+        {!isOpen && (
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {summary.months.map((monthData) => {
+                const isBulanCocokTanam = monthData.totalTidakCocok <= 15;
+                
+                return (
+                  <div 
+                    key={monthData.monthKey}
+                    className={clsx(
+                      "border-2 rounded-lg p-4 transition-all hover:shadow-md",
+                      isBulanCocokTanam 
+                        ? "border-green-400 bg-green-50/50" 
+                        : "border-red-400 bg-red-50/50"
+                    )}
+                  >
+                    <div className="space-y-3">
+                      {/* Nama Bulan */}
+                      <div className="font-bold text-base text-center">
+                        {monthData.month}
+                      </div>
+                      
+                      {/* Status Badge */}
+                      <div className="flex justify-center">
+                        <Badge 
+                          variant={isBulanCocokTanam ? "default" : "destructive"}
+                          className="px-3 py-1"
+                        >
+                          {isBulanCocokTanam ? "✓ Cocok Tanam" : "✕ Tidak Cocok"}
+                        </Badge>
+                      </div>
+                      
+                      {/* Statistik Sederhana */}
+                      <div className="text-center text-sm text-muted-foreground">
+                        <div className="font-medium">
+                          {monthData.totalSangatCocok + monthData.totalCukupCocok} dari {monthData.daysInMonth} hari
+                        </div>
+                        <div className="text-xs mt-0.5">
+                          kondisi baik
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Info Helper */}
+            <div className="mt-4 pt-3 border-t">
+              <p className="text-xs text-center text-muted-foreground">
+                Klik <strong>Lihat Detail</strong> untuk melihat kalender lengkap per tanggal
+              </p>
+            </div>
+          </CardContent>
+        )}
+
+        {/* Detail Kalender (Tampil saat dibuka) */}
         <CollapsibleContent>
           <CardContent className="pt-0">
             {/* Grid 12 Bulan: 4 kolom x 3 baris */}
@@ -390,7 +481,6 @@ const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
                 <span>Sangat Cocok (4/4)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                {/* Ganti dari yellow ke hijau muda */}
                 <div className="w-4 h-4 rounded-sm bg-green-200"></div>
                 <span>Cukup Cocok (3/4)</span>
               </div>
@@ -600,18 +690,18 @@ export default function PeriodCalendar() {
 
                     {periodRows[period][rowIdx]?.map((dayData, colIdx) => {
                       if (dayData && !dayData.isPlaceholder) {
-                        const rain = dayData.parameters?.RR_imputed?.forecast_value ?? 0;
-                        const temp = dayData.parameters?.TAVG?.forecast_value ?? 0;
-                        const humidity = dayData.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
-                        const radiation = dayData.parameters?.ALLSKY_SFC_SW_DWN?.forecast_value ?? 0;
+                        const rain = getParameterValue(dayData.parameters, ['RR_imputed', 'RR', 'PRECTOTCORR']);
+                        const temp = getParameterValue(dayData.parameters, ['TAVG', 'T2M', 'T2M_MAX', 'TMAX']);
+                        const humidity = getParameterValue(dayData.parameters, ['RH_AVG_preprocessed', 'RH_AVG', 'RH2M']);
+                        const radiation = getParameterValue(dayData.parameters, ['ALLSKY_SFC_SW_DWN']);
 
                         const suitability = getSuitability(rain, temp, humidity, radiation);
 
                         const unsuitable: string[] = [];
-                        if (!suitability.criteria.isRainSesuai) unsuitable.push("Curah Hujan");
-                        if (!suitability.criteria.isTempSesuai) unsuitable.push("Suhu");
-                        if (!suitability.criteria.isHumiditySesuai) unsuitable.push("Kelembaban");
-                        if (!suitability.criteria.isRadiationSesuai) unsuitable.push("Radiasi");
+                        if (suitability.criteria && !suitability.criteria.isRainSesuai) unsuitable.push("Curah Hujan");
+                        if (suitability.criteria && !suitability.criteria.isTempSesuai) unsuitable.push("Suhu");
+                        if (suitability.criteria && !suitability.criteria.isHumiditySesuai) unsuitable.push("Kelembaban");
+                        if (suitability.criteria && !suitability.criteria.isRadiationSesuai) unsuitable.push("Radiasi");
 
                         return (
                           <Tooltip key={colIdx}>
@@ -637,25 +727,25 @@ export default function PeriodCalendar() {
                                   {format(new Date(dayData.forecast_date), "eeee, d MMMM yyyy", { locale: id })}
                                 </div>
                                 <div className="space-y-1.5 text-sm">
-                                  <div className={clsx("flex items-center gap-2", !suitability.criteria.isRainSesuai && "text-red-600")}>
+                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isRainSesuai && "text-red-600")}>
                                     <Droplets className="w-4 h-4 text-blue-500" />
                                     <span>Hujan: <strong>{rain.toFixed(2)} mm</strong></span>
-                                    {!suitability.criteria.isRainSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                    {suitability.criteria && !suitability.criteria.isRainSesuai && <XCircle className="w-3 h-3 text-red-500" />}
                                   </div>
-                                  <div className={clsx("flex items-center gap-2", !suitability.criteria.isTempSesuai && "text-red-600")}>
+                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isTempSesuai && "text-red-600")}>
                                     <Thermometer className="w-4 h-4 text-orange-500" />
                                     <span>Suhu: <strong>{temp.toFixed(2)}°C</strong></span>
-                                    {!suitability.criteria.isTempSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                    {suitability.criteria && !suitability.criteria.isTempSesuai && <XCircle className="w-3 h-3 text-red-500" />}
                                   </div>
-                                  <div className={clsx("flex items-center gap-2", !suitability.criteria.isHumiditySesuai && "text-red-600")}>
+                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isHumiditySesuai && "text-red-600")}>
                                     <Wind className="w-4 h-4 text-cyan-500" />
                                     <span>Kelembaban: <strong>{humidity.toFixed(2)}%</strong></span>
-                                    {!suitability.criteria.isHumiditySesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                    {suitability.criteria && !suitability.criteria.isHumiditySesuai && <XCircle className="w-3 h-3 text-red-500" />}
                                   </div>
-                                  <div className={clsx("flex items-center gap-2", !suitability.criteria.isRadiationSesuai && "text-red-600")}>
+                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isRadiationSesuai && "text-red-600")}>
                                     <Sun className="w-4 h-4 text-yellow-500" />
                                     <span>Radiasi: <strong>{radiation.toFixed(2)} MJ/m²</strong></span>
-                                    {!suitability.criteria.isRadiationSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                    {suitability.criteria && !suitability.criteria.isRadiationSesuai && <XCircle className="w-3 h-3 text-red-500" />}
                                   </div>
                                 </div>
                                 <div className="pt-2 border-t">

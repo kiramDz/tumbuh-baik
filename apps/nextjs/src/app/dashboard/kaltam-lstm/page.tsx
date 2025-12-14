@@ -8,18 +8,23 @@ import { LSTMDialog } from "../_components/lstm-dialog";
 import RunLSTMButton from "../_components/lstm-button";
 import { LSTMLineChart } from "../_components/chart/lstm-line";
 import { LSTMPieChart } from "../_components/chart/lstm-pie";
+import { LSTMYearlyCalendar } from "../_components/lstm-yearly-calendar";
 
 export const metadata = {
-  title: "Dashboard: Kalender Tanam",
+  title: "Dashboard: Kalender Tanam LSTM",
 };
 
 export default async function Page() {
   return (
     <div className="flex flex-col border-none shadow-none space-y-4 p-4 md:px-6">
       <div className="flex items-start justify-start">
-        <Heading title="Kalender Tanam LSTM" description="Manage products (Server side table functionalities.)" />
+        <Heading title="Kalender Tanam LSTM" description="Kelola prediksi kalender tanam menggunakan model LSTM" />
       </div>
       <Separator />
+      
+      {/* Kalender Tahunan */}
+      <LSTMYearlyCalendar />
+      
       <div className="w-full flex gap-4">
         <LSTMDialog />
         <RunLSTMButton />
