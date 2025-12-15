@@ -600,3 +600,40 @@ export const getDecomposeLSTMByConfigId = async (configId: string) => {
     return [];
   }
 };
+
+// Fetch historical data from collection for comparison with forecast
+export const fetchHistoricalData = async (collectionName: string, columnName: string) => {
+  try {
+    const countResponse = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
+      params: { 
+        page: 1, 
+        pageSize: 10,
+        sortBy: "Date",
+        sortOrder: "asc"
+      }
+    });
+    
+    const total = countResponse.data?.data?.total || 0;
+    if (total === 0) return [];
+
+    const response = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
+      params: { 
+        page: 1, 
+        pageSize: total,
+        sortBy: "Date",
+        sortOrder: "asc"
+      }
+    });
+    
+    const items = response.data?.data?.items || [];
+    return items
+      .filter((item: any) => item.Date && item[columnName] != null)
+      .map((item: any) => ({
+        date: item.Date,
+        value: item[columnName]
+      }));
+  } catch (error) {
+    console.error(`Error fetching historical data for ${collectionName}:`, error);
+    return [];
+  }
+};

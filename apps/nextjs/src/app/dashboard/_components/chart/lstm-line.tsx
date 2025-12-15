@@ -10,9 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { TrendingDown, TrendingUp, Minus, Calendar, Activity } from "lucide-react"
-import { getLSTMDaily, getDecomposeLSTM } from "@/lib/fetch/files.fetch"
-import { useState } from "react"
-import axios from "axios"
+import { getLSTMDaily, getDecomposeLSTM, fetchHistoricalData, getLSTMConfigs } from "@/lib/fetch/files.fetch"
+import { useState, useMemo } from "react"
 
 const chartConfig = {
     value: {
@@ -48,10 +47,12 @@ const paramLabels: Record<string, string> = {
     "TMIN": "Suhu Minimum",
     "T2M": "Suhu Udara",
     "RR_imputed": "Curah Hujan",
-    "PRECTOTCORR": "Curah Hujan",
     "RR": "Curah Hujan",
+    "PRECTOTCORR": "Curah Hujan",
     "NDVI": "Indeks Vegetasi",
     "NDVI_imputed": "Indeks Vegetasi",
+    "WS2M": "Kecepatan Angin",
+    "PS": "Tekanan Udara",
 }
 
 // Mapping unit untuk setiap parameter
@@ -69,65 +70,8 @@ const paramUnits: Record<string, string> = {
     "PRECTOTCORR": "mm",
     "NDVI": "",
     "NDVI_imputed": "",
-}
-
-// Mapping parameter ke collection dan column name
-const paramToCollection: Record<string, { collectionName: string; columnName: string }> = {
-    // NASA Parameters - dari collection yang sama
-    "ALLSKY_SFC_SW_DWN_AcehBesar": { 
-        collectionName: "Nasa Aceh Besar Kec Darussalam", 
-        columnName: "ALLSKY_SFC_SW_DWN" 
-    },
-    "ALLSKY_SFC_SW_DWN_AcehUtara": {
-        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
-        columnName: "ALLSKY_SFC_SW_DWN"
-    },
-    "RH2M": { 
-        collectionName: "Nasa Aceh Besar Kec Darussalam", 
-        columnName: "RH2M" 
-    },
-    "RH2M_AcehUtara": {
-        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
-        columnName: "RH2M"
-    },
-    "T2M": { 
-        collectionName: "Nasa Aceh Besar Kec Darussalam", 
-        columnName: "T2M" 
-    },
-    "T2M_AcehUtara": {
-        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
-        columnName: "T2M"
-    },
-    "PRECTOTCORR": { 
-        collectionName: "Nasa Aceh Besar Kec Darussalam", 
-        columnName: "PRECTOTCORR" 
-    },
-    "PRECTOTCORR_AcehUtara": {
-        collectionName: "Nasa Aceh Utara Kec Lhoksukon",
-        columnName: "PRECTOTCORR"
-    },
-    "WS2M": { 
-        collectionName: "Nasa Aceh Besar Kec Darussalam", 
-        columnName: "WS2M" 
-    },
-    "PS": { 
-        collectionName: "Nasa Aceh Besar Kec Darussalam", 
-        columnName: "PS" 
-    },
-    
-    // BMKG Parameters - dari collection berbeda
-    "RH_AVG_preprocessed": { 
-        collectionName: "kelembapan", 
-        columnName: "RH_AVG_preprocessed" 
-    },
-    "TAVG": { 
-        collectionName: "suhu bmkg", 
-        columnName: "TAVG" 
-    },
-    "RR_imputed": { 
-        collectionName: "rainfall", 
-        columnName: "RR_imputed" 
-    },
+    "WS2M": "m/s",
+    "PS": "kPa",
 }
 
 function getParamLabel(param: string): string {
@@ -649,41 +593,6 @@ function ParamChart({ param, data, decomposeData, mode }: ParamChartProps) {
 }
 
 // Fungsi untuk fetch SEMUA data historis dari collection
-async function fetchHistoricalData(collectionName: string, columnName: string) {
-    try {
-        const countResponse = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
-            params: { 
-                page: 1, 
-                pageSize: 10,
-                sortBy: "Date",
-                sortOrder: "asc"
-            }
-        })
-        
-        const total = countResponse.data?.data?.total || 0
-        if (total === 0) return []
-
-        const response = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
-            params: { 
-                page: 1, 
-                pageSize: total,
-                sortBy: "Date",
-                sortOrder: "asc"
-            }
-        })
-        
-        const items = response.data?.data?.items || []
-        return items
-            .filter((item: any) => item.Date && item[columnName] != null)
-            .map((item: any) => ({
-                date: item.Date,
-                value: item[columnName]
-            }))
-    } catch (error) {
-        console.error(`Error fetching historical data for ${collectionName}:`, error)
-        return []
-    }
-}
 
 export function LSTMLineChart() {
     const [viewMode, setViewMode] = useState<"forecast-only" | "combined" | "decomposed">("forecast-only")
@@ -694,8 +603,37 @@ export function LSTMLineChart() {
         refetchOnWindowFocus: false,
     })
 
+    // ✅ Fetch LSTM config untuk mendapatkan mapping parameter -> collection
+    const { data: lstmConfigs } = useQuery({
+        queryKey: ["lstm-configs"],
+        queryFn: getLSTMConfigs,
+        refetchOnWindowFocus: false,
+    })
+
+    // ✅ Build dynamic mapping dari config
+    const paramToCollection = useMemo(() => {
+        if (!lstmConfigs || lstmConfigs.length === 0) return {}
+        
+        // Ambil config terakhir yang statusnya "done"
+        const latestConfig = lstmConfigs.find((config: any) => config.status === "done") || lstmConfigs[0]
+        
+        if (!latestConfig?.columns) return {}
+
+        const mapping: Record<string, { collectionName: string; columnName: string }> = {}
+        
+        latestConfig.columns.forEach((col: any) => {
+            mapping[col.columnName] = {
+                collectionName: col.collectionName,
+                columnName: col.columnName
+            }
+        })
+
+        console.log("📍 Dynamic parameter mapping:", mapping)
+        return mapping
+    }, [lstmConfigs])
+
     const { data: historicalDataMap, isLoading: isLoadingHistorical } = useQuery({
-        queryKey: ["lstm-historical-data", viewMode],
+        queryKey: ["historical-lstm-data", viewMode, paramToCollection],
         queryFn: async () => {
             if (viewMode !== "combined") return {}
 
@@ -710,22 +648,29 @@ export function LSTMLineChart() {
             const paramArray = Array.from(parameters)
             const historicalMap: Record<string, any[]> = {}
 
+            console.log("🔍 Fetching historical data for parameters:", paramArray)
+            console.log("🗺️ Using mapping:", paramToCollection)
+
             await Promise.all(
                 paramArray.map(async (param) => {
                     const mapping = paramToCollection[param]
                     if (mapping) {
+                        console.log(`📥 Fetching ${param} from ${mapping.collectionName}`)
                         const data = await fetchHistoricalData(
                             mapping.collectionName, 
                             mapping.columnName
                         )
                         historicalMap[param] = data
+                        console.log(`✅ Got ${data.length} records for ${param}`)
+                    } else {
+                        console.warn(`⚠️ No mapping found for parameter: ${param}`)
                     }
                 })
             )
 
             return historicalMap
         },
-        enabled: viewMode === "combined" && !!rawData,
+        enabled: viewMode === "combined" && !!rawData && Object.keys(paramToCollection).length > 0,
         refetchOnWindowFocus: false,
     })
 

@@ -48,8 +48,8 @@ const getParameterValue = (parameters: any, paramNames: string[]): number => {
 
 const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
   const criteria = {
-    isRainSesuai: rain >= 2 && rain <= 16.7,
-    isTempSesuai: temp >= 25 && temp <= 28,
+    isRainSesuai: rain >= 1 && rain <= 16.7,
+    isTempSesuai: temp >= 21 && temp <= 28,
     isHumiditySesuai: humidity >= 33 && humidity <= 90,
     isRadiationSesuai: radiation >= 13,
   };

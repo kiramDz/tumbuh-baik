@@ -16,6 +16,7 @@ import bmkgLiveRoute from "../_routes/dataset/newBmkg.route";
 import { kuesionerRoute, kuesionerManajemenRoute, kuesionerPeriodeRoute } from "../_routes/dataset/kuesioner.route";
 import { farmRoute } from "../_routes/farm/farm.route";
 import decomposeLstmRoute from "../_routes/feature/decompose-lstm.route";
+import historicalLstmRoute from "../_routes/feature/historical-lstm.route";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,7 @@ app.route("/kuesioner-manajemen", kuesionerManajemenRoute);
 app.route("/kuesioner-periode", kuesionerPeriodeRoute);
 app.route("/farm", farmRoute); // Tambahan route untuk farm
 app.route("/decompose-lstm", decomposeLstmRoute);
+app.route("/historical-lstm", historicalLstmRoute); // Route untuk historical data
 
 export const GET = handle(app);
 export const POST = handle(app);
