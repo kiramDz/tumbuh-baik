@@ -183,7 +183,6 @@ export function FSCIMap({
     const regionName = props.NAME_3 || props.NAME_2 || "Unknown Region";
     const safePerformance =
       props.performance_level || getFSCIPerformanceLevel(safeScore);
-    const safeProduction = props.production_display || "No Production Data";
     const safeCorrelation = props.correlation_display || "N/A";
 
     // ✅ Enhanced popup content for boundaries data
@@ -216,7 +215,6 @@ export function FSCIMap({
             <span class="text-xs text-gray-600">${
               level === "kabupaten" ? "Rice Production" : "Climate Analysis"
             }:</span>
-            <span class="text-sm font-medium">${safeProduction}</span>
           </div>
           
           ${

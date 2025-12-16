@@ -88,7 +88,7 @@ class BPSApiService:
                         production_data = self._parse_production_record(record, year)
                         if production_data:
                             production_records.append(production_data)
-                            self.logger.info(f"✅ {kabupaten_name}: {production_data.produksi_padi_ton:.2f} ton padi")
+                            self.logger.info(f"{kabupaten_name}: {production_data.produksi_padi_ton:.2f} ton padi")
                         
                     except Exception as e:
                         self.logger.error(f"Error parsing data for {kabupaten_name}: {str(e)}")
@@ -224,43 +224,18 @@ class BPSApiService:
         end_year: int = 2024
     ) -> Dict[int, RiceProductionData]:
         """
-        Fetch historical production data for specific kabupaten
-        
-        Args:
-            kabupaten_name: Name of kabupaten
-            start_year: Starting year
-            end_year: Ending year
-            
-        Returns:
-            Dictionary mapping year -> RiceProductionData for the kabupaten
+        Use existing multi year batch data instead of individual calls. for eliminate 35 API call problem
         """
-        self.logger.info(f"Fetching historical data for {kabupaten_name} ({start_year}-{end_year})")
-        
-        # Get multi-year data with minimal logging
+        self.logger.info(f"Fetching historical data for {kabupaten_name} ({start_year} - {end_year})")
+        multi_year_data = self.fetch_multi_year_production_data(start_year, end_year)
         kabupaten_historical = {}
-        failed_years = []
+        for year, year_records in multi_year_data.items():
+            for record in year_records:
+                if record.kabupaten.lower() == kabupaten_name.lower():
+                    kabupaten_historical[year] = record
+                    break
         
-        for year in range(start_year, end_year + 1):
-            try:
-                # Fetch single year data
-                year_data = self.fetch_rice_production_data(year)
-                
-                # Find the specific kabupaten
-                for record in year_data:
-                    if record.kabupaten.lower() == kabupaten_name.lower():
-                        kabupaten_historical[year] = record
-                        break
-                        
-            except Exception as e:
-                self.logger.warning(f"Failed to fetch {year} data: {str(e)}")
-                failed_years.append(year)
-                continue
-        
-        self.logger.info(f"Historical data for {kabupaten_name}: {len(kabupaten_historical)}/{end_year - start_year + 1} years")
-        
-        if failed_years:
-            self.logger.warning(f"Missing years: {failed_years}")
-        
+        self.logger.info(f"Found {len(kabupaten_historical)}/{end_year - start_year + 1} years for {kabupaten_name}")
         return kabupaten_historical
     
     def get_production_summary(self, year: int = 2024) -> Dict[str, Any]:

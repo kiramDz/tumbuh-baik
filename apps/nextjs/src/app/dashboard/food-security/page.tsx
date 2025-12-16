@@ -531,65 +531,6 @@ export default function FoodSecurityDashboard() {
                 </div>
               )}
             </div>
-
-            {/* Controls */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {/* Level Switch */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-700">
-                  Level:
-                </span>
-                <Select
-                  value={spatialLevel}
-                  onValueChange={(value) =>
-                    handleSpatialLevelChange(value as "kabupaten" | "kecamatan")
-                  }
-                >
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kabupaten">Kabupaten</SelectItem>
-                    <SelectItem value="kecamatan">Kecamatan</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Export */}
-              <div className="flex items-center space-x-2">
-                <Select
-                  value={exportFormat}
-                  onValueChange={(value) =>
-                    setExportFormat(value as "json" | "csv")
-                  }
-                >
-                  <SelectTrigger className="w-[80px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="json">JSON</SelectItem>
-                    <SelectItem value="csv">CSV</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Button onClick={handleExport} variant="outline">
-                  <Icons.download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              </div>
-
-              {/* Refresh */}
-              <Button
-                onClick={handleRefresh}
-                variant="outline"
-                disabled={isFetching}
-              >
-                <Icons.refresh
-                  className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-                />
-                {isFetching ? "Loading..." : "Refresh"}
-              </Button>
-            </div>
           </div>
         </div>
       </div>
@@ -605,11 +546,10 @@ export default function FoodSecurityDashboard() {
 
         {/* Dashboard Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-1 lg:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-1 lg:grid-cols-3">
             <TabsTrigger value="overview">Overview & Charts</TabsTrigger>
             <TabsTrigger value="rankings">Rankings & Performance</TabsTrigger>
             <TabsTrigger value="spatial">Spatial Analysis</TabsTrigger>
-            <TabsTrigger value="analysis">Advanced Analysis</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -794,85 +734,6 @@ export default function FoodSecurityDashboard() {
                 />
               </Suspense>
             )}
-          </TabsContent>
-
-          {/* Advanced Analysis Tab */}
-          <TabsContent value="analysis" className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
-              {/* Combined Analysis View */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Icons.cpu className="h-5 w-5 mr-2" />
-                    Comprehensive Analysis Dashboard
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* All components in one view */}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">
-                        Regional Performance
-                      </h3>
-                      <RankingTable
-                        analysisParams={analysisParams}
-                        level={spatialLevel}
-                      />
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">
-                        FSCI Spatial Overview
-                      </h3>
-                      {fsciStats && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="text-center p-4 bg-green-50 rounded-lg">
-                            <div className="text-2xl font-bold text-green-600">
-                              {fsciStats.excellent_count + fsciStats.good_count}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              High Performance
-                            </div>
-                          </div>
-                          <div className="text-center p-4 bg-orange-50 rounded-lg">
-                            <div className="text-2xl font-bold text-orange-600">
-                              {fsciStats.fair_count + fsciStats.poor_count}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              Need Improvement
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">
-                        Climate-Production Analysis
-                      </h3>
-                      <CorrelationScatter
-                        analysisParams={analysisParams}
-                        level={spatialLevel}
-                      />
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">
-                        FSCI Components Breakdown
-                      </h3>
-                      <FSCIComponents
-                        analysisParams={analysisParams}
-                        level={spatialLevel}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
         </Tabs>
       </div>

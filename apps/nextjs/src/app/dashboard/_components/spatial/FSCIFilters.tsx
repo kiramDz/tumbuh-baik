@@ -163,11 +163,6 @@ export function FSCIFilters({
               </SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500">
-            {level === "kabupaten"
-              ? "Regional analysis at district level"
-              : "Detailed analysis at sub-district level"}
-          </p>
         </div>
 
         <Separator />
@@ -224,11 +219,6 @@ export function FSCIFilters({
               </Select>
             </div>
           </div>
-
-          <p className="text-xs text-gray-500">
-            Climate data range for FSCI calculation (CHIRPS precipitation, ERA5
-            temperature)
-          </p>
         </div>
 
         <Separator />
@@ -285,11 +275,6 @@ export function FSCIFilters({
               </Select>
             </div>
           </div>
-
-          <p className="text-xs text-gray-500">
-            Wheat production data range from Indonesian Central Statistics
-            Agency (BPS)
-          </p>
         </div>
 
         <Separator />
@@ -329,9 +314,6 @@ export function FSCIFilters({
               </SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500">
-            Seasonal analysis for climate-crop correlation
-          </p>
         </div>
 
         {/* Aggregation Method */}
@@ -369,52 +351,7 @@ export function FSCIFilters({
               </SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500">
-            Statistical method for multi-year data aggregation
-          </p>
         </div>
-
-        {/* District Selection */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium flex items-center">
-            <Icons.mapPin className="h-4 w-4 mr-2" />
-            Regional Scope
-          </Label>
-          <Select
-            value={filters.districts}
-            onValueChange={(value) => updateFilter("districts", value)}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                <div className="flex items-center space-x-2">
-                  <Icons.globe className="h-4 w-4" />
-                  <span>All Districts</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="aceh">
-                <div className="flex items-center space-x-2">
-                  <Icons.map className="h-4 w-4" />
-                  <span>Aceh Province</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="sumatra">
-                <div className="flex items-center space-x-2">
-                  <Icons.map className="h-4 w-4" />
-                  <span>Sumatra Island</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-gray-500">
-            Geographic scope for FSCI analysis
-          </p>
-        </div>
-
-        <Separator />
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3">

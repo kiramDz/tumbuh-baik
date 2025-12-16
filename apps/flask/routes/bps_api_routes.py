@@ -26,10 +26,17 @@ def get_kabupaten_historical_production(kabupaten_name: str):
         
         logger.info(f"Historical request: {kabupaten_name} ({start_year}-{end_year})")
         
-        # Fetch historical data
+        start_time = datetime.now()
+        
+        # Fetch historical data (now uses batch strategy)
         historical_data = bps_service.fetch_kabupaten_historical_data(
             kabupaten_name, start_year, end_year
         )
+        
+        processing_time = (datetime.now() - start_time).total_seconds()
+        total_years = end_year - start_year + 1
+        logger.info(f"📊 Historical Performance: {processing_time:.2f}s for {total_years} years")
+        logger.info(f"   Found {len(historical_data)}/{total_years} years for {kabupaten_name}")
         
         if not historical_data:
             return jsonify({
@@ -38,7 +45,7 @@ def get_kabupaten_historical_production(kabupaten_name: str):
                 'available_kabupaten': bps_service.target_kabupaten
             }), 404
         
-        # Format simple response
+        # Format simple response (unchanged)
         multi_year_production = {}
         for year, record in historical_data.items():
             multi_year_production[str(year)] = {
@@ -67,6 +74,7 @@ def get_kabupaten_historical_production(kabupaten_name: str):
 def get_multi_year_production_summary():
     """
     Get multi-year production summary for all target kabupaten
+    Using optimize batch strategy only with 7 calls
     
     Query Parameters:
     - start_year: Starting year (default: 2018)  
@@ -76,9 +84,11 @@ def get_multi_year_production_summary():
         start_year = int(request.args.get('start_year', 2018))
         end_year = int(request.args.get('end_year', 2024))
         
-        logger.info(f"Multi-year summary request: {start_year}-{end_year}")
+        logger.info(f"Fetching multi-year summary request: {start_year}-{end_year}")
         
-        # Fetch multi-year data
+        start_time = datetime.now()
+        
+        # Fetch multi-year data (now optimized)
         multi_year_data = bps_service.fetch_multi_year_production_data(start_year, end_year)
         
         if not multi_year_data:
@@ -87,7 +97,7 @@ def get_multi_year_production_summary():
                 'error': 'No multi-year data available'
             }), 404
         
-        # Process data by kabupaten - simple format
+        # Process data by kabupaten - simple format (unchanged)
         kabupaten_summaries = {}
         
         for kabupaten_name in bps_service.target_kabupaten:
