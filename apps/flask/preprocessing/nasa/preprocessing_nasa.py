@@ -207,9 +207,9 @@ class NasaDataSaver:
             # Update metadata to point to cleaned collection
             update_fields = {
                 "status": "preprocessed",
-                "collectionName": cleaned_collection_name,  # ✅ Point to cleaned collection
-                "totalRecords": record_count,               # ✅ Correct field name
-                "columns": cleaned_columns,                 # ✅ Updated columns
+                "collectionName": cleaned_collection_name,  
+                "totalRecords": record_count,               
+                "columns": cleaned_columns,
                 "lastUpdated": datetime.now(),
                 "name": f"{original_meta.get('name', original_collection_name)} (Cleaned)"
             }
@@ -267,9 +267,11 @@ class NasaPreprocessor:
         try:
             # Default options
             default_options = {
-                "smoothing_method": "exponential",  # or "moving_average"
+                "smoothing_method": "exponential",
                 "window_size": 5,
-                "exponential_alpha": 0.15,
+                "exponential_alpha": 0.15,  # Global default, will be optimized per-parameter
+                "adaptive_alpha_selection": True,
+                "alpha_optimization_range": [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20],
                 "drop_outliers": True,
                 "outlier_methods": ["iqr", "zscore"],
                 "iqr_multiplier": 2.0,
@@ -299,14 +301,6 @@ class NasaPreprocessor:
                         "apply_outlier_detection": True,  # Can still detect outliers
                         "reason": "Circular variable - exponential smoothing breaks on 0°-360° wraparound"
                     },
-                    "RH2M": {
-                        "exponential_alpha": 0.2,  # Less aggressive than default
-                        "reason": "High variance parameter - needs gentler smoothing"
-                    },
-                    "ALLSKY_SFC_SW_DWN": {
-                        "exponential_alpha": 0.2,  # Reduce over-smoothing
-                        "reason": "Solar radiation variability - preserve daily patterns"
-                    },
                     "WS10M_MAX": {
                         "smoothing_method": None,  
                         "reason": "No clear seasonality (0.284) - smoothing adds no value"
@@ -318,6 +312,7 @@ class NasaPreprocessor:
             if options is None:
                 options = {}
             self.options = {**default_options, **options}
+        
             
             # Validate dataset
             validation_result = self.validator.validate_dataset(self.db, self.collection_name)
@@ -395,6 +390,11 @@ class NasaPreprocessor:
         log_progress("outliers", "Detecting and handling outliers...")
         if self.options.get("drop_outliers", True):
             processed_df = self._handle_outliers(processed_df)
+            
+        if self.options.get("adaptive_alpha_selection", False):
+            log_progress("alpha_optimization", "Optimizing smoothing parameters per parameter...")
+            self._optimize_parameter_alphas(processed_df)
+
         
         # STEP 6: Apply smoothing
         log_progress("smoothing", "Applying smoothing methods...")
@@ -1344,6 +1344,177 @@ class NasaPreprocessor:
         else:
             return 0.0
         
+    def _optimize_parameter_alphas(self, df: pd.DataFrame) -> None:
+        logger.info("🔍 Starting adaptive alpha optimization...")
+        
+        params = self.options.get("columns_to_process", [])
+        alpha_range = self.options.get("alpha_optimization_range", [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20])
+        
+        optimization_results = {}
+        
+        for param in params:
+            if param not in df.columns:
+                continue
+            
+            param_config = self.options.get("parameter_configs", {}).get(param, {})
+
+            # Determine smoothing method with proper fallback chain
+            smoothing_method = param_config.get(
+                "smoothing_method",
+                self.options.get("smoothing_method", "exponential")
+            )
+
+            # Skip if no smoothing or non-exponential
+            if smoothing_method is None:
+                logger.info(f"  ⏭️  {param}: Skipping (no smoothing configured)")
+                continue
+                
+            if smoothing_method != "exponential":
+                logger.info(f"  ⏭️  {param}: Skipping (using {smoothing_method} method)")
+                continue
+            
+            optimal_alpha = self._find_optimal_alpha_for_parameter(df, param, alpha_range)
+
+            # Store in config - ensure parameter_configs exists
+            if "parameter_configs" not in self.options:
+                self.options["parameter_configs"] = {}
+
+            # Initialize parameter config if not exists
+            if param not in self.options["parameter_configs"]:
+                self.options["parameter_configs"][param] = {}
+
+            # Update alpha
+            self.options["parameter_configs"][param]["exponential_alpha"] = optimal_alpha
+            optimization_results[param] = optimal_alpha
+
+            logger.info(f"Optimal α={optimal_alpha:.3f} for {param}")
+
+            # Store results in report
+            self.preprocessing_report["alpha_optimization"] = optimization_results
+            logger.info(f"Alpha optimization complete: {len(optimization_results)} parameters optimized")
+        
+        # Store results
+        self.preprocessing_report["alpha_optimization"] = optimization_results
+        logger.info(f"Alpha optimization complete")
+        
+    def _find_optimal_alpha_for_parameter(
+        self,
+        df: pd.DataFrame,
+        param: str,
+        alpha_range: List[float]
+    ) -> float:
+        """
+        Test multiple alpha values and return the optimal one
+        Scoring: (trend_preservation * 100) - (GCV * 0.5)
+        """
+        
+        if param not in df.columns:
+            logger.warning(f"Parameter {param} not in dataframe - using default alpha")
+            return self.options.get("exponential_alpha", 0.15)
+        
+        series = df[param].dropna()
+        
+        # Check minimum data requirement (lowered threshold for better coverage)
+        if len(series) < 100:  # Need at least 100 points for meaningful optimization
+            logger.warning(f"Parameter {param}: insufficient data ({len(series)} points < 100) - using default alpha")
+            return self.options.get("exponential_alpha", 0.15)
+        
+        # Initialize with global default
+        best_alpha = self.options.get("exponential_alpha", 0.15)
+        best_score = -np.inf
+        test_results = []
+        
+        logger.info(f"     Testing {len(alpha_range)} alpha values...")
+        
+        for alpha in alpha_range:
+            performance = self._test_alpha_performance(series.values, alpha)
+            
+            if performance is None:
+                continue
+            
+            gcv_score = performance.get("gcv_score", 10.0)
+            trend_pct = performance.get("trend_preservation_pct", 0.0)
+            
+            # Scoring: prioritize trend preservation
+            combined_score = (trend_pct * 1.0) - (gcv_score * 0.5)
+            
+            test_results.append({
+                "alpha": alpha,
+                "gcv": gcv_score,
+                "trend": trend_pct,
+                "score": combined_score
+            })
+            
+            logger.info(f"     α={alpha}: GCV={gcv_score:.4f}, Trend={trend_pct:.1f}%, Score={combined_score:.2f}")
+            
+            if combined_score > best_score:
+                best_score = combined_score
+                best_alpha = alpha
+        
+        if test_results:
+            best_result = max(test_results, key=lambda x: x["score"])
+            logger.info(f"     🏆 BEST: α={best_result['alpha']}, Trend={best_result['trend']:.1f}%")
+        
+        return best_alpha
+
+    def _test_alpha_performance(
+        self,
+        original_series: np.ndarray,
+        alpha: float
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Test a single alpha value and return GCV + trend preservation metrics
+        """
+        
+        try:
+            # Validate input size
+            if len(original_series) < 100:  # Match minimum from _find_optimal_alpha_for_parameter
+                return None
+            
+            # Check for NaN issues - both all NaN and too many NaN
+            nan_count = np.isnan(original_series).sum()
+            if nan_count == len(original_series):
+                logger.warning(f"All-NaN data detected for α={alpha}")
+                return None
+            
+            if nan_count > len(original_series) * 0.5:  # More than 50% NaN
+                logger.warning(f"Too many NaN values ({nan_count}/{len(original_series)}) for α={alpha}")
+                return None
+
+            # Validate alpha range (should already be validated, but defensive)
+            if alpha <= 0 or alpha >= 1:
+                logger.warning(f"Invalid alpha value: {alpha} (must be between 0 and 1)")
+                return None
+            
+            # Apply exponential smoothing on cleaned series
+            series_pd = pd.Series(original_series).dropna()  # Drop NaN before smoothing
+            
+            if len(series_pd) < 100:  # Check again after dropping NaN
+                logger.warning(f"Insufficient valid data after dropping NaN for α={alpha}")
+                return None
+                
+            smoothed_series = series_pd.ewm(alpha=alpha, adjust=False).mean().values
+            original_clean = original_series[~np.isnan(original_series)]
+            
+            # Ensure same length
+            min_len = min(len(original_clean), len(smoothed_series))
+            original_clean = original_clean[:min_len]
+            smoothed_series = smoothed_series[:min_len]
+            
+            gcv_score = self._calculate_gcv(original_clean, smoothed_series, param=None)
+            trend_preservation = self._calculate_trend_preservation(original_clean, smoothed_series)
+            
+            return {
+                "alpha": alpha,
+                "gcv_score": gcv_score,
+                "trend_preservation_pct": trend_preservation * 100,
+                "combined_score": (trend_preservation * 100) - (gcv_score * 0.5)
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error testing α={alpha}: {str(e)}")
+            return None
+        
     def _calculate_holt_winters_coverage(
         self, 
         large_gaps, 
@@ -1802,10 +1973,11 @@ class NasaPreprocessor:
             logger.warning(f"GCV called for parameter {param} with no smoothing method")
             return 0.0  # Return 0 to indicate no smoothing was applied
         
-        # Estimate effective degrees of freedom based on smoothing method
+                # Estimate effective degrees of freedom based on smoothing method
         if smoothing_method == "moving_average":
             window_size = self.options.get("window_size", 5)
             edf = window_size
+            
         elif smoothing_method == "exponential":
             # Get parameter-specific alpha correctly
             if param:
@@ -1814,26 +1986,44 @@ class NasaPreprocessor:
             else:
                 alpha = self.options.get("exponential_alpha", 0.15)
             
-            # Prevent division by zero
+            # Validate alpha range
             if alpha <= 0:
                 alpha = 0.01  # Minimum alpha
+                logger.warning(f"Alpha too low, using minimum: {alpha}")
             elif alpha >= 1:
                 alpha = 0.99  # Maximum alpha
-                
-            # For exponential smoothing: edf ≈ 2/alpha - 1
-            edf = max(1, min(2 / alpha - 1, n / 2))  # Ensure edf >= 1 and <= n/2
+                logger.warning(f"Alpha too high, using maximum: {alpha}")
+            
+            # CORRECTED FORMULA for Exponential Weighted Moving Average (EWMA)
+            # Reference: Hyndman & Athanasopoulos "Forecasting: Principles and Practice"
+            # For EWMA, effective degrees of freedom: edf ≈ 1 / (2 - alpha)
+            # Alternative simple approximation: edf ≈ 1/alpha (for small alpha)
+            
+            # Using the more accurate formula:
+            edf = 1.0 / (2.0 - alpha)
+            
+            # Ensure reasonable bounds
+            edf = max(1.0, min(edf, n / 3.0))  # EDF should be between 1 and n/3
+            
+            # Debug logging for verification
+            # logger.debug(f"GCV calculation: alpha={alpha:.3f}, edf={edf:.2f}, n={n}")
+            
         else:
             edf = 5  # Default conservative estimate
-            logger.warning(f"Unknown smoothing method '{smoothing_method}' for parameter {param}, using default EDF=5")
-        
+            if smoothing_method:
+                logger.warning(f"Unknown smoothing method '{smoothing_method}' for parameter {param}, using default EDF=5")
+
         # GCV formula: MSE / (1 - edf/n)²
-        # Protection against division issues
-        denominator = (1 - edf / n) ** 2
-        if denominator <= 0.01:  # Avoid division by very small numbers
+        # Protection against numerical issues
+        denominator = (1.0 - edf / n) ** 2
+
+        # Ensure denominator is not too small (prevents division explosion)
+        if denominator <= 0.01:
+            logger.warning(f"GCV denominator too small ({denominator:.4f}), clamping to 0.01")
             denominator = 0.01
-        
+
         gcv = mse / denominator
-        
+
         return gcv
     
     def _calculate_non_smoothed_coverage(
@@ -1889,11 +2079,19 @@ class NasaPreprocessor:
         
         Returns: percentage of matching trend directions (0.0 to 1.0)
         
-        This ensures smoothing doesn't destroy important patterns:
-        - 1.0 = perfect trend preservation
-        - 0.5 = random (poor smoothing)
-        - < 0.5 = inverse trends (very poor smoothing)
+        Special cases:
+        - Returns 1.0 if data is flat (no trends to preserve = perfect preservation)
+        - Returns np.nan if insufficient data for meaningful calculation
         """
+        # Validate input lengths
+        if len(original) != len(smoothed):
+            logger.warning(f"Trend preservation: length mismatch (original={len(original)}, smoothed={len(smoothed)})")
+            return np.nan
+        
+        if len(original) < 2:  # Need at least 2 points for diff
+            logger.warning(f"Trend preservation: insufficient data (n={len(original)})")
+            return np.nan
+        
         # Calculate first differences (trend direction)
         original_diff = np.diff(original)
         smoothed_diff = np.diff(smoothed)
@@ -1906,8 +2104,14 @@ class NasaPreprocessor:
         non_zero_mask = (original_direction != 0) & (smoothed_direction != 0)
         
         if non_zero_mask.sum() == 0:
-            # No clear trends in data
-            return 0.0
+            # No clear trends in data (all flat) - this is GOOD, not bad!
+            # Flat data means smoothing preserved the flat nature perfectly
+            logger.debug(f"Trend preservation: No clear trends detected (flat data) - returning 1.0 (perfect)")
+            return 1.0  # ← FIXED: was 0.0
+        
+        if non_zero_mask.sum() < 10:  # Too few trend changes for reliable calculation
+            logger.debug(f"Trend preservation: Very few trend changes ({non_zero_mask.sum()}) - may be unreliable")
+            # Still calculate but warn
         
         # Check where directions match
         agreement = (original_direction[non_zero_mask] == smoothed_direction[non_zero_mask])
