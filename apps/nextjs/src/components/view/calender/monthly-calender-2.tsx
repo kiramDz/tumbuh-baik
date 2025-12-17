@@ -14,7 +14,7 @@ import { DATASET_COLUMNS, getForecastValue } from "@/lib/dataset-columns";
 
 const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
   const criteria = {
-    isRainSesuai: rain >= 2 && rain <= 16.7,
+    isRainSesuai: rain >= 5 && rain <= 16.7,
     isTempSesuai: temp >= 25 && temp <= 28,
     isHumiditySesuai: humidity >= 65 && humidity <= 90,
     isRadiationSesuai: radiation >= 13 && radiation <= 25,
