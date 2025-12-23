@@ -119,7 +119,7 @@ export function Banner() {
                   </CardHeader>
                   <CardContent className="p-3 lg:p-4 pt-0">
                     <CardDescription className="text-white/70 text-sm lg:text-base">
-                      Powered by BMKG Data Integration • Real-time Weather Monitoring
+                      Powered by BMKG and NASA Dataset
                     </CardDescription>
                   </CardContent>
                 </Card>

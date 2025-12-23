@@ -214,7 +214,7 @@ export default function AdminSignIn() {
 
             <CardFooter className="flex flex-col space-y-4 pt-6">
               <div className="text-sm text-center text-muted-foreground">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <Link href="/sign-up" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
                   Sign up now
                 </Link>
