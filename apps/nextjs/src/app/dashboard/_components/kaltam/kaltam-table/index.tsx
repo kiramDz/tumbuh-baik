@@ -60,10 +60,10 @@ const KaltamTable = () => {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const sortBy = "forecast_date";
-      const sortOrder = "asc";
+      const sortBy = "forecast_date"; // sesuaikan dengan field yang ada di database
+      const sortOrder = "desc";
 
-      const result = await exportHoltWinterCsv(sortBy, sortOrder);
+      const result = await exportHoltWinterCsv(sortBy, sortOrder); // ganti `category` ➜ `collectionName`
       if (result?.success) {
         toast.success("Data exported successfully!");
       } else {

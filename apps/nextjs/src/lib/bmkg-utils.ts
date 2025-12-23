@@ -60,24 +60,14 @@ export const getHourlyForecastData = (data: BMKGDataItem[], unit: "metric" | "im
       const dt = new Date(item.local_datetime.replace(" ", "T"));
       return dt >= now && dt <= end;
     })
-    .map((item) => {
-      const time = new Date(item.local_datetime.replace(" ", "T")).toLocaleTimeString([], {
+    .map((item) => ({
+      time: new Date(item.local_datetime.replace(" ", "T")).toLocaleTimeString([], {
         hour: "2-digit",
         hour12: false,
-      });
-
-      const temperature = unit === "imperial" ? (item.t * 9) / 5 + 32 : item.t;
-      const wind_speed = unit === "imperial" ? item.ws * 3.6 : item.ws; // optional convert ke km/h
-      const cloud_cover = item.tcc ?? 0;
-
-      return {
-        time,
-        temperature,
-        wind_speed,
-        cloud_cover,
-        weather: item.weather_desc?.toLowerCase() || "clear",
-      };
-    });
+      }),
+      temperature: unit === "imperial" ? (item.t * 9) / 5 + 32 : item.t, // Convert to Fahrenheit if imperial
+      weather: item.weather_desc?.toLowerCase() || "clear",
+    }));
 };
 
 export type ForecastDay = {

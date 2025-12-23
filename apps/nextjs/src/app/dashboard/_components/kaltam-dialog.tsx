@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { Calendar1 } from "lucide-react";
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,11 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { createForecastConfig } from "@/lib/fetch/files.fetch";
-import { format } from "date-fns";
-import { id } from "date-fns/locale";
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 interface ForecastDialogProps {
   onSubmit?: () => void;
 }
@@ -30,7 +25,7 @@ export function ForecastDialog({ onSubmit }: ForecastDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<{ collectionName: string; columnName: string }[]>([]);
-  const [startDate, setStartDate] = useState<Date>();
+
   const queryClient = useQueryClient();
 
   const { data: datasetList = [] } = useQuery<DatasetMeta[]>({
@@ -51,7 +46,6 @@ export function ForecastDialog({ onSubmit }: ForecastDialogProps) {
       setOpen(false);
       setName("");
       setSelected([]);
-      setStartDate(undefined);
     },
     onError: (error) => {
       console.error("Error saving forecast config:", error);
@@ -72,23 +66,13 @@ export function ForecastDialog({ onSubmit }: ForecastDialogProps) {
       return toast.error("Nama konfigurasi dan kolom wajib diisi");
     }
 
-    if (!startDate) {
-      return toast.error("Tanggal mulai peramalan wajib diisi");
-    }
-
-    mutate({
-      name: name.trim(),
-      columns: selected,
-      startDate: format(startDate, "yyyy-MM-dd"), // Format: "2025-01-15"
-    });
+    mutate({ name: name.trim(), columns: selected });
   };
-
-  const endDate = startDate ? new Date(startDate.getFullYear() + 1, startDate.getMonth(), startDate.getDate()) : null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">Konfigurasi Peramalan</Button>
+        <Button variant="default">Tambah Kolom</Button>
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl">
@@ -100,28 +84,6 @@ export function ForecastDialog({ onSubmit }: ForecastDialogProps) {
           <div>
             <Label>Nama Konfigurasi</Label>
             <Input placeholder="Contoh: Peramalan Suhu & NDVI" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-
-          <div>
-            <Label>Tanggal Mulai Peramalan</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !startDate && "text-muted-foreground")}>
-                  <Calendar1 className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP", { locale: id }) : "Pilih tanggal mulai"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus locale={id} />
-              </PopoverContent>
-            </Popover>
-
-            {/* Preview Tanggal Akhir */}
-            {endDate && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Peramalan akan dilakukan hingga: <span className="font-semibold">{format(endDate, "PPP", { locale: id })}</span>
-              </p>
-            )}
           </div>
 
           <div className="space-y-4 max-h-96 overflow-y-auto">

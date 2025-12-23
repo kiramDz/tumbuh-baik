@@ -70,47 +70,6 @@ seedRoute.post("/", async (c) => {
   }
 });
 
-// Tambahkan route ini di seedRoute (setelah POST dan sebelum DELETE)
-
-seedRoute.put("/:id", async (c) => {
-  try {
-    await db();
-    const id = c.req.param("id");
-    const body = await c.req.json();
-
-    // Validasi input
-    if (!body.name || !body.duration) {
-      return c.json({ message: "Name and duration are required" }, 400);
-    }
-
-    if (body.duration <= 0) {
-      return c.json({ message: "Duration must be greater than 0" }, 400);
-    }
-
-    const updatedSeed = await Seed.findByIdAndUpdate(
-      id,
-      {
-        name: body.name.trim(),
-        duration: Number(body.duration),
-      },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedSeed) {
-      return c.json({ message: "Seed not found" }, 404);
-    }
-
-    return c.json({
-      message: "Seed updated successfully",
-      data: updatedSeed,
-    });
-  } catch (error) {
-    console.error("Update seed error:", error);
-    const { message, status } = parseError(error);
-    return c.json({ message }, status);
-  }
-});
-
 seedRoute.delete("/:id", async (c) => {
   try {
     await db();

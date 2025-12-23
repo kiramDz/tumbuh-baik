@@ -1,7 +1,10 @@
 flask
+flask_cors
 pandas
 numpy
 pymongo
 statsmodels
 scikit-learn
 python-dotenv
+tensorflow[and-cuda]
+lstm

@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { GetRecycleBinDatasets, RestoreDataset, PermanentDeleteDataset } from "@/lib/fetch/files.fetch";
 import { toast } from "sonner";
 import { DataTableSkeleton } from "@/app/dashboard/_components/data-table-skeleton";
-import { RecycleBinUI } from "./recycle-bin-table";
+import { RecycleBinUI } from "./recyle-bin-table";
 import { ColumnDef } from "@tanstack/react-table";
 import { RecycleBinType } from "@/types/table-schema";
 import { Ellipsis } from "lucide-react";
