@@ -195,7 +195,7 @@ export function UserTableUI<TData, TValue>({ columns, data, pagination }: DataTa
                       <div className="flex flex-col items-center justify-center gap-2">
                         <p className="text-sm font-medium">No results found</p>
                         <p className="text-sm text-muted-foreground">
-                          Try adjusting your search or filter to find what you're looking for.
+                          Try adjusting your search or filter to find what you are looking for.
                         </p>
                       </div>
                     </TableCell>
