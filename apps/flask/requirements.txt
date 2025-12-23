@@ -12,3 +12,4 @@ scipy
 windrose
 tensorflow[and-cuda]
 lstm
+torch
