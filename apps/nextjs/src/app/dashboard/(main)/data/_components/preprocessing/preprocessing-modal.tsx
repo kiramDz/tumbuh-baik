@@ -69,7 +69,6 @@ export default function PreprocessingModal({
   collectionName,
   isNasaDataset = false,
   isBmkgDataset = false,
-  isAPI = false,
   isOpen,
   onClose,
   onSuccess,
@@ -86,7 +85,7 @@ export default function PreprocessingModal({
   const logsEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [, setIsUserScrolling] = useState(false);
   const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
@@ -389,19 +388,6 @@ export default function PreprocessingModal({
       handleClose();
     }
   }, [status, result, onSuccess, router, cleanup, onClose, handleClose]);
-
-  const getLogColor = (level?: string) => {
-    switch (level) {
-      case "ERROR":
-        return "text-red-600";
-      case "WARNING":
-        return "text-yellow-600";
-      case "SUCCESS":
-        return "text-green-600";
-      default:
-        return "text-gray-700";
-    }
-  };
 
   const getStatusIcon = () => {
     switch (status) {

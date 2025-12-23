@@ -98,7 +98,7 @@ export default function DynamicMainTable({
         duration: 3000,
         position: "bottom-right",
       });
-    } catch (error) {
+    } catch {
       toast.error("Gagal memperbarui data tabel");
     }
   };
@@ -144,7 +144,7 @@ export default function DynamicMainTable({
               duration: 3000,
               position: "bottom-right",
             });
-          } catch (error) {
+          } catch {
             toast.error("Gagal memperbarui data setelah preprocessing");
           }
         },

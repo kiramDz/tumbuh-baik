@@ -239,7 +239,7 @@ datasetMetaRoute.put("/:idOrSlug", async (c) => {
           body[key] = queries[key][0];
         });
       }
-    } catch (parseError) {
+    } catch {
       const queries = c.req.queries();
       Object.keys(queries).forEach((key) => {
         body[key] = queries[key][0];
@@ -1052,7 +1052,7 @@ datasetMetaRoute.get("/:collectionName/status", async (c) => {
 
         const count = await CleanedModel.countDocuments().limit(1);
         hasCleanedCollection = count > 0;
-      } catch (error) {
+      } catch {
         hasCleanedCollection = false;
       }
     }

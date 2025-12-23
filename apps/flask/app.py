@@ -29,6 +29,7 @@ from preprocessing.buoys.preprocessing_buoys import (
 from preprocessing.nasa.preprocessing_nasa import (
     NasaPreprocessor,
     NasaDataValidator,
+    NasaDataLoader,
     NasaDataSaver,
     NasaPreprocessingError,
 )
@@ -36,6 +37,7 @@ from preprocessing.bmkg.preprocessing_bmkg import (
     BmkgPreprocessor,
     BmkgDataValidator,
     BmkgDataSaver,
+    BmkgDataLoader, 
     BmkgPreprocessingError,
 )
 

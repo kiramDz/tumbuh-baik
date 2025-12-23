@@ -158,7 +158,7 @@ nasaPowerRoute.post("/save", async (c) => {
     await db();
     const body = await c.req.json();
 
-    const { name, description = "", status = "processed", nasaParams } = body;
+    const { name, description = "", nasaParams } = body;
 
     if (!name || !nasaParams) {
       return c.json(
