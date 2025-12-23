@@ -45,26 +45,13 @@ const getParameterValue = (parameters: any, paramNames: string[]): number => {
 
 const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
   const criteria = {
-    isRainSesuai: rain >= 2 && rain <= 16.7,
-    isTempSesuai: temp >= 25 && temp <= 28,
+    isRainSesuai: rain >= 5.7 && rain <= 16.7,
+    isTempSesuai: temp >= 24 && temp <= 29,
     isHumiditySesuai: humidity >= 33 && humidity <= 90,
     isRadiationSesuai: radiation >= 13,
   };
 
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
-
-  // Prioritas: Hujan tidak memadai = Tidak Cocok
-  if (!criteria.isRainSesuai) {
-    return {
-      color: "bg-red-300 hover:bg-red-400 border-red-400",
-      label: "Tidak Cocok (Hujan Tidak Memadai)",
-      icon: "✕",
-      iconColor: "text-red-700",
-      count: sesuaiCount,
-      criteria,
-      type: "tidakCocok" as const,
-    };
-  }
 
   if (sesuaiCount === 4) {
     return {

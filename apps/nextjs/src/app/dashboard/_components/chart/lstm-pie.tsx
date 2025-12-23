@@ -9,77 +9,31 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { PieChartIcon } from "lucide-react"
+import { useMemo } from "react"
 
 const COLORS = {
     mae: "hsl(var(--chart-1))",
-    rmse: "hsl(var(--chart-2))",
-    mape: "hsl(var(--chart-5))", // Ubah dari chart-3 ke chart-5 (lebih terang)
+    mse: "hsl(var(--chart-2))",
+    mape: "hsl(var(--chart-3))",
 }
 
 const chartConfig = {
     mae: { label: "MAE", color: COLORS.mae },
-    rmse: { label: "RMSE", color: COLORS.rmse },
+    mse: { label: "MSE", color: COLORS.mse },
     mape: { label: "MAPE", color: COLORS.mape },
 } satisfies ChartConfig
 
-// Fungsi helper yang menerima collectionName dan columnName
-const getDisplayName = (columnName: string, collectionName?: string): string => {
-    // Debug: Log input
-    console.log('🔍 getDisplayName called:', { columnName, collectionName });
-    
-    // Cek kombinasi collection + column dulu
-    const combinedKey = collectionName ? `${collectionName}::${columnName}` : null;
-    console.log('🔑 Combined key:', combinedKey);
-    
-    if (combinedKey && COLUMN_NAME_MAPPING[combinedKey]) {
-        console.log('✅ Found in combined mapping:', COLUMN_NAME_MAPPING[combinedKey]);
-        return COLUMN_NAME_MAPPING[combinedKey];
-    }
-    
-    // Fallback ke columnName saja
-    if (COLUMN_NAME_MAPPING[columnName]) {
-        console.log('✅ Found in column mapping:', COLUMN_NAME_MAPPING[columnName]);
-        return COLUMN_NAME_MAPPING[columnName];
-    }
-    
-    // Fallback formatting default
-    const formatted = columnName
-        .replace(/_/g, ' ')
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
-        .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-    
-    console.log('⚠️ Using default formatting:', formatted);
-    return formatted;
-};
-
-// Mapping nama kolom dengan format: "collectionName::columnName"
+// Mapping nama kolom
 const COLUMN_NAME_MAPPING: Record<string, string> = {
-    // ============================================
-    // BMKG - Kelembapan
-    // ============================================
-    'kelembapan::RH_AVG_preprocessed': 'Kelembaban Rata-rata (BMKG)',
+    // Kelembapan
     'RH_AVG_preprocessed': 'Kelembaban Rata-rata',
-    'RH_AVG': 'Kelembaban Rata-rata',
 
-    // ============================================
-    // BMKG - Suhu
-    // ============================================
-    'suhu bmkg::TAVG': 'Suhu Rata-rata (BMKG)',
-    'suhu bmkg::TMAX': 'Suhu Maksimum (BMKG)',
-    'suhu bmkg::TMIN': 'Suhu Minimum (BMKG)',
+    // Suhu BMKG
     'TN': 'Suhu Minimum',
     'TX': 'Suhu Maksimum',
     'TAVG': 'Suhu Rata-rata',
-    'TMAX': 'Suhu Maksimum',
-    'TMIN': 'Suhu Minimum',
 
-    // ============================================
-    // BMKG - Curah Hujan
-    // ============================================
-    'rainfall::RR_imputed': 'Curah Hujan (BMKG)',
-    'RR': 'Curah Hujan',
+    // Rainfall
     'RR_original': 'Curah Hujan Asli',
     'RR_imputed': 'Curah Hujan (Diperbaiki)',
     'is_outlier': 'Status Outlier',
@@ -87,60 +41,18 @@ const COLUMN_NAME_MAPPING: Record<string, string> = {
     'RR_sqrt': 'Curah Hujan (Akar)',
     'RR_boxcox': 'Curah Hujan (Box-Cox)',
 
-    // ============================================
-    // NASA Aceh Besar Kec Darussalam
-    // ============================================
-    'Nasa Aceh Besar Kec Darussalam::ALLSKY_SFC_SW_DWN': 'Radiasi Matahari (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::RH2M': 'Kelembaban Udara (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::T2M': 'Suhu Udara (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::T2M_MAX': 'Suhu Maksimum (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::T2M_MIN': 'Suhu Minimum (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::PRECTOTCORR': 'Curah Hujan (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::WS2M': 'Kecepatan Angin 2m (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::WS10M': 'Kecepatan Angin 10m (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::WS10M_MAX': 'Angin Maksimum (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::PS': 'Tekanan Permukaan (Aceh Besar)',
-    'Nasa Aceh Besar Kec Darussalam::QV2M': 'Kelembaban Spesifik (Aceh Besar)',
-
-    // ============================================
-    // NASA Aceh Utara Kec Lhoksukon (PERHATIKAN: NASA huruf kapital semua!)
-    // ============================================
-    'NASA Aceh Utara Kec Lhoksukon::ALLSKY_SFC_SW_DWN': 'Radiasi Matahari (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::RH2M': 'Kelembaban Udara (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::T2M': 'Suhu Udara (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::T2M_MAX': 'Suhu Maksimum (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::T2M_MIN': 'Suhu Minimum (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::PRECTOTCORR': 'Curah Hujan (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::WS2M': 'Kecepatan Angin 2m (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::WS10M': 'Kecepatan Angin 10m (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::PS': 'Tekanan Permukaan (Aceh Utara)',
-    'NASA Aceh Utara Kec Lhoksukon::QV2M': 'Kelembaban Spesifik (Aceh Utara)',
-
-    // ============================================
-    // NASA Generic (fallback tanpa lokasi)
-    // ============================================
+    // NASA
     'T2M': 'Suhu Udara',
     'T2M_MAX': 'Suhu Maksimum',
     'T2M_MIN': 'Suhu Minimum',
     'RH2M': 'Kelembaban Udara',
     'PRECTOTCORR': 'Curah Hujan',
     'ALLSKY_SFC_SW_DWN': 'Radiasi Matahari',
-    'WS2M': 'Kecepatan Angin 2m',
-    'WS10M': 'Kecepatan Angin 10m',
+    'WS10M': 'Kecepatan Angin',
     'WS10M_MAX': 'Angin Maksimum',
     'WD10M': 'Arah Angin',
-    'PS': 'Tekanan Permukaan',
-    'QV2M': 'Kelembaban Spesifik',
 
-    // ============================================
-    // NDVI
-    // ============================================
-    'NDVI': 'Indeks Vegetasi',
-    'NDVI_imputed': 'Indeks Vegetasi (Diperbaiki)',
-
-    // ============================================
     // Umum
-    // ============================================
     'Date': 'Tanggal',
     'Year': 'Tahun',
     'Month': 'Bulan',
@@ -149,14 +61,56 @@ const COLUMN_NAME_MAPPING: Record<string, string> = {
     'day': 'Hari',
 };
 
+// Mapping collection name ke label singkat
+const COLLECTION_LABELS: Record<string, string> = {
+    'Nasa Pidie Kec Indrajaya': 'Pidie',
+    'Nasa Aceh Besar Kec Darussalam': 'Aceh Besar',
+    'Nasa Aceh Utara Kec Lhoksukon': 'Aceh Utara',
+    'kelembapan': 'BMKG',
+    'suhu bmkg': 'BMKG',
+    'rainfall': 'BMKG',
+};
+
+// Fungsi helper
+const getDisplayName = (col: string): string => {
+    if (COLUMN_NAME_MAPPING[col]) {
+        return COLUMN_NAME_MAPPING[col];
+    }
+    return col
+        .replace(/_/g, ' ')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+};
+
+const getCollectionLabel = (collectionName: string): string => {
+    return COLLECTION_LABELS[collectionName] || collectionName;
+};
+
 export function LSTMPieChart() {
     const { data = [], isLoading } = useQuery({
         queryKey: ["lstm-config"],
         queryFn: getLSTMConfigs,
     })
 
-    // Debug: Log raw data
-    console.log('📊 LSTM Config Data:', data);
+    // ✅ Build dynamic mapping dari config
+    const { latestConfig, paramToCollection } = useMemo(() => {
+        const completed = data.filter((item: any) => item.status === "done" && item.error_metrics?.length > 0)
+        const config = completed.length > 0 ? completed[0] : null
+        
+        if (!config?.columns) {
+            return { latestConfig: null, paramToCollection: {} }
+        }
+        
+        const mapping: Record<string, string> = {}
+        config.columns.forEach((col: any) => {
+            mapping[col.columnName] = col.collectionName
+        })
+        
+        console.log("📍 LSTM Pie - Dynamic mapping:", mapping)
+        return { latestConfig: config, paramToCollection: mapping }
+    }, [data])
 
     if (isLoading) {
         return (
@@ -175,10 +129,7 @@ export function LSTMPieChart() {
         )
     }
 
-    const completed = data.filter((item: any) => item.status === "done" && item.error_metrics?.length > 0)
-    console.log('✅ Completed forecasts:', completed);
-
-    if (completed.length === 0) {
+    if (!latestConfig) {
         return (
             <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-10">
@@ -192,24 +143,24 @@ export function LSTMPieChart() {
         )
     }
 
-    const errorMetricsArray = completed[0]?.error_metrics ?? []
-    console.log('📈 Error Metrics Array:', errorMetricsArray);
+    const errorMetricsArray = latestConfig.error_metrics ?? []
 
     return (
         <TooltipProvider>
             <div className="grid md:grid-cols-2 gap-4">
                 {errorMetricsArray.map((entry: any, index: number) => {
-                    console.log(`📌 Processing entry ${index}:`, entry);
+                    const metrics = entry.metrics_lstm || entry.metrics || {}
+                    // ✅ Ambil collection dari mapping, fallback ke entry.collectionName
+                    const collectionName = paramToCollection[entry.columnName] || entry.collectionName || "Unknown"
+                    const collectionLabel = getCollectionLabel(collectionName)
                     
-                    const metrics = entry.metrics_lstm ?? {}  // Ubah dari entry.metrics ke entry.metrics_lstm
                     const chartData = [
                         { key: "mae", value: metrics.mae || 0, fill: COLORS.mae },
-                        { key: "rmse", value: metrics.rmse || 0, fill: COLORS.rmse },
+                        { key: "mse", value: metrics.mse || 0, fill: COLORS.mse },
                         { key: "mape", value: metrics.mape || 0, fill: COLORS.mape },
                     ]
 
-                    const displayName = getDisplayName(entry.columnName, entry.collectionName)
-                    console.log('🏷️ Final display name:', displayName);
+                    const displayName = getDisplayName(entry.columnName)
 
                     return (
                         <Card key={index}>
@@ -225,9 +176,6 @@ export function LSTMPieChart() {
                                             <p className="text-xs">
                                                 Kolom: <code className="bg-muted px-1 rounded">{entry.columnName}</code>
                                             </p>
-                                            <p className="text-xs">
-                                                Collection: <code className="bg-muted px-1 rounded">{entry.collectionName}</code>
-                                            </p>
                                         </TooltipContent>
                                     </Tooltip>
                                     <Badge variant="outline" className="text-xs font-normal">
@@ -235,7 +183,7 @@ export function LSTMPieChart() {
                                     </Badge>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    {entry.collectionName}
+                                    {collectionLabel}
                                 </p>
                             </CardHeader>
 
