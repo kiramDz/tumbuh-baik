@@ -55,12 +55,7 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
   };
 
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
-
-  // Prioritas: Hujan tidak memadai = Tidak Cocok
-  if (!criteria.isRainSesuai) {
-    return { type: "tidakCocok" as const };
-  }
-
+  
   if (sesuaiCount === 4) {
     return { type: "sangatCocok" as const };
   }
