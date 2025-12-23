@@ -12,35 +12,21 @@ const DatasetMetaSchema = new Schema(
     status: {
       type: String,
       required: true,
-      enum: [
-        "raw",
-        "latest",
-        "preprocessing",
-        "preprocessed",
-        "validated",
-        "ready",
-        "archived",
-        "failed",
-      ],
+      enum: ["raw", "latest", "preprocessing", "preprocessed", "validated", "ready", "archived", "failed"],
       default: "raw",
     },
     columns: { type: [String], required: true },
     description: { type: String },
     uploadDate: { type: Date, default: Date.now },
     errorMessage: { type: String },
-<<<<<<< HEAD
     isAPI: { type: Boolean, default: false }, // Flag untuk menandakan dataset fetch vs upload
     lastUpdated: { type: Date },
     apiConfig: { type: Schema.Types.Mixed }, // Optional: menyimpan konfigurasi API jika diperlukan
     deletedAt: { type: Date, default: null }, // Untuk soft delete
-=======
->>>>>>> build-lstm
   },
   {
     collection: "dataset_meta",
   }
 );
 
-export const DatasetMeta =
-  mongoose.models.DatasetMeta ||
-  mongoose.model("DatasetMeta", DatasetMetaSchema, "dataset_meta");
+export const DatasetMeta = mongoose.models.DatasetMeta || mongoose.model("DatasetMeta", DatasetMetaSchema, "dataset_meta");

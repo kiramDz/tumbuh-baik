@@ -1,32 +1,11 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import React, { useState } from "react";
-import {
-  AddDatasetMeta,
-  fetchNasaPowerData,
-  saveNasaPowerData,
-  AddXlsxDatasetMeta,
-} from "@/lib/fetch/files.fetch";
+import { AddDatasetMeta, fetchNasaPowerData, saveNasaPowerData, AddXlsxDatasetMeta } from "@/lib/fetch/files.fetch";
 import { parseFile } from "@/lib/parse-upload";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,11 +20,7 @@ import * as z from "zod";
 import { fi } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
 import { FileUploader } from "@/components/ui/file-uploader";
-import {
-  DateRangePicker,
-  dateToYYYYMMDD,
-  yyyymmddToDate,
-} from "@/components/ui/date-range-picker";
+import { DateRangePicker, dateToYYYYMMDD, yyyymmddToDate } from "@/components/ui/date-range-picker";
 
 type LocationEntry = {
   name: string;
@@ -73,9 +48,7 @@ const ACEH_LOCATIONS: AcehLocations = {
     { name: "Kec. Pidie", lat: 5.3759998, lon: 95.9148038 },
     { name: "Kec. Indrajaya", lat: 5.3114261, lon: 95.8978653 },
   ],
-  "Kabupaten Aceh Utara": [
-    { name: "Kec. Lhoksukon", lat: 5.051701, lon: 97.318123 },
-  ],
+  "Kabupaten Aceh Utara": [{ name: "Kec. Lhoksukon", lat: 5.051701, lon: 97.318123 }],
   "Kabupaten Bireuen": [
     { name: "Kec. Juli", lat: 5.0735373, lon: 96.5879472 },
     { name: "Kec. Kota Juang", lat: 5.190849, lon: 96.6728368 },
@@ -195,11 +168,7 @@ export default function AddDatasetDialog() {
     const initialLng = nasaPowerForm.getValues("longitude");
 
     for (const [kabupaten, locations] of Object.entries(ACEH_LOCATIONS)) {
-      const matchingLocation = locations.find(
-        (loc: LocationEntry) =>
-          Math.abs(loc.lat - initialLat) < 0.001 &&
-          Math.abs(loc.lon - initialLng) < 0.001
-      );
+      const matchingLocation = locations.find((loc: LocationEntry) => Math.abs(loc.lat - initialLat) < 0.001 && Math.abs(loc.lon - initialLng) < 0.001);
       if (matchingLocation) {
         setSelectedKabupaten(kabupaten);
         setSelectedKecamatan(matchingLocation.name);
@@ -215,9 +184,7 @@ export default function AddDatasetDialog() {
     // Check date validation and set warning
     if (range?.from && range?.to) {
       if (range.from > range.to) {
-        setDateWarningMessage(
-          "Tanggal mulai tidak boleh lebih besar dari tanggal akhir"
-        );
+        setDateWarningMessage("Tanggal mulai tidak boleh lebih besar dari tanggal akhir");
       } else {
         setDateWarningMessage("");
       }
@@ -250,9 +217,7 @@ export default function AddDatasetDialog() {
       queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
       resetForm();
     },
-    onError: (
-      error: Error & { response?: { data?: { message?: string } } }
-    ) => {
+    onError: (error: Error & { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || "Gagal menyimpan dataset");
     },
   });
@@ -275,9 +240,7 @@ export default function AddDatasetDialog() {
         return toast.error("Maksimum 12 file yang dapat dipilih");
       }
       // Check if all files are XLSX for multi-file mode
-      const nonXlsxFiles = files.filter(
-        (f) => !f.name.toLowerCase().endsWith(".xlsx")
-      );
+      const nonXlsxFiles = files.filter((f) => !f.name.toLowerCase().endsWith(".xlsx"));
       if (nonXlsxFiles.length > 0) {
         return toast.error("Mode multi-file hanya mendukung file XLSX");
       }
@@ -312,9 +275,7 @@ export default function AddDatasetDialog() {
               description: uploadForm.description,
               status: uploadForm.status,
               // ✅ Pass the appropriate file(s) based on mode
-              ...(isMultiFile
-                ? { files: files, isMultiFile: true }
-                : { file: file, isMultiFile: false }),
+              ...(isMultiFile ? { files: files, isMultiFile: true } : { file: file, isMultiFile: false }),
               fileType: "xlsx",
             },
             {
@@ -330,14 +291,9 @@ export default function AddDatasetDialog() {
           );
         }),
         {
-          loading: isMultiFile
-            ? `Mengkonversi dan menggabungkan ${files.length} file XLSX...`
-            : "Mengkonversi dan menyimpan file XLSX...",
-          success: `Dataset ${uploadForm.name} berhasil disimpan${
-            isMultiFile ? ` dari ${files.length} file` : ""
-          }!`,
-          error: (err) =>
-            `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
+          loading: isMultiFile ? `Mengkonversi dan menggabungkan ${files.length} file XLSX...` : "Mengkonversi dan menyimpan file XLSX...",
+          success: `Dataset ${uploadForm.name} berhasil disimpan${isMultiFile ? ` dari ${files.length} file` : ""}!`,
+          error: (err) => `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
         }
       );
       return;
@@ -375,8 +331,7 @@ export default function AddDatasetDialog() {
       {
         loading: "Menyimpan dataset...",
         success: `Dataset ${uploadForm.name} berhasil disimpan!`,
-        error: (err) =>
-          `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
+        error: (err) => `${err?.response?.data?.message || "Gagal menyimpan dataset"}`,
       }
     );
   };
@@ -485,8 +440,7 @@ export default function AddDatasetDialog() {
       {
         loading: "Menyimpan dataset NASA POWER...",
         success: `Dataset ${values.name} berhasil disimpan!`,
-        error: (err) =>
-          `${err?.response?.data?.message || "Gagal menyimpan dataset!"}`,
+        error: (err) => `${err?.response?.data?.message || "Gagal menyimpan dataset!"}`,
       }
     );
   };
@@ -499,19 +453,14 @@ export default function AddDatasetDialog() {
       }}
     >
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          className="border-green-600 text-green-700 hover:bg-green-50 hover:border-green-700 font-semibold px-5 py-2 rounded-lg shadow-sm transition-colors"
-        >
+        <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-50 hover:border-green-700 font-semibold px-5 py-2 rounded-lg shadow-sm transition-colors">
           Dataset Baru
         </Button>
       </DialogTrigger>
       <DialogContent className="w-[95vw] max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Tambah Dataset</DialogTitle>
-          <DialogDescription>
-            Unggah file CSV/JSON/XLSX atau ambil data dari NASA POWER API.
-          </DialogDescription>
+          <DialogDescription>Unggah file CSV/JSON/XLSX atau ambil data dari NASA POWER API.</DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
@@ -528,8 +477,7 @@ export default function AddDatasetDialog() {
     `}
             >
               <div className="flex items-center gap-2">
-                <Icons.fileUpload className="h-4 w-4" />{" "}
-                {/* Always show icon */}
+                <Icons.fileUpload className="h-4 w-4" /> {/* Always show icon */}
                 <span>Upload File</span>
               </div>
             </TabsTrigger>
@@ -573,23 +521,15 @@ export default function AddDatasetDialog() {
                 </div>
                 {isMultiFile && (
                   <div className="text-xs text-muted-foreground bg-blue-50 border border-blue-200 rounded p-2">
-                    <p className="font-medium text-blue-700 mb-1">
-                      Catatan Multi-File Upload:
-                    </p>
+                    <p className="font-medium text-blue-700 mb-1">Catatan Multi-File Upload:</p>
                     <ul className="space-y-1 text-blue-600">
                       <li className="flex items-start gap-1">
                         <span>•</span>
-                        <span>
-                          Mode multi-file mendukung file XLSX - digabungkan
-                          menjadi satu dataset
-                        </span>
+                        <span>Mode multi-file mendukung file XLSX - digabungkan menjadi satu dataset</span>
                       </li>
                       <li className="flex items-start gap-1">
                         <span>•</span>
-                        <span>
-                          Pastikan sumber dataset sama, dan dalam rentang 12
-                          bulan
-                        </span>
+                        <span>Pastikan sumber dataset sama, dan dalam rentang 12 bulan</span>
                       </li>
                     </ul>
                   </div>
@@ -598,48 +538,20 @@ export default function AddDatasetDialog() {
 
               <div className="grid gap-2">
                 <Label htmlFor="name">Nama Dataset *</Label>
-                <Input
-                  id="name"
-                  value={uploadForm.name}
-                  onChange={(e) =>
-                    setUploadForm({ ...uploadForm, name: e.target.value })
-                  }
-                  required
-                />
+                <Input id="name" value={uploadForm.name} onChange={(e) => setUploadForm({ ...uploadForm, name: e.target.value })} required />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="source">Sumber</Label>
-                <select
-                  id="source"
-                  value={uploadForm.source}
-                  onChange={(e) =>
-                    setUploadForm({ ...uploadForm, source: e.target.value })
-                  }
-                  className="border rounded px-3 py-2"
-                  required
-                >
+                <select id="source" value={uploadForm.source} onChange={(e) => setUploadForm({ ...uploadForm, source: e.target.value })} className="border rounded px-3 py-2" required>
                   <option value="">Pilih sumber data...</option>
-                  <option value="Data BMKG (https://dataonline.bmkg.go.id/)">
-                    Data BMKG (https://dataonline.bmkg.go.id/)
-                  </option>
-                  <option value="Data NASA (https://power.larc.nasa.gov/)">
-                    Data NASA (https://power.larc.nasa.gov/)
-                  </option>
-                  <option value="Data BUOYS (https://www.pmel.noaa.gov)">
-                    Data BUOYS (https://www.pmel.noaa.gov)
-                  </option>
+                  <option value="Data BMKG (https://dataonline.bmkg.go.id/)">Data BMKG (https://dataonline.bmkg.go.id/)</option>
+                  <option value="Data NASA (https://power.larc.nasa.gov/)">Data NASA (https://power.larc.nasa.gov/)</option>
+                  <option value="Data BUOYS (https://www.pmel.noaa.gov)">Data BUOYS (https://www.pmel.noaa.gov)</option>
                 </select>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="status">Status</Label>
-                <select
-                  id="status"
-                  value={uploadForm.status}
-                  onChange={(e) =>
-                    setUploadForm({ ...uploadForm, status: e.target.value })
-                  }
-                  className="border rounded px-3 py-2"
-                >
+                <select id="status" value={uploadForm.status} onChange={(e) => setUploadForm({ ...uploadForm, status: e.target.value })} className="border rounded px-3 py-2">
                   <option value="raw">Raw</option>
                   <option value="cleaned">Cleaned</option>
                   <option value="validated">Validated</option>
@@ -661,9 +573,7 @@ export default function AddDatasetDialog() {
 
               {/* ✅ Updated File Upload Section */}
               <div className="grid gap-2">
-                <Label>
-                  {isMultiFile ? "Upload Multiple Files (XLSX)" : "Upload File"}
-                </Label>
+                <Label>{isMultiFile ? "Upload Multiple Files (XLSX)" : "Upload File"}</Label>
                 <FileUploader
                   accept={isMultiFile ? ".xlsx" : ".csv,.json,.xlsx"}
                   maxSize={50}
@@ -680,27 +590,18 @@ export default function AddDatasetDialog() {
                 {/* ✅ File type indicators */}
                 {isMultiFile && files.length > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">
-                    <span className="text-blue-600 font-medium">
-                      📊 {files.length} file Excel akan digabungkan dan
-                      dikonversi ke format CSV
-                    </span>
+                    <span className="text-blue-600 font-medium">📊 {files.length} file Excel akan digabungkan dan dikonversi ke format CSV</span>
                   </div>
                 )}
 
                 {!isMultiFile && file && (
                   <div className="text-xs text-muted-foreground mt-1">
                     {file.name.toLowerCase().endsWith(".xlsx") ? (
-                      <span className="text-blue-600 font-medium">
-                        📊 File Excel akan dikonversi ke format CSV
-                      </span>
+                      <span className="text-blue-600 font-medium">📊 File Excel akan dikonversi ke format CSV</span>
                     ) : file.name.toLowerCase().endsWith(".json") ? (
-                      <span className="text-green-600 font-medium">
-                        📄 File JSON siap diproses
-                      </span>
+                      <span className="text-green-600 font-medium">📄 File JSON siap diproses</span>
                     ) : (
-                      <span className="text-orange-600 font-medium">
-                        📈 File CSV siap diproses
-                      </span>
+                      <span className="text-orange-600 font-medium">📈 File CSV siap diproses</span>
                     )}
                   </div>
                 )}
@@ -710,15 +611,9 @@ export default function AddDatasetDialog() {
                   <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center gap-2 text-blue-700 text-sm">
                       <Icons.spinner className="h-4 w-4 animate-spin" />
-                      <span>
-                        Sedang mengkonversi dan menggabungkan {files.length}{" "}
-                        file XLSX...
-                      </span>
+                      <span>Sedang mengkonversi dan menggabungkan {files.length} file XLSX...</span>
                     </div>
-                    <div className="text-xs text-blue-600 mt-1">
-                      Proses penggabungan mungkin membutuhkan waktu untuk banyak
-                      file
-                    </div>
+                    <div className="text-xs text-blue-600 mt-1">Proses penggabungan mungkin membutuhkan waktu untuk banyak file</div>
                   </div>
                 )}
               </div>
@@ -731,11 +626,7 @@ export default function AddDatasetDialog() {
                   {uploadPending ? (
                     <>
                       <Icons.spinner className="h-4 w-4 animate-spin mr-2" />
-                      {isMultiFile
-                        ? "Menggabungkan..."
-                        : file?.name.toLowerCase().endsWith(".xlsx")
-                        ? "Mengkonversi..."
-                        : "Menyimpan..."}
+                      {isMultiFile ? "Menggabungkan..." : file?.name.toLowerCase().endsWith(".xlsx") ? "Mengkonversi..." : "Menyimpan..."}
                     </>
                   ) : (
                     "Simpan"
@@ -748,10 +639,7 @@ export default function AddDatasetDialog() {
           {/* NASA POWER API Tab */}
           <TabsContent value="nasa-power">
             <Form {...nasaPowerForm}>
-              <form
-                onSubmit={nasaPowerForm.handleSubmit(handleNasaPowerSubmit)}
-                className="space-y-4 py-4"
-              >
+              <form onSubmit={nasaPowerForm.handleSubmit(handleNasaPowerSubmit)} className="space-y-4 py-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={nasaPowerForm.control}
@@ -760,10 +648,7 @@ export default function AddDatasetDialog() {
                       <FormItem>
                         <FormLabel>Nama Dataset*</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="NASA Aceh Besar Kec. Indrapuri 2005-2025"
-                            {...field}
-                          />
+                          <Input placeholder="NASA Aceh Besar Kec. Indrapuri 2005-2025" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -776,10 +661,7 @@ export default function AddDatasetDialog() {
                       <FormItem>
                         <FormLabel>Deskripsi (Opsional)</FormLabel>
                         <FormControl>
-                          <Textarea
-                            placeholder="Deskripsi singkat tentang dataset ini"
-                            {...field}
-                          />
+                          <Textarea placeholder="Deskripsi singkat tentang dataset ini" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -795,9 +677,7 @@ export default function AddDatasetDialog() {
                         <FormLabel>Lokasi*</FormLabel>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <FormLabel className="text-sm font-normal text-muted-foreground mb-2">
-                              Kabupaten
-                            </FormLabel>
+                            <FormLabel className="text-sm font-normal text-muted-foreground mb-2">Kabupaten</FormLabel>
                             <select
                               className="w-full border rounded px-3 py-2 text-sm"
                               value={selectedKabupaten}
@@ -820,9 +700,7 @@ export default function AddDatasetDialog() {
                             </select>
                           </div>
                           <div>
-                            <FormLabel className="text-sm font-normal text-muted-foreground mb-2">
-                              Kecamatan
-                            </FormLabel>
+                            <FormLabel className="text-sm font-normal text-muted-foreground mb-2">Kecamatan</FormLabel>
                             <select
                               className="w-full border rounded px-3 py-2 text-sm"
                               value={selectedKecamatan}
@@ -832,9 +710,7 @@ export default function AddDatasetDialog() {
 
                                 if (!kecamatan) {
                                   // Reset coordinates if no kecamatan selected
-                                  setLocationWarningMessage(
-                                    "Silahkan pilih Kecamatan"
-                                  );
+                                  setLocationWarningMessage("Silahkan pilih Kecamatan");
                                   nasaPowerForm.setValue("latitude", 0);
                                   nasaPowerForm.setValue("longitude", 0);
                                   return;
@@ -843,37 +719,23 @@ export default function AddDatasetDialog() {
                                 setLocationWarningMessage("");
 
                                 // Find selected location data
-                                const location = ACEH_LOCATIONS[
-                                  selectedKabupaten
-                                ]?.find((loc) => loc.name === kecamatan);
+                                const location = ACEH_LOCATIONS[selectedKabupaten]?.find((loc) => loc.name === kecamatan);
 
                                 // Update form with coordinates
                                 if (location) {
-                                  nasaPowerForm.setValue(
-                                    "latitude",
-                                    location.lat
-                                  );
-                                  nasaPowerForm.setValue(
-                                    "longitude",
-                                    location.lon
-                                  );
+                                  nasaPowerForm.setValue("latitude", location.lat);
+                                  nasaPowerForm.setValue("longitude", location.lon);
                                 }
                               }}
                               disabled={!selectedKabupaten} // Disable if no kabupaten is selected
                             >
                               <option value="">Pilih Kecamatan</option>
-                              {selectedKabupaten &&
-                              ACEH_LOCATIONS[selectedKabupaten]
-                                ? ACEH_LOCATIONS[selectedKabupaten].map(
-                                    (location) => (
-                                      <option
-                                        key={location.name}
-                                        value={location.name}
-                                      >
-                                        {location.name}
-                                      </option>
-                                    )
-                                  )
+                              {selectedKabupaten && ACEH_LOCATIONS[selectedKabupaten]
+                                ? ACEH_LOCATIONS[selectedKabupaten].map((location) => (
+                                    <option key={location.name} value={location.name}>
+                                      {location.name}
+                                    </option>
+                                  ))
                                 : null}
                             </select>
                           </div>
@@ -881,24 +743,12 @@ export default function AddDatasetDialog() {
                         {/* Show the selected coordinates (read-only) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                           <div>
-                            <FormLabel className="text-xs text-muted-foreground">
-                              Latitude
-                            </FormLabel>
-                            <div className="text-sm font-medium">
-                              {selectedKecamatan
-                                ? nasaPowerForm.watch("latitude")
-                                : "-"}
-                            </div>
+                            <FormLabel className="text-xs text-muted-foreground">Latitude</FormLabel>
+                            <div className="text-sm font-medium">{selectedKecamatan ? nasaPowerForm.watch("latitude") : "-"}</div>
                           </div>
                           <div>
-                            <FormLabel className="text-xs text-muted-foreground">
-                              Longitude
-                            </FormLabel>
-                            <div className="text-sm font-medium">
-                              {selectedKecamatan
-                                ? nasaPowerForm.watch("longitude")
-                                : "-"}
-                            </div>
+                            <FormLabel className="text-xs text-muted-foreground">Longitude</FormLabel>
+                            <div className="text-sm font-medium">{selectedKecamatan ? nasaPowerForm.watch("longitude") : "-"}</div>
                           </div>
                         </div>
 
@@ -916,10 +766,7 @@ export default function AddDatasetDialog() {
                           })}
                         />
 
-                        <FormMessage>
-                          {nasaPowerForm.formState.errors.latitude?.message ||
-                            nasaPowerForm.formState.errors.longitude?.message}
-                        </FormMessage>
+                        <FormMessage>{nasaPowerForm.formState.errors.latitude?.message || nasaPowerForm.formState.errors.longitude?.message}</FormMessage>
                       </FormItem>
                     )}
                   />
@@ -932,34 +779,17 @@ export default function AddDatasetDialog() {
                     render={() => (
                       <FormItem className="space-y-2">
                         <FormControl>
-                          <DateRangePicker
-                            dateRange={dateRange}
-                            onDateRangeChange={handleDateRangeChange}
-                            disabled={previewLoading || saveLoading}
-                          />
+                          <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} disabled={previewLoading || saveLoading} />
                         </FormControl>
 
                         {/* Add this to display date-specific warnings */}
-                        {dateWarningMessage && (
-                          <p className="text-amber-500 text-sm mt-1">
-                            {dateWarningMessage}
-                          </p>
-                        )}
+                        {dateWarningMessage && <p className="text-amber-500 text-sm mt-1">{dateWarningMessage}</p>}
 
                         {/* Hidden inputs for form validation */}
-                        <input
-                          type="hidden"
-                          {...nasaPowerForm.register("start")}
-                        />
-                        <input
-                          type="hidden"
-                          {...nasaPowerForm.register("end")}
-                        />
+                        <input type="hidden" {...nasaPowerForm.register("start")} />
+                        <input type="hidden" {...nasaPowerForm.register("end")} />
 
-                        <FormMessage>
-                          {nasaPowerForm.formState.errors.start?.message ||
-                            nasaPowerForm.formState.errors.end?.message}
-                        </FormMessage>
+                        <FormMessage>{nasaPowerForm.formState.errors.start?.message || nasaPowerForm.formState.errors.end?.message}</FormMessage>
                       </FormItem>
                     )}
                   />
@@ -1027,13 +857,7 @@ export default function AddDatasetDialog() {
                 )}
 
                 <DialogFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={handleNasaPowerPreview}
-                    disabled={previewLoading || saveLoading}
-                    className="flex items-center gap-2 transition-all hover:bg-secondary/80"
-                  >
+                  <Button type="button" variant="secondary" onClick={handleNasaPowerPreview} disabled={previewLoading || saveLoading} className="flex items-center gap-2 transition-all hover:bg-secondary/80">
                     {previewLoading ? (
                       <>
                         <Icons.spinner className="h-4 w-4 animate-spin" />
@@ -1050,11 +874,7 @@ export default function AddDatasetDialog() {
                     <DialogClose asChild>
                       <Button variant="outline">Batal</Button>
                     </DialogClose>
-                    <Button
-                      type="submit"
-                      disabled={previewLoading || saveLoading}
-                      className="flex items-center gap-2 transition-colors"
-                    >
+                    <Button type="submit" disabled={previewLoading || saveLoading} className="flex items-center gap-2 transition-colors">
                       {saveLoading ? (
                         <>
                           <Icons.spinner className="h-4 w-4 animate-spin" />
