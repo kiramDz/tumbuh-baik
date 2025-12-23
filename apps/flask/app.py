@@ -1,8 +1,8 @@
+from pymongo import MongoClient
 from flask import Flask, jsonify, request, Blueprint, Response, stream_with_context, current_app
 from flask_cors import CORS
 from helpers.objectid_converter import convert_objectid
 from jobs.run_forecast_from_config import run_forecast_from_config
-from pymongo import MongoClient
 from bson import ObjectId
 import json
 from bson.json_util import dumps
@@ -55,6 +55,8 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, origins=os.getenv("CORS_ORIGINS", "http://localhost:3000"))
+# CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://3.107.238.87"]}})
+
 
 # MongoDB connection using environment variables
 mongo_uri = os.getenv("MONGODB_URI")
@@ -69,10 +71,11 @@ app.config['MONGO_CLIENT'] = mongo_client
 # Initialize blueprint - MOVED HERE
 preprocessing_bp = Blueprint('preprocessing', __name__, url_prefix="/api/v1")
 
-
+# === Routes ===
 @app.route("/")
 def home():
     return jsonify({"message": "Flask Holt-Winter API is running!"})
+
 
 @app.route("/run-forecast", methods=["POST"])
 def run_forecast():
@@ -1304,7 +1307,6 @@ def convert_multi_xlsx_to_csv():
     
 # TAMBAHKAN BARIS INI
 app.register_blueprint(preprocessing_bp)
-
 
 if __name__ == "__main__":
     port = int(os.getenv("FLASK_PORT", 5001))

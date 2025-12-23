@@ -24,7 +24,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-
 import { useSession } from "@/lib/better-auth/auth-client";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -104,6 +103,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {/* ⬇ Kirim data user yang sudah di-fetch */}
         <NavUser user={userData} />
       </SidebarFooter>
+            {/* <SidebarFooter>
+        <NavUser user={data.user} />
+      </SidebarFooter> */}
     </Sidebar>
   );
 }

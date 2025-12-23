@@ -45,7 +45,7 @@ export interface RefreshAllResponse {
 export async function exportDatasetCsv(
   collectionName: string,
   sortBy = "Date",
-  sortOrder = "asc"
+  sortOrder = "desc"
 ) {
   try {
     // Fetch all data from the existing endpoint (without pagination)
@@ -391,7 +391,6 @@ export const GetDatasetBySlug = async (
   const json = await res.json();
   return json.data;
 };
-
 export const GetChartDataBySlug = async (
   slug: string
 ): Promise<{
@@ -446,7 +445,6 @@ export const RestoreDataset = async (collectionName: string) => {
 //     throw error;
 //   }
 // };
-
 // for dataset table
 // lib/fetch/files.fetch.ts
 export async function getDynamicDatasetData(
@@ -624,8 +622,7 @@ export const createForecastConfig = async (data: {
 
 export const triggerForecastRun = async () => {
   try {
-    // const res = await axios.post("https://de53213413b6.ngrok-free.app/run-forecast");
-    const res = await axios.post("https://api.zonapetik.tech/run-forecast");
+    const res = await axios.post("http://localhost:5001/run-forecast"); // ganti host jika deploy
     return res.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
