@@ -902,6 +902,8 @@ export const preprocessBmkgDatasetWithStream = (
   );
 
   let connectionTimeout: NodeJS.Timeout;
+  let hasCompletedSuccessfully = false;
+  let streamClosed = false;
 
   const resetTimeout = () => {
     if (connectionTimeout) {
@@ -946,15 +948,24 @@ export const preprocessBmkgDatasetWithStream = (
           break;
 
         case "complete":
-          onComplete(data.result);
-          eventSource.close();
-          break;
+          hasCompletedSuccessfully = true;
+          streamClosed = true;
 
-        case "stream_complete":
           onLog({
-            type: "info",
-            message: "BMKG preprocessing stream completed successfully",
+            type: "success",
+            message: "🎉 BMKG preprocessing completed successfully!",
           });
+
+          const completionResult =
+            data.result && typeof data.result === "object"
+              ? data.result
+              : {
+                  recordCount: null,
+                  cleanedCollection: `${collectionName}_cleaned`,
+                  preprocessing_report: null,
+                };
+
+          onComplete(completionResult);
           clearTimeout(connectionTimeout);
           eventSource.close();
           break;

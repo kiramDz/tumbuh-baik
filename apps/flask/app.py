@@ -1125,6 +1125,7 @@ def preprocess_bmkg_stream(collection_name):
             preprocessing_result = {'status': None, 'data': None, 'error': None}
             
             def run_preprocessing():
+                result = None
                 try:
                     # Send starting message
                     log_queue.put({
@@ -1143,15 +1144,17 @@ def preprocess_bmkg_stream(collection_name):
                     preprocessing_result['data'] = result
                     
                     # Send completion
+                    safe_result = {
+                        'recordCount': int(result.get('recordCount', 0)) if result.get('recordCount') else 0,
+                        'originalRecordCount': int(result.get('originalRecordCount', 0)) if result.get('originalRecordCount') else 0,
+                        'cleanedCollection': result.get('cleanedCollection'),
+                        'preprocessing_report': result.get('preprocessing_report')
+                    }
+                    
                     log_queue.put({
                         'type': 'complete',
                         'status': 'success',
-                        'result': {
-                            'recordCount': result.get('recordCount'),
-                            'originalRecordCount': result.get('originalRecordCount'),
-                            'cleanedCollection': result.get('cleanedCollection'),
-                            'preprocessing_report': result.get('preprocessing_report')
-                        }
+                        'result': safe_result
                     })
                     
                 except Exception as e:
@@ -1165,7 +1168,8 @@ def preprocess_bmkg_stream(collection_name):
                     })
                 finally:
                     # Signal completion
-                    log_queue.put({'type': 'done'})
+                    logger.info("Preprocessing thread completed, stream will close naturally")
+                    preprocessing_result['thread_complete'] = True
             
             # Start preprocessing thread
             thread = threading.Thread(target=run_preprocessing)
@@ -1179,16 +1183,18 @@ def preprocess_bmkg_stream(collection_name):
                     log_data = log_queue.get(timeout=1)
                     
                     # Check if done
-                    if log_data.get('type') == 'done':
+                    if log_data.get('type') == 'complete':
+                        yield f": completion-sent\n\n"
+                        time.sleep(1.0)
+                        logger.info("Closing stream after completion processed")
                         break
-                    
                     # Send log to client as SSE
                     yield f"data: {json.dumps(log_data)}\n\n"
                     
-                except:
-                    # Timeout - send keepalive
-                    yield ": keepalive\n\n"
-                    continue
+                except Exception:
+                    if preprocessing_result.get('thread_complete'):
+                        logger.info("🏁 Thread completed, closing stream")
+                        break
                     
         except GeneratorExit:
             # Client disconnected

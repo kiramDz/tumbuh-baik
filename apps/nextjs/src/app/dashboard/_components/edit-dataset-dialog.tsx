@@ -101,7 +101,16 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         throw new Error("Dataset ID is missing");
       }
 
-      return UpdateDatasetMeta(dataset._id, data);
+      // only includes status if it changed from original
+      const updatePayload = {
+        name: data.name,
+        source: data.source,
+        collectionName: data.collectionName,
+        description: data.description,
+        ...(data.status !== dataset.status && { status: data.status }), // ← Only send if changed
+      };
+
+      return UpdateDatasetMeta(dataset._id, updatePayload);
     },
     onSuccess: (result) => {
       toast.success("Dataset berhasil diperbarui");
