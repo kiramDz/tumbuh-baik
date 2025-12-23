@@ -20,7 +20,7 @@ const ForecastConfigSchema = new Schema(
         columnName: { type: String, required: true },
         metrics: {
           mae: Number,
-          r2: Number,
+          rmse: Number,
           mape: Number,
           mse: Number,
         },

@@ -1,21 +1,5 @@
 import mongoose, { Schema } from "mongoose";
 
-export interface IDatasetMeta extends Document {
-  name: string;
-  source: string;
-  filename: string;
-  collectionName: string;
-  fileSize: number;
-  totalRecords: number;
-  fileType: string;
-  status: string;
-  columns: string[];
-  description?: string;
-  uploadDate: Date;
-  errorMessage?: string;
-  deletedAt?: Date | null;
-}
-
 const DatasetMetaSchema = new Schema(
   {
     name: { type: String, required: true }, // Nama koleksi, digunakan untuk identifikasi
@@ -44,10 +28,13 @@ const DatasetMetaSchema = new Schema(
     description: { type: String },
     uploadDate: { type: Date, default: Date.now },
     errorMessage: { type: String },
+<<<<<<< HEAD
     isAPI: { type: Boolean, default: false }, // Flag untuk menandakan dataset fetch vs upload
     lastUpdated: { type: Date },
     apiConfig: { type: Schema.Types.Mixed }, // Optional: menyimpan konfigurasi API jika diperlukan
     deletedAt: { type: Date, default: null }, // Untuk soft delete
+=======
+>>>>>>> build-lstm
   },
   {
     collection: "dataset_meta",

@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+"use client";
+
+>>>>>>> build-lstm
 import * as React from "react";
 import {
   ColumnDef,
@@ -12,8 +17,12 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+<<<<<<< HEAD
 import { Icons } from "@/app/dashboard/_components/icons";
 import { Loader2, Download } from "lucide-react";
+=======
+import { Download, FileDown, Database } from "lucide-react";
+>>>>>>> build-lstm
 import {
   Table,
   TableBody,
@@ -27,8 +36,13 @@ import { DataTableViewOptions } from "./data-table-view-option";
 import { useState } from "react";
 import { DataTableSort } from "./data-table-sort";
 import { Button } from "@/components/ui/button";
+<<<<<<< HEAD
 import toast from "react-hot-toast";
 import PreprocessingModal from "../../(main)/data/_components/preprocessing/preprocessing-modal";
+=======
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+>>>>>>> build-lstm
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -50,6 +64,7 @@ interface DataTableProps<TData, TValue> {
     onExport: () => void;
     isExporting: boolean;
   };
+<<<<<<< HEAD
   // Add preprocessing props
   preprocessing?: {
     collectionName: string;
@@ -58,6 +73,9 @@ interface DataTableProps<TData, TValue> {
     isAPI?: boolean;
     onPreprocessingComplete?: () => void;
   };
+=======
+  isLoading?: boolean;
+>>>>>>> build-lstm
 }
 
 export function MainTableUI<TData, TValue>({
@@ -66,7 +84,11 @@ export function MainTableUI<TData, TValue>({
   pagination,
   sorting,
   export: exportProps,
+<<<<<<< HEAD
   preprocessing,
+=======
+  isLoading,
+>>>>>>> build-lstm
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -91,7 +113,7 @@ export function MainTableUI<TData, TValue>({
     data,
     columns,
     manualPagination: true,
-    manualSorting: true, // PENTING: Enable manual sorting
+    manualSorting: true,
     rowCount: pagination.total,
     pageCount: pagination.totalPages,
     onPaginationChange: (updater) => {
@@ -100,7 +122,6 @@ export function MainTableUI<TData, TValue>({
           ? updater(table.getState().pagination)
           : updater;
 
-      // Trigger perubahan page dan pageSize
       if (newPagination.pageSize !== table.getState().pagination.pageSize) {
         pagination.onPageSizeChange(newPagination.pageSize);
       } else {
@@ -142,7 +163,6 @@ export function MainTableUI<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
-  // Handle page changes
   const { onPageChange, currentPage } = pagination;
   const pageIndex = table.getState().pagination.pageIndex;
 
@@ -152,6 +172,7 @@ export function MainTableUI<TData, TValue>({
     }
   }, [pageIndex, currentPage, onPageChange]);
 
+<<<<<<< HEAD
   // Add preprocessing modal handlers
   const handlePreprocessingClick = () => {
     setIsPreprocessingModalOpen(true);
@@ -255,11 +276,99 @@ export function MainTableUI<TData, TValue>({
                       </TableHead>
                     );
                   })}
+=======
+  if (isLoading) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between p-4 border-b">
+            <Skeleton className="h-5 w-32" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-8" />
+              <Skeleton className="h-8 w-8" />
+            </div>
+          </div>
+          <div className="p-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+          <div className="flex items-center justify-between p-4 border-t">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-8 w-64" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-0 shadow-sm overflow-hidden">
+      <CardContent className="p-0">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between p-4 border-b bg-muted/30">
+          <p className="text-sm text-muted-foreground">
+            {pagination.total.toLocaleString("id-ID")} data ditemukan
+          </p>
+          <div className="flex items-center gap-2">
+            {exportProps && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportProps.onExport}
+                disabled={exportProps.isExporting}
+                className="h-8 text-xs"
+              >
+                {exportProps.isExporting ? (
+                  <>
+                    <FileDown className="w-3.5 h-3.5 mr-1.5 animate-pulse" />
+                    Mengunduh...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    Ekspor
+                  </>
+                )}
+              </Button>
+            )}
+            <DataTableSort
+              currentSortOrder={sorting.sortOrder}
+              onSortChange={(order) =>
+                sorting.onSortChange(sorting.sortBy, order)
+              }
+            />
+            <DataTableViewOptions table={table} />
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="bg-muted/50 hover:bg-muted/50">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="text-xs font-semibold text-foreground whitespace-nowrap"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+>>>>>>> build-lstm
                 </TableRow>
               ))}
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows?.length ? (
+<<<<<<< HEAD
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
@@ -267,6 +376,19 @@ export function MainTableUI<TData, TValue>({
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
+=======
+                table.getRowModel().rows.map((row, index) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className={index % 2 === 0 ? "bg-background" : "bg-muted/20"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className="text-sm py-3 whitespace-nowrap"
+                      >
+>>>>>>> build-lstm
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -279,15 +401,30 @@ export function MainTableUI<TData, TValue>({
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}
+<<<<<<< HEAD
                     className="h-24 text-center"
                   >
                     No results.
+=======
+                    className="h-48"
+                  >
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <div className="p-3 rounded-full bg-muted mb-3">
+                        <Database className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <p className="font-medium">Tidak ada data</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Data yang dicari tidak ditemukan
+                      </p>
+                    </div>
+>>>>>>> build-lstm
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
+<<<<<<< HEAD
         <DataTablePagination
           table={table}
           totalItems={pagination.total}
@@ -314,5 +451,18 @@ export function MainTableUI<TData, TValue>({
         />
       )} */}
     </>
+=======
+
+        {/* Pagination */}
+        <div className="border-t p-4">
+          <DataTablePagination
+            table={table}
+            totalItems={pagination.total}
+            onPageChange={pagination.onPageChange}
+          />
+        </div>
+      </CardContent>
+    </Card>
+>>>>>>> build-lstm
   );
 }

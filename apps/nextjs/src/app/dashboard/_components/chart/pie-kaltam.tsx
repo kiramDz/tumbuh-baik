@@ -9,7 +9,7 @@ export const description = "Pie charts with error metrics";
 
 const COLORS = {
   mae: "#4ADE80",
-  // R2: "#60A5FA",
+  rmse: "#60A5FA",
   mape: "#F59E0B",
   mse: "#EF4444",
 };
@@ -18,6 +18,10 @@ const chartConfig = {
   mae: {
     label: "MAE",
     color: COLORS.mae,
+  },
+  rmse: {
+    label: "RMSE",
+    color: COLORS.rmse,
   },
   mape: {
     label: "MAPE",
@@ -54,7 +58,7 @@ export function RoundedPieChart() {
         // Bentuk data untuk pie chart
         const chartData = [
           { key: "mae", value: metrics.mae || 0, fill: COLORS.mae },
-          // { key: "R2", value: metrics.R2 || 0, fill: COLORS.R2 },
+          { key: "rmse", value: metrics.rmse || 0, fill: COLORS.rmse },
           { key: "mape", value: metrics.mape || 0, fill: COLORS.mape },
           { key: "mse", value: metrics.mse || 0, fill: COLORS.mse },
         ];

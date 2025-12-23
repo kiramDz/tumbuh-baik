@@ -63,6 +63,15 @@ mongo_uri = os.getenv("MONGODB_URI")
 db_name = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
 mongo_client = MongoClient(mongo_uri)
 db = mongo_client[db_name]
+from flask import Flask, jsonify
+from flask_cors import CORS
+from helpers.objectid_converter import convert_objectid
+from jobs.run_forecast_from_config import run_forecast_from_config
+from jobs.run_lstm import run_lstm_from_config
+from pymongo import MongoClient
+
+app = Flask(__name__)
+CORS(app, origins="http://localhost:3000") 
 
 # Configure Flask app
 app.config['MONGO_DB'] = db
@@ -71,19 +80,25 @@ app.config['MONGO_CLIENT'] = mongo_client
 # Initialize blueprint - MOVED HERE
 preprocessing_bp = Blueprint('preprocessing', __name__, url_prefix="/api/v1")
 
-# === Routes ===
 @app.route("/")
 def home():
     return jsonify({"message": "Flask Holt-Winter API is running!"})
-
 
 @app.route("/run-forecast", methods=["POST"])
 def run_forecast():
     return run_forecast_from_config()
 
+@app.route("/run-lstm", methods=["POST"])
+def run_lstm():
+    return run_lstm_from_config()
+
+
 @app.route("/check-mongodb")
 def check_mongodb():
     try:
+        client = MongoClient("mongodb+srv://hilmi0:8ZqtGJVyMiF8x7YN@cluster0.uuonyyb.mongodb.net/tugas_akhir?retryWrites=true&w=majority&appName=Cluster0")
+        # client = MongoClient("mongodb://host.docker.internal:27017/")
+        db = client["tugas_akhir"]
         collections = db.list_collection_names()
         return jsonify({
             "status": "connected",

@@ -1,7 +1,7 @@
 import { Heading } from "@/components/ui/heading";
 import { DataTableSkeleton } from "../_components/data-table-skeleton";
 import { Suspense } from "react";
-import RecycleBinTable from "../_components/recycle-bin";
+import RecycleBinTable from "../_components/recyle-bin";
 export const metadata = {
   title: "Dashboard: Recyle Bin",
 };

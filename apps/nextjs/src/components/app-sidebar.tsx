@@ -44,7 +44,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
     {
       title: "Kalender Tanam",
-      url: "/dashboard/kaltam",
+      url: "/dashboard/kaltam", 
       icon: BarChartIcon,
       items: [
         {
@@ -52,24 +52,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: "/dashboard/kaltam",
         },
         {
-          title: "lstm",
-          url: "/dashboard/kaltam",
+          title: "LSTM",
+          url: "/dashboard/kaltam-lstm",
         },
       ],
     },
     {
-      title: "Data bibit",
+      title: "Data Bibit",
       url: "/dashboard/bibit",
       icon: Bean,
     },
     {
       title: "User Management",
-      url: "dashboard/users",
+      url: "/dashboard/users",
       icon: Users,
     },
     {
       title: "Recycle Bin",
-      url: "dashboard/recycle-bin",
+      url: "/dashboard/recycle-bin",
       icon: Trash,
     },
   ];
@@ -105,7 +105,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarFooter>
             {/* <SidebarFooter>
         <NavUser user={data.user} />
-      </SidebarFooter> */}
+      </SidebarFooter>
     </Sidebar>
   );
 }

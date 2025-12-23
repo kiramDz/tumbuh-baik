@@ -16,7 +16,7 @@ export default async function Page() {
       <PageContainer scrollable={false}>
         <div className="flex flex-1 flex-col space-y-4">
           <div className="flex items-start justify-start">
-            <Heading title="Kelola Bibit" description="Fitur untuk mengelola data bibit, mulai dari penambahan, pembaruan, hingga penghapusan agar informasi bibit tetap terorganisir." />
+            <Heading title="Varietas Padi" description="Manage products (Server side table functionalities.)" />
           </div>
           <Separator />
           <AddSeedDialog />
