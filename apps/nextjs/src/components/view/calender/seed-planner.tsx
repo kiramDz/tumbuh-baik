@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getSeeds, createSeed, getHoltWinterDaily, getLSTMDaily } from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/combobox";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -38,18 +39,15 @@ const TEMP_MAX = 29;
 const HUM_MIN = 33;
 const HUM_MAX = 90;
 
-// === BARU === Durasi untuk fase pencabutan dan penaburan bibit (tetap)
-const TABUR_DURATION = 2;
+const GARAP_DURATION = 5;
+const SEMAI_DURATION = 20;
 
 export default function CalendarSeedPlanner() {
   const queryClient = useQueryClient();
   const [selectedSeedName, setSelectedSeedName] = useState<string>("");
-  const [duration, setDuration] = useState<number>(10);
+  const [duration, setDuration] = useState<number>(0);
   const [startDate, setStartDate] = useState<string>("");
-
-  // === BARU === State untuk durasi garap sawah, default 10 hari
-  const [garapDurationInput, setGarapDurationInput] = useState<number>(10);
-  const [semaiDurationInput, setSemaiDurationInput] = useState<number>(20);
+  const [semaiStatus, setSemaiStatus] = useState<string>("belum");
   const [showGrid, setShowGrid] = useState(false);
   const [currentModel, setCurrentModel] = useState<ModelType>("holt-winters");
 
@@ -116,14 +114,21 @@ export default function CalendarSeedPlanner() {
     setShowGrid(true);
   };
 
-  // === DIHAPUS === Fungsi calculateActualStartDate tidak lagi diperlukan
+  const calculateActualStartDate = () => {
+    if (!startDate) return null;
+    const targetPlantDate = new Date(startDate);
+    const daysToSubtract = semaiStatus === "belum" ? GARAP_DURATION + SEMAI_DURATION : GARAP_DURATION;
+    const actualStartDate = new Date(targetPlantDate);
+    actualStartDate.setDate(actualStartDate.getDate() - daysToSubtract);
+    return actualStartDate;
+  };
 
   const getWeatherColor = (rain: number, temp: number, hum: number) => {
-    const isRainSesuai = rain >= RAIN_MIN && rain <= RAIN_MAX;
-    const isTempSesuai = temp >= TEMP_MIN && temp <= TEMP_MAX;
-    const isHumSesuai = hum >= HUM_MIN && hum <= HUM_MAX;
+    const isRainExtreme = rain < RAIN_MIN || rain > RAIN_MAX;
+    const isTempExtreme = temp < TEMP_MIN || temp > TEMP_MAX;
+    const isHumExtreme = hum < HUM_MIN || hum > HUM_MAX;
 
-    const sesuaiCount = Number(isRainSesuai) + Number(isTempSesuai) + Number(isHumSesuai);
+    const extremeCount = [isRainExtreme, isTempExtreme, isHumExtreme].filter(Boolean).length;
 
     if (extremeCount === 0) return "bg-emerald-100 border-emerald-200 text-emerald-800"; // semua sesuai
     if (extremeCount >= 2) return "bg-red-100 border-red-200 text-red-800"; // ada 2+ ekstrem → bahaya
@@ -179,7 +184,6 @@ export default function CalendarSeedPlanner() {
           icon = <Sprout className="w-3 h-3" />;
         }
       } else {
-        // Fase Tanam di Sawah
         type = "Masa Tanam";
         const forecastDay = forecastData.items.find((f: any) => 
           format(new Date(f.forecast_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
@@ -196,8 +200,9 @@ export default function CalendarSeedPlanner() {
           icon = <Info className="w-3 h-3" />;
         }
 
-        const dayInGrowingCycle = i - tanamStartIndex;
-        if (dayInGrowingCycle >= duration - 20) {
+        // Panen warna kuning
+        const dayInCycle = i - preparationDays;
+        if (dayInCycle >= duration - 20) {
           type = "Panen";
           bgColor = "bg-yellow-50 border-yellow-200 text-yellow-800";
           icon = <Calendar className="w-3 h-3" />;

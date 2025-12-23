@@ -5,11 +5,8 @@ import { FileText, Sparkles } from "lucide-react";
 import { DashboardCard, DashboardCardSkeleton } from "../_components/dashboard-card";
 import { GetAllDatasetMeta } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
-<<<<<<< HEAD
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-=======
->>>>>>> main
 
 export default function Page() {
   const { data, isLoading, error } = useQuery({
@@ -28,27 +25,9 @@ export default function Page() {
             </h1>
             <span className="text-3xl">👋</span>
           </div>
-<<<<<<< HEAD
           <p className="text-muted-foreground">
             Manage your datasets and explore agricultural data insights
           </p>
-=======
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {isLoading && [...Array(4)].map((_, i) => <DashboardCardSkeleton key={i} />)}
-
-            {data &&
-              data.map((dataset: any) => (
-                <DashboardCard
-                  key={dataset.collectionName}
-                  href={`/dashboard/data/${dataset.collectionName}`}
-                  collectionName={dataset.collectionName}
-                  title={dataset.name}
-                  description={dataset.description || `Dataset dari collcetion ${dataset.collectionName}`}
-                  icon={FileText}
-                />
-              ))}
-          </div>
->>>>>>> main
         </div>
 
         <Separator />

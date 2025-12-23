@@ -41,14 +41,12 @@ const data = {
     {
       title: "User Management",
       url: "/dashboard/users",
-      url: "/dashboard/users",
       icon: Users,
     },
     {
       title: "Recycle Bin",
       url: "/dashboard/recycle-bin",
-      title: "Recycle Bin",
-      url: "/dashboard/recycle-bin",
+
       icon: Trash,
     },
   ],
