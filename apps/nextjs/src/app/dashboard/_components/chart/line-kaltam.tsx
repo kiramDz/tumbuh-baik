@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { getHoltWinterDaily } from "@/lib/fetch/files.fetch"; // Asumsi path ini benar, adjust jika perlu
+import { getHoltWinterDaily } from "@/lib/fetch/files.fetch";
 
 export const description = "Line charts with forecast values";
 
@@ -18,7 +18,7 @@ const chartConfig = {
 export function RainbowGlowGradientLineChart() {
   const { data: rawData, isLoading } = useQuery({
     queryKey: ["hw-daily-full"],
-    queryFn: () => getHoltWinterDaily(1, 365), // Ambil hingga 365 hari (1 tahun), adjust jika perlu lebih
+    queryFn: () => getHoltWinterDaily(1, 365),
     refetchOnWindowFocus: false,
   });
 
@@ -27,7 +27,6 @@ export function RainbowGlowGradientLineChart() {
   const items = rawData?.items || [];
   if (items.length === 0) return <p>No forecast data available.</p>;
 
-  // Extract parameter unik
   const parameters = new Set<string>();
   items.forEach((item: any) => {
     Object.keys(item.parameters || {}).forEach((param) => parameters.add(param));
@@ -35,13 +34,12 @@ export function RainbowGlowGradientLineChart() {
 
   const paramArray = Array.from(parameters);
 
-  // Group data per parameter, sort by date ascending
   const groupedData: Record<string, Array<{ date: string; value: number }>> = {};
   paramArray.forEach((param) => {
     groupedData[param] = items
       .filter((item: any) => item.parameters?.[param]?.forecast_value != null)
       .map((item: any) => ({
-        date: new Date(item.forecast_date).toLocaleDateString("en-US", { month: "short" }), // Hanya tampilkan bulan
+        date: new Date(item.forecast_date).toLocaleDateString("en-US", { month: "short" }),
         value: item.parameters[param].forecast_value,
       }))
       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
