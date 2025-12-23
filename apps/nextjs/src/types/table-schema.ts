@@ -55,3 +55,4 @@ export type BMKGApiData = z.infer<typeof BMKGApi>;
 export type SeedType = z.infer<typeof SeedSchema>;
 export type RecycleBinType = z.infer<typeof RecycleBinSchema>;
 export type UserType = z.infer<typeof UserSchema>;
+export type RecycleBinType = z.infer<typeof RecycleBinSchema>;

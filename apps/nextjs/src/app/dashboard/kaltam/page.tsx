@@ -17,7 +17,7 @@ export default async function Page() {
   return (
     <div className="flex flex-col border-none shadow-none space-y-4 p-4 md:px-6">
       <div className="flex items-start justify-start">
-        <Heading title="Kalender Tanam" description="Manage products (Server side table functionalities.)" />
+        <Heading title="Kalender Tanam" description="Prediksi kalender tanam berdasarkan metode Holt-Winters." />
       </div>
       <Separator />
       <div className="w-full flex gap-4">

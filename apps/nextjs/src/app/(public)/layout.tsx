@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <main className=" w-full  min-h-screen ">
+      <main className=" w-full overflow-hidden min-h-screen ">
         <MdxWrapper>{children}</MdxWrapper>
       </main>
     </>

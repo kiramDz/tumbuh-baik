@@ -19,9 +19,9 @@ const WeatherMetric: React.FC<WeatherMetricProps> = ({ icon: Icon, label, value 
   <div className="flex flex-col">
     <div className="flex gap-2 items-center">
       <Icon />
-      <span className="text-sm text-nowrap">{label}</span>
+      <span className="text-xs sm:text-sm text-nowrap">{label}</span>
     </div>
-    <p className="text-2xl font-bold">{value}</p>
+    <p className="text-xl sm:text-2xl font-bold">{value}</p>
   </div>
 );
 
@@ -33,12 +33,12 @@ interface TemperatureDisplayProps {
 
 // Main temperature display component
 const TemperatureDisplay: React.FC<TemperatureDisplayProps> = ({ temperature, unit, description }) => (
-  <div className="flex flex-col gap-4 justify-center my-auto">
+  <div className="flex flex-col gap-2 sm:gap-4 justify-center my-auto">
     <div className="flex items-start">
-      <p className="text-8xl font-bold tracking-tighter">{Math.round(temperature)}°</p>
-      <p className="text-2xl font-bold">{unit === "metric" ? "C" : "F"}</p>
+      <p className="text-6xl sm:text-7xl md:text-8xl font-bold tracking-tighter">{Math.round(temperature)}°</p>
+      <p className="text-xl sm:text-2xl font-bold">{unit === "metric" ? "C" : "F"}</p>
     </div>
-    <p className="text-5xl text-muted-foreground">{description}</p>
+    <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-muted-foreground capitalize">{description}</p>
   </div>
 );
 
@@ -49,7 +49,7 @@ interface WeatherMetricsProps {
 }
 // Weather metrics section
 const WeatherMetrics: React.FC<WeatherMetricsProps> = ({ windSpeed, humidity, unit }) => (
-  <div className="flex gap-6">
+  <div className="flex gap-4 sm:gap-6">
     <WeatherMetric icon={Wind} label="wind" value={`${Math.round(windSpeed)}${unit === "metric" ? "km/h" : "mph"}`} />
     <WeatherMetric
       icon={Droplet}
@@ -61,9 +61,8 @@ const WeatherMetrics: React.FC<WeatherMetricsProps> = ({ windSpeed, humidity, un
 
 const CurrentWeatherCard: React.FC<CurrentWeatherProps> = ({ bmkgCurrent, unit }) => {
   return (
-    <Card className="relative h-fit w-full md:h-[28rem] border-none shadow-none">
-      <CardContent className="flex flex-col justify-center h-full ">
-        {/* Temperature Section */}
+    <Card className="relative h-fit w-full lg:h-[28rem] border-none shadow-none">
+      <CardContent className="flex flex-col justify-center h-full p-4 sm:p-6">
         <TemperatureDisplay temperature={bmkgCurrent.t} unit={unit} description={bmkgCurrent.weather_desc} />
         <WeatherMetrics windSpeed={bmkgCurrent.ws} humidity={bmkgCurrent.hu} unit={unit} />
       </CardContent>

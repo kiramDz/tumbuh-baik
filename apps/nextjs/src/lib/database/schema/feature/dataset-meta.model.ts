@@ -1,5 +1,21 @@
 import mongoose, { Schema } from "mongoose";
 
+export interface IDatasetMeta extends Document {
+  name: string;
+  source: string;
+  filename: string;
+  collectionName: string;
+  fileSize: number;
+  totalRecords: number;
+  fileType: string;
+  status: string;
+  columns: string[];
+  description?: string;
+  uploadDate: Date;
+  errorMessage?: string;
+  deletedAt?: Date | null;
+}
+
 const DatasetMetaSchema = new Schema(
   {
     name: { type: String, required: true }, // Nama koleksi, digunakan untuk identifikasi
@@ -14,6 +30,7 @@ const DatasetMetaSchema = new Schema(
     description: { type: String },
     uploadDate: { type: Date, default: Date.now },
     errorMessage: { type: String },
+    deletedAt: { type: Date, default: null },
   },
   {
     collection: "dataset_meta",

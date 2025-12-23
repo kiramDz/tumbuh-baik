@@ -9,9 +9,14 @@ forecastConfigRoute.post("/", async (c) => {
   try {
     await db();
     const { name, columns, startDate } = await c.req.json();
+    const { name, columns, startDate } = await c.req.json();
 
     if (!name || !Array.isArray(columns) || columns.length === 0) {
       return c.json({ message: "Name and columns are required" }, 400);
+    }
+
+    if (!startDate) {
+      return c.json({ message: "Start date is required" }, 400);
     }
 
     if (!startDate) {
@@ -33,8 +38,15 @@ forecastConfigRoute.post("/", async (c) => {
     const end = new Date(start);
     end.setFullYear(end.getFullYear() + 1);
 
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+
     const doc = {
       name: name.trim(),
+      columns,
+      startDate: start,
+      endDate: end,
       columns,
       startDate: start,
       endDate: end,

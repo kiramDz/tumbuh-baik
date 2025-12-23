@@ -1,3 +1,4 @@
+
 from pymongo import MongoClient
 import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -43,23 +44,54 @@ def post_process_forecast(forecast, param_name):
     """
     Post-processing untuk memastikan forecast masuk akal
     """
-    if param_name == "RR" or param_name == "RR_imputed":  # Curah Hujan
-        forecast = np.maximum(forecast, 0)
-        forecast = np.minimum(forecast, 300)
-        
-    elif param_name == "RH_AVG":  # Kelembapan
-        # Harus dalam range 0-100%
-        forecast = np.clip(forecast, 0, 100)
-    
-    elif param_name == "NDVI":  # Normalized Difference Vegetation Index
-        # NDVI harus dalam range -1 to 1
-        forecast = np.clip(forecast, -1, 1)
-    
-    elif "Suhu" in param_name or "Temperature" in param_name:  # Suhu
-        # Batasi suhu dalam range yang masuk akal (-50°C to 60°C)
-        forecast = np.clip(forecast, -50, 60)
-    
+    forecast = np.array(forecast)
+    if param_name in ["RR", "RR_imputed"]: 
+        if lam is not None:  # Balikkan Box-Cox
+            forecast = (forecast * lam + 1) ** (1/lam) - 1
+        forecast = np.clip(forecast, 0, 300)
+    elif param_name == "NDVI":  
+        forecast = np.clip(forecast, -1, 1)  # Rentang NDVI
+    elif param_name in ["RH_AVG", "RH_AVG_preprocessed"]:  
+        forecast = np.clip(forecast, 0, 100)  
+    elif param_name in ["TAVG", "TMAX", "TMIN"]:  
+        forecast = np.clip(forecast, 10, 50)  # Celsius, rentang realistis
+    elif param_name in ["ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]:
+        # Radiasi Matahari (W/m²), tidak mungkin negatif
+        forecast = np.clip(forecast, 0, 1400) 
+    else:
+        print(f"Warning: No post-processing defined for {param_name}")
     return forecast
+
+
+def detect_seasonal_period(data, param_name):
+    """
+    Deteksi periode musiman menggunakan seasonal_decompose
+    """
+    is_ndvi = param_name in ["NDVI"]
+    
+    if is_ndvi:
+        min_period = 4
+        max_period = len(data) // 2
+        periods = range(min_period, min(max_period, 23))
+        best_period = min_period
+        best_residual = float('inf')
+
+        for period in periods:
+            if period >= len(data):
+                continue
+            try:
+                result = seasonal_decompose(data, model='additive', period=period, extrapolate_trend='freq')
+                residual = np.nanmean(np.abs(result.resid))
+                if residual < best_residual:
+                    best_residual = residual
+                    best_period = period
+            except Exception:
+                continue
+        return best_period
+    else:
+        return 365  
+    
+
 
 def grid_search_hw_params(train_data, param_name):
     """
@@ -105,129 +137,76 @@ def grid_search_hw_params(train_data, param_name):
     print(f"Seasonal periods to try: {seasonal_periods_options}")
     
     for seasonal_periods in seasonal_periods_options:
-        for alpha, beta, gamma in itertools.product(alpha_range, beta_range, gamma_range):
-            try:
-                model = ExponentialSmoothing(
-                    train_split,
-                    trend="add",
-                    seasonal="add",
-                    seasonal_periods=seasonal_periods
-                ).fit(
-                    smoothing_level=alpha,
-                    smoothing_trend=beta,
-                    smoothing_seasonal=gamma,
-                    optimized=False
-                )
-                
-                forecast = model.forecast(steps=len(val_split))
-                print(f"Forecast length: {len(forecast)}, Validation length: {len(val_split)}")
+        if len(train_split) < seasonal_periods * 2:
+            continue
+            
+        for alpha in alpha_range:
+            for beta in beta_range:
+                for gamma in gamma_range:
+                    try:
+                        print(f"🔧 Trying: alpha={alpha}, beta={beta}, gamma={gamma}, season={seasonal_periods}")
+                        # Fit model
+                        model = ExponentialSmoothing(
+                            train_split,
+                            trend="add",
+                            seasonal="add",
+                            seasonal_periods=seasonal_periods
+                        ).fit(
+                            smoothing_level=alpha,
+                            smoothing_trend=beta,
+                            smoothing_seasonal=gamma,
+                            optimized=False
+                        )
+                        
+                        # Forecast
+                        forecast = model.forecast(len(val_split))
+                        forecast = post_process_forecast(forecast, param_name)
+                        
+                        # Calculate metrics
+                        mae = mean_absolute_error(val_split, forecast)
+                        mad = np.mean(np.abs(val_split - np.mean(val_split)))
+                        mse = mean_squared_error(val_split, forecast)
+                        mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
+                        rmse = np.sqrt(mse)
+                        score = mae * 0.7 + rmse * 0.3
+                        
+                        if score < best_score:
+                            best_score = score
+                            best_params = {
+                                'alpha': alpha,
+                                'beta': beta,
+                                'gamma': gamma,
+                                'seasonal_periods': seasonal_periods
+                            }
+                            best_metrics = {
+                                'mae': mae,
+                                'mad': mad,
+                                'mape': mape,
+                                'mse': mse,
+                                'rmse': rmse,
+                                'valid_models': valid_models + 1
+                            }
+                            print(f"✅ New best found! Score: {score:.4f}, Params: {best_params}")
+                            valid_models += 1
+                            
+                    except Exception as e:
+                        continue
+    if best_params:
+        print(f"\n🎯 Best Params: {best_params}")
+        print(f"📈 Metrics: {best_metrics}")
+    else:
+        print("❌ No valid model found.")
 
-                if len(forecast) != len(val_split):
-                    print(f"⚠️ Forecast length mismatch for α={alpha}, β={beta}, γ={gamma}, seasonal_periods={seasonal_periods}: expected {len(val_split)}, got {len(forecast)}")
-                    continue
-                
-                # Post-process forecast
-                forecast = post_process_forecast(forecast, param_name)
+    return best_params, best_metrics
 
-                if np.isnan(forecast).any() or np.isinf(forecast).any():
-                    print(f"⚠️ NaN or Inf in forecast for α={alpha}, β={beta}, γ={gamma}, seasonal_periods={seasonal_periods}")
-                    continue
-                
-                # Hitung metrik evaluasi
-                mse = mean_squared_error(val_split, forecast)
-                rmse = np.sqrt(mse)
-                mae = mean_absolute_error(val_split, forecast)
-                # Hitung MAPE, hindari pembagian dengan nol
-                mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
-                
-                if rmse < best_score:
-                    best_score = rmse
-                    best_params = {
-                        'alpha': alpha,
-                        'beta': beta,
-                        'gamma': gamma,
-                        'seasonal_periods': seasonal_periods,
-                        'use_seasonal': True
-                    }
-                    best_mae = mae
-                    best_rmse = rmse
-                    best_mape = mape
-                    best_mse = mse
-                    valid_models += 1
-                    print(f"✓ New best: α={alpha}, β={beta}, γ={gamma} | RMSE={rmse:.3f}, MAE={mae:.3f}, MAPE={mape:.3f}%, MSE={mse:.3f}")
-                    
-            except Exception as e:
-                print(f"❌ Error for α={alpha}, β={beta}, γ={gamma}, seasonal_periods={seasonal_periods}: {str(e)}")
-                continue
-    # Coba model non-seasonal sebagai fallback
-    if best_params is None:
-        print("Trying simple model without seasonal component...")
-        for alpha, beta in itertools.product(alpha_range, beta_range):
-            try:
-                model = ExponentialSmoothing(
-                    train_split,
-                    trend="add",
-                    seasonal=None
-                ).fit(
-                    smoothing_level=alpha,
-                    smoothing_trend=beta,
-                    optimized=False
-                )
-                
-                forecast = model.forecast(steps=len(val_split))
-                print(f"Simple model forecast length: {len(forecast)}, Validation length: {len(val_split)}")
-                
-                if len(forecast) != len(val_split):
-                    print(f"⚠️ Simple model forecast length mismatch for α={alpha}, β={beta}: expected {len(val_split)}, got {len(forecast)}")
-                    continue
-                
-                forecast = post_process_forecast(forecast, param_name)
-                
-                if np.isnan(forecast).any() or np.isinf(forecast).any():
-                    print(f"⚠️ NaN or Inf in simple model forecast for α={alpha}, β={beta}")
-                    continue
-                
-                mse = mean_squared_error(val_split, forecast)
-                rmse = np.sqrt(mse)
-                mae = mean_absolute_error(val_split, forecast)
-                mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
-                
-                if rmse < best_score:
-                    best_score = rmse
-                    best_params = {
-                        'alpha': alpha,
-                        'beta': beta,
-                        'gamma': 0.1,
-                        'seasonal_periods': None,
-                        'use_seasonal': False
-                    }
-                    best_mae = mae
-                    best_rmse = rmse
-                    best_mape = mape
-                    best_mse = mse
-                    valid_models += 1
-                    print(f"✓ Simple model: α={alpha}, β={beta} | RMSE={rmse:.3f}, MAE={mae:.3f}, MAPE={mape:.3f}%, MSE={mse:.3f}")
-                    
-            except Exception as e:
-                print(f"❌ Error in simple model for α={alpha}, β={beta}: {str(e)}")
-                continue
 
-    if best_params is None:
-        print("❌ No valid model found")
-        return None, None
-    
-    print(f"✓ Best parameters found for {param_name}: {best_params}")
-    print(f"✓ Valid models tested: {valid_models}")
-    
-    return best_params, {'mae': best_mae, 'rmse': best_rmse, 'mape': best_mape, 'mse': best_mse}
 
-def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None):
+def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None, start_date=None, end_date=None):
     """
     Fungsi Holt-Winter yang dinamis berdasarkan parameter dari forecast_config
     """
     print(f"=== Start Holt-Winter Analysis for {collection_name}.{target_column} ===")
     
-    # MongoDB connection
     if client is None:
         from dotenv import load_dotenv
         import os
@@ -267,8 +246,20 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
 
         # Pastikan indeks harian tanpa duplikasi
         df = df[~df.index.duplicated(keep='first')]
-        date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq='D')
-        df = df.reindex(date_range, method=0)
+
+        # Tentukan frekuensi berdasarkan parameter
+        is_ndvi = target_column in ["NDVI", "NDVI_imputed"]
+        freq = '16D' if is_ndvi else 'D'
+
+        date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq=freq)
+        missing_dates = date_range.difference(df.index)
+        print(f"Missing dates: {missing_dates}")
+
+         # Reindex dengan interpolasi untuk NDVI, fill_value=0 untuk lainnya
+        if is_ndvi:
+            df = df.reindex(date_range).interpolate(method='linear')
+        else:
+            df = df.reindex(date_range).interpolate(method='linear')
         
         print(f"Data range: {df.index[0]} to {df.index[-1]}")
         
@@ -282,6 +273,41 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if len(param_data) < 100:
             raise ValueError(f"Insufficient data for {target_column}")
         
+        # Debug data
+        print(f"Data summary for {target_column}:")
+        print(f"Total values: {len(param_data)}")
+        print(f"Zero values: {(param_data == 0).sum()}")
+        print(f"Non-zero values: {(param_data > 0).sum()}")
+        print(f"Mean: {param_data.mean():.3f}, Std: {param_data.std():.3f}")
+
+        try:
+            best_period = detect_seasonal_period(param_data, target_column)
+            print(f"🔍 Starting decompose for {target_column}, data length: {len(param_data)}, period: {best_period}")
+            
+            decompose_result = seasonal_decompose(param_data, model='additive', period=best_period, extrapolate_trend='freq')
+            decompose_docs = []
+            for i, date in enumerate(param_data.index):
+                doc = {
+                    "date": date.to_pydatetime(),
+                    "config_id": config_id,
+                    "parameters": {
+                        target_column: {
+                            "trend": float(decompose_result.trend[i]) if not np.isnan(decompose_result.trend[i]) else None,
+                            "seasonal": float(decompose_result.seasonal[i]) if not np.isnan(decompose_result.seasonal[i]) else None,
+                            "resid": float(decompose_result.resid[i]) if not np.isnan(decompose_result.resid[i]) else None
+                        }
+                    }
+                }
+                decompose_docs.append(doc)
+            
+            db["temp-decompose"].insert_many(decompose_docs)
+            print(f"✅ Decompose success: {len(decompose_docs)} documents saved to temp-decompose")
+            
+        except Exception as e:
+            print(f"❌ Decompose failed for {target_column}: {str(e)}")
+            print(f"❌ Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
         # Grid search
         best_params, error_metrics = grid_search_hw_params(param_data, target_column)
         
@@ -294,11 +320,23 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
         
-        # Calculate forecast horizon (sampai akhir 2026)
-        data_end_date = df.index[-1]
-        forecast_start_date = data_end_date - pd.DateOffset(years=1)
-        forecast_end_date = data_end_date + pd.DateOffset(years=1)
-        forecast_days = (forecast_end_date - forecast_start_date).days + 1
+        if start_date is not None and end_date is not None:
+            # Convert ke pandas datetime jika belum
+            forecast_start_date = pd.to_datetime(start_date)
+            forecast_end_date = pd.to_datetime(end_date)
+            print(f"[INFO] Using custom date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
+        else:
+            # Fallback ke logika lama (tanggal terakhir data + 1 tahun)
+            last_data_date = df.index[-1]
+            forecast_start_date = last_data_date + pd.Timedelta(days=1)
+            forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
+            print(f"[INFO] Using default date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
+        
+        date_increment = '16D' if is_ndvi else 'D'
+
+        forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
+        forecast_steps = len(forecast_dates)
+
         
         print(f"Forecast horizon: {forecast_days} days")
         
@@ -370,13 +408,25 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # Upsert ke collection
         upsert_count = 0
         for doc in forecast_docs:
+            target_column = list(doc["parameters"].keys())[0]  # ambil nama parameter
             result = db[save_collection].update_one(
-                {"forecast_date": doc["forecast_date"]},
-                {"$set": doc},
+                {
+                    "forecast_date": doc["forecast_date"],
+                    "config_id": doc["config_id"]
+                },
+                {
+                    "$set": {
+                        f"parameters.{target_column}": doc["parameters"][target_column],  # hanya overwrite kolom ini
+                        "timestamp": doc["timestamp"],
+                        "source_collection": doc["source_collection"],
+                        "column_id": doc.get("column_id")
+                    }
+                },
                 upsert=True
             )
-            if result.upserted_id or result.modified_count > 0:
-                upsert_count += 1
+        if result.upserted_id or result.modified_count > 0:
+            upsert_count += 1
+
         
         print(f"✓ Upserted {upsert_count} forecast documents to {save_collection}")
         
@@ -387,8 +437,10 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             "documents_processed": upsert_count,
             "save_collection": save_collection,
             "model_params": best_params,
-            "error_metrics": error_metrics,  # Menambahkan MAE, RMSE, MAPE, MSE
+            "error_metrics": error_metrics,  
             "forecast_range": {
+                "start": forecast_start_date.strftime("%Y-%m-%d"),
+                "end": forecast_end_date.strftime("%Y-%m-%d"),
                 "min": float(forecast.min()),
                 "max": float(forecast.max())
             }

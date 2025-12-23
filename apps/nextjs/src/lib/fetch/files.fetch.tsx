@@ -6,7 +6,21 @@ export interface DatasetMetaType {
   description?: string;
   status: string;
   uploadDate: string;
+  deletedAt?: string;
 }
+
+const getBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "https://zonapetik.tech";
+  }
+
+  // Local development
+  return "http://localhost:3000";
+};
 
 export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
   try {
@@ -76,54 +90,9 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
   }
 }
 
-export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
-  try {
-    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", { page, pageSize });
 
-    const res = await axios.get("/api/v1/dataset-meta/recycle-bin", {
-      params: { page, pageSize },
-    });
 
-    console.log("[GetRecycleBinDatasets] Response status:", res.status);
-    console.log("[GetRecycleBinDatasets] Response data:", res.data);
 
-    if (res.status === 200) {
-      const result = res.data.data || {
-        items: [],
-        total: 0,
-        currentPage: 1,
-        totalPages: 1,
-        pageSize,
-      };
-
-      console.log("[GetRecycleBinDatasets] Final result:", result);
-      return result;
-    }
-  } catch (error) {
-    console.error("Get recycle bin error:", error);
-    throw error;
-  }
-};
-
-export const RestoreDataset = async (collectionName: string) => {
-  try {
-    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/restore`);
-    return res.data.data;
-  } catch (error) {
-    console.error("Restore dataset error:", error);
-    throw error;
-  }
-};
-
-export const PermanentDeleteDataset = async (collectionName: string) => {
-  try {
-    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
-    return res.data;
-  } catch (error) {
-    console.error("Permanent delete dataset error:", error);
-    throw error;
-  }
-};
 
 export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder = "desc") {
   try {
@@ -277,8 +246,24 @@ export const createSeed = async (data: { name: string; duration: number }) => {
   }
 };
 
+export const updateSeed = async (id: string, data: { name: string; duration: number }) => {
+  try {
+    const res = await axios.put(`/api/v1/seeds/${id}`, data);
+    return res.data.data;
+  } catch (error) {
+    console.error("Update seed error:", error);
+    throw error;
+  }
+};
+
 export const deleteSeed = async (id: string) => {
-  await axios.delete(`/api/v1/seeds/${id}`);
+  try {
+    const res = await axios.delete(`/api/v1/seeds/${id}`);
+    return res.data;
+  } catch (error) {
+    console.error("Delete seed error:", error);
+    throw error;
+  }
 };
 
 export const getUsers = async (page = 1, pageSize = 10) => {
@@ -374,17 +359,100 @@ export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
   }
 };
 
+export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
+  try {
+    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", { page, pageSize });
+
+    const res = await axios.get("/api/v1/dataset-meta/recycle-bin", {
+      params: { page, pageSize },
+    });
+
+    console.log("[GetRecycleBinDatasets] Response status:", res.status);
+    console.log("[GetRecycleBinDatasets] Response data:", res.data);
+
+    if (res.status === 200) {
+      const result = res.data.data || {
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 1,
+        pageSize,
+      };
+
+      console.log("[GetRecycleBinDatasets] Final result:", result);
+      return result;
+    }
+  } catch (error) {
+    console.error("Get recycle bin error:", error);
+    throw error;
+  }
+};
+
 //for dataset detail page
 export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items: any[] }> => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}`, {
-    cache: "no-store", // optional jika ingin real-time
+  const baseUrl = getBaseUrl();
+  const url = `${baseUrl}/api/v1/dataset-meta/${slug}`;
+
+  const res = await fetch(url, {
+    cache: "no-store",
   });
 
   if (!res.ok) throw new Error("Failed to fetch dataset");
 
   const json = await res.json();
   return json.data;
+};
+
+export const GetChartDataBySlug = async (
+  slug: string
+): Promise<{
+  items: any[];
+  numericColumns: string[];
+  dateColumn: string;
+} | null> => {
+  const baseUrl = getBaseUrl(); // Gunakan helper yang sama
+  const url = `${baseUrl}/api/v1/dataset-meta/${slug}/chart-data`;
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch chart data");
+
+  const json = await res.json();
+  return json.data;
+};
+
+export const SoftDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Soft delete dataset error:", error);
+    throw error;
+  }
+};
+
+// API function - tambah Promise type
+
+export const RestoreDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/restore`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Restore dataset error:", error);
+    throw error;
+  }
+};
+
+export const PermanentDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
+    return res.data;
+  } catch (error) {
+    console.error("Permanent delete dataset error:", error);
+    throw error;
+  }
 };
 
 // for dataset table
@@ -458,7 +526,11 @@ export const getForecastConfigs = async () => {
   return response.data.data;
 };
 
-export const createForecastConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[] }) => {
+export const createForecastConfig = async (data: {
+  name: string;
+  columns: { collectionName: string; columnName: string }[];
+  startDate: string; // Format: "2025-01-15"
+}) => {
   const response = await axios.post("/api/v1/forecast-config", data);
   return response.data;
 };
@@ -475,10 +547,13 @@ export const createLSTMConfig = async (data: { name: string; columns: { collecti
 
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post("http://127.0.0.1:5001/run-forecast");
+    const res = await axios.post("http://localhost:5001/run-forecast");
+    // const res = await axios.post("https://api.zonapetik.tech/run-forecast");
     return res.data;
-  } catch (error) {
-    console.error("Trigger forecast run failed:", error);
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return { message: "Tidak ada config pending" };
+    }
     throw error;
   }
 };

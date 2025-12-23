@@ -17,7 +17,7 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
 
   return (
     <div>
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full px-0">
         <TabsList className="w-full justify-start border-b bg-transparent p-0">
           <TabsTrigger 
             value="weather" 

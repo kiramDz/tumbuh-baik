@@ -41,21 +41,19 @@ export function RainbowGlowGradientLineChart() {
     groupedData[param] = items
       .filter((item: any) => item.parameters?.[param]?.forecast_value != null)
       .map((item: any) => ({
-        date: new Date(item.forecast_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }), // Format X-axis: Bulan Tanggal
+        date: new Date(item.forecast_date).toLocaleDateString("en-US", { month: "short" }), // Hanya tampilkan bulan
         value: item.parameters[param].forecast_value,
       }))
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Sort ascending
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   });
 
   return (
     <div className="w-full flex flex-col gap-4">
       {" "}
-      {/* Adjust cols berdasarkan jumlah param, misal 3; atau gunakan auto */}
       {paramArray.map((param, index) => {
         const chartData = groupedData[param];
         if (chartData.length === 0) return null;
 
-        // Hitung % change untuk trend indicator
         const firstValue = chartData[0].value;
         const lastValue = chartData[chartData.length - 1].value;
         const percentChange = ((lastValue - firstValue) / firstValue) * 100;

@@ -1,17 +1,21 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ElementType } from "react";
+import { EllipsisVertical } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DashboardCardProps {
   href: string;
   icon: ElementType;
   title: string;
   description: string;
+  collectionName: string;
 }
 
-const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description }) => {
+const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description, collectionName }) => {
+  const queryClient = useQueryClient();
   return (
     <Link href={href} className="group block">
       <Card className="h-full transition-all duration-300 hover:shadow-lg hover:border-primary/50">

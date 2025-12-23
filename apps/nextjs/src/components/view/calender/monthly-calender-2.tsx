@@ -511,7 +511,7 @@ const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
 
   const rows: (any | null)[][] = [];
   for (let i = 0; i < grid.length; i += 1) {
-    const rowIndex = i % 7;
+    const rowIndex = i % 7; // 0=Senin, 1=Selasa, ...
     if (!rows[rowIndex]) rows[rowIndex] = [];
     rows[rowIndex].push(grid[i]);
   }
@@ -746,6 +746,7 @@ export default function PeriodCalendar() {
                                   )}
                                 </div>
                               </div>
+                              {/* --- Akhir Tooltip Diperbarui --- */}
                             </TooltipContent>
                           </Tooltip>
                         );

@@ -1,6 +1,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { SeedType } from "@/types/table-schema";
+import { SeedActions } from "./seed-actions";
 
 export const seedColumns: ColumnDef<SeedType>[] = [
   {
@@ -20,5 +21,10 @@ export const seedColumns: ColumnDef<SeedType>[] = [
       const val = row.getValue("createdAt") as string;
       return format(new Date(val), "dd/MM/yyyy");
     },
+  },
+  {
+    id: "actions",
+    header: "Aksi",
+    cell: ({ row }) => <SeedActions seed={row.original} />,
   },
 ];

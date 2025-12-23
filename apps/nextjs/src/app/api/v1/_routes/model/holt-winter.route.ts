@@ -18,7 +18,7 @@ holtWinter.get("/daily", async (c) => {
     const data = await HoltWinterDaily.find()
       .skip((page - 1) * pageSize)
       .limit(pageSize)
-      .sort({ forecast_date: -1 })
+      .sort({ forecast_date: 1 })
       .lean();
 
     console.log("🟢 Retrieved documents:", data.length);
