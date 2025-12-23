@@ -206,7 +206,7 @@ export default function AddDatasetDialog() {
         break;
       }
     }
-  }, []);
+  }, [nasaPowerForm]);
 
   // Handle date range change
   const handleDateRangeChange = (range: DateRange | undefined) => {
