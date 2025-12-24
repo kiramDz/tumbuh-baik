@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis, ResponsiveContainer } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { getHoltWinterDaily } from "@/lib/fetch/files.fetch"; // Asumsi path ini benar, adjust jika perlu
+import { getHoltWinterDaily } from "@/lib/fetch/files.fetch";
 
 export const description = "Line charts with forecast values";
 
@@ -18,7 +18,7 @@ const chartConfig = {
 export function RainbowGlowGradientLineChart() {
   const { data: rawData, isLoading } = useQuery({
     queryKey: ["hw-daily-full"],
-    queryFn: () => getHoltWinterDaily(1, 365), // Ambil hingga 365 hari (1 tahun), adjust jika perlu lebih
+    queryFn: () => getHoltWinterDaily(1, 365),
     refetchOnWindowFocus: false,
   });
 
@@ -27,7 +27,6 @@ export function RainbowGlowGradientLineChart() {
   const items = rawData?.items || [];
   if (items.length === 0) return <p>No forecast data available.</p>;
 
-  // Extract parameter unik
   const parameters = new Set<string>();
   items.forEach((item: any) => {
     Object.keys(item.parameters || {}).forEach((param) => parameters.add(param));
@@ -35,27 +34,24 @@ export function RainbowGlowGradientLineChart() {
 
   const paramArray = Array.from(parameters);
 
-  // Group data per parameter, sort by date ascending
   const groupedData: Record<string, Array<{ date: string; value: number }>> = {};
   paramArray.forEach((param) => {
     groupedData[param] = items
       .filter((item: any) => item.parameters?.[param]?.forecast_value != null)
       .map((item: any) => ({
-        date: new Date(item.forecast_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }), // Format X-axis: Bulan Tanggal
+        date: new Date(item.forecast_date).toLocaleDateString("en-US", { month: "short" }),
         value: item.parameters[param].forecast_value,
       }))
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Sort ascending
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   });
 
   return (
     <div className="w-full flex flex-col gap-4">
       {" "}
-      {/* Adjust cols berdasarkan jumlah param, misal 3; atau gunakan auto */}
       {paramArray.map((param, index) => {
         const chartData = groupedData[param];
         if (chartData.length === 0) return null;
 
-        // Hitung % change untuk trend indicator
         const firstValue = chartData[0].value;
         const lastValue = chartData[chartData.length - 1].value;
         const percentChange = ((lastValue - firstValue) / firstValue) * 100;
@@ -81,23 +77,9 @@ export function RainbowGlowGradientLineChart() {
                   <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} interval="preserveStartEnd" />
-                    <YAxis hide={false} stroke="url(#colorUv)" /> {/* Sembunyikan Y-axis jika tidak perlu label, atau tampilkan jika mau */}
+                    <YAxis hide={false} stroke="#2563eb" />
                     <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                    <Line dataKey="value" type="monotone" stroke="url(#colorUv)" dot={false} strokeWidth={2} filter="url(#rainbow-line-glow)" />
-                    <defs>
-                      <linearGradient id="colorUv" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#0B84CE" stopOpacity={0.8} />
-                        <stop offset="20%" stopColor="#224CD1" stopOpacity={0.8} />
-                        <stop offset="40%" stopColor="#3A11C7" stopOpacity={0.8} />
-                        <stop offset="60%" stopColor="#7107C6" stopOpacity={0.8} />
-                        <stop offset="80%" stopColor="#C900BD" stopOpacity={0.8} />
-                        <stop offset="100%" stopColor="#D80155" stopOpacity={0.8} />
-                      </linearGradient>
-                      <filter id="rainbow-line-glow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="10" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                      </filter>
-                    </defs>
+                    <Line dataKey="value" type="monotone" stroke="#2563eb" dot={false} strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
               </ChartContainer>

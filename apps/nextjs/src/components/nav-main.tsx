@@ -46,11 +46,11 @@ export function NavMain({
                     asChild={!hasSubItems} // hanya jadi link jika tidak ada subitem
                   >
                     {hasSubItems ? (
-                      <button className="w-full flex items-center">
+                      <div className="w-full flex gap-1 items-center">
                         {item.icon && <item.icon />}
                         <span>{item.title}</span>
                         <ChevronRight className={`ml-auto transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
-                      </button>
+                      </div>
                     ) : (
                       <a href={item.url}>
                         {item.icon && <item.icon />}
