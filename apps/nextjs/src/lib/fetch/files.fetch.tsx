@@ -1070,6 +1070,16 @@ export const getAllBmkgPreprocessingJobs = async (page = 1, pageSize = 10) => {
   }
 };
 
+export const SoftDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Soft delete dataset error:", error);
+    throw error;
+  }
+};
+
 // Check if BMKG dataset can be preprocessed
 export const checkBmkgDatasetForPreprocessing = async (collectionName: string) => {
   try {

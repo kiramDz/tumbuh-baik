@@ -61,6 +61,7 @@ export default function Page() {
               {data.map((dataset: any) => (
                 <DashboardCard
                   key={dataset.collectionName}
+                  collectionName={dataset.collectionName}
                   href={`/dashboard/data/${dataset.collectionName}`}
                   title={dataset.name}
                   description={dataset.description || `Explore data from ${dataset.collectionName} collection`}

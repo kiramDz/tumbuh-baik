@@ -2,38 +2,64 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ElementType } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, EllipsisVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { SoftDeleteDataset } from "@/lib/fetch/files.fetch";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DashboardCardProps {
   href: string;
   icon: ElementType;
   title: string;
   description: string;
+  collectionName: string;
 }
 
-const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description }) => {
+const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description, collectionName }) => {
+  const queryClient = useQueryClient();
   return (
-    <Link href={href} className="group block">
-      <Card className="h-full transition-all duration-300 hover:shadow-lg hover:border-primary/50">
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-4">
-            {/* Icon Container */}
-            <div className="flex items-center justify-between">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
-                <Icon className="h-6 w-6" />
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
+    <Card className="h-full transition-all duration-300 hover:shadow-lg hover:border-primary/50">
+      <CardContent className="p-6">
+        <div className="flex flex-col gap-4">
+          {/* Icon Container */}
+          <div className="flex items-center justify-between">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
+              <Icon className="h-6 w-6" />
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded-full p-1 hover:bg-gray-100">
+                  <EllipsisVertical className="h-5 w-5 text-gray-600" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={async () => {
+                    try {
+                      await SoftDeleteDataset(collectionName);
+                      console.log("Soft deleted:", collectionName);
+                      queryClient.invalidateQueries({ queryKey: ["datasets"] }); // ✅ refresh data
+                    } catch (err) {
+                      console.error("Failed to soft delete:", err);
+                    }
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-            {/* Content */}
+          {/* Content */}
+          <Link href={href} className="group block">
             <div className="space-y-2">
               <h3 className="font-semibold text-lg leading-tight line-clamp-1 transition-colors group-hover:text-primary">{title}</h3>
               <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -40,13 +40,13 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
             <ChartNoAxesGantt className="h-4 w-4" />
             Kuesioner
           </TabsTrigger>
-          <TabsTrigger 
+          {/* <TabsTrigger 
             value="about" 
             className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
           >
             <ChartNoAxesGantt className="h-4 w-4" />
             About
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="weather" className="mt-6 mx-6">
@@ -61,9 +61,9 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
           <ChartPetani />
         </TabsContent>
 
-        <TabsContent value="about" className="mt-6 mx-6 md:mx-24">
+        {/* <TabsContent value="about" className="mt-6 mx-6 md:mx-24">
           <AboutContent />
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );
