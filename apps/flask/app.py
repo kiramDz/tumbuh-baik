@@ -652,13 +652,29 @@ def preprocess_nasa_stream(collection_name):
                     preprocessor = NasaPreprocessor(db_instance, collection_name)
                     result = preprocessor.preprocess()
                     
+                    def sanitize_numpy(obj):
+                        if isinstance(obj, dict):
+                            return {key: sanitize_numpy(value) for key, value in obj.items()}
+                        elif isinstance(obj, list):
+                            return [sanitize_numpy(item) for item in obj]
+                        elif hasattr(obj, 'item'):  # numpy scalar
+                            return obj.item()
+                        elif type(obj).__module__ == 'numpy':
+                            if hasattr(obj, 'tolist'):
+                                return obj.tolist()
+                            return obj.item()
+                        else:
+                            return obj
+                    
+                    safe_result = sanitize_numpy(result)
+                    
                     # Debug detailed logging result 
                     logger.info(f"Raw preprocessing result: {result}")
                     logger.info(f"Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
                     
                     # Store result
                     preprocessing_result['status'] = 'success'
-                    preprocessing_result['data'] = result
+                    preprocessing_result['data'] = safe_result
                     
                     safe_result = {
                         'recordCount': int(result['recordCount']) if 'recordCount' in result and result['recordCount'] is not None else 0,
@@ -1319,6 +1335,98 @@ def convert_multi_xlsx_to_csv():
     except Exception as e:
         logger.error(f"Error in multi-XLSX conversion: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+
+@preprocessing_bp.route("/dataset-meta/<slug>/decomposition", methods=["GET"])
+def get_decomposition_data(slug):
+    """
+    Get seasonal decomposition data for a specific parameter
+    
+    Query Parameters:
+        - parameter: Parameter name (e.g., T2M, RH2M, ALLSKY_SFC_SW_DWN)
+    
+    Returns:
+        JSON with decomposition time series (original, trend, seasonal, residual)
+    """
+    try:
+        db = current_app.config['MONGO_DB']
+        
+        # Get parameter from query string
+        parameter = request.args.get('parameter')
+        if not parameter:
+            return jsonify({"message": "Parameter name is required"}), 400
+        
+        # Find dataset metadata to get decomposition collection name
+        meta_collection = "dataset_meta" if "dataset_meta" in db.list_collection_names() else "DatasetMeta"
+        
+        dataset_meta = db[meta_collection].find_one({"collectionName": slug})
+        
+        if not dataset_meta:
+            return jsonify({"message": f"Dataset '{slug}' not found"}), 404
+        
+        # Check if dataset is preprocessed
+        if dataset_meta.get("status") != "preprocessed":
+            return jsonify({
+                "message": "Dataset must be preprocessed before viewing decomposition",
+                "current_status": dataset_meta.get("status", "unknown")
+            }), 400
+        
+        # Get decomposition collection name
+        decomp_collection_name = f"{slug}_decomposition"
+        
+        if decomp_collection_name not in db.list_collection_names():
+            return jsonify({
+                "message": "Decomposition data not found. Dataset may need reprocessing.",
+                "expected_collection": decomp_collection_name
+            }), 404
+        
+        # Query decomposition data for the specific parameter
+        decomp_data = list(db[decomp_collection_name].find(
+            {"parameter": parameter},
+            {"_id": 0}  # Exclude MongoDB _id
+        ).sort("Date", 1))  # Sort by date ascending
+        
+        if not decomp_data:
+            return jsonify({
+                "message": f"No decomposition data found for parameter '{parameter}'",
+                "available_parameters": db[decomp_collection_name].distinct("parameter")
+            }), 404
+        
+        # Extract decomposition components
+        dates = [record["Date"].isoformat() if isinstance(record["Date"], datetime) else record["Date"] for record in decomp_data]
+        original = [float(record["original"]) if record["original"] is not None else None for record in decomp_data]
+        trend = [float(record["trend"]) if record["trend"] is not None else None for record in decomp_data]
+        seasonal = [float(record["seasonal"]) if record["seasonal"] is not None else None for record in decomp_data]
+        residual = [float(record["residual"]) if record["residual"] is not None else None for record in decomp_data]
+        
+        # Prepare response
+        response = {
+            "collectionName": slug,
+            "parameter": parameter,
+            "decomposition": {
+                "dates": dates,
+                "original": original,
+                "trend": trend,
+                "seasonal": seasonal,
+                "residual": residual
+            },
+            "metadata": {
+                "model": "additive",
+                "period": 365,
+                "dataPoints": len(decomp_data),
+                "dateRange": {
+                    "start": dates[0] if dates else None,
+                    "end": dates[-1] if dates else None
+                }
+            }
+        }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Error fetching decomposition data: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"message": f"Server error: {str(e)}"}), 500
     
 # TAMBAHKAN BARIS INI
 app.register_blueprint(preprocessing_bp)

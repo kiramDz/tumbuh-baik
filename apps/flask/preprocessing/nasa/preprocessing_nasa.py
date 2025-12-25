@@ -254,6 +254,25 @@ class NasaPreprocessor:
             "warnings": []
         }
         
+    def _sanitize_for_mongodb(self, obj):
+        """
+        Recursively convert numpy types to native Python types for MongoDB serialization
+        """
+        if isinstance(obj, dict):
+            return {key: self._sanitize_for_mongodb(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._sanitize_for_mongodb(item) for item in obj]
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return obj
+        
     def preprocess(self, options: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Preprocess NASA POWER dataset
@@ -333,6 +352,18 @@ class NasaPreprocessor:
                 self.collection_name
             )
             
+            cleaned_collection = save_result.get("preprocessedCollections", [])[0] if save_result.get("preprocessedCollections") else None
+            
+            decomposition_save_result = {}
+            if hasattr(self, 'decomposition_results') and self.decomposition_results:
+                decomposition_save_result = self._save_decomposition_to_mongodb(
+                    self.decomposition_results,
+                    cleaned_collection
+                )
+            
+            sanitized_report = self._sanitize_for_mongodb(self.preprocessing_report)
+
+            
             return {
                 "status": "success",
                 "message": "NASA POWER dataset preprocessed successfully",
@@ -341,8 +372,11 @@ class NasaPreprocessor:
                 "recordCount": len(processed_df),
                 "originalRecordCount": len(df),
                 "preprocessedCollections": save_result.get("preprocessedCollections", []),
-                "cleanedCollection": save_result.get("preprocessedCollections", [])[0] if save_result.get("preprocessedCollections") else None,
-                "preprocessing_report": self.preprocessing_report
+                "cleanedCollection": cleaned_collection,
+                "decompositionCollection": decomposition_save_result.get("collection_name"),
+                "decompositionStatus": decomposition_save_result.get("status"),  
+                "parametersDecomposed": decomposition_save_result.get("parameters_decomposed", []),
+                "preprocessing_report": sanitized_report
             }
         except Exception as e:
             error_msg = f"Error preprocessing NASA POWER data: {str(e)}"
@@ -354,7 +388,7 @@ class NasaPreprocessor:
         logger.info("Starting NASA POWER data preprocessing...")
         
         processed_df = df.copy()
-        total_steps = 9
+        total_steps = 10
         current_step = 0
         
         self.original_data = df.copy()
@@ -403,17 +437,24 @@ class NasaPreprocessor:
         # STEP 7: Validate smoothing quality
         log_progress("smoothing_validation", "Validating smoothing quality (GCV + Trend Preservation)...")
         self._validate_smoothing_method(processed_df)
+        
+        # STEP 8: Calculate seasonal decomposition (NEW)
+        log_progress("decomposition", "Calculating seasonal decomposition...")
+        decomposition_results = self._calculate_seasonal_decomposition(processed_df)
+        
+        # Store decomposition results for later saving
+        self.decomposition_results = decomposition_results
 
-        # STEP 8: Calculate model coverage
+        # STEP 9: Calculate model coverage
         log_progress("model_coverage", "Calculating model coverage analysis...")
         if self.options.get("calculate_coverage", True):
             self._calculate_model_coverage(processed_df)
             
         self.log_detailed_coverage_analysis(processed_df)
         
+        # STEP 10: Generate quality metrics
         log_progress("quality_metrics", "Generating quality metrics...")
         self._generate_quality_metrics(df, processed_df) 
-    
         
         logger.info(f"Preprocessing completed - processed {len(processed_df)} records")
         return processed_df
@@ -2163,3 +2204,129 @@ class NasaPreprocessor:
         }
         
         logger.info(f"Quality metrics: {completeness:.2f}% complete, {records_removed} records removed")
+        
+
+    def _calculate_seasonal_decomposition(
+        self,
+        df: pd.DataFrame
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Calculate seasonal decomposition for all valid parameters
+        Decomposition can be performed on both smoothed and non-smoothed data
+        """
+        logger.info("Calculating seasonal decomposition for time series...")
+        
+        params = self.options.get("columns_to_process", [])
+        decomposition_results = {}
+        
+        # Get smoothing summary to log which parameters were smoothed
+        smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
+        
+        # CHANGED: Remove exclusion for non-smoothed parameters
+        # We want to decompose all parameters regardless of smoothing
+        
+        for param in params:
+            if param not in df.columns:
+                continue
+            
+            # Check minimum data requirement
+            if len(df) < 730:  # Need at least 2 years
+                logger.warning(f"{param}: Insufficient data for decomposition ({len(df)} days < 730)")
+                continue
+            
+            try:
+                series = df[param].dropna()
+                
+                if len(series) < 730:
+                    logger.warning(f"{param}: Insufficient valid data after dropping NaN ({len(series)} < 730)")
+                    continue
+                
+                # Log whether decomposing smoothed or original data
+                param_smoothing_applied = smoothing_summary.get(param, "none")
+                data_type = "smoothed" if param_smoothing_applied != "none" else "original"
+                
+                logger.info(f"{param}: Decomposing {data_type} data...")
+                
+                # Perform additive seasonal decomposition
+                decomposition = seasonal_decompose(
+                    series,
+                    model='additive',
+                    period=365,  # Annual seasonality for daily data
+                    extrapolate_trend='freq'
+                )
+                
+                # Create decomposition dataframe
+                decomp_df = pd.DataFrame({
+                    'Date': series.index.map(lambda idx: df.loc[idx, 'Date']),
+                    'parameter': param,
+                    'original': series.values,
+                    'trend': decomposition.trend.values,
+                    'seasonal': decomposition.seasonal.values,
+                    'residual': decomposition.resid.values
+                })
+                
+                decomposition_results[param] = decomp_df
+                
+                logger.info(f"{param}: Decomposition completed ({len(decomp_df)} data points, {data_type} data)")
+                
+            except Exception as e:
+                logger.error(f"{param}: Decomposition failed - {str(e)}")
+                self.preprocessing_report["warnings"].append(
+                    f"Failed to decompose {param}: {str(e)}"
+                )
+                continue
+        
+        logger.info(f"Seasonal decomposition completed for {len(decomposition_results)} parameters")
+        return decomposition_results
+
+    def _save_decomposition_to_mongodb(
+        self,
+        decomposition_results: Dict[str, pd.DataFrame],
+        cleaned_collection_name: str
+    ) -> Dict[str, Any]:
+        """
+        Save decomposition results to MongoDB
+        Creates collection: {cleaned_collection_name}_decomposition
+        """
+        try:
+            if not decomposition_results:
+                logger.info("No decomposition results to save")
+                return {"status": "no_data"}
+            
+            # Generate decomposition collection name
+            decomp_collection_name = f"{cleaned_collection_name}_decomposition"
+            
+            # Drop existing collection if exists
+            if decomp_collection_name in self.db.list_collection_names():
+                logger.info(f"Dropping existing decomposition collection: {decomp_collection_name}")
+                self.db[decomp_collection_name].drop()
+            
+            # Combine all parameter decompositions
+            all_records = []
+            for param, decomp_df in decomposition_results.items():
+                records = decomp_df.to_dict('records')
+                all_records.extend(records)
+            
+            if all_records:
+                # Insert into MongoDB
+                self.db[decomp_collection_name].insert_many(all_records)
+                
+                # Create index on parameter and Date for fast queries
+                self.db[decomp_collection_name].create_index([("parameter", 1), ("Date", 1)])
+                
+                logger.info(f"Saved {len(all_records)} decomposition records to '{decomp_collection_name}'")
+                
+                return {
+                    "status": "success",
+                    "collection_name": decomp_collection_name,
+                    "records_saved": len(all_records),
+                    "parameters_decomposed": list(decomposition_results.keys())
+                }
+            else:
+                return {"status": "no_records"}
+                
+        except Exception as e:
+            error_msg = f"Error saving decomposition data: {str(e)}"
+            logger.error(error_msg)
+            return {"status": "error", "error": str(e)}
+    

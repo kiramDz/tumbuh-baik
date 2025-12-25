@@ -19,6 +19,27 @@ export interface DatasetMetaType {
   };
 }
 
+export interface DecompositionData {
+  collectionName: string;
+  parameter: string;
+  decomposition: {
+    dates: string[];
+    original: number[];
+    trend: number[];
+    seasonal: number[];
+    residual: number[];
+  };
+  metadata: {
+    model: "additive";
+    period: number;
+    dataPoints: number;
+    dateRange: {
+      start: string;
+      end: string;
+    };
+  };
+}
+
 export interface RefreshResult {
   id: string;
   name: string;
@@ -1700,5 +1721,89 @@ export const UpdateDatasetMeta = async (
   } catch (error) {
     console.error("❌ Update dataset meta error:", error);
     throw error;
+  }
+};
+
+/**
+ * Get seasonal decomposition data for a specific parameter from a preprocessed dataset
+ *
+ * @param slug - Collection name (must be a _cleaned collection)
+ * @param parameter - Parameter name (e.g., T2M, RH2M, ALLSKY_SFC_SW_DWN, PRECTOTCORR)
+ * @returns Decomposition data with trend, seasonal, and residual components
+ */
+export const GetDecompositionDataBySlug = async (
+  slug: string,
+  parameter: string
+): Promise<DecompositionData> => {
+  try {
+    const response = await axios.get(
+      `http://localhost:5001/api/v1/dataset-meta/${encodeURIComponent(
+        slug
+      )}/decomposition`,
+      {
+        params: { parameter },
+      }
+    );
+
+    if (response.status === 200) {
+      return response.data;
+    }
+
+    throw new Error("Failed to fetch decomposition data");
+  } catch (error: any) {
+    console.error("❌ Get decomposition data error:", error);
+
+    if (error.response?.status === 404) {
+      if (error.response.data?.available_parameters) {
+        throw new Error(
+          `No decomposition data found for parameter '${parameter}'. Available parameters: ${error.response.data.available_parameters.join(
+            ", "
+          )}`
+        );
+      }
+      throw new Error(
+        error.response.data?.message || "Decomposition data not found"
+      );
+    }
+
+    if (error.response?.status === 400) {
+      throw new Error(
+        error.response.data?.message || "Dataset must be preprocessed first"
+      );
+    }
+
+    throw error;
+  }
+};
+
+/**
+ * Get available parameters for decomposition from a preprocessed dataset
+ *
+ * @param slug - Collection name (must be a _cleaned collection)
+ * @returns List of available parameters that have decomposition data
+ */
+export const GetAvailableDecompositionParameters = async (
+  slug: string
+): Promise<string[]> => {
+  try {
+    // Try to fetch decomposition for a dummy parameter to get available parameters list
+    const response = await axios.get(
+      `http://localhost:5001/api/v1/dataset-meta/${encodeURIComponent(
+        slug
+      )}/decomposition`,
+      {
+        params: { parameter: "__check_available__" },
+        validateStatus: (status) => status === 404 || status === 200,
+      }
+    );
+
+    if (response.status === 404 && response.data?.available_parameters) {
+      return response.data.available_parameters;
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error getting available decomposition parameters:", error);
+    return [];
   }
 };
