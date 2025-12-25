@@ -64,10 +64,7 @@ export function RainbowGlowGradientLineChart() {
             <div className="flex flex-col">
               <h3 className="text-lg font-semibold flex items-center">
                 {param}
-                <span className={`ml-2 inline-flex items-center gap-1 rounded-md border-none ${trendColor} px-2 py-0.5 text-sm`}>
-                  <TrendIcon className="h-4 w-4" />
-                  <span>{percentChange.toFixed(1)}%</span>
-                </span>
+              
               </h3>
             </div>
 

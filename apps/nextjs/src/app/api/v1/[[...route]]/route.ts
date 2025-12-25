@@ -25,9 +25,6 @@ export const runtime = "nodejs";
 const app = new Hono().basePath("/api/v1");
 
 app.route("/bmkg-api", bmkgApiRoute); 
-
-
-
 app.route("/bmkg-live", bmkgLiveRoute);
 app.route("/bmkg-fetch", bmkgFetcherRoute); 
 app.route("/bmkg-summary", bmkgSummaryRoute);
