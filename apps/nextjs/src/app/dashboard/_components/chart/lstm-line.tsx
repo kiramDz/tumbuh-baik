@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { CartesianGrid, Line, LineChart, XAxis, YAxis, Area, AreaChart, ComposedChart, Scatter, ScatterChart } from "recharts"
+import { CartesianGrid, Line, LineChart, XAxis, YAxis, Area, AreaChart } from "recharts"
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { TrendingDown, TrendingUp, Minus, Calendar, Activity } from "lucide-react"
-import { getLSTMDaily, getDecomposeLSTM, fetchHistoricalData, getLSTMConfigs } from "@/lib/fetch/files.fetch"
+import { getLSTMDaily, fetchHistoricalData, getLSTMConfigs } from "@/lib/fetch/files.fetch"
 import { useState, useMemo } from "react"
 
 const chartConfig = {
@@ -21,18 +21,6 @@ const chartConfig = {
     historical: {
         label: "Historis",
         color: "hsl(var(--chart-2))",
-    },
-    trend: {
-        label: "Trend",
-        color: "hsl(var(--chart-3))",
-    },
-    seasonal: {
-        label: "Seasonal",
-        color: "hsl(var(--chart-4))",
-    },
-    residual: {
-        label: "Residual",
-        color: "hsl(var(--chart-5))",
     },
 } satisfies ChartConfig
 
@@ -126,305 +114,13 @@ interface ChartData {
     year: number
 }
 
-interface DecomposeData {
-    date: string
-    fullDate: string
-    trend: number
-    seasonal: number
-    resid: number
-    year: number
-}
-
 interface ParamChartProps {
     param: string
     data: ChartData[]
-    decomposeData: DecomposeData[]
-    mode: "forecast-only" | "combined" | "decomposed"
+    mode: "forecast-only" | "combined"
 }
 
-function ParamChart({ param, data, decomposeData, mode }: ParamChartProps) {
-    if (mode === "decomposed") {
-        // Render 3 Decomposed Charts Terpisah
-        if (decomposeData.length === 0) {
-            return (
-                <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-16">
-                        <Activity className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="font-medium text-lg">Tidak ada data decompose</p>
-                        <p className="text-sm text-muted-foreground text-center max-w-sm mt-1">
-                            Data decompose belum tersedia untuk parameter ini
-                        </p>
-                    </CardContent>
-                </Card>
-            )
-        }
-
-        const years = [...new Set(decomposeData.map(d => d.year))].sort()
-        const yearRange = years.length
-        const tickInterval = yearRange > 20 ? Math.ceil(decomposeData.length / 10) : Math.ceil(decomposeData.length / 15)
-        
-        const unit = getParamUnit(param)
-
-        // Calculate stats untuk setiap komponen
-        const trendValues = decomposeData.map(d => d.trend)
-        const seasonalValues = decomposeData.map(d => d.seasonal)
-        const residValues = decomposeData.map(d => d.resid)
-
-        return (
-            <div className="space-y-4">
-                {/* Header Card */}
-                <Card>
-                    <CardHeader className="pb-4">
-                        <div className="space-y-1">
-                            <CardTitle className="text-xl font-semibold">
-                                {getParamLabel(param)} - Decomposition Analysis
-                            </CardTitle>
-                            <CardDescription className="flex items-center gap-2">
-                                <Calendar className="h-3.5 w-3.5" />
-                                Data historis ({years[0]}-{years[years.length - 1]})
-                            </CardDescription>
-                        </div>
-                        
-                        {/* Stats Summary */}
-                        <div className="grid grid-cols-3 gap-4 pt-4">
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-[hsl(var(--chart-3))]">Trend</p>
-                                <p className="text-sm font-medium tabular-nums">
-                                    [{Math.min(...trendValues).toFixed(2)}, {Math.max(...trendValues).toFixed(2)}] {unit}
-                                </p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-[hsl(var(--chart-4))]">Seasonal</p>
-                                <p className="text-sm font-medium tabular-nums">
-                                    [{Math.min(...seasonalValues).toFixed(2)}, {Math.max(...seasonalValues).toFixed(2)}] {unit}
-                                </p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-[hsl(var(--chart-5))]">Residual</p>
-                                <p className="text-sm font-medium tabular-nums">
-                                    [{Math.min(...residValues).toFixed(2)}, {Math.max(...residValues).toFixed(2)}] {unit}
-                                </p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                </Card>
-
-                {/* Chart 1: Trend - Line Chart */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-3))]"></div>
-                            Trend Component
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                            Long-term progression pattern
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[220px] w-full">
-                            <LineChart 
-                                data={decomposeData} 
-                                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                            >
-                                <CartesianGrid 
-                                    strokeDasharray="3 3" 
-                                    vertical={false} 
-                                    className="stroke-muted" 
-                                />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickLine={false} 
-                                    axisLine={false} 
-                                    tickMargin={8}
-                                    interval={tickInterval}
-                                    className="text-xs"
-                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                                />
-                                <YAxis 
-                                    tickLine={false} 
-                                    axisLine={false}
-                                    tickMargin={8}
-                                    width={50}
-                                    className="text-xs"
-                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                                    tickFormatter={(value) => value.toFixed(1)}
-                                />
-                                <ChartTooltip 
-                                    cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
-                                    content={
-                                        <ChartTooltipContent 
-                                            formatter={(value) => [`${Number(value).toFixed(3)} ${unit}`, "Trend"]}
-                                            labelFormatter={(label, payload) => {
-                                                if (payload?.[0]?.payload?.fullDate) {
-                                                    return payload[0].payload.fullDate
-                                                }
-                                                return label
-                                            }}
-                                        />
-                                    } 
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="trend"
-                                    stroke="hsl(var(--chart-3))"
-                                    strokeWidth={2.5}
-                                    dot={false}
-                                />
-                            </LineChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-
-                {/* Chart 2: Seasonal - Area Chart */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-4))]"></div>
-                            Seasonal Component
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                            Repeating patterns and cycles
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[220px] w-full">
-                            <AreaChart 
-                                data={decomposeData} 
-                                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                            >
-                                <defs>
-                                    <linearGradient id={`gradient-seasonal-${param}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="hsl(var(--chart-4))" stopOpacity={0.4} />
-                                        <stop offset="100%" stopColor="hsl(var(--chart-4))" stopOpacity={0.05} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid 
-                                    strokeDasharray="3 3" 
-                                    vertical={false} 
-                                    className="stroke-muted" 
-                                />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickLine={false} 
-                                    axisLine={false} 
-                                    tickMargin={8}
-                                    interval={tickInterval}
-                                    className="text-xs"
-                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                                />
-                                <YAxis 
-                                    tickLine={false} 
-                                    axisLine={false}
-                                    tickMargin={8}
-                                    width={50}
-                                    className="text-xs"
-                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                                    tickFormatter={(value) => value.toFixed(1)}
-                                />
-                                <ChartTooltip 
-                                    cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
-                                    content={
-                                        <ChartTooltipContent 
-                                            formatter={(value) => [`${Number(value).toFixed(3)} ${unit}`, "Seasonal"]}
-                                            labelFormatter={(label, payload) => {
-                                                if (payload?.[0]?.payload?.fullDate) {
-                                                    return payload[0].payload.fullDate
-                                                }
-                                                return label
-                                            }}
-                                        />
-                                    } 
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="seasonal"
-                                    stroke="hsl(var(--chart-4))"
-                                    strokeWidth={2}
-                                    fill={`url(#gradient-seasonal-${param})`}
-                                    dot={false}
-                                />
-                            </AreaChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-
-                {/* Chart 3: Residual - Scatter Chart */}
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[hsl(var(--chart-5))]"></div>
-                            Residual Component
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                            Random variations and noise
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={chartConfig} className="h-[220px] w-full">
-                            <ScatterChart 
-                                data={decomposeData} 
-                                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                            >
-                                <CartesianGrid 
-                                    strokeDasharray="3 3" 
-                                    vertical={false} 
-                                    className="stroke-muted" 
-                                />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickLine={false} 
-                                    axisLine={false} 
-                                    tickMargin={8}
-                                    interval={tickInterval}
-                                    className="text-xs"
-                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                                />
-                                <YAxis 
-                                    tickLine={false} 
-                                    axisLine={false}
-                                    tickMargin={8}
-                                    width={50}
-                                    className="text-xs"
-                                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                                    tickFormatter={(value) => value.toFixed(1)}
-                                />
-                                <ChartTooltip 
-                                    cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
-                                    content={
-                                        <ChartTooltipContent 
-                                            formatter={(value) => [`${Number(value).toFixed(3)} ${unit}`, "Residual"]}
-                                            labelFormatter={(label, payload) => {
-                                                if (payload?.[0]?.payload?.fullDate) {
-                                                    return payload[0].payload.fullDate
-                                                }
-                                                return label
-                                            }}
-                                        />
-                                    } 
-                                />
-                                {/* Zero line reference */}
-                                <Line 
-                                    type="monotone" 
-                                    dataKey={() => 0} 
-                                    stroke="hsl(var(--muted-foreground))" 
-                                    strokeWidth={1}
-                                    strokeDasharray="5 5"
-                                    dot={false}
-                                />
-                                <Scatter
-                                    dataKey="resid"
-                                    fill="hsl(var(--chart-5))"
-                                    fillOpacity={0.7}
-                                />
-                            </ScatterChart>
-                        </ChartContainer>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
-
-    // Original Forecast/Combined Chart
+function ParamChart({ param, data, mode }: ParamChartProps) {
     if (data.length === 0) return null
 
     const forecastData = data.filter(d => !d.isHistorical)
@@ -592,10 +288,8 @@ function ParamChart({ param, data, decomposeData, mode }: ParamChartProps) {
     )
 }
 
-// Fungsi untuk fetch SEMUA data historis dari collection
-
 export function LSTMLineChart() {
-    const [viewMode, setViewMode] = useState<"forecast-only" | "combined" | "decomposed">("forecast-only")
+    const [viewMode, setViewMode] = useState<"forecast-only" | "combined">("forecast-only")
 
     const { data: rawData, isLoading } = useQuery({
         queryKey: ["lstm-daily-full"],
@@ -603,14 +297,14 @@ export function LSTMLineChart() {
         refetchOnWindowFocus: false,
     })
 
-    // ✅ Fetch LSTM config untuk mendapatkan mapping parameter -> collection
+    // Fetch LSTM config untuk mendapatkan mapping parameter -> collection
     const { data: lstmConfigs } = useQuery({
         queryKey: ["lstm-configs"],
         queryFn: getLSTMConfigs,
         refetchOnWindowFocus: false,
     })
 
-    // ✅ Build dynamic mapping dari config
+    // Build dynamic mapping dari config
     const paramToCollection = useMemo(() => {
         if (!lstmConfigs || lstmConfigs.length === 0) return {}
         
@@ -674,32 +368,17 @@ export function LSTMLineChart() {
         refetchOnWindowFocus: false,
     })
 
-    const { data: decomposeRawData, isLoading: isLoadingDecompose } = useQuery({
-        queryKey: ["lstm-decompose-data", viewMode],
-        queryFn: getDecomposeLSTM,
-        enabled: viewMode === "decomposed",
-        refetchOnWindowFocus: false,
-    })
-
-    const loading = isLoading || 
-                    (viewMode === "combined" && isLoadingHistorical) ||
-                    (viewMode === "decomposed" && isLoadingDecompose)
+    const loading = isLoading || (viewMode === "combined" && isLoadingHistorical)
 
     if (loading) return <LoadingSkeleton />
 
     const items = rawData?.items || []
-    if (items.length === 0 && viewMode !== "decomposed") return <EmptyState />
+    if (items.length === 0) return <EmptyState />
 
     const parameters = new Set<string>()
-    if (viewMode === "decomposed") {
-        decomposeRawData?.forEach((item: any) => {
-            Object.keys(item.parameters || {}).forEach((param) => parameters.add(param))
-        })
-    } else {
-        items.forEach((item: any) => {
-            Object.keys(item.parameters || {}).forEach((param) => parameters.add(param))
-        })
-    }
+    items.forEach((item: any) => {
+        Object.keys(item.parameters || {}).forEach((param) => parameters.add(param))
+    })
 
     const paramArray = Array.from(parameters)
 
@@ -749,33 +428,6 @@ export function LSTMLineChart() {
         })
     })
 
-    const groupedDecomposeData: Record<string, DecomposeData[]> = {}
-    if (viewMode === "decomposed" && decomposeRawData) {
-        paramArray.forEach((param) => {
-            const decomposeData = decomposeRawData
-                .filter((item: any) => item.parameters?.[param])
-                .map((item: any) => {
-                    const dateObj = new Date(item.date)
-                    return {
-                        date: dateObj.getFullYear().toString(),
-                        fullDate: dateObj.toLocaleDateString("id-ID", { 
-                            weekday: "long", 
-                            year: "numeric", 
-                            month: "long", 
-                            day: "numeric" 
-                        }),
-                        trend: item.parameters[param].trend,
-                        seasonal: item.parameters[param].seasonal,
-                        resid: item.parameters[param].resid,
-                        year: dateObj.getFullYear(),
-                    }
-                })
-                .sort((a: any, b: any) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime())
-            
-            groupedDecomposeData[param] = decomposeData
-        })
-    }
-
     if (paramArray.length === 0) return <EmptyState />
 
     return (
@@ -790,7 +442,6 @@ export function LSTMLineChart() {
                         <SelectContent>
                             <SelectItem value="forecast-only">Hanya Peramalan</SelectItem>
                             <SelectItem value="combined">Historis + Peramalan</SelectItem>
-                            <SelectItem value="decomposed">Decomposed</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -814,7 +465,6 @@ export function LSTMLineChart() {
                         <ParamChart 
                             param={param} 
                             data={groupedData[param] || []} 
-                            decomposeData={groupedDecomposeData[param] || []}
                             mode={viewMode} 
                         />
                     </TabsContent>

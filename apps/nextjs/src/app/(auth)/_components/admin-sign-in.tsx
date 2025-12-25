@@ -221,18 +221,6 @@ export default function AdminSignIn() {
               </div>
             </CardFooter>
           </Card>
-
-          {/* Footer Text */}
-          <p className="text-xs text-center text-muted-foreground max-w-sm px-4">
-            By signing in, you agree to our{" "}
-            <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
-              Privacy Policy
-            </Link>
-          </p>
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ import traceback
 import os
 from flask import jsonify
 from dotenv import load_dotenv
-from holt_winter.hw_dynamic import run_optimized_hw_analysis
+from holt_winter.hw_dynamic_2 import run_optimized_hw_analysis
 
 
 load_dotenv()

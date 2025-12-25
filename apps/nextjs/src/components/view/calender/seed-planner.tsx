@@ -22,7 +22,8 @@ import {
   Info,
   CheckCircle,
   AlertCircle,
-  XCircle
+  XCircle,
+  AlertTriangle
 } from "lucide-react";
 
 interface SeedItem {
@@ -57,7 +58,6 @@ export default function CalendarSeedPlanner() {
     refetchOnWindowFocus: false,
   });
 
-  // Query data berdasarkan model yang dipilih
   const { data: forecastData, isLoading: isForecastLoading } = useQuery({
     queryKey: ["forecast-seed-planner", currentModel],
     queryFn: async () => {
@@ -72,13 +72,11 @@ export default function CalendarSeedPlanner() {
     refetchOnWindowFocus: false,
   });
 
-  // Listen untuk perubahan model dari monthly calendar
   useEffect(() => {
     const handleModelChange = (event: CustomEvent) => {
       const newModel = event.detail.model as ModelType;
       setCurrentModel(newModel);
       
-      // Jika sedang menampilkan grid, refresh data dengan model baru
       if (showGrid) {
         setShowGrid(false);
         setTimeout(() => setShowGrid(true), 100);
@@ -87,7 +85,6 @@ export default function CalendarSeedPlanner() {
 
     window.addEventListener('modelChanged', handleModelChange as EventListener);
 
-    // Cleanup
     return () => {
       window.removeEventListener('modelChanged', handleModelChange as EventListener);
     };
@@ -123,6 +120,17 @@ export default function CalendarSeedPlanner() {
     return actualStartDate;
   };
 
+  const getWeatherIssues = (rain: number, temp: number, hum: number) => {
+    const issues = [];
+    if (rain < RAIN_MIN) issues.push({ type: 'warning', text: `Curah hujan rendah: ${rain.toFixed(1)}mm (min: ${RAIN_MIN}mm)` });
+    if (rain > RAIN_MAX) issues.push({ type: 'danger', text: `Curah hujan tinggi: ${rain.toFixed(1)}mm (max: ${RAIN_MAX}mm)` });
+    if (temp < TEMP_MIN) issues.push({ type: 'warning', text: `Suhu rendah: ${temp.toFixed(1)}°C (min: ${TEMP_MIN}°C)` });
+    if (temp > TEMP_MAX) issues.push({ type: 'danger', text: `Suhu tinggi: ${temp.toFixed(1)}°C (max: ${TEMP_MAX}°C)` });
+    if (hum < HUM_MIN) issues.push({ type: 'warning', text: `Kelembaban rendah: ${hum.toFixed(1)}% (min: ${HUM_MIN}%)` });
+    if (hum > HUM_MAX) issues.push({ type: 'danger', text: `Kelembaban tinggi: ${hum.toFixed(1)}% (max: ${HUM_MAX}%)` });
+    return issues;
+  };
+
   const getWeatherColor = (rain: number, temp: number, hum: number) => {
     const isRainExtreme = rain < RAIN_MIN || rain > RAIN_MAX;
     const isTempExtreme = temp < TEMP_MIN || temp > TEMP_MAX;
@@ -130,9 +138,9 @@ export default function CalendarSeedPlanner() {
 
     const extremeCount = [isRainExtreme, isTempExtreme, isHumExtreme].filter(Boolean).length;
 
-    if (extremeCount === 0) return "bg-emerald-100 border-emerald-200 text-emerald-800"; // semua sesuai
-    if (extremeCount >= 2) return "bg-red-100 border-red-200 text-red-800"; // ada 2+ ekstrem → bahaya
-    return "bg-amber-100 border-amber-200 text-amber-800"; // ada 1 ekstrem → bisa tanam tapi hati-hati
+    if (extremeCount === 0) return "bg-emerald-100 border-emerald-200 text-emerald-800";
+    if (extremeCount >= 2) return "bg-red-100 border-red-200 text-red-800";
+    return "bg-amber-100 border-amber-200 text-amber-800";
   };
 
   const getWeatherIcon = (rain: number, temp: number, hum: number) => {
@@ -166,6 +174,8 @@ export default function CalendarSeedPlanner() {
       let rain = 0,
         temp = 0,
         hum = 0;
+      let hasData = false;
+      let issues: any[] = [];
 
       if (i < preparationDays) {
         if (semaiStatus === "belum") {
@@ -190,9 +200,12 @@ export default function CalendarSeedPlanner() {
         );
 
         if (forecastDay) {
-          rain = forecastDay.parameters?.RR_imputed?.forecast_value ?? 0;
+          hasData = true;
+          rain = forecastDay.parameters?.RR?.forecast_value ?? 0;
           temp = forecastDay.parameters?.TAVG?.forecast_value ?? 0;
-          hum = forecastDay.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
+          hum = forecastDay.parameters?.RH_AVG?.forecast_value ?? 0;
+          
+          issues = getWeatherIssues(rain, temp, hum);
           bgColor = getWeatherColor(rain, temp, hum);
           icon = getWeatherIcon(rain, temp, hum);
         } else {
@@ -200,7 +213,6 @@ export default function CalendarSeedPlanner() {
           icon = <Info className="w-3 h-3" />;
         }
 
-        // Panen warna kuning
         const dayInCycle = i - preparationDays;
         if (dayInCycle >= duration - 20) {
           type = "Panen";
@@ -212,14 +224,23 @@ export default function CalendarSeedPlanner() {
       return {
         day: i + 1,
         date: format(date, "MMM d"),
+        fullDate: format(date, "d MMMM yyyy"),
         type,
         bgColor,
         icon,
         rain,
         temp,
         hum,
+        hasData,
+        issues,
       };
     });
+
+    // Statistik cuaca
+    const plantingDays = gridDays.filter(d => d.type === "Masa Tanam" && d.hasData);
+    const goodDays = plantingDays.filter(d => d.issues.length === 0).length;
+    const warningDays = plantingDays.filter(d => d.issues.length === 1).length;
+    const badDays = plantingDays.filter(d => d.issues.length >= 2).length;
 
     return (
       <Card className="mt-6">
@@ -248,6 +269,38 @@ export default function CalendarSeedPlanner() {
               )}
             </div>
           </div>
+
+          {/* Weather Statistics */}
+          {plantingDays.length > 0 && (
+            <Card className="bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-emerald-700" />
+                  <span className="text-sm font-semibold text-emerald-900">Analisis Kondisi Cuaca</span>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex flex-col items-center p-3 bg-emerald-100 rounded-lg border border-emerald-200">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mb-1" />
+                    <span className="text-2xl font-bold text-emerald-800">{goodDays}</span>
+                    <span className="text-xs text-emerald-600">Hari Ideal</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-amber-100 rounded-lg border border-amber-200">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mb-1" />
+                    <span className="text-2xl font-bold text-amber-800">{warningDays}</span>
+                    <span className="text-xs text-amber-600">Hari Hati-hati</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-red-100 rounded-lg border border-red-200">
+                    <XCircle className="w-5 h-5 text-red-600 mb-1" />
+                    <span className="text-2xl font-bold text-red-800">{badDays}</span>
+                    <span className="text-xs text-red-600">Hari Berisiko</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 mt-3 text-center">
+                  Total {plantingDays.length} hari masa tanam dengan data prediksi
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Legend */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-gray-50 rounded-lg">
@@ -288,29 +341,68 @@ export default function CalendarSeedPlanner() {
                       <div className="text-xs font-medium">{item.type}</div>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
+                  <TooltipContent side="top" className="max-w-sm">
                     <div className="space-y-2">
                       <p className="text-sm font-semibold border-b pb-1">
-                        {item.date} - {item.type}
+                        {item.fullDate} - {item.type}
                       </p>
-                      {item.type === "Masa Tanam" && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-xs">
-                            <Droplets className="w-3 h-3 text-blue-500" />
-                            <span>Curah hujan: {item.rain.toFixed(1)} mm</span>
+                      {item.type === "Masa Tanam" && item.hasData && (
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-xs">
+                              <Droplets className="w-3 h-3 text-blue-500" />
+                              <span>Curah hujan: {item.rain.toFixed(1)} mm</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Thermometer className="w-3 h-3 text-red-500" />
+                              <span>Suhu: {item.temp.toFixed(1)} °C</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Wind className="w-3 h-3 text-green-500" />
+                              <span>Kelembaban: {item.hum.toFixed(1)} %</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Thermometer className="w-3 h-3 text-red-500" />
-                            <span>Suhu: {item.temp.toFixed(1)} °C</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Wind className="w-3 h-3 text-green-500" />
-                            <span>Kelembaban: {item.hum.toFixed(1)} %</span>
-                          </div>
+                          
+                          {item.issues.length > 0 && (
+                            <div className="pt-2 border-t">
+                              <div className="flex items-center gap-1 mb-1">
+                                <AlertTriangle className="w-3 h-3 text-red-500" />
+                                <span className="text-xs font-semibold text-red-600">Peringatan Cuaca:</span>
+                              </div>
+                              <ul className="space-y-1">
+                                {item.issues.map((issue: any, i: number) => (
+                                  <li key={i} className={`text-xs ${issue.type === 'danger' ? 'text-red-600' : 'text-amber-600'}`}>
+                                    • {issue.text}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {item.issues.length === 0 && (
+                            <div className="pt-2 border-t">
+                              <div className="flex items-center gap-1 text-emerald-600">
+                                <CheckCircle className="w-3 h-3" />
+                                <span className="text-xs font-semibold">Kondisi ideal untuk penanaman</span>
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="flex items-center gap-2 text-xs text-gray-500 pt-1 border-t">
                             <Cloud className="w-3 h-3" />
                             <span>Model: {currentModel.toUpperCase()}</span>
                           </div>
+                        </div>
+                      )}
+                      {item.type === "Masa Tanam" && !item.hasData && (
+                        <div className="text-xs text-gray-500">
+                          <Info className="w-3 h-3 inline mr-1" />
+                          Data prediksi tidak tersedia untuk tanggal ini
+                        </div>
+                      )}
+                      {(item.type === "Garap" || item.type === "Semai") && (
+                        <div className="text-xs text-gray-600">
+                          Periode persiapan lahan dan bibit sebelum penanaman
                         </div>
                       )}
                     </div>

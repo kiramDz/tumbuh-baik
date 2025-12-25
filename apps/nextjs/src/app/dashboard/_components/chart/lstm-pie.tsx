@@ -27,6 +27,7 @@ const chartConfig = {
 const COLUMN_NAME_MAPPING: Record<string, string> = {
     // Kelembapan
     'RH_AVG_preprocessed': 'Kelembaban Rata-rata',
+    'RH_AVG': "Kelembaban Rata-rata",
 
     // Suhu BMKG
     'TN': 'Suhu Minimum',
@@ -40,6 +41,7 @@ const COLUMN_NAME_MAPPING: Record<string, string> = {
     'RR_log': 'Curah Hujan (Log)',
     'RR_sqrt': 'Curah Hujan (Akar)',
     'RR_boxcox': 'Curah Hujan (Box-Cox)',
+    'RR': 'Curah Hujan',
 
     // NASA
     'T2M': 'Suhu Udara',
@@ -51,6 +53,12 @@ const COLUMN_NAME_MAPPING: Record<string, string> = {
     'WS10M': 'Kecepatan Angin',
     'WS10M_MAX': 'Angin Maksimum',
     'WD10M': 'Arah Angin',
+
+    'SS': 'Lamanya Penyinaran Matahari (Jam)',
+    'FF_X': 'Kecepatan Angin Maksimum',
+    'DDD_X': 'Arah Angin Maksimum',
+    'FF_AVG': 'Kecepatan Angin Rata-rata',
+    'DDD_CAR': 'Arah Angin Terbanyak',
 
     // Umum
     'Date': 'Tanggal',
