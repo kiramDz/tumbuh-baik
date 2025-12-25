@@ -16,7 +16,7 @@ export default async function Page() {
       <PageContainer scrollable={false}>
         <div className="flex flex-1 flex-col space-y-4">
           <div className="flex items-start justify-start">
-            <Heading title="Varietas Padi" description="Manage products (Server side table functionalities.)" />
+            <Heading title="Varietas Padi" description="Mengatur Bagian Bibit Padi" />
           </div>
           <Separator />
           <AddSeedDialog />
