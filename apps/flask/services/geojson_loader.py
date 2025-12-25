@@ -10,9 +10,9 @@ class GeojsonLoader:
     """Service for loading and managing filtered kecamatan GeoJSON"""
     
     def __init__(self):
-        self.geojson_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson"
-        self.summary_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/tumbuh-baik/apps/flask/data/geojson/nasa_kecamatan_summary.json"
-        
+        self.geojson_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson"
+        self.summary_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/nasa_kecamatan_summary.json"
+
     def load_kecamatan_geojson(self) -> Optional[gpd.GeoDataFrame]:
         """Load filtered kecamatan GeoJSON with NASA matches"""
 

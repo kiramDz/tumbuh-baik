@@ -24,7 +24,7 @@ class AreaWeightService:
         
         # Default path to your GeoJSON file
         if geojson_path is None:
-            geojson_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson"
+            geojson_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson"
         
         self.geojson_path = geojson_path
         self.area_weights = None

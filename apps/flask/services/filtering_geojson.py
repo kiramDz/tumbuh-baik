@@ -4,7 +4,7 @@ from shapely.geometry import Point
 import json
 
 # Load the full Aceh GeoJSON
-aceh_file = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/tumbuh-baik/apps/flask/data/geojson/gadm41_IDN_3.json"
+aceh_file = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/gadm41_IDN_3.json"
 aceh = gpd.read_file(aceh_file)
 aceh = aceh[aceh["NAME_1"] == "Aceh"] 
 
@@ -147,7 +147,7 @@ if filtered_geojson.crs is None:
     filtered_geojson.crs = "EPSG:4326"
 
 # Export filtered GeoJSON
-output_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson"
+output_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson"
 filtered_geojson.to_file(output_path, driver="GeoJSON")
 
 print(f"\n💾 Filtered GeoJSON saved to: {output_path}")
@@ -173,7 +173,7 @@ summary = {
 }
 
 # Save summary as JSON  
-summary_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/tumbuh-baik/apps/flask/data/geojson/nasa_kecamatan_summary.json"
+summary_path = "/run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/nasa_kecamatan_summary.json"
 with open(summary_path, 'w') as f:
     json.dump(summary, f, indent=2, default=str)
 
