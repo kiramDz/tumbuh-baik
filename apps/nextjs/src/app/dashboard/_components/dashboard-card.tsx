@@ -3,7 +3,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ElementType } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, EllipsisVertical } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SoftDeleteDataset } from "@/lib/fetch/files.fetch";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -15,7 +20,13 @@ interface DashboardCardProps {
   collectionName: string;
 }
 
-const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description, collectionName }) => {
+const DashboardCard: React.FC<DashboardCardProps> = ({
+  href,
+  icon: Icon,
+  title,
+  description,
+  collectionName,
+}) => {
   const queryClient = useQueryClient();
   return (
     <Card className="h-full transition-all duration-300 hover:shadow-lg hover:border-primary/50">
@@ -53,8 +64,12 @@ const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, 
           {/* Content */}
           <Link href={href} className="group block">
             <div className="space-y-2">
-              <h3 className="font-semibold text-lg leading-tight line-clamp-1 transition-colors group-hover:text-primary">{title}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
+              <h3 className="font-semibold text-lg leading-tight line-clamp-1 transition-colors group-hover:text-primary">
+                {title}
+              </h3>
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {description}
+              </p>
             </div>
           </Link>
         </div>

@@ -40,7 +40,11 @@ export interface RefreshAllResponse {
   };
 }
 
-export async function exportDatasetCsv(collectionName: string, sortBy = "Date", sortOrder = "desc") {
+export async function exportDatasetCsv(
+  collectionName: string,
+  sortBy = "Date",
+  sortOrder = "desc"
+) {
   try {
     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
       params: { category: collectionName, sortBy, sortOrder }, // category → collectionName
@@ -53,7 +57,9 @@ export async function exportDatasetCsv(collectionName: string, sortBy = "Date", 
       const link = document.createElement("a");
 
       const contentDisposition = response.headers["content-disposition"];
-      let filename = `${collectionName}_data_${new Date().toISOString().split("T")[0]}.csv`;
+      let filename = `${collectionName}_data_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
 
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -78,7 +84,10 @@ export async function exportDatasetCsv(collectionName: string, sortBy = "Date", 
     return { success: false, message: "Export failed" };
   }
 }
-export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = "desc") {
+export async function exportHoltWinterCsv(
+  sortBy = "forecast_date",
+  sortOrder = "desc"
+) {
   try {
     const response = await axios.get("/api/v1/export-csv/hw-daily", {
       params: { sortBy, sortOrder },
@@ -90,7 +99,9 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      const filename = `holt_winter_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      const filename = `holt_winter_daily_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
       link.href = url;
       link.download = filename;
       link.style.display = "none";
@@ -103,14 +114,20 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
       return { success: true, message: "File downloaded successfully" };
     }
   } catch (error: any) {
-    console.error("Export HW CSV failed:", error?.response?.data || error.message);
+    console.error(
+      "Export HW CSV failed:",
+      error?.response?.data || error.message
+    );
     return { success: false, message: "Export failed" };
   }
 }
 
 export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
   try {
-    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", { page, pageSize });
+    console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", {
+      page,
+      pageSize,
+    });
 
     const res = await axios.get("/api/v1/dataset-meta/recycle-bin", {
       params: { page, pageSize },
@@ -139,7 +156,9 @@ export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
 
 export const RestoreDataset = async (collectionName: string) => {
   try {
-    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/restore`);
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/restore`
+    );
     return res.data.data;
   } catch (error) {
     console.error("Restore dataset error:", error);
@@ -157,7 +176,10 @@ export const PermanentDeleteDataset = async (collectionName: string) => {
   }
 };
 
-export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder = "desc") {
+export async function exportLSTMForecastCsv(
+  sortBy = "forecast_date",
+  sortOrder = "desc"
+) {
   try {
     const response = await axios.get("/api/v1/export-csv/lstm/daily", {
       params: { sortBy, sortOrder },
@@ -169,7 +191,9 @@ export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      const filename = `lstm_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      const filename = `lstm_daily_${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
       link.href = url;
       link.download = filename;
       link.style.display = "none";
@@ -193,7 +217,9 @@ export const getBmkgLive = async () => {
     return response.data;
   } catch (error: any) {
     console.error("Error fetching BMKG live data:", error);
-    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG live data");
+    throw new Error(
+      error?.response?.data?.description || "Failed to fetch BMKG live data"
+    );
   }
 };
 
@@ -204,7 +230,9 @@ export const getBmkgApi = async () => {
     return response.data;
   } catch (error: any) {
     console.error("Error fetching BMKG API data:", error);
-    throw new Error(error?.response?.data?.description || "Failed to fetch BMKG data");
+    throw new Error(
+      error?.response?.data?.description || "Failed to fetch BMKG data"
+    );
   }
 };
 
@@ -384,7 +412,10 @@ export const getAllKuesionerPeriode = async () => {
   }
 };
 
-export const updateUserRole = async (userId: string, role: "user" | "admin") => {
+export const updateUserRole = async (
+  userId: string,
+  role: "user" | "admin"
+) => {
   try {
     const res = await axios.put(`/api/v1/user/${userId}/role`, { role });
     return res.data.data;
@@ -406,7 +437,9 @@ export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
 };
 
 //for dataset detail page
-export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items: any[] }> => {
+export const GetDatasetBySlug = async (
+  slug: string
+): Promise<{ meta: any; items: any[] }> => {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
   const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}`, {
     cache: "no-store", // optional jika ingin real-time
@@ -420,7 +453,13 @@ export const GetDatasetBySlug = async (slug: string): Promise<{ meta: any; items
 
 // for dataset table
 // lib/fetch/files.fetch.tsx
-export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "asc" | "desc" = "desc") {
+export async function getDynamicDatasetData(
+  slug: string,
+  page = 1,
+  pageSize = 10,
+  sortBy = "Date",
+  sortOrder: "asc" | "desc" = "desc"
+) {
   try {
     const res = await axios.get(`/api/v1/dataset-meta/${slug}`, {
       params: { page, pageSize, sortBy, sortOrder },
@@ -501,7 +540,11 @@ export const getLSTMConfigs = async () => {
   return response.data.data;
 };
 
-export const createLSTMConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[]; startDate: string }) => {
+export const createLSTMConfig = async (data: {
+  name: string;
+  columns: { collectionName: string; columnName: string }[];
+  startDate: string;
+}) => {
   const response = await axios.post("/api/v1/lstm-config", data);
   return response.data;
 };
@@ -635,16 +678,22 @@ export const getDecomposeLSTMByConfigId = async (configId: string) => {
 };
 
 // Fetch historical data from collection for comparison with forecast
-export const fetchHistoricalData = async (collectionName: string, columnName: string) => {
+export const fetchHistoricalData = async (
+  collectionName: string,
+  columnName: string
+) => {
   try {
-    const countResponse = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
-      params: {
-        page: 1,
-        pageSize: 10,
-        sortBy: "Date",
-        sortOrder: "asc",
-      },
-    });
+    const countResponse = await axios.get(
+      `/api/v1/dataset-meta/${collectionName}`,
+      {
+        params: {
+          page: 1,
+          pageSize: 10,
+          sortBy: "Date",
+          sortOrder: "asc",
+        },
+      }
+    );
 
     const total = countResponse.data?.data?.total || 0;
     if (total === 0) return [];
@@ -666,7 +715,10 @@ export const fetchHistoricalData = async (collectionName: string, columnName: st
         value: item[columnName],
       }));
   } catch (error) {
-    console.error(`Error fetching historical data for ${collectionName}:`, error);
+    console.error(
+      `Error fetching historical data for ${collectionName}:`,
+      error
+    );
     return [];
   }
 };
@@ -698,7 +750,14 @@ export const fetchNasaPowerData = async (params: NasaPowerParams) => {
     throw error;
   }
 };
-export const saveNasaPowerData = async (data: { name: string; collectionName?: string; description?: string; status?: string; source?: string; nasaParams: NasaPowerParams }) => {
+export const saveNasaPowerData = async (data: {
+  name: string;
+  collectionName?: string;
+  description?: string;
+  status?: string;
+  source?: string;
+  nasaParams: NasaPowerParams;
+}) => {
   try {
     const response = await axios.post(`/api/v1/nasa-power/save`, data);
     return response.data;
@@ -739,7 +798,9 @@ export const refreshNasaPowerDataset = async (datasetId: string) => {
     }
 
     // Proceed with refresh
-    const response = await axios.post(`/api/v1/nasa-power/refresh/${datasetId}`);
+    const response = await axios.post(
+      `/api/v1/nasa-power/refresh/${datasetId}`
+    );
 
     return {
       success: true,
@@ -784,7 +845,9 @@ export const preprocessNasaDatasetWithStream = (
   onError: (error: string) => void
 ) => {
   const encodedName = encodeURIComponent(collectionName);
-  const eventSource = new EventSource(`http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`);
+  const eventSource = new EventSource(
+    `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
+  );
 
   let connectionTimeout: NodeJS.Timeout;
   let hasCompletedSuccessfully = false;
@@ -797,7 +860,9 @@ export const preprocessNasaDatasetWithStream = (
     }
     connectionTimeout = setTimeout(() => {
       if (!hasCompletedSuccessfully) {
-        onError("Connection timeout - preprocessing may still be running in background");
+        onError(
+          "Connection timeout - preprocessing may still be running in background"
+        );
         eventSource.close();
       }
     }, 300000); // 5 minutes timeout
@@ -824,8 +889,13 @@ export const preprocessNasaDatasetWithStream = (
           break;
 
         case "progress":
-          const progressValue = data.percentage ?? data.progress ?? data.percent ?? 0;
-          onProgress(progressValue, data.stage || "Processing", data.message || "Processing...");
+          const progressValue =
+            data.percentage ?? data.progress ?? data.percent ?? 0;
+          onProgress(
+            progressValue,
+            data.stage || "Processing",
+            data.message || "Processing..."
+          );
           break;
 
         case "complete":
@@ -915,7 +985,9 @@ export const preprocessBmkgDatasetWithStream = (
   onError: (error: string) => void
 ) => {
   const encodedName = encodeURIComponent(collectionName);
-  const eventSource = new EventSource(`http://localhost:5001/api/v1/preprocess/bmkg/${encodedName}/stream`);
+  const eventSource = new EventSource(
+    `http://localhost:5001/api/v1/preprocess/bmkg/${encodedName}/stream`
+  );
 
   let connectionTimeout: NodeJS.Timeout;
   let hasCompletedSuccessfully = false;
@@ -926,7 +998,9 @@ export const preprocessBmkgDatasetWithStream = (
       clearTimeout(connectionTimeout);
     }
     connectionTimeout = setTimeout(() => {
-      onError("Connection timeout - preprocessing may still be running in background");
+      onError(
+        "Connection timeout - preprocessing may still be running in background"
+      );
       eventSource.close();
     }, 300000); // 5 minutes timeout
   };
@@ -951,9 +1025,14 @@ export const preprocessBmkgDatasetWithStream = (
 
         case "progress":
           // Handle multiple possible field names for progress percentage
-          const progressValue = data.percentage ?? data.progress ?? data.percent ?? 0;
+          const progressValue =
+            data.percentage ?? data.progress ?? data.percent ?? 0;
 
-          onProgress(progressValue, data.stage || "Processing", data.message || "Processing...");
+          onProgress(
+            progressValue,
+            data.stage || "Processing",
+            data.message || "Processing..."
+          );
           break;
 
         case "complete":
@@ -980,7 +1059,9 @@ export const preprocessBmkgDatasetWithStream = (
           break;
 
         case "error":
-          onError(data.message || "An error occurred during BMKG preprocessing");
+          onError(
+            data.message || "An error occurred during BMKG preprocessing"
+          );
           eventSource.close();
           break;
 
@@ -1038,7 +1119,10 @@ export const preprocessBmkgDataset = async (
   }
 ) => {
   try {
-    const response = await axios.post(`/api/v1/preprocess/bmkg/${collectionName}`, options || {});
+    const response = await axios.post(
+      `/api/v1/preprocess/bmkg/${collectionName}`,
+      options || {}
+    );
     return response.data;
   } catch (error) {
     console.error("Error preprocessing BMKG dataset:", error);
@@ -1076,7 +1160,9 @@ export const getAllBmkgPreprocessingJobs = async (page = 1, pageSize = 10) => {
 
 export const SoftDeleteDataset = async (collectionName: string) => {
   try {
-    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/delete`);
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/delete`
+    );
     return res.data.data;
   } catch (error) {
     console.error("Soft delete dataset error:", error);
@@ -1085,9 +1171,13 @@ export const SoftDeleteDataset = async (collectionName: string) => {
 };
 
 // Check if BMKG dataset can be preprocessed
-export const checkBmkgDatasetForPreprocessing = async (collectionName: string) => {
+export const checkBmkgDatasetForPreprocessing = async (
+  collectionName: string
+) => {
   try {
-    const response = await axios.get(`/api/v1/preprocess/bmkg/${collectionName}/validate`);
+    const response = await axios.get(
+      `/api/v1/preprocess/bmkg/${collectionName}/validate`
+    );
     return response.data;
   } catch (error) {
     console.error("Error validating BMKG dataset:", error);
@@ -1111,7 +1201,9 @@ export const archiveDataset = async (idOrSlug: string) => {
         currentDataset = { status: statusInfo.status, isAPI: statusInfo.isAPI };
       }
     } catch (statusError) {
-      console.warn("Could not get current dataset status, proceeding with archive request");
+      console.warn(
+        "Could not get current dataset status, proceeding with archive request"
+      );
     }
 
     const res = await axios.put(
@@ -1153,7 +1245,9 @@ export const archiveDataset = async (idOrSlug: string) => {
 // Reactivate archive dataset function
 export const reactivateArchivedDataset = async (collectionName: string) => {
   try {
-    const res = await axios.patch(`/api/v1/dataset-meta/${collectionName}/reactivate`);
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/reactivate`
+    );
 
     return {
       success: true,
@@ -1175,7 +1269,9 @@ export const reactivateArchivedDataset = async (collectionName: string) => {
   }
 };
 
-export const canDatasetBeArchived = (currentStatus: string): { canArchive: boolean; reason?: string } => {
+export const canDatasetBeArchived = (
+  currentStatus: string
+): { canArchive: boolean; reason?: string } => {
   if (currentStatus === "archived") {
     return {
       canArchive: false,
@@ -1186,7 +1282,10 @@ export const canDatasetBeArchived = (currentStatus: string): { canArchive: boole
   return { canArchive: true };
 };
 
-export const canDatasetBeRefreshed = (currentStatus: string, isAPI: boolean = false): { canRefresh: boolean; reason?: string } => {
+export const canDatasetBeRefreshed = (
+  currentStatus: string,
+  isAPI: boolean = false
+): { canRefresh: boolean; reason?: string } => {
   if (currentStatus === "archived") {
     return {
       canRefresh: false,
@@ -1240,7 +1339,10 @@ export const getDatasetRefreshInfo = async (idOrCollectionName: string) => {
     }
 
     // Get appropriate refresh status
-    const refreshStatus = await getDatasetRefreshStatus(isAPI ? idOrCollectionName : collectionName, isAPI);
+    const refreshStatus = await getDatasetRefreshStatus(
+      isAPI ? idOrCollectionName : collectionName,
+      isAPI
+    );
 
     return {
       isAPI,
@@ -1261,7 +1363,9 @@ export const getDatasetRefreshInfo = async (idOrCollectionName: string) => {
 };
 
 // Check if dataset can be preprocessed
-export const canDatasetBePreprocessed = (currentStatus: string): { canPreprocess: boolean; reason?: string } => {
+export const canDatasetBePreprocessed = (
+  currentStatus: string
+): { canPreprocess: boolean; reason?: string } => {
   const allowedStatuses = ["raw", "latest"];
 
   if (!allowedStatuses.includes(currentStatus)) {
@@ -1277,7 +1381,9 @@ export const canDatasetBePreprocessed = (currentStatus: string): { canPreprocess
 // Function to get dataset status info
 export const getDatasetStatusInfo = async (collectionName: string) => {
   try {
-    const res = await axios.get(`/api/v1/dataset-meta/${collectionName}/status`);
+    const res = await axios.get(
+      `/api/v1/dataset-meta/${collectionName}/status`
+    );
     return res.data;
   } catch (error) {
     console.error("Get dataset status error:", error);
@@ -1286,14 +1392,21 @@ export const getDatasetStatusInfo = async (collectionName: string) => {
 };
 
 // ENHANCED: Get single dataset refresh status (works for both API and non-API)
-export const getDatasetRefreshStatus = async (idOrCollectionName: string, isAPI: boolean = false) => {
+export const getDatasetRefreshStatus = async (
+  idOrCollectionName: string,
+  isAPI: boolean = false
+) => {
   try {
     if (isAPI) {
       // For NASA Power API datasets, get comprehensive refresh info
       const response = await axios.get(`/api/v1/nasa-power/refreshable`);
       const datasets = response.data.data || [];
 
-      const dataset = datasets.find((d: any) => d._id === idOrCollectionName || d.collectionName === idOrCollectionName);
+      const dataset = datasets.find(
+        (d: any) =>
+          d._id === idOrCollectionName ||
+          d.collectionName === idOrCollectionName
+      );
 
       if (!dataset) {
         return {
@@ -1307,8 +1420,10 @@ export const getDatasetRefreshStatus = async (idOrCollectionName: string, isAPI:
         canRefresh: dataset.refreshInfo.canRefresh,
         status: dataset.refreshInfo.statusInfo.current,
         allowsRefresh: dataset.refreshInfo.statusInfo.allowsRefresh,
-        willBecomeAfterRefresh: dataset.refreshInfo.statusInfo.willBecomeAfterRefresh,
-        willDeleteCleanedCollection: dataset.refreshInfo.statusInfo.willDeleteCleanedCollection,
+        willBecomeAfterRefresh:
+          dataset.refreshInfo.statusInfo.willBecomeAfterRefresh,
+        willDeleteCleanedCollection:
+          dataset.refreshInfo.statusInfo.willDeleteCleanedCollection,
         daysSinceLastRecord: dataset.refreshInfo.daysSinceLastRecord,
         lastRecordDate: dataset.refreshInfo.lastRecordDate,
         refreshEligibility: dataset.refreshInfo.refreshEligibility,
@@ -1316,7 +1431,9 @@ export const getDatasetRefreshStatus = async (idOrCollectionName: string, isAPI:
       };
     } else {
       // For non-API datasets, use dataset-meta status endpoint
-      const response = await axios.get(`/api/v1/dataset-meta/${idOrCollectionName}/status`);
+      const response = await axios.get(
+        `/api/v1/dataset-meta/${idOrCollectionName}/status`
+      );
       return response.data;
     }
   } catch (error) {
@@ -1329,18 +1446,26 @@ export const getDatasetRefreshStatus = async (idOrCollectionName: string, isAPI:
   }
 };
 
-export const updateDatasetStatus = async (idOrSlug: string, newStatus: string, additionalData?: Record<string, any>) => {
+export const updateDatasetStatus = async (
+  idOrSlug: string,
+  newStatus: string,
+  additionalData?: Record<string, any>
+) => {
   try {
     const updateData = {
       status: newStatus,
       ...additionalData,
     };
 
-    const res = await axios.put(`/api/v1/dataset-meta/${idOrSlug}`, updateData, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const res = await axios.put(
+      `/api/v1/dataset-meta/${idOrSlug}`,
+      updateData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     console.log("✅ Dataset status updated successfully:", res.data);
     return {
@@ -1442,7 +1567,9 @@ export const validateStatusTransition = (
 
 export const refreshNonApiDataset = async (collectionName: string) => {
   try {
-    const response = await axios.post(`/api/v1/dataset-meta/${collectionName}/refresh`);
+    const response = await axios.post(
+      `/api/v1/dataset-meta/${collectionName}/refresh`
+    );
 
     return {
       success: true,
@@ -1475,7 +1602,15 @@ export const getNasaPowerRefreshableDatasets = async () => {
   }
 };
 
-export const AddXlsxDatasetMeta = async (data: { name: string; source: string; description?: string; status?: string; file?: File; files?: File[]; isMultiFile?: boolean }) => {
+export const AddXlsxDatasetMeta = async (data: {
+  name: string;
+  source: string;
+  description?: string;
+  status?: string;
+  file?: File;
+  files?: File[];
+  isMultiFile?: boolean;
+}) => {
   try {
     // Validation: Must provide either file or files
     if (data.isMultiFile) {
@@ -1539,4 +1674,31 @@ export const GetChartDataBySlug = async (
   const json = await res.json();
 
   return json.data;
+};
+
+export const UpdateDatasetMeta = async (
+  _id: string,
+  data: {
+    name?: string;
+    source?: string;
+    fileType?: "csv" | "json";
+    filename?: string;
+    collectionName?: string;
+    status?: string;
+    description?: string;
+  }
+) => {
+  try {
+    const res = await axios.put(`/api/v1/dataset-meta/${_id}`, data, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("API response:", res.data);
+    return res.data.data;
+  } catch (error) {
+    console.error("❌ Update dataset meta error:", error);
+    throw error;
+  }
 };
