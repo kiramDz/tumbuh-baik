@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import MdxWrapper from "@/components/mdx-wrapper";
 export const metadata: Metadata = {
-  title: "Next Shadcn Dashboard Starter",
-  description: "Basic dashboard with Next.js and Shadcn",
+  title: "Zona Petik",
+  description: "Forecast and plan your planting activities with Zona Petik's weather dashboard and planting calendar.",
 };
 
 //TODO : Mash lambat kli login diawal, lalu kok ada tulisaj "loading padhl udh ada skeleton"

@@ -113,6 +113,7 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
           </Select>
         </div>
       </CardHeader>
+
       <CardContent>
         <ChartContainer config={chartConfig}>
           <LineChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>
@@ -137,21 +138,8 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
             <YAxis domain={["dataMin - 3", "dataMax + 3"]} />
 
             <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-            <Line dataKey="value" type="linear" stroke="url(#colorUv)" dot={false} strokeWidth={2} filter="url(#rainbow-line-glow)" isAnimationActive={false} connectNulls />
-            <defs>
-              <linearGradient id="colorUv" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#0B84CE" stopOpacity={0.8} />
-                <stop offset="20%" stopColor="#224CD1" stopOpacity={0.8} />
-                <stop offset="40%" stopColor="#3A11C7" stopOpacity={0.8} />
-                <stop offset="60%" stopColor="#7107C6" stopOpacity={0.8} />
-                <stop offset="80%" stopColor="#C900BD" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#D80155" stopOpacity={0.8} />
-              </linearGradient>
-              <filter id="rainbow-line-glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="10" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-            </defs>
+
+            <Line dataKey="value" type="linear" stroke="#2563eb" dot={false} strokeWidth={2} isAnimationActive={false} connectNulls />
           </LineChart>
         </ChartContainer>
       </CardContent>
