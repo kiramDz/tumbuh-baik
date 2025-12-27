@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Banner } from "./banner";
 import { WeatherHeader } from "./weather-header";
@@ -9,53 +9,37 @@ import WeatherIcon from "./weather-icon";
 import CurrentWeatherCard from "./current-weather";
 import { getBmkgLive } from "@/lib/fetch/files.fetch";
 import { getTodayWeather, getHourlyForecastData } from "@/lib/bmkg-utils";
-// import { RainbowGlowGradientLineChart } from "./chart/weather-rainbow-chart";
 import { WeatherChartTabs } from "./chart/weather-chart-tabs";
-
 
 interface WeatherDashboardProps {
   unit: "metric" | "imperial";
 }
 
 const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
-  const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
   const { data: bmkgApiResponse } = useQuery({
     queryKey: ["bmkg-api"],
     queryFn: getBmkgLive,
   });
   const bmkgData = bmkgApiResponse?.data;
 
-  useEffect(() => {
-    if (!selectedGampong && bmkgData?.length) {
-      setSelectedGampong(bmkgData[0].kode_gampong);
-    }
-  }, [bmkgData, selectedGampong]);
+  const mainData = useMemo(() => {
+    return bmkgData?.[0]?.data ?? [];
+  }, [bmkgData]);
 
-  const selected = useMemo(() => {
-    return bmkgData?.find((item: any) => item.kode_gampong === selectedGampong) ?? null;
-  }, [bmkgData, selectedGampong]);
+  const latestData = useMemo(() => getTodayWeather(mainData), [mainData]);
 
-  const selectedData = useMemo(() => {
-    return selected?.data ?? [];
-  }, [selected]);
-
-  const latestData = useMemo(() => getTodayWeather(selectedData), [selectedData]);
-  const hourlyForecast = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);
-
-  console.log("hourlyForecast:", hourlyForecast);
-  console.log("latestData:", latestData);
+  const hourlyForecast = useMemo(() => getHourlyForecastData(mainData), [mainData]);
 
   return (
     <>
       <div className="bg-inherit min-h-screen flex flex-col space-y-4 md:space-y-6 px-0 ">
         <Banner />
         <WeatherTabs defaultTab="weather">
-          {selectedGampong && <WeatherHeader bmkgData={bmkgData} selectedCode={selectedGampong} onGampongChange={setSelectedGampong} />}
+          <WeatherHeader bmkgData={bmkgData} />
 
-          {/* Responsive layout: stack on mobile, side-by-side on desktop */}
           <div className="w-full flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 lg:gap-6">
-            <div className="flex-1 w-full">{latestData && selected && <CurrentWeatherCard bmkgCurrent={{ ...latestData }} unit={unit} />}</div>
-            <div className="flex-1 w-full flex justify-center lg:justify-end">{latestData && selected && <WeatherIcon description={latestData.weather_desc} />}</div>
+            <div className="flex-1 w-full">{latestData && <CurrentWeatherCard bmkgCurrent={{ ...latestData }} unit={unit} />}</div>
+            <div className="flex-1 w-full flex justify-center lg:justify-end">{latestData && <WeatherIcon description={latestData.weather_desc} />}</div>
           </div>
 
           {hourlyForecast.length > 0 ? (

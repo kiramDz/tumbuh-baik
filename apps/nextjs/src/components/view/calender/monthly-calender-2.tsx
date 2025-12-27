@@ -22,7 +22,6 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
 
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
 
-  // PRIORITAS HUJAN: Kalau hujan tidak sesuai, langsung tidak cocok!
   if (!criteria.isRainSesuai) {
     return {
       color: "bg-red-400",
@@ -31,7 +30,6 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
     };
   }
 
-  // Kalau hujan OK, baru cek parameter lain
   if (sesuaiCount === 4) {
     return {
       color: "bg-green-400",
@@ -41,22 +39,22 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
   }
   if (sesuaiCount === 3) {
     return {
-      color: "bg-yellow-300",
+      color: "bg-green-200",
       label: "Cukup Cocok (Hujan OK)",
       count: 3,
     };
   }
-  // 2 atau kurang tapi hujan OK
+
   return {
     color: "bg-orange-300",
-    label: "Kurang Ideal (Hujan OK)",
+    label: "Kurang Ideal",
     count: sesuaiCount,
   };
 };
 
 const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
   const days = eachDayOfInterval({ start: startDate, end: endDate });
-  // Offset 0=Senin, 6=Minggu
+
   const startOffset = getDay(startDate) === 0 ? 6 : getDay(startDate) - 1;
 
   const grid: (any | null)[] = Array(startOffset).fill(null);
@@ -73,7 +71,7 @@ const getPeriodCalendarGrid = (data: any[], startDate: Date, endDate: Date) => {
 
   const rows: (any | null)[][] = [];
   for (let i = 0; i < grid.length; i += 1) {
-    const rowIndex = i % 7; // 0=Senin, 1=Selasa, ...
+    const rowIndex = i % 7;
     if (!rows[rowIndex]) rows[rowIndex] = [];
     rows[rowIndex].push(grid[i]);
   }
@@ -162,16 +160,11 @@ export default function PeriodCalendar() {
                         const radiation = getForecastValue(params, DATASET_COLUMNS.radiation);
 
                         const suitability = getSuitability(rain, temp, humid, radiation);
-                        // --- Akhir Logika Diperbarui ---
+
                         return (
                           <Tooltip key={colIdx}>
                             <TooltipTrigger asChild>
-                              <TableCell
-                                className={clsx(
-                                  "text-center relative h-20 w-20 border",
-                                  suitability.color // Gunakan warna dari objek
-                                )}
-                              >
+                              <TableCell className={clsx("text-center relative h-20 w-20 border", suitability.color)}>
                                 <div className="text-xs absolute top-1 right-1.5">{format(new Date(dayData.forecast_date), "dd")}</div>
                                 <div className="text-[10px] absolute bottom-1 left-1.5">{format(new Date(dayData.forecast_date), "MMM", { locale: id })}</div>
                               </TableCell>
@@ -193,7 +186,6 @@ export default function PeriodCalendar() {
                           </Tooltip>
                         );
                       } else {
-                        // Ini adalah sel kosong (sebelum tanggal mulai) atau data hilang
                         return <TableCell key={colIdx} className="text-center h-20 w-20 border bg-slate-50"></TableCell>;
                       }
                     })}
@@ -247,7 +239,7 @@ export default function PeriodCalendar() {
           <span>Sangat Cocok Tanam (4/4 sesuai)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-4 bg-yellow-300 border" />
+          <div className="w-6 h-4 bg-yellow-200 border" />
           <span>Cukup Cocok (3/4 sesuai, hujan OK)</span>
         </div>
         <div className="flex items-center gap-2">
@@ -256,7 +248,7 @@ export default function PeriodCalendar() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-4 bg-red-400 border" />
-          <span className="font-semibold">❌ Tidak Cocok (Hujan Tidak Memadai)</span>
+          <span className="font-semibold">❌ Tidak Cocok (kurang dari 3 parameter, terpenuhi)</span>
         </div>
       </div>
     </div>
