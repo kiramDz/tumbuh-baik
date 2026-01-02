@@ -6,6 +6,8 @@ export const fontMonserrat = Montserrat({
   weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-sans",
   display: "swap",
+  adjustFontFallback: true,
+  fallback: ["system-ui", "arial"],
 });
 
 // Tetap pakai Geist Mono untuk monospace

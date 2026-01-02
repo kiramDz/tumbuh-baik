@@ -48,7 +48,7 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
     isRainSesuai: rain >= 5.7 && rain <= 16.7,
     isTempSesuai: temp >= 24 && temp <= 29,
     isHumiditySesuai: humidity >= 33 && humidity <= 90,
-    isRadiationSesuai: radiation >= 13,
+    isRadiationSesuai: radiation >= 15 && radiation <= 25,
   };
 
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;

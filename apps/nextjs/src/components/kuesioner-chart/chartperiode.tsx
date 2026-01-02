@@ -4,15 +4,45 @@ import { useQuery } from "@tanstack/react-query";
 import { getAllKuesionerPeriode } from "@/lib/fetch/files.fetch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend, AreaChart, Area } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LabelList, RadialBarChart, RadialBar } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
 import { useState, useMemo } from "react";
-import { BarChart3, Calendar, Sprout, MapPin, Loader2, AlertCircle } from "lucide-react";
+import { Calendar, Sprout, Loader2, AlertCircle, TrendingUp, DollarSign, MapPin } from "lucide-react";
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16", "#f97316", "#ec4899", "#6366f1"];
+
+const chartConfig = {
+  count: {
+    label: "Jumlah",
+    color: "hsl(var(--chart-1))",
+  },
+  tanam: {
+    label: "Tanam",
+    color: "hsl(142, 76%, 36%)",
+  },
+  panen: {
+    label: "Panen",
+    color: "hsl(221, 83%, 53%)",
+  },
+  produktivitas: {
+    label: "Produktivitas",
+    color: "hsl(38, 92%, 50%)",
+  },
+  pendapatan: {
+    label: "Pendapatan",
+    color: "hsl(142, 76%, 36%)",
+  },
+  pengeluaran: {
+    label: "Pengeluaran",
+    color: "hsl(0, 84%, 60%)",
+  },
+  keuntungan: {
+    label: "Keuntungan",
+    color: "hsl(221, 83%, 53%)",
+  },
+} satisfies ChartConfig;
 
 type ChartType = "periode-tanam" | "produktivitas" | "ekonomi" | "pengelolaan" | "jenis-lahan" | "regional";
 
@@ -25,16 +55,36 @@ export default function ChartPeriode() {
     queryFn: getAllKuesionerPeriode,
   });
 
+  // Debug logging
+  useMemo(() => {
+    if (periodeData && periodeData.length > 0) {
+      console.log("🔍 Sample data:", periodeData[0]);
+      console.log("📋 Has kab_kota?", periodeData[0]?.kab_kota ? "✅ Yes" : "❌ No");
+      console.log("🗂️ All fields:", Object.keys(periodeData[0] || {}));
+    }
+  }, [periodeData]);
+
   const kabupatenList = useMemo(() => {
-    if (!periodeData) return [];
-    const uniqueKabupaten = [...new Set(periodeData.map((item: any) => item.kab_kota))];
-    return uniqueKabupaten.filter(Boolean).sort();
+    if (!periodeData || periodeData.length === 0) return [];
+    const kabupatenSet = new Set<string>();
+    periodeData.forEach((item: any) => {
+      const kab = item.kab_kota || item.kabupaten || item.kabupaten_kota;
+      if (kab && typeof kab === 'string' && kab.trim() !== '') {
+        kabupatenSet.add(kab);
+      }
+    });
+    const list = Array.from(kabupatenSet).sort();
+    console.log("🏘️ Kabupaten list:", list);
+    return list;
   }, [periodeData]);
 
   const filteredData = useMemo(() => {
     if (!periodeData) return [];
     if (selectedKabupaten === "all") return periodeData;
-    return periodeData.filter((item: any) => item.kab_kota === selectedKabupaten);
+    return periodeData.filter((item: any) => {
+      const kab = item.kab_kota || item.kabupaten || item.kabupaten_kota;
+      return kab === selectedKabupaten;
+    });
   }, [periodeData, selectedKabupaten]);
 
   const processedData = useMemo(() => {
@@ -152,43 +202,21 @@ export default function ChartPeriode() {
     }));
 
     // Regional
-    const regionalGroups: { [key: string]: { 
-      count: number, 
-      total_luas: number, 
-      total_produksi: number,
-      total_pengeluaran: number,
-      total_pendapatan: number
-    } } = {};
-    
+    const regionalGroups: { [key: string]: number } = {};
     responses.forEach((response: any) => {
-      const region = response.kab_kota;
-      if (region && region.trim() !== '') {
-        if (!regionalGroups[region]) {
-          regionalGroups[region] = { 
-            count: 0, 
-            total_luas: 0, 
-            total_produksi: 0,
-            total_pengeluaran: 0,
-            total_pendapatan: 0
-          };
-        }
-        regionalGroups[region].count++;
-        regionalGroups[region].total_luas += response.luas_tanam_m2 || 0;
-        regionalGroups[region].total_produksi += response.gunca_kg || 0;
-        regionalGroups[region].total_pengeluaran += response.pengeluaran_rp || 0;
-        regionalGroups[region].total_pendapatan += ((response.gunca_kg || 0) * (response.harga_jual_perkg || 0));
+      const kab = response.kab_kota || response.kabupaten || response.kabupaten_kota;
+      if (kab && typeof kab === 'string' && kab.trim() !== '') {
+        regionalGroups[kab] = (regionalGroups[kab] || 0) + 1;
       }
     });
 
-    const regional = Object.entries(regionalGroups).map(([region, data]) => ({
-      region,
-      count: data.count,
-      total_luas: data.total_luas,
-      total_produksi: data.total_produksi,
-      rata_produktivitas: data.total_luas > 0 ? (data.total_produksi / data.total_luas) * 10000 : 0,
-      rata_pendapatan: data.count > 0 ? data.total_pendapatan / data.count : 0,
-      percentage: ((data.count / responses.length) * 100).toFixed(1),
-    }));
+    const regional = Object.entries(regionalGroups)
+      .map(([kabupaten, count]) => ({
+        kabupaten,
+        count,
+        percentage: ((count / responses.length) * 100).toFixed(1),
+      }))
+      .sort((a, b) => b.count - a.count);
 
     // Statistics
     const validProduktivitas = responses.filter((r: any) => 
@@ -232,34 +260,6 @@ export default function ChartPeriode() {
     };
   }, [filteredData]);
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <Card className="border shadow-md">
-          <CardContent className="p-3">
-            <p className="font-medium text-sm mb-1">
-              {payload[0].payload.bulan || payload[0].payload.id_petani || payload[0].payload.status || payload[0].payload.jenis || payload[0].payload.region}
-            </p>
-            <div className="space-y-1">
-              {payload.map((entry: any, index: number) => (
-                <div key={index} className="flex items-center gap-2 text-xs">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                  <span>
-                    {entry.name}: {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
-                  </span>
-                  {entry.payload?.percentage && (
-                    <span className="text-muted-foreground">({entry.payload.percentage}%)</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      );
-    }
-    return null;
-  };
-
   const renderChart = () => {
     if (!processedData) return null;
 
@@ -267,110 +267,250 @@ export default function ChartPeriode() {
       case "periode-tanam":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-sm font-medium mb-3 text-muted-foreground">Periode Tanam</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={processedData.dataTanam} margin={{ bottom: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="bulan" angle={-35} textAnchor="end" height={60} className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} name="Jumlah" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium mb-3 text-muted-foreground">Periode Panen</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={processedData.dataPanen} margin={{ bottom: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="bulan" angle={-35} textAnchor="end" height={60} className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Jumlah" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Periode Tanam</CardTitle>
+                <CardDescription className="text-xs">Distribusi bulan tanam</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[280px] w-full">
+                  <BarChart data={processedData.dataTanam} margin={{ bottom: 60 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted/30" />
+                    <XAxis 
+                      dataKey="bulan" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={70}
+                      tickLine={false} 
+                      axisLine={false}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={35} />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]}>
+                      <LabelList position="top" offset={8} className="fill-foreground" fontSize={10} />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Periode Panen</CardTitle>
+                <CardDescription className="text-xs">Distribusi bulan panen</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[280px] w-full">
+                  <BarChart data={processedData.dataPanen} margin={{ bottom: 60 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted/30" />
+                    <XAxis 
+                      dataKey="bulan" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={70}
+                      tickLine={false} 
+                      axisLine={false}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={35} />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="hsl(221, 83%, 53%)" radius={[4, 4, 0, 0]}>
+                      <LabelList position="top" offset={8} className="fill-foreground" fontSize={10} />
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
           </div>
         );
 
       case "produktivitas":
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={processedData.produktivitasData} margin={{ bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="id_petani" angle={-35} textAnchor="end" height={70} className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="produktivitas" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} name="Produktivitas (kg/ha)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Produktivitas Tertinggi</CardTitle>
+              <CardDescription className="text-xs">Top 20 produktivitas (kg/ha)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[400px] w-full">
+                <BarChart 
+                  data={processedData.produktivitasData} 
+                  layout="vertical"
+                  margin={{ left: 0, right: 40 }}
+                >
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-muted/30" />
+                  <YAxis 
+                    dataKey="id_petani" 
+                    type="category"
+                    tickLine={false} 
+                    axisLine={false}
+                    width={50}
+                    tick={{ fontSize: 9 }}
+                  />
+                  <XAxis type="number" hide />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                  <Bar dataKey="produktivitas" fill="hsl(38, 92%, 50%)" radius={[0, 4, 4, 0]}>
+                    <LabelList position="right" offset={8} className="fill-foreground" fontSize={10} formatter={(value: number) => value.toFixed(1)} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
         );
 
       case "ekonomi":
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={processedData.ekonomiData} margin={{ bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="id_petani" angle={-35} textAnchor="end" height={70} className="text-xs" />
-              <YAxis className="text-xs" tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} />
-              <Tooltip content={<CustomTooltip />} formatter={(value) => `Rp ${value.toLocaleString()}`} />
-              <Legend />
-              <Bar dataKey="pendapatan" fill="#10b981" name="Pendapatan" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="pengeluaran" fill="#ef4444" name="Pengeluaran" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="keuntungan" fill="#3b82f6" name="Keuntungan" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Analisis Ekonomi</CardTitle>
+              <CardDescription className="text-xs">Top 10 perbandingan pendapatan vs pengeluaran</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[500px] w-full">
+                <BarChart 
+                  data={processedData.ekonomiData.slice(0, 10)} 
+                  layout="vertical"
+                  margin={{ left: 0, right: 80 }}
+                >
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-muted/30" />
+                  <YAxis 
+                    dataKey="id_petani" 
+                    type="category"
+                    tickLine={false} 
+                    axisLine={false}
+                    width={50}
+                    tick={{ fontSize: 9 }}
+                  />
+                  <XAxis type="number" hide />
+                  <ChartTooltip 
+                    cursor={false} 
+                    content={<ChartTooltipContent 
+                      formatter={(value) => `Rp ${Number(value).toLocaleString()}`} 
+                    />} 
+                  />
+                  <Bar dataKey="pendapatan" fill="hsl(142, 76%, 36%)" radius={[0, 4, 4, 0]} name="Pendapatan" />
+                  <Bar dataKey="pengeluaran" fill="hsl(0, 84%, 60%)" radius={[0, 4, 4, 0]} name="Pengeluaran" />
+                  <Bar dataKey="keuntungan" fill="hsl(221, 83%, 53%)" radius={[0, 4, 4, 0]} name="Keuntungan">
+                    <LabelList position="right" offset={8} className="fill-foreground" fontSize={9} formatter={(value: number) => `${(value/1000000).toFixed(1)}M`} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
         );
 
       case "pengelolaan":
+        const totalPengelolaan = processedData.pengelolaan.reduce((sum: number, item: any) => sum + item.count, 0);
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <PieChart>
-              <Pie
-                data={processedData.pengelolaan}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ status, percentage }) => `${status}: ${percentage}%`}
-                outerRadius={130}
-                innerRadius={50}
-                dataKey="count"
-              >
-                {processedData.pengelolaan.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Status Pengelolaan</CardTitle>
+              <CardDescription className="text-xs">Distribusi status pengelolaan lahan</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[350px] w-full">
+                <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <ChartTooltip 
+                    cursor={false} 
+                    content={<ChartTooltipContent hideLabel />} 
+                  />
+                  <Pie
+                    data={processedData.pengelolaan}
+                    dataKey="count"
+                    nameKey="status"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                  >
+                    {processedData.pengelolaan.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                    <LabelList
+                      position="outside"
+                      className="fill-foreground"
+                      fontSize={11}
+                      formatter={(value: number, entry: any) => `${entry.status}: ${((value/totalPengelolaan)*100).toFixed(0)}%`}
+                    />
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
         );
 
       case "jenis-lahan":
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={processedData.jenisLahan} margin={{ bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="jenis" angle={-35} textAnchor="end" height={70} className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Jumlah" />
-            </BarChart>
-          </ResponsiveContainer>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Jenis Lahan</CardTitle>
+              <CardDescription className="text-xs">Distribusi jenis lahan</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                <BarChart data={processedData.jenisLahan} margin={{ bottom: 60 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted/30" />
+                  <XAxis 
+                    dataKey="jenis" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    tickLine={false} 
+                    axisLine={false}
+                    tick={{ fontSize: 10 }}
+                  />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={35} />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="hsl(262, 83%, 58%)" radius={[4, 4, 0, 0]}>
+                    <LabelList position="top" offset={8} className="fill-foreground" fontSize={10} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
         );
 
       case "regional":
+        if (!processedData.regional || processedData.regional.length === 0) {
+          return (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Data kabupaten tidak tersedia. Field kab_kota tidak ditemukan dalam respons API.
+              </AlertDescription>
+            </Alert>
+          );
+        }
         return (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={processedData.regional} margin={{ bottom: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="region" angle={-45} textAnchor="end" height={80} className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="count" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Jumlah" />
-            </BarChart>
-          </ResponsiveContainer>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Distribusi Regional</CardTitle>
+              <CardDescription className="text-xs">Jumlah data per kabupaten/kota</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[400px] w-full">
+                <BarChart data={processedData.regional} margin={{ bottom: 60 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted/30" />
+                  <XAxis 
+                    dataKey="kabupaten" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    tickLine={false} 
+                    axisLine={false}
+                    tick={{ fontSize: 10 }}
+                  />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} width={35} />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="hsl(167, 80%, 42%)" radius={[4, 4, 0, 0]}>
+                    <LabelList position="top" offset={8} className="fill-foreground" fontSize={10} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
         );
 
       default:
@@ -380,18 +520,27 @@ export default function ChartPeriode() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-md" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-5 w-12" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
         <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-48" />
-            <Skeleton className="h-4 w-64 mt-2" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center h-[400px]">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Memuat data periode...</p>
-              </div>
+          <CardContent className="flex items-center justify-center h-[300px]">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Memuat data...</p>
             </div>
           </CardContent>
         </Card>
@@ -415,7 +564,7 @@ export default function ChartPeriode() {
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Tidak ada data tersedia untuk {selectedKabupaten === "all" ? "semua kabupaten" : selectedKabupaten}
+          Tidak ada data periode tersedia
         </AlertDescription>
       </Alert>
     );
@@ -434,39 +583,78 @@ export default function ChartPeriode() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Filters Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Filter Data</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-muted-foreground" />
-                Kabupaten
-              </label>
-              <Select value={selectedKabupaten} onValueChange={setSelectedKabupaten}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Kabupaten</SelectItem>
-                  {kabupatenList.map((kab) => (
-                    <SelectItem key={kab as string} value={kab as string}>
-                      {kab as string}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-md bg-emerald-500/10 p-2.5">
+                <Calendar className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Total Data</p>
+                <p className="text-lg font-semibold tabular-nums">{processedData.totalResponses}</p>
+              </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-muted-foreground" />
-                Jenis Analisis
-              </label>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-md bg-blue-500/10 p-2.5">
+                <Sprout className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Produktivitas</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {processedData.averageProduktivitas.toFixed(1)} <span className="text-xs text-muted-foreground font-normal">kg/ha</span>
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-md bg-amber-500/10 p-2.5">
+                <DollarSign className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Keuntungan Rata-rata</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {(processedData.averageKeuntungan / 1000000).toFixed(1)}M
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-md bg-purple-500/10 p-2.5">
+                <TrendingUp className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Frekuensi Tanam</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {processedData.averageFrekuensiTanam.toFixed(1)}x <span className="text-xs text-muted-foreground font-normal">/tahun</span>
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="min-w-[180px] space-y-1">
+              <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Jenis Analisis</label>
               <Select value={selectedChart} onValueChange={(value: ChartType) => setSelectedChart(value)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -481,82 +669,31 @@ export default function ChartPeriode() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="min-w-[180px] space-y-1">
+              <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Kabupaten/Kota</label>
+              <Select value={selectedKabupaten} onValueChange={setSelectedKabupaten}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Semua Kabupaten" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kabupaten</SelectItem>
+                  {kabupatenList.map((kab) => (
+                    <SelectItem key={kab} value={kab}>{kab}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="ml-auto text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{processedData.totalResponses}</span> data ditampilkan
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Chart Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">{getChartTitle()}</CardTitle>
-              <CardDescription className="mt-1">
-                {selectedKabupaten === "all" ? "Semua kabupaten" : selectedKabupaten}
-              </CardDescription>
-            </div>
-            <Badge variant="secondary">
-              {processedData.totalResponses} responden
-            </Badge>
-          </div>
-        </CardHeader>
-        <Separator />
-        <CardContent className="pt-6">
-          {renderChart()}
-        </CardContent>
-      </Card>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Total Data</p>
-                <p className="text-2xl font-bold text-green-600">{processedData.totalResponses}</p>
-              </div>
-              <Calendar className="w-8 h-8 text-green-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Produktivitas</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {processedData.averageProduktivitas.toFixed(1)}
-                </p>
-                <p className="text-xs text-muted-foreground">kg/ha</p>
-              </div>
-              <Sprout className="w-8 h-8 text-blue-500 opacity-50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500">
-          <CardContent className="pt-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Keuntungan</p>
-              <p className="text-2xl font-bold text-amber-600">
-                {(processedData.averageKeuntungan / 1000000).toFixed(1)}M
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="pt-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Frekuensi</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {processedData.averageFrekuensiTanam.toFixed(1)}x
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Chart */}
+      {renderChart()}
     </div>
   );
 }

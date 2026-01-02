@@ -116,8 +116,8 @@ def inverse_log_transform(data, transform_params, param_name):
         return data
     
     data_array = np.array(data).flatten()
-    # Clip untuk mencegah overflow - KONSISTEN dengan post_process_forecast
-    data_clipped = np.clip(data_array, -10, 6.5)
+    # Clip untuk mencegah overflow
+    data_clipped = np.clip(data_array, -10, 6)
     return np.expm1(data_clipped)
 
 
@@ -165,78 +165,56 @@ def seasonal_decompose_data(data, param_name):
 
 
 def extrapolate_seasonal(seasonal_pattern, forecast_steps, period, param_name=None):
-    """Extrapolate seasonal pattern dengan parameter-specific dampening"""
+    """Extrapolate seasonal pattern (same for all parameters)"""
     one_cycle = seasonal_pattern[-period:]
     n_repeats = (forecast_steps // period) + 2
     extended = np.tile(one_cycle, n_repeats)[:forecast_steps]
     
-    if param_name is not None and is_rainfall(param_name):
-        seasonal_std = np.std(one_cycle)
-        seasonal_mean = np.mean(one_cycle)
-        
-        # PERBAIKAN: Lebih longgar untuk preserve high rainfall events
-        lower_bound = seasonal_mean - 4.0 * seasonal_std  # Was 3.0
-        upper_bound = seasonal_mean + 4.0 * seasonal_std  # Was 3.0
-        extended = np.clip(extended, lower_bound, upper_bound)
-        
-        # Cap maksimum lebih tinggi untuk allow extreme events
-        extended = np.clip(extended, -2.0, 6.0)  # Was 5.5, log1p(400) ≈ 6.0
-        
-        print(f"   📉 Seasonal dampened: [{extended.min():.3f}, {extended.max():.3f}]")
+    # No dampening - use original seasonal pattern from data
+    # This preserves the full seasonal variation detected in historical data
     
     return extended
 
 
-def extrapolate_trend(trend, forecast_steps, param_name=None):
-    """
-    Extrapolate trend dengan parameter-specific dampening dan constraints
-    """
+def extrapolate_trend(trend, forecast_steps):
     window = min(30, len(trend) // 4)
     last_values = trend[-window:]
     slope = (last_values[-1] - last_values[0]) / len(last_values) if len(last_values) > 1 else 0
+    
+    # ⭐ IMPROVED: Use historical trend mean as stabilization target
+    # For long-term forecast, trend should converge to historical mean
+    historical_trend_mean = np.mean(trend)
+    historical_trend_median = np.median(trend)
+    
+    # Use median for more robust target (less affected by outliers)
+    target_value = historical_trend_median
     
     forecast_trend = []
     current_value = trend[-1]
     current_slope = slope
     
-    # Parameter-specific dampening dan constraints
-    if param_name in TEMP_PARAMS:
-        damping = 0.85  # Sangat agresif - suhu stabil
-        trend_mean = np.mean(trend[-365:]) if len(trend) > 365 else np.mean(trend)
-        max_deviation = 1.5  # Max ±1.5°C dari trend mean
-        
-    elif param_name in HUMIDITY_PARAMS:
-        damping = 0.88  # Agresif - kelembaban relatif stabil
-        trend_mean = np.mean(trend[-365:]) if len(trend) > 365 else np.mean(trend)
-        max_deviation = 5.0  # Max ±5% dari trend mean
-        
-    elif is_rainfall(param_name):
-        damping = 0.95  # Moderate - rainfall boleh variabel tapi tidak ekstrem
-        trend_mean = np.mean(trend[-365:]) if len(trend) > 365 else np.mean(trend)
-        max_deviation = trend_mean * 0.5  # Max ±50% dari trend mean
-        
-    elif param_name in SOLAR_PARAMS:
-        damping = 0.90  # Moderate-agresif - radiasi cukup stabil
-        trend_mean = np.mean(trend[-365:]) if len(trend) > 365 else np.mean(trend)
-        max_deviation = 3.0  # Max ±3 MJ/m² dari trend mean
-        
+    # Adaptive damping
+    if forecast_steps > 180:
+        damping = 0.995
+        # Pull toward target for long-term stability
+        pull_strength = 0.005  # 0.5% per step
+    elif forecast_steps > 90:
+        damping = 0.99
+        pull_strength = 0.003
     else:
-        damping = 0.93
-        trend_mean = None
-        max_deviation = None
+        damping = 0.98
+        pull_strength = 0.001
     
     for step in range(forecast_steps):
+        # Apply slope with damping
         current_value += current_slope
         current_slope *= damping
         
-        # Apply mean-reversion constraint
-        if trend_mean is not None and max_deviation is not None:
-            deviation = abs(current_value - trend_mean)
-            if deviation > max_deviation:
-                # Strong pull back to mean
-                pull_strength = min(0.3, (deviation - max_deviation) / max_deviation)
-                current_value = current_value - pull_strength * (current_value - trend_mean)
-                current_slope *= 0.5  # Reduce slope aggressively
+        # ⭐ Pull toward historical median (mean reversion)
+        # Stronger pull for steps further in future
+        progress = (step + 1) / forecast_steps
+        current_pull = pull_strength * progress
+        current_value += (target_value - current_value) * current_pull
         
         forecast_trend.append(current_value)
     
@@ -248,12 +226,12 @@ def extrapolate_trend(trend, forecast_steps, param_name=None):
 # ============================================================
 
 def post_process_forecast(forecast, param_name, historical_data=None, transform_params=None):
-    """Post-process forecast values dengan parameter-specific logic"""
+    """Post-process forecast values"""
     forecast = np.array(forecast).flatten()
     
     if is_rainfall(param_name):
         if transform_params is not None:
-            forecast = np.clip(forecast, -5, 6.5)
+            forecast = np.clip(forecast, -5, 6.0)
             forecast = inverse_log_transform(forecast, transform_params, param_name)
             print(f"   ✓ Log1p inverse applied")
         
@@ -262,237 +240,24 @@ def post_process_forecast(forecast, param_name, historical_data=None, transform_
         if historical_data is not None:
             hist_max = float(np.max(historical_data))
             hist_p99 = float(np.percentile(historical_data, 99))
-            hist_p95 = float(np.percentile(historical_data, 95))
-            hist_mean = float(np.mean(historical_data))
-            hist_std = float(np.std(historical_data))
             
-            # PERBAIKAN: Allow high extremes untuk rainfall
-            max_cap = max(
-                hist_max * 1.5,           # 1.5x max historis
-                hist_p99 * 2.0,           # 2x P99
-                hist_p95 * 3.0,           # 3x P95
-                hist_mean + 6 * hist_std  # Mean + 6 std
-            )
-            max_cap = min(max_cap, 150)  # Hard cap 150mm (was 500)
-            
-            print(f"   📊 RAIN Cap: max={hist_max:.1f}, P99={hist_p99:.1f}, cap={max_cap:.1f}")
+            max_cap = min(hist_max * 1.2, hist_p99 * 2.0, 250)
+            print(f"   📊 Cap: hist_max={hist_max:.1f}, P99={hist_p99:.1f}, cap={max_cap:.1f}")
         else:
-            max_cap = 100
+            max_cap = 200
         
         forecast = np.clip(forecast, 0, max_cap)
         forecast = np.round(forecast, 1)
-        
     elif is_ndvi(param_name):
         forecast = np.clip(forecast, -1, 1)
-        
     elif param_name in HUMIDITY_PARAMS:
-        # PERBAIKAN: Constraint berdasarkan historis
-        if historical_data is not None:
-            hist_mean = float(np.mean(historical_data))
-            hist_std = float(np.std(historical_data))
-            hist_min = float(np.min(historical_data))
-            hist_max = float(np.max(historical_data))
-            
-            # Allow ±3 std dari mean, tapi tidak keluar dari hist range terlalu jauh
-            lower_bound = max(hist_mean - 3 * hist_std, hist_min - 5.0, 50.0)
-            upper_bound = min(hist_mean + 3 * hist_std, hist_max + 5.0, 95.0)
-            
-            forecast = np.clip(forecast, lower_bound, upper_bound)
-            print(f"   📊 HUM Cap: mean={hist_mean:.1f}%, bounds=[{lower_bound:.1f}, {upper_bound:.1f}]")
-        else:
-            forecast = np.clip(forecast, 50, 95)
-        
-        forecast = np.round(forecast, 1)
-        
+        forecast = np.clip(forecast, 0, 100)
     elif param_name in TEMP_PARAMS:
-        # PERBAIKAN: Constraint ketat berdasarkan historis
-        if historical_data is not None:
-            hist_mean = float(np.mean(historical_data))
-            hist_std = float(np.std(historical_data))
-            hist_min = float(np.min(historical_data))
-            hist_max = float(np.max(historical_data))
-            
-            lower_bound = max(hist_mean - 3 * hist_std, hist_min - 2.0, 20.0)
-            upper_bound = min(hist_mean + 3 * hist_std, hist_max + 2.0, 36.0)
-            
-            forecast = np.clip(forecast, lower_bound, upper_bound)
-            print(f"   📊 TEMP Cap: mean={hist_mean:.1f}°C, bounds=[{lower_bound:.1f}, {upper_bound:.1f}]")
-        else:
-            forecast = np.clip(forecast, 20, 36)
-        
-        forecast = np.round(forecast, 2)
-        
+        forecast = np.clip(forecast, 10, 50)
     elif param_name in SOLAR_PARAMS:
-        # PERBAIKAN: Constraint berdasarkan historis
-        if historical_data is not None:
-            hist_mean = float(np.mean(historical_data))
-            hist_std = float(np.std(historical_data))
-            hist_min = float(np.min(historical_data))
-            hist_max = float(np.max(historical_data))
-            
-            lower_bound = max(hist_mean - 3 * hist_std, hist_min - 2.0, 8.0)
-            upper_bound = min(hist_mean + 3 * hist_std, hist_max + 2.0, 28.0)
-            
-            forecast = np.clip(forecast, lower_bound, upper_bound)
-            print(f"   📊 SOLAR Cap: mean={hist_mean:.1f} MJ/m², bounds=[{lower_bound:.1f}, {upper_bound:.1f}]")
-        else:
-            forecast = np.clip(forecast, 8, 28)
-        
-        forecast = np.round(forecast, 2)
+        forecast = np.clip(forecast, 0, 40)
     
     return forecast
-
-
-# ============================================================
-# GAP FILLING FUNCTIONS
-# ============================================================
-
-def apply_parameter_constraints(value, param_name):
-    """Apply realistic constraints based on parameter type"""
-    if is_rainfall(param_name):
-        return max(0, min(value, 200))  # 0-200mm
-    elif param_name in HUMIDITY_PARAMS:
-        return max(0, min(value, 100))  # 0-100%
-    elif param_name in TEMP_PARAMS:
-        return max(15, min(value, 45))  # 15-45°C
-    elif param_name in SOLAR_PARAMS:
-        return max(0, min(value, 35))   # 0-35 MJ/m²
-    elif is_ndvi(param_name):
-        return max(-1, min(value, 1))   # -1 to 1
-    return value
-
-
-def fill_gap_with_synthetic_data(param_data, last_historical_date, target_start_date, param_name, decomposition=None):
-    """
-    Fill gap between historical data and forecast start with synthetic data.
-    Uses seasonal pattern matching from previous years for realistic values.
-    
-    Args:
-        param_data: Historical data series
-        last_historical_date: Last date with actual data
-        target_start_date: User's desired forecast start date
-        param_name: Parameter name for constraints
-        decomposition: Optional decomposition dict for fallback
-    
-    Returns:
-        extended_data: Historical + synthetic data
-        gap_fill_info: Metadata about gap filling
-    """
-    gap_days = (target_start_date - last_historical_date).days - 1
-    
-    if gap_days <= 0:
-        return param_data, None
-    
-    print(f"\n{'='*60}")
-    print(f"🔧 GAP FILLING: {param_name}")
-    print(f"{'='*60}")
-    print(f"   Generating {gap_days} synthetic data points")
-    print(f"   From: {(last_historical_date + pd.Timedelta(days=1)).date()}")
-    print(f"   To: {(target_start_date - pd.Timedelta(days=1)).date()}")
-    
-    # Generate gap dates
-    freq = '16D' if is_ndvi(param_name) else 'D'
-    gap_start = last_historical_date + pd.Timedelta(days=1)
-    gap_end = target_start_date - pd.Timedelta(days=1)
-    gap_dates = pd.date_range(start=gap_start, end=gap_end, freq=freq)
-    
-    if len(gap_dates) == 0:
-        print(f"   ℹ️ No gap dates to fill")
-        return param_data, None
-    
-    # Calculate historical statistics for noise generation
-    hist_std = param_data.std()
-    hist_mean = param_data.mean()
-    
-    # METHOD: Seasonal Pattern Matching from previous years
-    synthetic_values = []
-    matched_count = 0
-    fallback_count = 0
-    
-    for gap_date in gap_dates:
-        historical_values = []
-        
-        # Look for same date in previous 5 years
-        for year_offset in range(1, 6):
-            lookup_date = gap_date - pd.DateOffset(years=year_offset)
-            
-            # Try exact date first
-            if lookup_date in param_data.index:
-                historical_values.append(param_data.loc[lookup_date])
-            else:
-                # Try nearby dates (±3 days) if exact not found
-                for day_offset in range(-3, 4):
-                    nearby_date = lookup_date + pd.Timedelta(days=day_offset)
-                    if nearby_date in param_data.index:
-                        historical_values.append(param_data.loc[nearby_date])
-                        break
-        
-        if historical_values:
-            # Use mean of previous years + controlled noise
-            base_value = np.mean(historical_values)
-            std_value = np.std(historical_values) if len(historical_values) > 1 else hist_std * 0.1
-            
-            # Add small noise (10% of local std)
-            noise = np.random.normal(0, std_value * 0.1)
-            synthetic_value = base_value + noise
-            matched_count += 1
-        else:
-            # Fallback: Use decomposition if available
-            if decomposition is not None:
-                period = decomposition['period']
-                day_of_year = gap_date.dayofyear
-                seasonal_idx = day_of_year % len(decomposition['seasonal'])
-                
-                seasonal_value = decomposition['seasonal'][seasonal_idx]
-                trend_value = decomposition['trend'][-1]
-                
-                # Add small noise
-                noise = np.random.normal(0, hist_std * 0.05)
-                synthetic_value = trend_value + seasonal_value + noise
-            else:
-                # Last resort: Use recent average with decay
-                recent_values = param_data.tail(30).values
-                synthetic_value = np.mean(recent_values) + np.random.normal(0, hist_std * 0.1)
-            
-            fallback_count += 1
-        
-        # Apply parameter-specific constraints
-        synthetic_value = apply_parameter_constraints(synthetic_value, param_name)
-        synthetic_values.append(synthetic_value)
-    
-    # Create synthetic series
-    synthetic_series = pd.Series(synthetic_values, index=gap_dates)
-    
-    # Combine historical + synthetic
-    extended_data = pd.concat([param_data, synthetic_series]).sort_index()
-    
-    # Remove duplicates if any
-    extended_data = extended_data[~extended_data.index.duplicated(keep='first')]
-    
-    # Statistics
-    print(f"\n   📊 Gap Fill Statistics:")
-    print(f"   Pattern matched: {matched_count}/{len(gap_dates)} ({matched_count/len(gap_dates)*100:.1f}%)")
-    print(f"   Fallback used: {fallback_count}/{len(gap_dates)} ({fallback_count/len(gap_dates)*100:.1f}%)")
-    print(f"   Synthetic range: [{min(synthetic_values):.2f}, {max(synthetic_values):.2f}]")
-    print(f"   Synthetic mean: {np.mean(synthetic_values):.2f} (hist: {hist_mean:.2f})")
-    print(f"   Synthetic std: {np.std(synthetic_values):.2f} (hist: {hist_std:.2f})")
-    print(f"   Extended data: {len(param_data)} → {len(extended_data)} records")
-    print(f"{'='*60}\n")
-    
-    gap_fill_info = {
-        "method": "seasonal_pattern_matching",
-        "gap_days_filled": len(gap_dates),
-        "gap_start": gap_start.strftime("%Y-%m-%d"),
-        "gap_end": gap_end.strftime("%Y-%m-%d"),
-        "pattern_matched_pct": round(matched_count / len(gap_dates) * 100, 1),
-        "fallback_used_pct": round(fallback_count / len(gap_dates) * 100, 1),
-        "synthetic_mean": float(np.mean(synthetic_values)),
-        "synthetic_std": float(np.std(synthetic_values)),
-        "historical_mean": float(hist_mean),
-        "historical_std": float(hist_std)
-    }
-    
-    return extended_data, gap_fill_info
 
 
 # ============================================================
@@ -500,6 +265,15 @@ def fill_gap_with_synthetic_data(param_data, last_historical_date, target_start_
 # ============================================================
 
 def check_variability(forecast, historical_data, param_name):
+    """
+    Check if forecast has realistic variability compared to historical data.
+    
+    Good Variability Criteria:
+    - Std Ratio 40-160%: Forecast std should be similar to historical std
+    - < 40%: Too smooth (oversmoothing, unrealistic flat forecast)
+    - > 160%: Too volatile (too much noise, unrealistic extremes)
+    - Quarterly patterns should be consistent and realistic
+    """
     hist_std = float(historical_data.std())
     forecast_std = float(np.std(forecast))
     std_ratio = (forecast_std / hist_std * 100) if hist_std > 0 else 0
@@ -509,18 +283,119 @@ def check_variability(forecast, historical_data, param_name):
     print(f"   Forecast: mean={np.mean(forecast):.3f}, std={forecast_std:.3f}")
     print(f"   Std Ratio: {std_ratio:.1f}%")
     
+    # Quarterly analysis
     q_size = len(forecast) // 4
+    q_stds = []
     for i in range(4):
         q = forecast[i * q_size:(i + 1) * q_size]
-        print(f"   Q{i+1}: mean={np.mean(q):.3f}, range=[{q.min():.2f}, {q.max():.2f}]")
+        q_std = np.std(q)
+        q_stds.append(q_std)
+        print(f"   Q{i+1}: mean={np.mean(q):.3f}, std={q_std:.3f}, range=[{q.min():.2f}, {q.max():.2f}]")
+    
+    # Check quarterly consistency
+    q_std_var = np.std(q_stds) / np.mean(q_stds) if np.mean(q_stds) > 0 else 0
+    print(f"\n   📈 Variability Assessment:")
+    print(f"      Overall Std Ratio: {std_ratio:.1f}% (target: 40-160%)")
+    print(f"      Quarterly Std Consistency: {q_std_var:.2f} (lower is better)")
     
     if 40 <= std_ratio <= 160:
-        print(f"   ✅ Variability OK")
+        if std_ratio >= 80 and std_ratio <= 120:
+            print(f"      ✅ EXCELLENT variability (very close to historical)")
+        else:
+            print(f"      ✅ GOOD variability (acceptable range)")
         return True
+    elif std_ratio < 40:
+        print(f"      ⚠️ LOW variability: Forecast too smooth/flat")
+        print(f"         → Consider: Adding more noise, reducing smoothing")
+        return False
+    else:
+        print(f"      ⚠️ HIGH variability: Forecast too volatile")
+        print(f"         → Consider: Reducing noise, increasing dampening")
+        return False
+
+
+def validate_seasonal_pattern(historical_data, forecast, decomposition, param_name):
+    """Validate if seasonal pattern makes sense"""
+    if decomposition is None:
+        return
     
-    status = "LOW" if std_ratio < 40 else "HIGH"
-    print(f"   ⚠️ Variability {status}")
-    return False
+    print(f"\n🌍 Seasonal Pattern Validation ({param_name}):")
+    
+    # Get last year's seasonal pattern
+    seasonal = decomposition['seasonal']
+    period = decomposition['period']
+    
+    if len(seasonal) < period:
+        print(f"   ⚠️ Insufficient data for seasonal validation")
+        return
+    
+    # Monthly aggregation (approximate)
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    if period == 365:
+        # Get average for each month from historical seasonal
+        days_per_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        month_means_hist = []
+        month_means_forecast = []
+        
+        start_idx = 0
+        for i, days in enumerate(days_per_month):
+            end_idx = start_idx + days
+            
+            # Historical seasonal (last year)
+            hist_slice = seasonal[-period:][start_idx:end_idx]
+            month_means_hist.append(np.mean(hist_slice) if len(hist_slice) > 0 else 0)
+            
+            # Forecast seasonal (assuming continuous)
+            if end_idx <= len(forecast):
+                forecast_slice = forecast[start_idx:end_idx]
+                month_means_forecast.append(np.mean(forecast_slice))
+            else:
+                month_means_forecast.append(np.nan)
+            
+            start_idx = end_idx
+        
+        print(f"\n   📅 Monthly Pattern Comparison (Historical vs Forecast):")
+        for i, month in enumerate(months):
+            if i < len(month_means_hist) and not np.isnan(month_means_forecast[i]):
+                hist_val = month_means_hist[i]
+                fcst_val = month_means_forecast[i]
+                print(f"      {month}: Hist={fcst_val:.2f}, Seasonal component range seen in data")
+        
+        # Indonesia seasonal context
+        print(f"\n   🌦️  Indonesia Seasonal Context:")
+        if is_rainfall(param_name):
+            wet_season_months = [10, 11, 0, 1, 2, 3]  # Oct-Mar (index 0 = Jan)
+            dry_season_months = [4, 5, 6, 7, 8, 9]     # Apr-Sep
+            
+            wet_mean = np.nanmean([month_means_forecast[i] for i in wet_season_months if i < len(month_means_forecast)])
+            dry_mean = np.nanmean([month_means_forecast[i] for i in dry_season_months if i < len(month_means_forecast)])
+            
+            print(f"      Wet Season (Oct-Mar): {wet_mean:.2f} mm/day")
+            print(f"      Dry Season (Apr-Sep): {dry_mean:.2f} mm/day")
+            
+            if wet_mean > dry_mean * 1.5:
+                print(f"      ✅ Seasonal pattern correct: Wet > Dry")
+            else:
+                print(f"      ⚠️ Seasonal pattern weak: Expected stronger wet season")
+        
+        elif param_name in TEMP_PARAMS:
+            hottest = [3, 4, 5, 8, 9]  # Apr, May, Jun, Sep, Oct (Indonesia)
+            coolest = [0, 1, 6, 7, 11]  # Jan, Feb, Jul, Aug, Dec
+            
+            hot_mean = np.nanmean([month_means_forecast[i] for i in hottest if i < len(month_means_forecast)])
+            cool_mean = np.nanmean([month_means_forecast[i] for i in coolest if i < len(month_means_forecast)])
+            
+            print(f"      Warmer months: {hot_mean:.2f}°C")
+            print(f"      Cooler months: {cool_mean:.2f}°C")
+            print(f"      Seasonal range: {hot_mean - cool_mean:.2f}°C")
+        
+        elif param_name in SOLAR_PARAMS:
+            print(f"      Peak solar: Apr-Oct (dry season)")
+            print(f"      Low solar: Nov-Mar (wet season, more clouds)")
+    
+    print(f"   ✓ Seasonal validation complete")
 
 
 # ============================================================
@@ -562,16 +437,15 @@ def get_grid_config(param_name):
     """Get hyperparameter grid untuk setiap tipe parameter"""
     
     if is_rainfall(param_name):
-        # Grid search untuk rainfall
         return {
-            'hidden_sizes': [64, 128],
-            'num_layers_options': [2, 3],
-            'learning_rates': [0.001, 0.003],
-            'seq_lengths': [14, 21],
-            'dropout_rates': [0.2, 0.3],
+            'hidden_sizes': [32, 64],
+            'num_layers_options': [1, 2],
+            'learning_rates': [0.002, 0.005],
+            'seq_lengths': [7, 14],
+            'dropout_rates': [0.1, 0.2],
             'batch_sizes': [32],
-            'max_epochs': 80,
-            'patience': 10
+            'max_epochs': 60,
+            'patience': 8
         }
     elif is_ndvi(param_name):
         return {
@@ -609,7 +483,7 @@ def get_grid_config(param_name):
 
 
 # ============================================================
-# LSTM TRAINING
+# LSTM TRAINING WITH SCHEDULER ⭐ IMPROVED
 # ============================================================
 
 def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers, 
@@ -623,6 +497,19 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers,
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     
+    # ============================================================
+    # ⭐ IMPROVEMENT: Learning Rate Scheduler
+    # ============================================================
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, 
+        mode='min',           # Minimize validation loss
+        factor=0.5,           # Reduce LR to 50% when plateau
+        patience=5,           # Wait 5 epochs before reducing
+        min_lr=1e-6,          # Minimum learning rate
+        threshold=1e-4        # Threshold for measuring improvement
+    )
+    # ============================================================
+    
     X_tensor = torch.from_numpy(X_train).float().unsqueeze(-1)
     y_tensor = torch.from_numpy(y_train).float().unsqueeze(-1)
     dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor)
@@ -631,8 +518,9 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers,
     best_val_loss = float('inf')
     epochs_no_improve = 0
     actual_epochs = 0
+    lr_reductions = 0  # Track berapa kali LR turun
     
-    for _ in range(max_epochs):
+    for epoch in range(max_epochs):
         model.train()
         for batch_X, batch_y in loader:
             batch_X, batch_y = batch_X.to(current_device), batch_y.to(current_device)
@@ -644,12 +532,26 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers,
         
         actual_epochs += 1
         
+        # Validation
         model.eval()
         with torch.no_grad():
             X_val_t = torch.from_numpy(X_val).float().unsqueeze(-1).to(current_device)
             y_val_t = torch.from_numpy(y_val).float().unsqueeze(-1).to(current_device)
             val_loss = criterion(model(X_val_t), y_val_t).item()
         
+        # ============================================================
+        # ⭐ IMPROVEMENT: Update Scheduler
+        # ============================================================
+        old_lr = optimizer.param_groups[0]['lr']
+        scheduler.step(val_loss)
+        new_lr = optimizer.param_groups[0]['lr']
+        
+        # Track LR reduction
+        if new_lr < old_lr:
+            lr_reductions += 1
+        # ============================================================
+        
+        # Early stopping
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             epochs_no_improve = 0
@@ -672,7 +574,7 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers,
     
     forecast_residual = scaler.inverse_transform(np.array(forecast_scaled).reshape(-1, 1)).flatten()
     
-    # Reconstruct dengan seasonal + trend
+    # Reconstruct
     if decomposition is not None:
         val_len = len(y_val) + seq_len
         val_seasonal = decomposition['seasonal'][split_point:split_point + val_len]
@@ -682,7 +584,7 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers,
     else:
         forecast = forecast_residual
     
-    # Post-process (termasuk inverse transform untuk rainfall)
+    # Post-process
     forecast = post_process_forecast(forecast, param_name, train_data.values, transform_params)
     
     # Calculate metrics
@@ -690,15 +592,22 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, hidden_size, num_layers,
     min_len = min(len(actual), len(forecast))
     metrics = calculate_metrics(actual[:min_len], forecast[:min_len], param_name)
     
-    return metrics, actual_epochs
+    # ⭐ Return tambahan info tentang scheduler
+    training_info = {
+        'actual_epochs': actual_epochs,
+        'lr_reductions': lr_reductions,
+        'final_lr': new_lr
+    }
+    
+    return metrics, training_info
 
 
 def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
-    """Grid search untuk SEMUA parameters termasuk rainfall"""
+    """Grid search dengan scheduler terintegrasi"""
     global use_cuda
     
     print(f"\n{'='*60}")
-    print(f"🔍 GRID SEARCH: {param_name}")
+    print(f"🔍 GRID SEARCH WITH LR SCHEDULER: {param_name}")
     print(f"{'='*60}")
     
     min_length = 46 if is_ndvi(param_name) else 365
@@ -750,6 +659,7 @@ def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
     best_aic = float('inf')
     best_params = None
     best_metrics = None
+    best_training_info = None
     combo = 0
     
     for seq_len in config['seq_lengths']:
@@ -782,7 +692,7 @@ def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
                                 if result is None:
                                     continue
                                 
-                                metrics, epochs = result
+                                metrics, training_info = result
                                 aic = calculate_aic(
                                     metrics['mse'], 
                                     LSTMModel(1, hidden_size, num_layers, dropout).count_parameters(),
@@ -790,9 +700,9 @@ def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
                                 )
                                 
                                 if is_rainfall(param_name):
-                                    print(f"→ ep={epochs}, AIC={aic:.0f}, MAE={metrics['mae']:.2f}, MAPE={metrics['mape']:.1f}%")
+                                    print(f"→ ep={training_info['actual_epochs']}, LR↓={training_info['lr_reductions']}, AIC={aic:.0f}, MAE={metrics['mae']:.2f}, MAPE={metrics['mape']:.1f}%")
                                 else:
-                                    print(f"→ ep={epochs}, AIC={aic:.0f}, MAE={metrics['mae']:.4f}, MAPE={metrics['mape']:.1f}%")
+                                    print(f"→ ep={training_info['actual_epochs']}, LR↓={training_info['lr_reductions']}, AIC={aic:.0f}, MAE={metrics['mae']:.4f}, MAPE={metrics['mape']:.1f}%")
                                 
                                 if aic < best_aic:
                                     best_aic = aic
@@ -803,9 +713,10 @@ def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
                                         'seq_length': seq_len,
                                         'dropout': dropout,
                                         'batch_size': batch_size,
-                                        'epochs': epochs
+                                        'epochs': training_info['actual_epochs']
                                     }
                                     best_metrics = {**metrics, 'aic': aic}
+                                    best_training_info = training_info
                                     print(f"   ✅ NEW BEST!")
                                     
                             except RuntimeError as e:
@@ -820,8 +731,10 @@ def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
     
     print(f"\n{'='*60}")
     if best_params:
-        print(f"🎯 BEST MODEL:")
+        print(f"🎯 BEST MODEL (with LR Scheduler):")
         print(f"   AIC: {best_aic:.2f}, MAE: {best_metrics['mae']:.4f}, MAPE: {best_metrics['mape']:.2f}%")
+        print(f"   Epochs: {best_training_info['actual_epochs']}, LR Reductions: {best_training_info['lr_reductions']}")
+        print(f"   Final LR: {best_training_info['final_lr']:.6f}")
         print(f"   Params: {best_params}")
     else:
         print(f"❌ No valid model found")
@@ -831,9 +744,10 @@ def grid_search_lstm_params(train_data, param_name, validation_ratio=0.10):
 
 
 def fit_lstm_model(data, best_params, param_name):
+    """Fit final model dengan Cosine Annealing LR Scheduler"""
     global use_cuda
     
-    print(f"\n🧪 Fitting final model...")
+    print(f"\n🧪 Fitting final model with Cosine Annealing LR...")
     
     scaler = MinMaxScaler()
     data_scaled = scaler.fit_transform(data.values.reshape(-1, 1)).flatten()
@@ -849,13 +763,26 @@ def fit_lstm_model(data, best_params, param_name):
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=best_params['learning_rate'])
     
+    # ============================================================
+    # ⭐ IMPROVEMENT: Cosine Annealing untuk Final Training
+    # ============================================================
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=best_params['epochs'],  # Full cycle = total epochs
+        eta_min=best_params['learning_rate'] * 0.01  # Min LR = 1% of initial
+    )
+    print(f"   📉 Scheduler: CosineAnnealing (T_max={best_params['epochs']}, eta_min={best_params['learning_rate']*0.01:.6f})")
+    # ============================================================
+    
     X_tensor = torch.from_numpy(X).float().unsqueeze(-1)
     y_tensor = torch.from_numpy(y).float().unsqueeze(-1)
     dataset = torch.utils.data.TensorDataset(X_tensor, y_tensor)
     loader = torch.utils.data.DataLoader(dataset, batch_size=best_params['batch_size'], shuffle=True)
     
-    for _ in range(best_params['epochs']):
+    for epoch in range(best_params['epochs']):
         model.train()
+        epoch_loss = 0
+        
         for batch_X, batch_y in loader:
             batch_X, batch_y = batch_X.to(current_device), batch_y.to(current_device)
             optimizer.zero_grad()
@@ -863,8 +790,22 @@ def fit_lstm_model(data, best_params, param_name):
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            epoch_loss += loss.item()
+        
+        # ============================================================
+        # ⭐ IMPROVEMENT: Update Scheduler
+        # ============================================================
+        scheduler.step()
+        
+        # Log progress setiap 10 epoch
+        if (epoch + 1) % 10 == 0:
+            current_lr = optimizer.param_groups[0]['lr']
+            avg_loss = epoch_loss / len(loader)
+            print(f"   Epoch {epoch+1}/{best_params['epochs']}: Loss={avg_loss:.6f}, LR={current_lr:.6f}")
+        # ============================================================
     
-    print(f"✓ Model fitted ({best_params['epochs']} epochs)")
+    final_lr = optimizer.param_groups[0]['lr']
+    print(f"✓ Model fitted ({best_params['epochs']} epochs, final LR={final_lr:.6f})")
     return model, scaler
 
 
@@ -877,7 +818,7 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
     global use_cuda
     
     print(f"\n{'#'*60}")
-    print(f"# LSTM ANALYSIS: {collection_name}.{target_column}")
+    print(f"# LSTM ANALYSIS WITH LR SCHEDULER: {collection_name}.{target_column}")
     print(f"{'#'*60}")
     
     torch.manual_seed(42)
@@ -924,7 +865,7 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         print(f"   Collection: {collection_name}")
         
         # ============================================================
-        # GRID SEARCH
+        # GRID SEARCH WITH SCHEDULER
         # ============================================================
         best_params, error_metrics, decomposition, transform_params = grid_search_lstm_params(
             param_data, target_column
@@ -933,50 +874,6 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         if best_params is None:
             raise ValueError("No valid model found")
         
-        # ============================================================
-        # SAVE DECOMPOSITION DATA (PERBAIKAN DI SINI)
-        # ============================================================
-        if decomposition is not None:
-            print(f"\n{'='*60}")
-            print(f"🔍 DECOMPOSITION INFO FOR {target_column}")
-            print(f"{'='*60}")
-            
-            # PENTING: Decompose dilakukan pada data SEBELUM transform
-            # Tapi jika rainfall, decomposition sudah pada transformed data
-            # Jadi kita perlu decompose data ASLI untuk save
-            
-            if is_rainfall(target_column) and transform_params:
-                print(f"   ℹ️ Rainfall detected - decomposing ORIGINAL data (not log-transformed)")
-                # Decompose ulang dari data asli (bukan log-transformed)
-                decomposition_original = seasonal_decompose_data(param_data, target_column)
-                
-                if decomposition_original is not None:
-                    decompose_count = save_decompose_data(
-                        df_index=param_data.index,
-                        decomposition=decomposition_original,
-                        param_name=target_column,
-                        config_id=config_id,
-                        collection_name="decompose-lstm-temp",
-                        client=client,
-                        original_data=param_data.values
-                    )
-                else:
-                    print(f"   ⚠️ Failed to decompose original data")
-                    decompose_count = 0
-            else:
-                # Untuk non-rainfall, gunakan decomposition yang sudah ada
-                decompose_count = save_decompose_data(
-                    df_index=param_data.index,
-                    decomposition=decomposition,
-                    param_name=target_column,
-                    config_id=config_id,
-                    collection_name="decompose-lstm-temp",
-                    client=client,
-                    original_data=param_data.values
-                )
-            
-            print(f"✅ Saved {decompose_count} decompose documents for {target_column}")
-        
         # Prepare data untuk final model
         if is_rainfall(target_column) and transform_params:
             transformed_data, _ = apply_log_transform(param_data.values, target_column)
@@ -984,18 +881,32 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         else:
             working_series = param_data
         
-        # Fit final model
+        # Re-decompose untuk final model (agar konsisten dengan data yang digunakan)
+        final_decomposition = None
         if decomposition is not None:
-            residual_data = pd.Series(decomposition['residual'], index=working_series.index).ffill().bfill()
+            print(f"\n🔄 Re-decomposing data for final model...")
+            final_decomposition = seasonal_decompose_data(working_series, target_column)
+            
+            if final_decomposition is not None:
+                # Validasi panjang data
+                if len(final_decomposition['residual']) != len(working_series):
+                    print(f"   ⚠️ Length mismatch: residual={len(final_decomposition['residual'])}, data={len(working_series)}")
+                    print(f"   → Using working_series directly without decomposition")
+                    final_decomposition = None
+        
+        # Fit final model dengan scheduler
+        if final_decomposition is not None:
+            residual_data = pd.Series(final_decomposition['residual'], index=working_series.index).ffill().bfill()
+            print(f"   ✓ Using residual data: {len(residual_data)} points")
             final_model, scaler = fit_lstm_model(residual_data, best_params, target_column)
         else:
+            print(f"   ✓ Using original series: {len(working_series)} points")
             final_model, scaler = fit_lstm_model(working_series, best_params, target_column)
         
         if final_model is None:
             raise ValueError("Failed to fit model")
         
         # Setup forecast dates
-        # SMART AUTO-ADJUSTMENT WITH AUTO-DETECT BACKTEST
         last_historical_date = param_data.index[-1]
         print(f"\n📊 Last historical data: {last_historical_date.date()}")
         
@@ -1008,37 +919,26 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
             
             print(f"   User requested: {user_start.date()} to {user_end.date()} ({requested_duration + 1} days)")
             
-            # ============================================================
-            # AUTO-DETECT BACKTEST: User start < last historical
-            # ============================================================
+            # AUTO-DETECT BACKTEST
             if user_start < last_historical_date:
-                # Hitung overlap dengan historical data
                 if user_end <= last_historical_date:
-                    # Full backtest (seluruh range ada historical data)
                     backtest_days = (user_end - user_start).days + 1
                     true_forecast_days = 0
                     mode = "FULL_BACKTEST"
                     
                     print(f"\n🔬 AUTO-DETECTED: FULL BACKTEST MODE")
                     print(f"   → All {backtest_days} days have historical data")
-                    print(f"   → This is for validation/evaluation purposes")
-                    
                 else:
-                    # Hybrid mode (sebagian backtest, sebagian forecast)
                     backtest_days = (last_historical_date - user_start).days + 1
                     true_forecast_days = (user_end - last_historical_date).days
                     mode = "HYBRID_BACKTEST"
                     
                     print(f"\n🔬 AUTO-DETECTED: HYBRID MODE")
-                    print(f"   → Backtest: {backtest_days} days ({user_start.date()} to {last_historical_date.date()})")
-                    print(f"   → True forecast: {true_forecast_days} days ({(last_historical_date + pd.Timedelta(days=1)).date()} to {user_end.date()})")
+                    print(f"   → Backtest: {backtest_days} days")
+                    print(f"   → True forecast: {true_forecast_days} days")
                 
-                # Use user dates as-is untuk backtest
                 forecast_start_date = user_start
                 forecast_end_date = user_end
-                
-                print(f"   ✅ Proceeding with user-specified dates for backtest")
-                print(f"   → You can compare forecast vs actual data for validation")
                 
                 gap_warning = {
                     "type": mode,
@@ -1046,19 +946,11 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                     "end": forecast_end_date.date(),
                     "backtest_days": backtest_days,
                     "true_forecast_days": true_forecast_days,
-                    "last_historical": last_historical_date.date(),
-                    "reason": "Auto-detected backtest mode. Historical data available for validation."
+                    "last_historical": last_historical_date.date()
                 }
             
-            # ============================================================
-            # KASUS 2: User start = last historical + 1 (Perfect continuity)
-            # ============================================================
             elif user_start == last_historical_date + pd.Timedelta(days=1):
-                print(f"\n✅ CONTINUOUS FORECAST:")
-                print(f"   Last historical: {last_historical_date.date()}")
-                print(f"   Forecast start: {user_start.date()}")
-                print(f"   → Perfect continuity! Optimal accuracy expected")
-                
+                print(f"\n✅ CONTINUOUS FORECAST")
                 forecast_start_date = user_start
                 forecast_end_date = user_end
                 
@@ -1066,127 +958,57 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                     "type": "CONTINUOUS",
                     "start": forecast_start_date.date(),
                     "end": forecast_end_date.date(),
-                    "gap_days": 0,
-                    "reason": "Data is continuous. Optimal accuracy expected."
+                    "gap_days": 0
                 }
             
-            # ============================================================
-            # KASUS 3: User start > last historical (Ada gap)
-            # ============================================================
             else:
                 gap_days = (user_start - last_historical_date).days - 1
                 
-                if gap_days > 0:
-                    print(f"\n⚠️  GAP DETECTED: {gap_days} days")
-                    print(f"   Last historical: {last_historical_date.date()}")
-                    print(f"   User start: {user_start.date()}")
+                if gap_days > 30:
+                    print(f"\n🔧 CRITICAL GAP AUTO-ADJUSTMENT:")
+                    print(f"   ❌ Gap: {gap_days} days (> 30 days)")
                     
-                    # Decompose data terlebih dahulu untuk gap filling (jika belum)
-                    if decomposition is None:
-                        temp_decomposition = seasonal_decompose_data(param_data, target_column)
-                    else:
-                        temp_decomposition = decomposition
+                    forecast_start_date = last_historical_date + pd.Timedelta(days=1)
+                    forecast_end_date = forecast_start_date + pd.Timedelta(days=requested_duration)
                     
-                    # FILL GAP WITH SYNTHETIC DATA
-                    param_data, gap_fill_info = fill_gap_with_synthetic_data(
-                        param_data=param_data,
-                        last_historical_date=last_historical_date,
-                        target_start_date=user_start,
-                        param_name=target_column,
-                        decomposition=temp_decomposition
-                    )
-                    
-                    # Update last historical date (now includes synthetic)
-                    new_last_date = param_data.index[-1]
-                    
-                    print(f"   ✅ Gap filled! Data now extends to: {new_last_date.date()}")
-                    
-                    # Re-decompose dengan data yang sudah extended (untuk rainfall perlu transform dulu)
-                    print(f"\n🔄 Re-decomposing extended data...")
-                    if is_rainfall(target_column) and transform_params:
-                        extended_transformed, _ = apply_log_transform(param_data.values, target_column)
-                        extended_series = pd.Series(extended_transformed, index=param_data.index)
-                        decomposition = seasonal_decompose_data(extended_series, target_column)
-                    else:
-                        decomposition = seasonal_decompose_data(param_data, target_column)
-                    
-                    # Kategorisasi severity untuk informasi
-                    if gap_days > 90:
-                        severity = "HIGH"
-                    elif gap_days > 30:
-                        severity = "MEDIUM"
-                    else:
-                        severity = "LOW"
+                    print(f"   ✅ Adjusted: {forecast_start_date.date()} to {forecast_end_date.date()}")
                     
                     gap_warning = {
-                        "type": "GAP_FILLED",
-                        "severity": severity,
-                        "original_gap_days": gap_days,
-                        "gap_fill_info": gap_fill_info,
-                        "original_last_historical": last_historical_date.strftime("%Y-%m-%d"),
-                        "extended_last_date": new_last_date.strftime("%Y-%m-%d"),
-                        "start": user_start.strftime("%Y-%m-%d"),
-                        "end": user_end.strftime("%Y-%m-%d"),
-                        "reason": f"Gap of {gap_days} days filled with synthetic data using seasonal pattern matching."
+                        "type": "CRITICAL_GAP_AUTO_ADJUSTED",
+                        "gap_days": gap_days,
+                        "original_start": user_start.date(),
+                        "adjusted_start": forecast_start_date.date()
                     }
                 else:
+                    print(f"\n⚠️  SMALL GAP: {gap_days} days")
+                    forecast_start_date = user_start
+                    forecast_end_date = user_end
+                    
                     gap_warning = {
-                        "type": "CONTINUOUS",
-                        "start": user_start.strftime("%Y-%m-%d"),
-                        "end": user_end.strftime("%Y-%m-%d"),
-                        "gap_days": 0,
-                        "reason": "Data is continuous. Optimal accuracy expected."
+                        "type": "SMALL_GAP_WARNING",
+                        "gap_days": gap_days,
+                        "start": forecast_start_date.date(),
+                        "end": forecast_end_date.date()
                     }
-                
-                # Proceed with user dates
-                forecast_start_date = user_start
-                forecast_end_date = user_end
         else:
-            # Default: mulai dari hari setelah data historis terakhir
             forecast_start_date = last_historical_date + pd.Timedelta(days=1)
             forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
             gap_warning = {
                 "type": "DEFAULT",
                 "start": forecast_start_date.date(),
-                "end": forecast_end_date.date(),
-                "reason": "Default 365-day forecast from last historical date."
+                "end": forecast_end_date.date()
             }
-            print(f"\n📅 Default forecast: {forecast_start_date.date()} to {forecast_end_date.date()} (365 days)")
+            print(f"\n📅 Default forecast: {forecast_start_date.date()} to {forecast_end_date.date()}")
         
         freq = '16D' if is_ndvi(target_column) else 'D'
         forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=freq)
         forecast_steps = len(forecast_dates)
         
-        print(f"\n🔮 Generating forecast: {forecast_steps} steps ({forecast_start_date.date()} to {forecast_end_date.date()})")
-        
-        # ============================================================
-        # RE-PREPARE DATA AFTER GAP FILLING (jika ada gap yang di-fill)
-        # ============================================================
-        if gap_warning and gap_warning.get('type') == 'GAP_FILLED':
-            print(f"\n🔄 Re-preparing data with extended dataset...")
-            
-            # Re-transform jika rainfall
-            if is_rainfall(target_column) and transform_params:
-                transformed_data, _ = apply_log_transform(param_data.values, target_column)
-                working_series = pd.Series(transformed_data, index=param_data.index)
-            else:
-                working_series = param_data
-            
-            # Re-fit model dengan extended data
-            if decomposition is not None:
-                residual_data = pd.Series(decomposition['residual'], index=working_series.index).ffill().bfill()
-                final_model, scaler = fit_lstm_model(residual_data, best_params, target_column)
-            else:
-                final_model, scaler = fit_lstm_model(working_series, best_params, target_column)
-            
-            if final_model is None:
-                raise ValueError("Failed to re-fit model with extended data")
-            
-            print(f"   ✅ Model re-fitted with extended data ({len(param_data)} records)")
+        print(f"\n🔮 Generating forecast: {forecast_steps} steps")
         
         # Generate forecast
-        if decomposition is not None:
-            working_data = pd.Series(decomposition['residual'], index=working_series.index).ffill().bfill()
+        if final_decomposition is not None:
+            working_data = pd.Series(final_decomposition['residual'], index=working_series.index).ffill().bfill()
         else:
             working_data = working_series
         
@@ -1210,29 +1032,80 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         # Inverse scale
         forecast_residual = scaler.inverse_transform(np.array(forecast_scaled).reshape(-1, 1)).flatten()
         
+        # ============================================================
+        # ⭐ IMPROVEMENT: Add Controlled Noise for Variability
+        # ============================================================
+        # Calculate historical residual std for noise scaling
+        if final_decomposition is not None:
+            hist_residual_std = np.std(final_decomposition['residual'])
+        else:
+            hist_residual_std = np.std(working_series)
+        
+        # Add small random noise (10% of historical residual std)
+        np.random.seed(42)  # For reproducibility
+        noise_factor = 0.15 if is_rainfall(target_column) else 0.10
+        noise = np.random.normal(0, hist_residual_std * noise_factor, len(forecast_residual))
+        forecast_residual_noisy = forecast_residual + noise
+        print(f"   ✓ Noise injection: std={np.std(noise):.4f} ({noise_factor*100}% of hist)")
+        # ============================================================
+        
         # Reconstruct
-        if decomposition is not None:
+        if final_decomposition is not None:
             print(f"\n📊 Reconstructing...")
             forecast_seasonal = extrapolate_seasonal(
-                decomposition['seasonal'], 
+                final_decomposition['seasonal'], 
                 forecast_steps, 
-                decomposition['period'],
+                final_decomposition['period'],
                 param_name=target_column
             )
-            forecast_trend = extrapolate_trend(decomposition['trend'], forecast_steps, target_column)
-            forecast = forecast_residual + forecast_seasonal + forecast_trend
+            forecast_trend = extrapolate_trend(final_decomposition['trend'], forecast_steps)
             
-            print(f"   Residual: [{forecast_residual.min():.3f}, {forecast_residual.max():.3f}]")
+            # ============================================================
+            # ⭐ SEASONAL AMPLIFICATION for Rainfall (Enhanced Pattern)
+            # ============================================================
+            if is_rainfall(target_column):
+                # Amplify seasonal component to strengthen wet/dry contrast
+                seasonal_amplification = 1.35  # 35% boost
+                forecast_seasonal = forecast_seasonal * seasonal_amplification
+                print(f"   ⚡ Seasonal amplification: {seasonal_amplification}x (strengthening wet/dry contrast)")
+            # ============================================================
+            
+            forecast = forecast_residual_noisy + forecast_seasonal + forecast_trend
+            
+            print(f"   Residual: [{forecast_residual_noisy.min():.3f}, {forecast_residual_noisy.max():.3f}]")
             print(f"   Seasonal: [{forecast_seasonal.min():.3f}, {forecast_seasonal.max():.3f}]")
             print(f"   Trend: [{forecast_trend.min():.3f}, {forecast_trend.max():.3f}]")
         else:
-            forecast = forecast_residual
+            forecast = forecast_residual_noisy
+        
+        # ============================================================
+        # ⭐ IMPROVEMENT: Mean Correction (Enhanced v2)
+        # ============================================================
+        # Adjust forecast mean to be closer to historical mean
+        # This prevents systematic bias (too high/low forecasts)
+        if not is_rainfall(target_column):  # Skip for rainfall (has many zeros)
+            hist_mean = float(param_data.mean())
+            forecast_mean = float(np.mean(forecast))
+            mean_diff = hist_mean - forecast_mean
+            
+            # Apply correction if difference > 2% of historical mean
+            if abs(mean_diff) > hist_mean * 0.02:
+                # Very strong correction (95% of difference)
+                correction = mean_diff * 0.95
+                forecast = forecast + correction
+                print(f"   ⚡ Mean correction: {correction:+.3f} (hist={hist_mean:.3f}, before={forecast_mean:.3f}, after={np.mean(forecast):.3f})")
+            else:
+                print(f"   ✓ Mean already accurate: hist={hist_mean:.3f}, forecast={forecast_mean:.3f}, diff={mean_diff:+.3f} ({abs(mean_diff)/hist_mean*100:.1f}%)")
+        # ============================================================
         
         # Post-process
         forecast = post_process_forecast(forecast, target_column, param_data.values, transform_params)
         
         # Variability check
         check_variability(forecast, param_data, target_column)
+        
+        # ⭐ NEW: Seasonal pattern validation
+        validate_seasonal_pattern(param_data, forecast, final_decomposition, target_column)
         
         print(f"\n✓ Forecast: [{forecast.min():.3f}, {forecast.max():.3f}], mean={forecast.mean():.3f}")
         
@@ -1256,7 +1129,8 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                         "model_metadata_lstm": {
                             **best_params,
                             "decomposition_used": decomposition is not None,
-                            "transform_method": transform_params['method'] if transform_params else None
+                            "transform_method": transform_params['method'] if transform_params else None,
+                            "scheduler_used": True  # ⭐ METADATA TAMBAHAN
                         }
                     }
                 }
@@ -1288,8 +1162,9 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
             "save_collection": save_collection,
             "model_params": best_params,
             "error_metrics": convert_to_python_types(error_metrics) if error_metrics else None,
-            "decomposition_used": decomposition is not None,
+            "decomposition_used": final_decomposition is not None,
             "transform_params": transform_params,
+            "scheduler_used": True,  # ⭐ INFO TAMBAHAN
             "forecast_range": {
                 "start": forecast_start_date.strftime("%Y-%m-%d"),
                 "end": forecast_end_date.strftime("%Y-%m-%d"),
@@ -1298,41 +1173,35 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                 "mean": float(forecast.mean()),
                 "std": float(forecast.std())
             },
-            "gap_warning": convert_to_python_types(gap_warning) if gap_warning else None  # ← TAMBAHAN
+            "gap_warning": convert_to_python_types(gap_warning) if gap_warning else None
         }
 
         print(f"\n{'#'*60}")
-        print(f"# ✅ COMPLETED: {collection_name}.{target_column}")
+        print(f"# ✅ COMPLETED WITH LR SCHEDULER: {collection_name}.{target_column}")
         print(f"{'#'*60}\n")
 
-        # ============================================================
-        # BACKTEST VALIDATION (jika applicable)
-        # ============================================================
+        # BACKTEST VALIDATION
         if gap_warning and gap_warning.get('type') in ['FULL_BACKTEST', 'HYBRID_BACKTEST']:
             print(f"\n🔬 BACKTEST VALIDATION:")
             
             backtest_days = gap_warning.get('backtest_days', 0)
             if backtest_days > 0:
-                # Ambil actual data untuk backtest period
                 backtest_forecast = forecast[:backtest_days]
                 
-                # Get actual data from historical
                 backtest_start = forecast_dates[0]
                 backtest_end = forecast_dates[backtest_days - 1]
                 
                 actual_data = param_data.loc[backtest_start:backtest_end].values
                 
                 if len(actual_data) == len(backtest_forecast):
-                    # Calculate validation metrics
                     val_metrics = calculate_metrics(actual_data, backtest_forecast, target_column)
                     
-                    print(f"   Backtest period: {backtest_start.date()} to {backtest_end.date()}")
-                    print(f"   Backtest MAE: {val_metrics['mae']:.4f}")
-                    print(f"   Backtest MAPE: {val_metrics['mape']:.2f}%")
-                    print(f"   Backtest RMSE: {val_metrics['rmse']:.4f}")
+                    print(f"   Period: {backtest_start.date()} to {backtest_end.date()}")
+                    print(f"   MAE: {val_metrics['mae']:.4f}")
+                    print(f"   MAPE: {val_metrics['mape']:.2f}%")
+                    print(f"   RMSE: {val_metrics['rmse']:.4f}")
                     
-                    # Update gap_warning dengan backtest metrics
-                    result_summary['gap_warning']['backtest_metrics'] = convert_to_python_types(val_metrics)  # ← TAMBAHAN
+                    result_summary['gap_warning']['backtest_metrics'] = convert_to_python_types(val_metrics)
                 else:
                     print(f"   ⚠️ Length mismatch: actual={len(actual_data)}, forecast={len(backtest_forecast)}")
         
@@ -1348,110 +1217,26 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
             client.close()
 
 
-def save_decompose_data(df_index, decomposition, param_name, config_id, collection_name, client, original_data=None):
-    """Save decomposition data to MongoDB with detailed debugging"""
-    print(f"\n{'='*60}")
-    print(f"💾 SAVING DECOMPOSE DATA: {param_name}")
-    print(f"{'='*60}")
-    
-    if decomposition is None:
-        print(f"   ⚠️ No decomposition to save for {param_name}")
-        return 0
-    
-    db = client["tugas_akhir"]
-    saved_count = 0
-    
-    # Siapkan data decompose
-    trend = decomposition['trend']
-    seasonal = decomposition['seasonal']
-    residual = decomposition['residual']
-    
-    print(f"📊 Decompose Stats for {param_name}:")
-    print(f"   Data length: {len(df_index)}")
-    print(f"   Trend length: {len(trend)}")
-    print(f"   Seasonal length: {len(seasonal)}")
-    print(f"   Residual length: {len(residual)}")
-    print(f"   Date range: {df_index[0]} to {df_index[-1]}")
-    print(f"   Trend range: [{np.nanmin(trend):.3f}, {np.nanmax(trend):.3f}]")
-    print(f"   Seasonal range: [{np.nanmin(seasonal):.3f}, {np.nanmax(seasonal):.3f}]")
-    print(f"   Residual range: [{np.nanmin(residual):.3f}, {np.nanmax(residual):.3f}]")
-    
-    if original_data is not None:
-        print(f"   Original data range: [{original_data.min():.3f}, {original_data.max():.3f}]")
-    
-    # Verify lengths match
-    if len(df_index) != len(trend) or len(df_index) != len(seasonal) or len(df_index) != len(residual):
-        print(f"   ❌ ERROR: Length mismatch!")
-        print(f"      Index: {len(df_index)}, Trend: {len(trend)}, Seasonal: {len(seasonal)}, Residual: {len(residual)}")
-        return 0
-    
-    # Group by date untuk menggabungkan parameter
-    decompose_data = {}
-    nan_count = 0
-    
-    for i, date in enumerate(df_index):
-        date_str = pd.to_datetime(date).strftime("%Y-%m-%d")
-        
-        # Skip jika nilai NaN
-        if np.isnan(trend[i]) or np.isnan(seasonal[i]) or np.isnan(residual[i]):
-            nan_count += 1
-            continue
-        
-        if date_str not in decompose_data:
-            decompose_data[date_str] = {
-                "date": date_str,
-                "timestamp": datetime.now().isoformat(),
-                "config_id": config_id,
-                "parameters": {}
-            }
-        
-        decompose_data[date_str]["parameters"][param_name] = {
-            "trend": float(trend[i]),
-            "seasonal": float(seasonal[i]),
-            "resid": float(residual[i])
-        }
-    
-    if nan_count > 0:
-        print(f"   ⚠️ Skipped {nan_count} NaN values")
-    
-    print(f"\n📝 Prepared {len(decompose_data)} unique dates for {param_name}")
-    
-    # Show first 3 entries untuk debug
-    sample_dates = list(decompose_data.keys())[:3]
-    print(f"\n🔍 Sample entries (first 3):")
-    for date_str in sample_dates:
-        doc = decompose_data[date_str]
-        if param_name in doc["parameters"]:
-            params = doc["parameters"][param_name]
-            print(f"   {date_str}: trend={params['trend']:.3f}, seasonal={params['seasonal']:.3f}, resid={params['resid']:.3f}")
-    
-    # Upsert ke MongoDB
-    print(f"\n💾 Upserting to {collection_name}...")
-    for date_str, doc in decompose_data.items():
-        result = db[collection_name].update_one(
-            {"date": date_str, "config_id": config_id},
-            {"$set": {
-                f"parameters.{param_name}": doc["parameters"][param_name],
-                "timestamp": doc["timestamp"]
-            }},
-            upsert=True
-        )
-        if result.upserted_id or result.modified_count > 0:
-            saved_count += 1
-    
-    print(f"✅ Successfully saved {saved_count} decompose records for {param_name}")
-    print(f"{'='*60}\n")
-    
-    return saved_count
-
-
 # ============================================================
 # MAIN
 # ============================================================
 
 if __name__ == "__main__":
+    print("\n" + "="*60)
+    print("🚀 LSTM FORECASTING WITH LEARNING RATE SCHEDULER")
+    print("="*60)
+    
     result = run_lstm_analysis(
         collection_name="bmkg-data",
         target_column="RR"
     )
-    print(f"\nResult: {result}")
+    
+    print(f"\n{'='*60}")
+    print(f"📊 FINAL RESULTS:")
+    print(f"{'='*60}")
+    print(f"✅ Scheduler Used: {result.get('scheduler_used', False)}")
+    print(f"✅ Forecast Days: {result['forecast_days']}")
+    print(f"✅ MAE: {result['error_metrics']['mae']:.4f}")
+    print(f"✅ MAPE: {result['error_metrics']['mape']:.2f}%")
+    print(f"✅ Documents Saved: {result['documents_processed']}")
+    print(f"{'='*60}\n")

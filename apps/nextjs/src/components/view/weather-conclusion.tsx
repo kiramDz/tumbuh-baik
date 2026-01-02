@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-
+import Image from "next/image";
 import { Cloud } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "../ui/badge";
@@ -31,13 +31,19 @@ const WeatherConclusion: React.FC<WeatherConclusionProps> = ({ conclusion, tcc }
   
 
   return (
-    <Card className="relative overflow-hidden ">
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `url('${getBackgroundImage(tcc)}')`,
-        }}
-      />
+    <Card className="relative overflow-hidden">
+      {/* Optimized background image using Next.js Image */}
+      <div className="absolute inset-0">
+        <Image
+          src={getBackgroundImage(tcc)}
+          alt={`Weather background for ${title}`}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover"
+          priority={false}
+          quality={75}
+        />
+      </div>
       <CardHeader className="pb-0 relative z-10">
         <CardTitle className="flex items-center gap-2">
           <Badge variant="secondary" className="bg-[#344a53] text-white dark:bg-blue-600 rounded-full">

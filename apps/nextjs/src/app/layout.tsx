@@ -33,8 +33,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={cn(`min-h-svh bg-background font-mono antialiased`, fontMonserrat.variable, fontMono.variable)}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Critical resource hints */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
+      <body 
+        className={cn(`min-h-svh bg-background font-mono antialiased`, fontMonserrat.variable, fontMono.variable)}
+      >
         <QueryProvider>
           {children}
           <Sonner />

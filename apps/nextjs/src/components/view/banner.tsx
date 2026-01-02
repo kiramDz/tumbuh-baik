@@ -1,12 +1,14 @@
 "use client";
 
+import React from "react";
 import { MapPin, Calendar, Globe, Flag } from "lucide-react";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-export function Banner() {
+export const Banner = React.memo(() => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
 
@@ -51,37 +53,36 @@ export function Banner() {
       {/* Main Banner Container */}
       <div className="relative min-h-[350px] lg:min-h-[400px] rounded-xl overflow-hidden shadow-lg">
         
-        {/* Background Image with Enhanced Overlay */}
-        <div
-          className="absolute inset-0 h-full w-full bg-cover bg-center bg-fixed"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1434725039720-aaad6dd32dfe?q=80&w=2842&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
-          }}
-        >
-          {/* Enhanced Multi-layer Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900/30 via-transparent to-gray-800/30" />
+        {/* Background Image with Overlays */}
+        <div className="absolute inset-0 h-full w-full">
+          {/* Background Image - Optimized with Next.js Image */}
+          <Image
+            src="/image/aceh-besar-banner.jpg"
+            alt="Aceh Besar Rice Field"
+            fill
+            priority
+            quality={85}
+            sizes="100vw"
+            className="object-cover"
+          />
           
-          {/* Enhanced Decorative Elements */}
-          <div className="absolute top-12 right-12 w-24 h-24 bg-gray-400/10 rounded-full blur-xl animate-pulse" />
-          <div className="absolute bottom-16 right-16 w-20 h-20 bg-gray-500/10 rounded-full blur-lg animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-20 left-12 w-16 h-16 bg-gray-600/10 rounded-full blur-md animate-pulse" style={{ animationDelay: '2s' }} />
+          {/* Multi-layer Overlays for better readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         </div>
 
         {/* Main Content Layout */}
         <div className="relative h-full">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-            <div className="grid lg:grid-cols-12 gap-4 lg:gap-6 items-center min-h-[250px]">
+            <div className="grid lg:grid-cols-12 gap-4 lg:gap-6 items-start min-h-[300px]">
               
               {/* Left Content - Main Information */}
-              <div className="lg:col-span-8 space-y-4">
+              <div className="lg:col-span-8 space-y-4 min-h-[250px]">
                 
                 {/* Header Section */}
                 <div>
                   <div className="flex items-start gap-3 mb-4">
-                    <div className="p-2.5 bg-gray-500/20 rounded-lg backdrop-blur-sm border border-gray-400/30 shadow-lg hover:scale-110 transition-transform">
+                    <div className="p-2.5 bg-gray-500/20 rounded-lg backdrop-blur-sm border border-gray-400/30 shadow-lg">
                       <MapPin className="w-6 h-6 text-gray-300" />
                     </div>
                     <div className="flex-1">
@@ -126,9 +127,9 @@ export function Banner() {
 
               </div>
 
-              {/* Right Sidebar - Stats */}
-              <div className="lg:col-span-4">
-                <Card className="bg-white/10 backdrop-blur-2xl border-white/20 hover:bg-white/15 transition-colors">
+              {/* Right Sidebar - Stats - Fixed height to prevent CLS */}
+              <div className="lg:col-span-4 min-h-[300px]">
+                <Card className="bg-white/10 backdrop-blur-2xl border-white/20 transition-colors h-full">
                   <CardHeader className="p-4 pb-3">
                     <CardTitle className="text-white text-lg text-center">
                       Informasi Geografis
@@ -140,11 +141,11 @@ export function Banner() {
                       {stats.map((stat, index) => (
                         <Card
                           key={index}
-                          className={`bg-white/5 border hover:bg-white/10 hover:scale-105 transition-all duration-300 cursor-pointer ${stat.border}`}
+                          className={`bg-white/5 border transition-colors ${stat.border}`}
                         >
                           <CardContent className="p-3">
                             <div className="flex items-center gap-2.5">
-                              <div className={`p-2 rounded-md ${stat.bg} border ${stat.border} hover:scale-110 transition-transform`}>
+                              <div className={`p-2 rounded-md ${stat.bg} border ${stat.border}`}>
                                 <div className={stat.color}>
                                   {stat.icon}
                                 </div>
@@ -172,4 +173,6 @@ export function Banner() {
       </div>
     </div>
   );
-}
+});
+
+Banner.displayName = 'Banner';

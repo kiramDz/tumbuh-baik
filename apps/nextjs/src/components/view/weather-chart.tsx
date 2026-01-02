@@ -3,7 +3,12 @@
 import React from "react";
 import { Cloud, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RainbowGlowGradientLineChart } from "./chart/weather-rainbow-chart";
+import dynamic from "next/dynamic";
+
+const RainbowGlowGradientLineChart = dynamic(
+  () => import("./chart/weather-rainbow-chart").then(mod => ({ default: mod.RainbowGlowGradientLineChart })),
+  { ssr: false, loading: () => <div className="h-[300px] bg-gray-100 dark:bg-gray-800 rounded-lg" /> }
+);
 
 interface WeatherChartProps {
   hourlyForecast: any[];

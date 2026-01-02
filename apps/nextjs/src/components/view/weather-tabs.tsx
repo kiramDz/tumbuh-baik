@@ -1,18 +1,32 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import React, { type ReactNode, useState } from "react";
+import dynamic from "next/dynamic";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { YearlyCalender } from "./calender/planting-calender-2";
-import { ChartPetani } from "../kuesioner-chart/chartpetani";
 import { CloudSun, CalendarDays, ChartNoAxesGantt } from "lucide-react";
-import { AboutContent } from "./about/about-main";
+
+// Lazy load heavy tab components
+const YearlyCalender = dynamic(() => import("./calender/planting-calender-2").then(mod => ({ default: mod.YearlyCalender })), {
+  loading: () => <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg" />,
+  ssr: false
+});
+
+const ChartPetani = dynamic(() => import("../kuesioner-chart/chartpetani").then(mod => ({ default: mod.ChartPetani })), {
+  loading: () => <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg" />,
+  ssr: false
+});
+
+const AboutContent = dynamic(() => import("./about/about-main").then(mod => ({ default: mod.AboutContent })), {
+  loading: () => <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-lg" />,
+  ssr: false
+});
 
 interface ProjectTabsProps {
   defaultTab?: string;
   children: ReactNode;
 }
 
-export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsProps) {
+export const WeatherTabs = React.memo<ProjectTabsProps>(({ defaultTab = "activity", children }) => {
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   return (
@@ -40,13 +54,13 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
             <ChartNoAxesGantt className="h-4 w-4" />
             Kuesioner
           </TabsTrigger>
-          <TabsTrigger 
+          {/* <TabsTrigger 
             value="about" 
             className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
           >
             <ChartNoAxesGantt className="h-4 w-4" />
             About
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="weather" className="mt-6 mx-6">
@@ -67,4 +81,6 @@ export function WeatherTabs({ defaultTab = "activity", children }: ProjectTabsPr
       </Tabs>
     </div>
   );
-}
+});
+
+WeatherTabs.displayName = 'WeatherTabs';

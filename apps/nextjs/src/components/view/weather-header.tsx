@@ -24,7 +24,7 @@ interface WeatherHeaderProps {
   onGampongChange: (code: string) => void;
 }
 
-export const WeatherHeader: React.FC<WeatherHeaderProps> = ({ 
+export const WeatherHeader = React.memo<WeatherHeaderProps>(({ 
   bmkgData, 
   selectedCode, 
   onGampongChange 
@@ -237,4 +237,6 @@ export const WeatherHeader: React.FC<WeatherHeaderProps> = ({
       <div className="h-1 bg-gradient-to-r from-gray-700 via-gray-600 to-gray-500" />
     </Card>
   );
-};
+});
+
+WeatherHeader.displayName = 'WeatherHeader';
