@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { useEffect } from "react";
 import {
   UpdateDatasetMeta,
-  DeleteDatasetMeta,
+  // DeleteDatasetMeta,
   getDatasetRefreshStatus,
   refreshNasaPowerDataset,
 } from "@/lib/fetch/files.fetch";
@@ -217,28 +217,28 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
   });
 
   // Mutation delete
-  const { mutate: deleteDataset, isPending: isDeleting } = useMutation({
-    mutationKey: ["delete-dataset", dataset.collectionName], // Update key juga
-    mutationFn: () => {
-      if (!dataset?.collectionName) {
-        throw new Error("Collection name is missing");
-      }
-      return DeleteDatasetMeta(dataset.collectionName);
-    },
-    onSuccess: () => {
-      toast.success(`Dataset "${dataset.name}" telah dihapus.`);
-      queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
-      setOpen(false);
-      setIsDeleteConfirmOpen(false);
-    },
-    onError: (error: any) => {
-      console.error("Delete error:", error);
-      const errorMessage =
-        error?.response?.data?.message || "Gagal menghapus dataset";
-      toast.error(errorMessage);
-      setIsDeleteConfirmOpen(false);
-    },
-  });
+  // const { mutate: deleteDataset, isPending: isDeleting } = useMutation({
+  //   mutationKey: ["delete-dataset", dataset.collectionName], // Update key juga
+  //   mutationFn: () => {
+  //     if (!dataset?.collectionName) {
+  //       throw new Error("Collection name is missing");
+  //     }
+  //     return DeleteDatasetMeta(dataset.collectionName);
+  //   },
+  //   onSuccess: () => {
+  //     toast.success(`Dataset "${dataset.name}" telah dihapus.`);
+  //     queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+  //     setOpen(false);
+  //     setIsDeleteConfirmOpen(false);
+  //   },
+  //   onError: (error: any) => {
+  //     console.error("Delete error:", error);
+  //     const errorMessage =
+  //       error?.response?.data?.message || "Gagal menghapus dataset";
+  //     toast.error(errorMessage);
+  //     setIsDeleteConfirmOpen(false);
+  //   },
+  // });
   const handleDeleteClick = () => {
     setIsDeleteConfirmOpen(true);
   };
@@ -272,9 +272,9 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     refreshDataset();
   };
 
-  const handleConfirmDelete = () => {
-    deleteDataset();
-  };
+  // const handleConfirmDelete = () => {
+  //   deleteDataset();
+  // };
 
   const handleSubmitClick = (e: React.FormEvent) => {
     e.preventDefault();
@@ -452,7 +452,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
               {/* Bottom Action Buttons */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 {/* Delete Button - Left */}
-                <Button
+                {/* <Button
                   type="button"
                   variant="destructive"
                   onClick={handleDeleteClick}
@@ -462,7 +462,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                 >
                   <Icons.trash className="h-4 w-4" />
                   {isDeleting ? "Menghapus..." : "Hapus"}
-                </Button>
+                </Button> */}
 
                 {/* Cancel & Save Buttons - Right */}
                 <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -496,14 +496,14 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         </DialogContent>
       </Dialog>
       {/* Delete Confirmation Modal */}
-      <ConfirmationDeleteModal
+      {/* <ConfirmationDeleteModal
         isOpen={isDeleteConfirmOpen}
         setIsOpen={setIsDeleteConfirmOpen}
         onConfirm={handleConfirmDelete}
         datasetName={dataset.name}
         collectionName={dataset.collectionName}
         isDeleting={isDeleting}
-      />
+      /> */}
 
       {/* Update Confirmation Modal */}
       <ConfirmationUpdateModal
