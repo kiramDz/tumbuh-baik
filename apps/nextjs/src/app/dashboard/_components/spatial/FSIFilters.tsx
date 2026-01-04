@@ -13,50 +13,63 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Icons } from "@/app/dashboard/_components/icons";
-import type { TwoLevelAnalysisParams } from "@/lib/fetch/spatial.map.fetch";
+// ✅ Updated import to use unified interface
+import type { FSIAnalysisParams } from "@/lib/fetch/spatial.map.fetch";
 
-export interface FSCIFiltersProps {
-  analysisParams?: TwoLevelAnalysisParams;
-  level?: "kabupaten" | "kecamatan";
-  onParamsChange?: (params: TwoLevelAnalysisParams) => void;
-  onLevelChange?: (level: "kabupaten" | "kecamatan") => void;
+export interface FSIFiltersProps {
+  analysisParams?: Partial<FSIAnalysisParams>;
+  onParamsChange?: (params: FSIAnalysisParams) => void;
+  level?: "kabupaten" | "kecamatan"; 
+  onLevelChange?: (level: "kabupaten" | "kecamatan") => void; 
   onReset?: () => void;
   onApply?: () => void;
   isLoading?: boolean;
   className?: string;
 }
 
-export function FSCIFilters({
+// ✅ Updated to use complete FSIAnalysisParams
+type CompleteAnalysisParams = Required<FSIAnalysisParams>;
+
+export function FSIFilters({
   analysisParams,
-  level = "kabupaten",
   onParamsChange,
-  onLevelChange,
   onReset,
   onApply,
   isLoading = false,
   className,
-}: FSCIFiltersProps) {
-  const defaultParams = {
+}: FSIFiltersProps) {
+  // ✅ Updated default params to include all required FSIAnalysisParams properties
+  const defaultParams: CompleteAnalysisParams = {
+    districts: "all",
     year_start: 2018,
     year_end: 2024,
-    bps_start_year: 2018,
-    bps_end_year: 2024,
-    season: "all" as const,
-    aggregation: "mean" as const,
-    districts: "all",
+    bps_start_year: 2018, // ✅ Added missing property
+    bps_end_year: 2024, // ✅ Added missing property
+    season: "all", // ✅ Added missing property
+    aggregation: "mean",
+    analysis_level: "both", // ✅ Added missing property
+    include_bps_data: true, // ✅ Added missing property
   };
 
-  const safeParamsMerge = (external?: TwoLevelAnalysisParams) => ({
+  // ✅ Updated safe merge function to handle all FSIAnalysisParams properties
+  const safeParamsMerge = (
+    external?: Partial<FSIAnalysisParams> // ✅ Updated parameter type
+  ): CompleteAnalysisParams => ({
+    districts: external?.districts ?? defaultParams.districts,
     year_start: external?.year_start ?? defaultParams.year_start,
     year_end: external?.year_end ?? defaultParams.year_end,
-    bps_start_year: external?.bps_start_year ?? defaultParams.bps_start_year,
-    bps_end_year: external?.bps_end_year ?? defaultParams.bps_end_year,
-    season: external?.season ?? defaultParams.season,
+    bps_start_year: external?.bps_start_year ?? defaultParams.bps_start_year, // ✅ Added
+    bps_end_year: external?.bps_end_year ?? defaultParams.bps_end_year, // ✅ Added
+    season: external?.season ?? defaultParams.season, // ✅ Added
     aggregation: external?.aggregation ?? defaultParams.aggregation,
-    districts: external?.districts ?? defaultParams.districts,
+    analysis_level: external?.analysis_level ?? defaultParams.analysis_level, // ✅ Added
+    include_bps_data:
+      external?.include_bps_data ?? defaultParams.include_bps_data, // ✅ Added
   });
 
-  const [filters, setFilters] = useState(() => safeParamsMerge(analysisParams));
+  const [filters, setFilters] = useState<CompleteAnalysisParams>(
+    safeParamsMerge(analysisParams)
+  );
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
@@ -79,14 +92,12 @@ export function FSCIFilters({
   }, [filters, analysisParams]);
 
   // Handle parameter updates
-  const updateFilter = (key: keyof TwoLevelAnalysisParams, value: any) => {
+  const updateFilter = <K extends keyof CompleteAnalysisParams>(
+    key: K,
+    value: CompleteAnalysisParams[K]
+  ) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
-
-    // Auto-update parent component
-    if (onParamsChange) {
-      onParamsChange(newFilters);
-    }
   };
 
   // Handle reset
@@ -102,7 +113,7 @@ export function FSCIFilters({
     }
   };
 
-  // Handle apply (manual trigger)
+  // Handle apply
   const handleApply = () => {
     if (onParamsChange) {
       onParamsChange(filters);
@@ -113,8 +124,8 @@ export function FSCIFilters({
     setHasChanges(false);
   };
 
-  // Year range options
-  const yearOptions = Array.from({ length: 7 }, (_, i) => 2018 + i);
+  // Year range options - extended range
+  const yearOptions = Array.from({ length: 8 }, (_, i) => 2018 + i); // 2018-2025
 
   return (
     <Card className={className}>
@@ -122,7 +133,7 @@ export function FSCIFilters({
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
             <Icons.sliders className="h-5 w-5 mr-2" />
-            FSCI Analysis Parameters
+            FSI Analysis Parameters
           </div>
           {hasChanges && (
             <Badge variant="secondary" className="text-xs">
@@ -130,48 +141,17 @@ export function FSCIFilters({
             </Badge>
           )}
         </CardTitle>
+        <p className="text-xs text-gray-600 mt-1">
+          Configure Food Security Index spatial analysis parameters
+        </p>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Analysis Level Selection */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Analysis Level</Label>
-          <Select
-            value={level}
-            onValueChange={(value: "kabupaten" | "kecamatan") => {
-              if (onLevelChange) {
-                onLevelChange(value);
-              }
-            }}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="kabupaten">
-                <div className="flex items-center space-x-2">
-                  <Icons.map className="h-4 w-4" />
-                  <span>Kabupaten Level</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="kecamatan">
-                <div className="flex items-center space-x-2">
-                  <Icons.mapPin className="h-4 w-4" />
-                  <span>Kecamatan Level</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Separator />
-
         {/* Climate Data Parameters */}
         <div className="space-y-4">
           <Label className="text-sm font-medium flex items-center">
             <Icons.cloud className="h-4 w-4 mr-2" />
-            Climate Data Range
+            Climate Data Period
           </Label>
 
           <div className="grid grid-cols-2 gap-4">
@@ -223,11 +203,11 @@ export function FSCIFilters({
 
         <Separator />
 
-        {/* BPS Production Data Parameters */}
+        {/* ✅ NEW: BPS Data Period */}
         <div className="space-y-4">
           <Label className="text-sm font-medium flex items-center">
-            <Icons.barChart className="h-4 w-4 mr-2" />
-            Production Data Range
+            <Icons.database className="h-4 w-4 mr-2" />
+            Production Data Period
           </Label>
 
           <div className="grid grid-cols-2 gap-4">
@@ -279,15 +259,17 @@ export function FSCIFilters({
 
         <Separator />
 
-        {/* Season Filter */}
+        {/* ✅ NEW: Season Selection */}
         <div className="space-y-2">
           <Label className="text-sm font-medium flex items-center">
-            <Icons.sun className="h-4 w-4 mr-2" />
-            Growing Season
+            <Icons.calendar className="h-4 w-4 mr-2" />
+            Seasonal Analysis
           </Label>
           <Select
             value={filters.season}
-            onValueChange={(value) => updateFilter("season", value)}
+            onValueChange={(value) =>
+              updateFilter("season", value as CompleteAnalysisParams["season"])
+            }
             disabled={isLoading}
           >
             <SelectTrigger>
@@ -296,35 +278,42 @@ export function FSCIFilters({
             <SelectContent>
               <SelectItem value="all">
                 <div className="flex items-center space-x-2">
-                  <Icons.calendar className="h-4 w-4" />
+                  <Icons.globe className="h-4 w-4" />
                   <span>All Seasons</span>
                 </div>
               </SelectItem>
               <SelectItem value="wet">
                 <div className="flex items-center space-x-2">
                   <Icons.cloudRain className="h-4 w-4" />
-                  <span>Wet Season (Oct-Mar)</span>
+                  <span>Wet Season</span>
                 </div>
               </SelectItem>
               <SelectItem value="dry">
                 <div className="flex items-center space-x-2">
                   <Icons.sun className="h-4 w-4" />
-                  <span>Dry Season (Apr-Sep)</span>
+                  <span>Dry Season</span>
                 </div>
               </SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Aggregation Method */}
+        <Separator />
+
+        {/* Aggregation Method - Updated to include percentile */}
         <div className="space-y-2">
           <Label className="text-sm font-medium flex items-center">
-            <Icons.calculator className="h-4 w-4" />
+            <Icons.calculator className="h-4 w-4 mr-2" />
             Aggregation Method
           </Label>
           <Select
             value={filters.aggregation}
-            onValueChange={(value) => updateFilter("aggregation", value)}
+            onValueChange={(value) =>
+              updateFilter(
+                "aggregation",
+                value as CompleteAnalysisParams["aggregation"]
+              )
+            }
             disabled={isLoading}
           >
             <SelectTrigger>
@@ -343,14 +332,126 @@ export function FSCIFilters({
                   <span>Median</span>
                 </div>
               </SelectItem>
+              {/* ✅ Updated: percentile option instead of max/min */}
               <SelectItem value="percentile">
                 <div className="flex items-center space-x-2">
-                  <Icons.percent className="h-4 w-4" />
-                  <span>Percentile</span>
+                  <Icons.barChart className="h-4 w-4" />
+                  <span>Percentile Analysis</span>
                 </div>
               </SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <Separator />
+
+        {/* ✅ NEW: Analysis Level */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center">
+            <Icons.layers className="h-4 w-4 mr-2" />
+            Analysis Level
+          </Label>
+          <Select
+            value={filters.analysis_level}
+            onValueChange={(value) =>
+              updateFilter(
+                "analysis_level",
+                value as CompleteAnalysisParams["analysis_level"]
+              )
+            }
+            disabled={isLoading}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="both">
+                <div className="flex items-center space-x-2">
+                  <Icons.grid className="h-4 w-4" />
+                  <span>Both (Kecamatan + Kabupaten)</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="kecamatan">
+                <div className="flex items-center space-x-2">
+                  <Icons.map className="h-4 w-4" />
+                  <span>Kecamatan Level</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="kabupaten">
+                <div className="flex items-center space-x-2">
+                  <Icons.mapPin className="h-4 w-4" />
+                  <span>Kabupaten Level</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        {/* ✅ NEW: BPS Data Integration Toggle */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium flex items-center">
+            <Icons.previous className="h-4 w-4 mr-2" />
+            Include Production Data
+          </Label>
+          <Select
+            value={filters.include_bps_data.toString()}
+            onValueChange={(value) =>
+              updateFilter("include_bps_data", value === "true")
+            }
+            disabled={isLoading}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">
+                <div className="flex items-center space-x-2">
+                  <Icons.check className="h-4 w-4" />
+                  <span>Include BPS Production Data</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="false">
+                <div className="flex items-center space-x-2">
+                  <Icons.closeX className="h-4 w-4" />
+                  <span>Climate Analysis Only</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator />
+
+        {/* FSI Component Information (Updated) */}
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="text-sm font-medium text-blue-900 mb-3">
+            FSI Methodology
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-blue-600 rounded"></div>
+                <span className="text-blue-800">Sumber Daya Alam</span>
+              </div>
+              <span className="font-medium text-blue-900">60%</span>
+            </div>
+            <div className="text-xs text-blue-700 ml-5">
+              Keberlanjutan iklim dan resiliensi sumber daya
+            </div>
+
+            <div className="flex items-center justify-between text-sm mt-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-green-600 rounded"></div>
+                <span className="text-blue-800">Ketersediaan</span>
+              </div>
+              <span className="font-medium text-blue-900">40%</span>
+            </div>
+            <div className="text-xs text-blue-700 ml-5">
+              Proksi kecukupan pasokan pangan
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -384,9 +485,10 @@ export function FSCIFilters({
           </Button>
         </div>
 
+        {/* Current Configuration Summary (Updated for FSI) */}
         <div className="bg-gray-50 p-3 rounded-lg">
           <div className="text-xs font-medium text-gray-700 mb-2">
-            Current Analysis Configuration:
+            Current FSI Analysis Configuration:
           </div>
           <div className="text-xs text-gray-600 space-y-1">
             <div>
@@ -396,25 +498,22 @@ export function FSCIFilters({
               • Production Period: {filters.bps_start_year} -{" "}
               {filters.bps_end_year}
             </div>
-            <div>
-              • Season:{" "}
-              {filters.season === "all"
-                ? "All Seasons"
-                : filters.season === "wet"
-                ? "Wet Season"
-                : "Dry Season"}
-            </div>
+            <div>• Season: {filters.season}</div>
             <div>• Aggregation: {filters.aggregation}</div>
+            <div>• Analysis Level: {filters.analysis_level}</div>
             <div>
-              • Level: {level === "kabupaten" ? "Kabupaten" : "Kecamatan"}
+              • BPS Data: {filters.include_bps_data ? "Included" : "Excluded"}
             </div>
             <div>
-              • Scope:{" "}
+              • Districts:{" "}
               {filters.districts === "all"
                 ? "All Districts"
-                : filters.districts.charAt(0).toUpperCase() +
-                  filters.districts.slice(1)}
+                : filters.districts}
             </div>
+            <div>
+              • Components: Natural Resources (60%) + Availability (40%)
+            </div>
+            <div>• Data Source: NASA POWER Climate Dataset</div>
           </div>
         </div>
       </CardContent>

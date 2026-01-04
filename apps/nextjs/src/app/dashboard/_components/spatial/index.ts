@@ -1,8 +1,7 @@
-// FSCI Spatial Analysis Components
-export { FSCIMap } from "./FSCIMap";
-export { FSCIFilters } from "./FSCIFilters";
-export { FSCILegend } from "./FSCILegend";
-export { FSCIMetadataPanel } from "./FSCIMetadataPanel";
+// FSI Spatial Analysis Components (Updated from FSCI)
+export { FSIMap } from "./FSIMap";
+export { FSIFilters } from "./FSIFilters";
+export { FSILegend } from "./FSILegend";
 
 // Re-export types for convenience
 export type {
@@ -11,18 +10,30 @@ export type {
 } from "@/lib/fetch/spatial.map.fetch";
 
 // Component-specific prop types
-export type { FSCIFiltersProps } from "./FSCIFilters";
-export type { FSCILegendProps } from "./FSCILegend";
-export type { FSCIMetadataPanelProps } from "./FSCIMetadataPanel";
+export type { FSIFiltersProps } from "./FSIFilters";
+export type { FSILegendProps } from "./FSILegend";
 
-// FSCI-specific utility types
-export type FSCIPerformanceLevel = "excellent" | "good" | "fair" | "poor";
+// FSI-specific utility types (Updated from FSCI)
+export type FSIPerformanceLevel =
+  | "sangat_tinggi"
+  | "tinggi"
+  | "sedang"
+  | "rendah";
 
-export type FSCIStats = {
+export type FSIStats = {
   total_regions: number;
-  avg_fsci: number;
-  excellent_count: number;
-  good_count: number;
-  fair_count: number;
-  poor_count: number;
+  avg_fsi: number;
+  sangat_tinggi_count: number;
+  tinggi_count: number;
+  sedang_count: number;
+  rendah_count: number;
+};
+
+// FSI Component Types
+export type FSIComponent = {
+  name: "natural_resources" | "availability";
+  label: string;
+  description: string;
+  weight: number;
+  score: number;
 };

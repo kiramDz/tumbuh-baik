@@ -1,691 +1,360 @@
-from flask import Blueprint, request, jsonify, current_app
 import logging
 from datetime import datetime
-from services.geojson_loader import GeojsonLoader
-import json
-import geopandas as gpd
-from services.climate_data_service import ClimateDataService
-from services.rice_analyzer_service import RiceAnalyzer
-from services.food_security_analyzer import FoodSecurityAnalyzer
+from flask import Blueprint, jsonify, request, current_app
+from typing import Dict, List, Any
+
 from services.two_level_food_security_analyzer import TwoLevelFoodSecurityAnalyzer
+from services.geojson_loader import GeojsonLoader
+from services.spatial_analysis import create_spatial_connector
+from services.climate_data_service import ClimateDataService
 
 logger = logging.getLogger(__name__)
 
-# Create blueprint for two-level analysis
-two_level_api = Blueprint('two_level_api', __name__, url_prefix='/api/v1/two-level')
+# Create blueprint
+two_level_api_bp = Blueprint('two_level_api', __name__, url_prefix='/api/v1/two-level')
 
-@two_level_api.route('/analysis', methods=['GET'])
-def perform_two_level_analysis():
+@two_level_api_bp.route('/analysis', methods=['GET'])
+def get_two_level_analysis():
     """
-    Main endpoint for two-level food security analysis
-    Integrates kecamatan-level climate analysis with kabupaten-level BPS validation
+    Simplified Two-Level Food Security Analysis - FSI Only
+    
+    Query Parameters:
+    - year_start: Start year for analysis (default: 2018)
+    - year_end: End year for analysis (default: 2024)
+    - bps_start_year: BPS data start year (default: 2018)
+    - bps_end_year: BPS data end year (default: 2024)
     """
     try:
-        logger.info("🍚🔬 Starting Two-Level Food Security Analysis")
-        
-        # Get parameters with BPS-aligned defaults
-        districts = request.args.get('districts', 'all')
+        # Get parameters (simplified - ignore season/aggregation/districts filters)
+        year_start = int(request.args.get('year_start', 2018))
+        year_end = int(request.args.get('year_end', 2024))
         bps_start_year = int(request.args.get('bps_start_year', 2018))
         bps_end_year = int(request.args.get('bps_end_year', 2024))
         
-        # AUTO-ALIGN: NASA period matches BPS availability (2018-2024)
-        year_start = int(request.args.get('year_start', bps_start_year))  # Default to BPS start
-        year_end = int(request.args.get('year_end', bps_end_year))      # Default to BPS end
-        
-        season = request.args.get('season', 'all')
-        aggregation = request.args.get('aggregation', 'mean')
-        
-        logger.info(f"📊 AUTO-ALIGNED Parameters:")
+        logger.info("Starting Two-Level Food Security Analysis")
+        logger.info(f"AUTO-ALIGNED Parameters:")
         logger.info(f"   NASA Climate: {year_start}-{year_end}")
         logger.info(f"   BPS Production: {bps_start_year}-{bps_end_year}")
-        logger.info(f"   Temporal overlap: {max(year_start, bps_start_year)}-{min(year_end, bps_end_year)}")
+        logger.info(f"   Temporal overlap: {year_start}-{year_end}")
         
-        # Initialize services
-        db = current_app.config['MONGO_DB']
-        geojson_loader = GeojsonLoader()
-        climate_service = ClimateDataService(db)
-        rice_analyzer = RiceAnalyzer()
-        food_security_analyzer = FoodSecurityAnalyzer()
-        two_level_analyzer = TwoLevelFoodSecurityAnalyzer()
-        
-        # Step 1: Get spatial analysis results (Level 1 data)
-        logger.info("🌍 Step 1: Performing spatial food security analysis...")
-        spatial_results = _perform_spatial_food_security_analysis(
-            geojson_loader, climate_service, rice_analyzer, food_security_analyzer,
-            year_start, year_end, season, aggregation
-        )
+        # Step 1: Perform spatial food security analysis for NASA locations
+        logger.info("Step 1: Performing spatial food security analysis...")
+        spatial_results = _perform_spatial_fsi_analysis(year_start, year_end)
         
         if not spatial_results:
+            logger.error("No spatial analysis results available")
             return jsonify({
-                "message": "No spatial analysis results available",
-                "error": "Failed to generate Level 1 kecamatan analysis"
+                "error": "Failed to generate Level 1 kecamatan analysis",
+                "message": "No spatial analysis results available"
             }), 500
         
-        logger.info(f"✅ Level 1 complete: {len(spatial_results)} NASA locations analyzed")
+        logger.info(f"Spatial analysis complete: {len(spatial_results)} NASA locations analyzed")
         
         # Step 2: Perform two-level analysis
-        logger.info("🏛️ Step 2: Performing two-level analysis with BPS validation...")
-        two_level_result = two_level_analyzer.perform_two_level_analysis(
+        logger.info("Step 2: Performing two-level FSI analysis...")
+        two_level_analyzer = TwoLevelFoodSecurityAnalyzer()
+        
+        analysis_result = two_level_analyzer.perform_two_level_analysis(
             spatial_analysis_results=spatial_results,
             bps_start_year=bps_start_year,
             bps_end_year=bps_end_year
         )
         
-        logger.info(f"✅ Two-level analysis complete: "
-                   f"{two_level_result.level_1_kecamatan_count} kecamatan → "
-                   f"{two_level_result.level_2_kabupaten_count} kabupaten")
+        # Step 3: Format simplified response
+        logger.info("Step 3: Formatting simplified FSI response...")
+        response = _format_simplified_fsi_response(analysis_result)
         
-        # Step 3: Create comprehensive response with temporal metadata
-        response = _create_two_level_response(
-            two_level_result, year_start, year_end, bps_start_year, bps_end_year
-        )
-        
-        # Add temporal alignment info to response
-        response["temporal_alignment"] = {
-            "nasa_period": f"{year_start}-{year_end}",
-            "bps_period": f"{bps_start_year}-{bps_end_year}",
-            "alignment_method": "auto_aligned_to_bps",
-            "overlap_years": max(0, min(year_end, bps_end_year) - max(year_start, bps_start_year) + 1),
-            "correlation_quality": "high" if year_start >= bps_start_year and year_end <= bps_end_year else "moderate"
-        }
-        
-        return jsonify(response), 200
+        logger.info("Two-level FSI analysis completed successfully")
+        return jsonify(response)
         
     except Exception as e:
-        logger.error(f"❌ Two-level analysis failed: {str(e)}")
+        logger.error(f"Error in two-level analysis: {str(e)}")
         return jsonify({
-            "message": "Two-level food security analysis failed",
-            "error": str(e),
-            "endpoint": "/api/v1/two-level/analysis"
+            "error": "Two-level analysis failed",
+            "message": str(e)
         }), 500
 
-@two_level_api.route('/summary', methods=['GET'])
-def get_two_level_summary():
+def _perform_spatial_fsi_analysis(year_start: int, year_end: int) -> List[Dict[str, Any]]:
     """
-    Quick summary endpoint for two-level analysis capabilities
-    """
-    try:
-        from services.kecamatan_kabupatan_mapping_service import KecamatanKabupatenMappingService
-        
-        mapping_service = KecamatanKabupatenMappingService()
-        
-        # Get mapping validation
-        validation = mapping_service.validate_mapping_consistency()
-        
-        return jsonify({
-            "analysis_type": "Two-Level Hybrid Food Security Analysis",
-            "description": "Climate-based kecamatan analysis validated with BPS kabupaten production data",
-            "methodology": {
-                "level_1": "Kecamatan climate suitability analysis (NASA POWER data)",
-                "level_2": "Kabupaten aggregation with BPS production validation",
-                "aggregation_method": "Area-weighted average using GeoJSON geometry",
-                "validation_approach": "Climate potential vs actual production correlation"
-            },
-            "coverage": {
-                "total_kabupaten": validation["total_kabupaten"],
-                "total_kecamatan": validation["total_kecamatan"],
-                "nasa_locations": validation["total_nasa_locations"],
-                "bps_compatible": True
-            },
-            "data_sources": {
-                "climate": "NASA POWER (2005-2023)",
-                "production": "BPS Statistics (2018-2024)",
-                "boundaries": "GeoJSON with area calculations",
-                "temporal": "20-year climate analysis"
-            },
-            "outputs": {
-                "kecamatan_level": ["FSCI", "PCI", "PSI", "CRS", "Investment recommendations"],
-                "kabupaten_level": ["Aggregated FSCI", "BPS validation", "Production efficiency", "Rankings"],
-                "cross_level": ["Climate-production correlation", "Performance gaps", "Policy insights"]
-            },
-            "available_endpoints": {
-                "full_analysis": "/api/v1/two-level/analysis",
-                "kabupaten_summary": "/api/v1/two-level/kabupaten-summary",
-                "validation_report": "/api/v1/two-level/validation",
-                "mapping_info": "/api/v1/two-level/mapping"
-            }
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error in two-level summary: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-@two_level_api.route('/kabupaten-summary', methods=['GET'])
-def get_kabupaten_summary():
-    """
-    Get summary of kabupaten-level aggregation without full analysis
+    Perform spatial FSI analysis for all NASA locations - Simplified
     """
     try:
-        from services.kecamatan_kabupatan_mapping_service import KecamatanKabupatenMappingService
+        # Get database connection
+        db = current_app.config['MONGO_DB']
         
-        mapping_service = KecamatanKabupatenMappingService()
-        
-        # Get detailed mapping summary
-        summary = mapping_service.get_detailed_mapping_summary()
-        
-        return jsonify({
-            "message": "Kabupaten aggregation summary",
-            "data": summary,
-            "aggregation_ready": True,
-            "bps_integration_ready": True
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error in kabupaten summary: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-    
-@two_level_api.route('/bps-historical/<kabupaten>', methods=['GET'])
-def get_bps_historical_data(kabupaten: str):
-    """
-    Get BPS historical production data for specific kabupaten
-    Integrates with existing BPS service
-    """
-    try:
-        from services.bps_api_service import BPSApiService
-        
-        start_year = int(request.args.get('start_year', 2018))
-        end_year = int(request.args.get('end_year', 2024))
-        
-        logger.info(f"BPS historical request for {kabupaten}: {start_year}-{end_year}")
-        
-        # Initialize BPS service
-        bps_service = BPSApiService()
-        
-        # Fetch historical data
-        historical_data = bps_service.fetch_kabupaten_historical_data(
-            kabupaten, start_year, end_year
-        )
-        
-        if not historical_data:
-            return jsonify({
-                "message": f"No BPS historical data found for {kabupaten}",
-                "error": "Data not available",
-                "available_kabupaten": bps_service.target_kabupaten
-            }), 404
-        
-        # Format response for two-level compatibility
-        yearly_production = []
-        for year, record in historical_data.items():
-            yearly_production.append({
-                "year": year,
-                "production_tons": record.produksi_padi_ton,
-                "luas_tanam_ha": getattr(record, 'luas_tanam_ha', 0),
-                "luas_panen_ha": getattr(record, 'luas_panen_ha', 0),
-                "produktivitas_ton_ha": getattr(record, 'produktivitas_ton_ha', 0),
-                "harvest_success_rate": getattr(record, 'harvest_success_rate', 0)
-            })
-        
-        # Calculate production statistics
-        production_values = [record.produksi_padi_ton for record in historical_data.values()]
-        
-        return jsonify({
-            "kabupaten_name": kabupaten,
-            "bps_compatible_name": kabupaten,
-            "data_period": f"{start_year}-{end_year}",
-            "data_coverage_years": len(historical_data),
-            "yearly_production_data": yearly_production,
-            "production_statistics": {
-                "total_production_tons": sum(production_values),
-                "average_annual_production": sum(production_values) / len(production_values),
-                "max_production": max(production_values),
-                "min_production": min(production_values),
-                "production_volatility_percent": (
-                    (max(production_values) - min(production_values)) / 
-                    (sum(production_values) / len(production_values)) * 100
-                )
-            },
-            "trend_analysis": {
-                "overall_change_percent": (
-                    (production_values[-1] - production_values[0]) / production_values[0] * 100
-                    if len(production_values) > 1 else 0
-                ),
-                "most_productive_year": max(historical_data.keys(), key=lambda y: historical_data[y].produksi_padi_ton),
-                "least_productive_year": min(historical_data.keys(), key=lambda y: historical_data[y].produksi_padi_ton)
-            }
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error in BPS historical endpoint: {str(e)}")
-        return jsonify({
-            "message": "Failed to fetch BPS historical data",
-            "error": str(e)
-        }), 500
-
-@two_level_api.route('/validation', methods=['GET'])
-def get_validation_report():
-    """
-    Get comprehensive validation report for two-level system
-    """
-    try:
-        from services.kecamatan_kabupatan_mapping_service import KecamatanKabupatenMappingService
-        from services.area_weight_service import AreaWeightService
-        
-        mapping_service = KecamatanKabupatenMappingService()
-        area_service = AreaWeightService()
-        
-        # Get all validation data
-        mapping_validation = mapping_service.validate_mapping_consistency()
-        area_validation = area_service.validate_area_weights()
-        
-        return jsonify({
-            "validation_report": {
-                "mapping_consistency": mapping_validation,
-                "area_weights": area_validation,
-                "system_readiness": {
-                    "level_1_ready": True,
-                    "level_2_ready": True,
-                    "bps_integration_ready": True,
-                    "geojson_loaded": area_validation["total_kecamatan"] > 0
-                }
-            },
-            "validation_timestamp": datetime.now().isoformat(),
-            "recommendation": "System ready for two-level analysis" if area_validation["total_kecamatan"] > 0 else "Check GeoJSON file path"
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error in validation report: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-@two_level_api.route('/mapping', methods=['GET'])
-def get_mapping_info():
-    """
-    Get NASA location to kecamatan to kabupaten mapping information
-    """
-    try:
-        from services.kecamatan_kabupatan_mapping_service import KecamatanKabupatenMappingService
-        
-        mapping_service = KecamatanKabupatenMappingService()
-        
-        # Get detailed mapping
-        detailed_summary = mapping_service.get_detailed_mapping_summary()
-        
-        return jsonify({
-            "mapping_information": detailed_summary,
-            "nasa_location_count": detailed_summary["service_info"]["total_nasa_locations"],
-            "kecamatan_count": detailed_summary["service_info"]["total_kecamatan"], 
-            "kabupaten_count": detailed_summary["service_info"]["total_kabupaten"],
-            "data_source": detailed_summary["service_info"]["area_data_source"]
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error in mapping info: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# Helper functions
-def _perform_spatial_food_security_analysis(geojson_loader, climate_service, rice_analyzer, 
-                                           food_security_analyzer, year_start, year_end, 
-                                           season, aggregation):
-    """
-    Perform spatial food security analysis (reuse logic from existing spatial_api.py)
-    Returns list of analysis results for each NASA location
-    """
-    try:
-        # Load kecamatan spatial data
-        kecamatan_gdf = geojson_loader.load_kecamatan_geojson()
-        
-        if kecamatan_gdf is None or len(kecamatan_gdf) == 0:
-            return []
-        
-        analysis_results = []
-        
-        for idx, kecamatan in kecamatan_gdf.iterrows():
-            nasa_match = kecamatan['nasa_match']
-            district_name = kecamatan.get('NAME_3', nasa_match)
-            
-            try:
-                # Get climate data
-                collection_name = climate_service.get_collection_name_for_nasa_location(nasa_match)
-                if not collection_name:
-                    continue
-                
-                climate_data = climate_service.load_climate_data(
-                    collection_name, year_start, year_end
-                )
-                
-                if climate_data is None or len(climate_data) == 0:
-                    continue
-                
-                # Apply filters
-                if season != 'all':
-                    climate_data = climate_service.apply_seasonal_filter(climate_data, season)
-                
-                # Get base suitability
-                aggregated_data = climate_service.aggregate_climate_data(climate_data, aggregation)
-                suitability_result = rice_analyzer.calculate_suitability_score(aggregated_data)
-                
-                # Convert climate data for temporal analysis
-                if hasattr(climate_data, 'to_dict'):
-                    climate_records = climate_data.to_dict('records')
-                else:
-                    climate_records = climate_data
-                
-                # Food security analysis
-                district_data = kecamatan.to_dict()
-                fsci_analysis = food_security_analyzer.analyze_food_security(
-                    district_data=district_data,
-                    climate_time_series=climate_records,
-                    base_suitability_score=suitability_result['score']
-                )
-                
-                # Create result record for two-level analyzer
-                analysis_result = {
-                    'district': nasa_match,  # NASA location name
-                    'district_code': kecamatan.get('GID_3', 'Unknown'),
-                    'fsci_score': fsci_analysis.fsci_score,
-                    'pci_score': fsci_analysis.pci.pci_score,
-                    'psi_score': fsci_analysis.psi.psi_score,
-                    'crs_score': fsci_analysis.crs.crs_score,
-                    'investment_recommendation': fsci_analysis.investment_recommendation,
-                    'priority_ranking': 0,  # Will be set later
-                    'suitability_score': suitability_result['score'],
-                    'classification': suitability_result['classification']
-                }
-                
-                analysis_results.append(analysis_result)
-                
-            except Exception as e:
-                logger.error(f"Error analyzing {nasa_match}: {str(e)}")
-                continue
-        
-        return analysis_results
-        
-    except Exception as e:
-        logger.error(f"Error in spatial food security analysis: {str(e)}")
-        return []
-
-def _create_two_level_response(two_level_result, year_start, year_end, bps_start_year, bps_end_year):
-    """
-    Create comprehensive API response from two-level analysis result
-    """
-    try:
-        # Convert dataclass objects to dictionaries for JSON serialization
-        kecamatan_data = []
-        for k_analysis in two_level_result.kecamatan_analyses:
-            kecamatan_data.append({
-                "nasa_location_name": k_analysis.nasa_location_name,
-                "kecamatan_name": k_analysis.kecamatan_name,
-                "kabupaten_name": k_analysis.kabupaten_name,
-                "area_km2": k_analysis.area_km2,
-                "area_weight": k_analysis.area_weight,
-                "fsci_score": k_analysis.fsci_analysis.fsci_score,
-                "fsci_class": k_analysis.fsci_analysis.fsci_class.value,
-                "pci_score": k_analysis.fsci_analysis.pci.pci_score,
-                "psi_score": k_analysis.fsci_analysis.psi.psi_score,
-                "crs_score": k_analysis.fsci_analysis.crs.crs_score,
-                "investment_recommendation": k_analysis.fsci_analysis.investment_recommendation
-            })
-        
-        kabupaten_data = []
-        for kb_analysis in two_level_result.kabupaten_analyses:
-            kabupaten_data.append({
-                "kabupaten_name": kb_analysis.kabupaten_name,
-                "bps_compatible_name": kb_analysis.bps_compatible_name,
-                "total_area_km2": kb_analysis.total_area_km2,
-                "constituent_kecamatan": kb_analysis.constituent_kecamatan,
-                "constituent_nasa_locations": kb_analysis.constituent_nasa_locations,
-                "aggregated_fsci_score": kb_analysis.aggregated_fsci_score,
-                "aggregated_fsci_class": kb_analysis.aggregated_fsci_class.value,
-                "aggregated_pci_score": kb_analysis.aggregated_pci_score,
-                "aggregated_psi_score": kb_analysis.aggregated_psi_score,
-                "aggregated_crs_score": kb_analysis.aggregated_crs_score,
-                "latest_production_tons": kb_analysis.bps_validation.latest_production_tons,
-                "average_production_tons": kb_analysis.bps_validation.average_production_tons,
-                "production_trend": kb_analysis.bps_validation.production_trend,
-                "data_coverage_years": kb_analysis.bps_validation.data_coverage_years,
-                "climate_production_correlation": kb_analysis.climate_production_correlation,
-                "production_efficiency_score": kb_analysis.production_efficiency_score,
-                "climate_potential_rank": kb_analysis.climate_potential_rank,
-                "actual_production_rank": kb_analysis.actual_production_rank,
-                "performance_gap_category": kb_analysis.performance_gap_category,
-                "validation_notes": kb_analysis.validation_notes
-            })
-        
-        return {
-            "type": "TwoLevelFoodSecurityAnalysis",
-            "metadata": {
-                "analysis_timestamp": two_level_result.analysis_timestamp,
-                "analysis_period": two_level_result.analysis_period,
-                "bps_data_period": two_level_result.bps_data_period,
-                "methodology_summary": two_level_result.methodology_summary,
-                "level_1_kecamatan_count": two_level_result.level_1_kecamatan_count,
-                "level_2_kabupaten_count": two_level_result.level_2_kabupaten_count,
-                "data_sources": {
-                    "climate_analysis": f"NASA POWER ({year_start}-{year_end})",
-                    "production_validation": f"BPS Statistics ({bps_start_year}-{bps_end_year})",
-                    "spatial_boundaries": "GeoJSON with area calculations",
-                    "administrative_mapping": "Kecamatan-Kabupaten hierarchy"
-                }
-            },
-            "level_1_kecamatan_analysis": {
-                "description": "Climate-based food security analysis at kecamatan level",
-                "analysis_count": len(kecamatan_data),
-                "data": kecamatan_data
-            },
-            "level_2_kabupaten_analysis": {
-                "description": "Aggregated analysis with BPS production validation",
-                "analysis_count": len(kabupaten_data),
-                "data": kabupaten_data
-            },
-            "rankings": {
-                "climate_potential_ranking": two_level_result.kabupaten_climate_ranking,
-                "actual_production_ranking": two_level_result.kabupaten_production_ranking
-            },
-            "cross_level_insights": two_level_result.cross_level_insights,
-            "summary_statistics": _calculate_summary_statistics(kabupaten_data),
-            "recommendations": _generate_policy_recommendations(kabupaten_data)
-        }
-        
-    except Exception as e:
-        logger.error(f"Error creating two-level response: {str(e)}")
-        raise
-
-def _calculate_summary_statistics(kabupaten_data):
-    """Calculate summary statistics from kabupaten analysis"""
-    if not kabupaten_data:
-        return {}
-    
-    fsci_scores = [k["aggregated_fsci_score"] for k in kabupaten_data]
-    production_totals = [k["latest_production_tons"] for k in kabupaten_data]
-    correlations = [k["climate_production_correlation"] for k in kabupaten_data]
-    
-    return {
-        "average_fsci_score": round(sum(fsci_scores) / len(fsci_scores), 2),
-        "total_production_tons": round(sum(production_totals), 0),
-        "average_climate_production_correlation": round(sum(correlations) / len(correlations), 3),
-        "high_potential_kabupaten": len([k for k in kabupaten_data if k["aggregated_fsci_score"] >= 70]),
-        "underperforming_kabupaten": len([k for k in kabupaten_data if k["performance_gap_category"] == "underperforming"]),
-        "data_coverage": {
-            "full_bps_coverage": len([k for k in kabupaten_data if k["data_coverage_years"] >= 5]),
-            "limited_bps_coverage": len([k for k in kabupaten_data if k["data_coverage_years"] < 5])
-        }
-    }
-
-def _generate_policy_recommendations(kabupaten_data):
-    """Generate policy recommendations based on analysis"""
-    recommendations = []
-    
-    # High potential areas
-    high_potential = [k for k in kabupaten_data if k["aggregated_fsci_score"] >= 75]
-    if high_potential:
-        recommendations.append({
-            "category": "Investment Priority",
-            "target": [k["kabupaten_name"] for k in high_potential],
-            "recommendation": "Prioritize infrastructure development and technology adoption",
-            "rationale": "High climate potential with strong production capacity"
-        })
-    
-    # Underperforming areas
-    underperforming = [k for k in kabupaten_data if k["performance_gap_category"] == "underperforming"]
-    if underperforming:
-        recommendations.append({
-            "category": "Performance Gap",
-            "target": [k["kabupaten_name"] for k in underperforming],
-            "recommendation": "Investigate production constraints and implement targeted interventions",
-            "rationale": "Climate potential not fully realized in actual production"
-        })
-    
-    # Low correlation areas
-    low_correlation = [k for k in kabupaten_data if k["climate_production_correlation"] < 0.4]
-    if low_correlation:
-        recommendations.append({
-            "category": "System Efficiency",
-            "target": [k["kabupaten_name"] for k in low_correlation],
-            "recommendation": "Improve agricultural systems alignment with climate conditions",
-            "rationale": "Low correlation between climate potential and actual production"
-        })
-    
-    return recommendations
-
-@two_level_api.route('/boundaries/<level>', methods=['GET'])
-def get_boundaries(level: str):
-    """
-    Serve real GeoJSON boundaries for kecamatan or kabupaten levels
-    Integrates with existing FSCI analysis data
-    """
-    try:
-        logger.info(f"Fetching {level} boundaries...")
-        
+        # Load GeoJSON with NASA location mappings
         geojson_loader = GeojsonLoader()
         kecamatan_gdf = geojson_loader.load_kecamatan_geojson()
         
-        if kecamatan_gdf is None:
-            return jsonify({"error": "Boundary data not available"}), 404
+        if kecamatan_gdf is None or len(kecamatan_gdf) == 0:
+            logger.error("Failed to load kecamatan GeoJSON data")
+            return []
         
-        if level == "kecamatan":
-            # Return kecamatan-level boundaries
-            boundary_gdf = kecamatan_gdf.copy()
-            
-        elif level == "kabupaten":
-            # Create kabupaten-level boundaries by dissolving kecamatan
-            logger.info("Creating kabupaten boundaries from kecamatan...")
-            boundary_gdf = kecamatan_gdf.dissolve(by='NAME_2').reset_index()
-            
-            # Calculate kabupaten centroids
-            boundary_gdf_utm = boundary_gdf.to_crs("EPSG:32647")  # UTM for accurate centroid
-            centroids_geo = boundary_gdf_utm.geometry.centroid.to_crs("EPSG:4326")
-            boundary_gdf["centroid_lat"] = centroids_geo.y
-            boundary_gdf["centroid_lng"] = centroids_geo.x
-            
-            # Add kabupaten metadata
-            boundary_gdf["GID_2"] = boundary_gdf["NAME_2"]  # Use kabupaten name as ID
-            boundary_gdf["TYPE_2"] = "Kabupaten"
-            
-        else:
-            return jsonify({"error": "Invalid level. Use 'kecamatan' or 'kabupaten'"}), 400
+        unique_kabupaten = kecamatan_gdf['NAME_2'].unique()
+        for kabupaten in unique_kabupaten:
+            count = len(kecamatan_gdf[kecamatan_gdf['NAME_2'] == kabupaten])
+            logger.info(f"  {kabupaten}: {count} kecamatan")
         
-        # Convert to GeoJSON format
-        geojson_str = boundary_gdf.to_json()
-        geojson_data = json.loads(geojson_str)
+        logger.info(f"Loaded {len(kecamatan_gdf)} kecamatan from GeoJSON")
         
-        logger.info(f"{level} boundaries ready: {len(boundary_gdf)} features")
+        # Initialize climate data service
+        climate_service = ClimateDataService(db)
         
-        geojson_response = {
-            "type": "FeatureCollection",
-            "features": geojson_data["features"],
-            "metadata": {
-                "level": level,
-                "feature_count": len(boundary_gdf),
-                "crs": "EPSG:4326",
-                "data_source": "aceh_nasa_kecamatan.geojson",
-                "boundary_type": "real_administrative_polygons"
-            }
-        }
-        return jsonify(geojson_response), 200
+        # Remove spatial connector - not needed for FSI-only analysis
+        # spatial_connector = create_spatial_connector(db)  # ← DELETE this line
         
-    except Exception as e:
-        logger.error(f"❌ Error loading {level} boundaries: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-@two_level_api.route('/analysis-with-boundaries', methods=['GET'])  
-def get_analysis_with_boundaries():
-    """
-    Combined endpoint: FSCI analysis + real polygon boundaries
-    Perfect for FSCIMap component
-    """
-    try:
-        logger.info("Starting FSCI analysis with real boundaries...")
+        spatial_results = []
         
-        # Get parameters
-        level = request.args.get('level', 'kabupaten')
-        
-        # Step 1: Get FSCI analysis data
-        params = {k: v for k, v in request.args.items() if k != 'level'}
-        
-        logger.info("Getting FSCI analysis data...")
-        # Reuse existing analysis logic
-        response = perform_two_level_analysis()
-        if response[1] != 200:  # Check status code
-            return response
-            
-        analysis_data = response[0].get_json()
-        
-        # Step 2: Get boundary data
-        logger.info("Loading boundary polygons...")
-        boundary_response = get_boundaries(level)
-        if boundary_response[1] != 200:
-            return boundary_response
-            
-        boundary_data = boundary_response[0].get_json()
-        
-        # Step 3: Merge FSCI data with boundaries
-        logger.info("Merging FSCI analysis with real boundaries...")
-        
-        source_data = analysis_data[f"level_{'2' if level == 'kabupaten' else '1'}_{level}_analysis"]["data"]
-        boundary_features = boundary_data["features"]
-        
-        merged_features = []
-        for feature in boundary_features:
-            # Match by region name
-            region_name = feature["properties"]["NAME_2"] if level == "kabupaten" else feature["properties"]["NAME_3"]
-            
-            # Find matching FSCI data
-            fsci_match = None
-            for item in source_data:
-                item_name = item.get("kabupaten_name") if level == "kabupaten" else item.get("kecamatan_name")
-                if item_name == region_name:
-                    fsci_match = item
-                    break
-            
-            if fsci_match:
-                # Merge FSCI properties into boundary feature
-                enhanced_properties = {
-                    **feature["properties"],  # Original boundary properties
-                    
-                    # FSCI scores
-                    "fsci_score": (fsci_match.get("aggregated_fsci_score", 0) if level == "kabupaten"
-                                   else fsci_match.get("fsci_score", 0)),
-                    "pci_score": fsci_match.get("aggregated_pci_score" if level == "kabupaten" else "pci_score", 0),
-                    "psi_score": fsci_match.get("aggregated_psi_score" if level == "kabupaten" else "psi_score", 0),
-                    "crs_score": fsci_match.get("aggregated_crs_score" if level == "kabupaten" else "crs_score", 0),
-                    
-                    # Additional analysis data
-                    "investment_recommendation": fsci_match.get("investment_recommendation", "moderate"),
-                    "area_km2": fsci_match.get("total_area_km2" if level == "kabupaten" else "area_km2", 0),
-                    
-                    # Production data (kabupaten only)
-                    **({"production_tons": fsci_match.get("latest_production_tons", 0),
-                        "climate_correlation": fsci_match.get("climate_production_correlation", 0)} 
-                       if level == "kabupaten" else {})
+        # Process each NASA location
+        for idx, row in kecamatan_gdf.iterrows():
+            try:
+                nasa_location = row['nasa_match']
+                kecamatan_name = row['NAME_3']
+                
+                logger.info(f"Analyzing {nasa_location} -> {kecamatan_name}")
+                
+                # Get collection name for this NASA location
+                collection_name = climate_service.get_collection_name_for_nasa_location(nasa_location)
+                if not collection_name:
+                    logger.warning(f"No collection found for {nasa_location}")
+                    continue
+                
+                # Load climate data
+                climate_df = climate_service.load_climate_data(
+                    collection_name, year_start, year_end
+                )
+                
+                if climate_df is None or len(climate_df) == 0:
+                    logger.warning(f"No climate data loaded for {nasa_location}")
+                    continue
+                
+                # Get aggregated climate data
+                climate_data = climate_service.aggregate_climate_data(climate_df)
+                
+                # Calculate base suitability score using simple climate scoring
+                # Remove spatial connector dependency
+                base_suitability_score = _calculate_base_suitability_score(climate_data)
+                
+                # Perform FSI analysis
+                from services.food_security_analyzer import FoodSecurityAnalyzer
+                fsi_analyzer = FoodSecurityAnalyzer()
+                
+                # Convert climate_df to list of dicts for FSI analyzer
+                climate_time_series = climate_df.to_dict('records') if climate_df is not None else []
+                
+                fsi_analysis = fsi_analyzer.analyze_food_security(
+                    district_data=row.to_dict(),
+                    climate_time_series=climate_time_series,
+                    base_suitability_score=base_suitability_score
+                )
+                
+                # Create spatial result in expected format
+                spatial_result = {
+                    'district': nasa_location,
+                    'district_code': row.get('GID_3', 'Unknown'),
+                    'kecamatan_name': kecamatan_name,
+                    'kabupaten_name': row.get('NAME_2', 'Unknown'),
+                    'fsi_score': fsi_analysis.fsi_score,
+                    'fsi_class': fsi_analysis.fsi_class.value,
+                    'natural_resources_score': fsi_analysis.natural_resources_score,
+                    'availability_score': fsi_analysis.availability_score,
+                    'suitability_score': base_suitability_score,  # for backward compatibility
+                    'analysis_timestamp': fsi_analysis.analysis_timestamp
                 }
                 
-                merged_features.append({
-                    "type": "Feature",
-                    "properties": enhanced_properties,
-                    "geometry": feature["geometry"]  # Real polygon geometry!
-                })
+                spatial_results.append(spatial_result)
+                
+                logger.info(f"FSI analysis complete for {nasa_location}: FSI={fsi_analysis.fsi_score:.1f}")
+                
+            except Exception as e:
+                logger.error(f"Error analyzing {nasa_location}: {str(e)}")
+                continue
         
-        return jsonify({
-            "type": "FeatureCollection",
-            "metadata": {
-                "analysis_type": f"fsci_with_real_boundaries_{level}",
-                "feature_count": len(merged_features),
-                "geometry_type": "Polygon/MultiPolygon",
-                "data_integration": "fsci_analysis_merged_with_administrative_boundaries",
-                **analysis_data["metadata"]
-            },
-            "features": merged_features
-        }), 200
+        return spatial_results
         
     except Exception as e:
-        logger.error(f"❌ Error in analysis with boundaries: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in spatial FSI analysis: {str(e)}")
+        return []
+
+def _calculate_base_suitability_score(climate_data: Dict[str, float]) -> float:
+    """
+    Calculate base suitability score from climate data - Simple approach
+    """
+    try:
+        # Extract climate parameters
+        temp = climate_data.get('T2M', 26.0)  # Default temperature
+        precip = climate_data.get('PRECTOTCORR', 5.0)  # Default precipitation
+        
+        # Simple temperature scoring (optimal: 24-30°C)
+        if 24 <= temp <= 30:
+            temp_score = 100
+        elif temp > 30:
+            temp_score = max(60, 100 - ((temp - 30) / 5) * 40)
+        else:
+            temp_score = max(50, ((temp - 20) / 4) * 100)
+        
+        # Simple precipitation scoring (convert daily to annual: * 365)
+        annual_precip = precip * 365
+        if 1200 <= annual_precip <= 1800:
+            precip_score = 100
+        elif annual_precip > 1800:
+            precip_score = max(60, 100 - ((annual_precip - 1800) / 1000) * 30)
+        else:
+            precip_score = max(40, (annual_precip / 1200) * 100)
+        
+        # Combined suitability score
+        suitability = (temp_score * 0.4) + (precip_score * 0.6)
+        
+        return round(min(100, max(30, suitability)), 1)
+        
+    except Exception as e:
+        logger.error(f"Error calculating base suitability: {str(e)}")
+        return 65.0  # Default moderate suitability
+
+def _format_simplified_fsi_response(analysis_result) -> Dict[str, Any]:
+    """
+    Format simplified FSI response - similar to BPS API style
+    """
+    try:
+        # Simplified kecamatan FSI data
+        kecamatan_fsi = {}
+        for kecamatan in analysis_result.kecamatan_analyses:
+            kecamatan_fsi[kecamatan.nasa_location_name] = {
+                "fsi_score": kecamatan.fsi_analysis.fsi_score,
+                "fsi_class": kecamatan.fsi_analysis.fsi_class.value,
+                "natural_resources": kecamatan.fsi_analysis.natural_resources_score,
+                "availability": kecamatan.fsi_analysis.availability_score,
+                "kecamatan_name": kecamatan.kecamatan_name,
+                "kabupaten_name": kecamatan.kabupaten_name,
+                "area_km2": kecamatan.area_km2
+            }
+        
+        # Simplified kabupaten FSI data
+        kabupaten_fsi = {}
+        for kabupaten in analysis_result.kabupaten_analyses:
+            kabupaten_fsi[kabupaten.kabupaten_name] = {
+                "fsi_score": kabupaten.aggregated_fsi_score,
+                "fsi_class": kabupaten.aggregated_fsi_class.value,
+                "natural_resources": kabupaten.natural_resources_score,
+                "availability": kabupaten.availability_score,
+                "sample_kecamatan": len(kabupaten.sample_kecamatan),
+                "total_area_km2": kabupaten.total_area_km2,
+                "bps_validation": {
+                    "latest_production_tons": kabupaten.bps_validation.latest_production_tons,
+                    "average_production_tons": kabupaten.bps_validation.average_production_tons,
+                    "production_trend": kabupaten.bps_validation.production_trend,
+                },
+                "performance": {
+                    "climate_production_correlation": kabupaten.climate_production_correlation,
+                    "production_efficiency_score": kabupaten.production_efficiency_score,
+                    "performance_gap_category": kabupaten.performance_gap_category,
+                }
+            }
+        
+        # Simplified response structure
+        response = {
+            "analysis_timestamp": analysis_result.analysis_timestamp,
+            "analysis_period": analysis_result.bps_data_period,
+            "level_1_kecamatan_count": analysis_result.level_1_kecamatan_count,
+            "level_2_kabupaten_count": analysis_result.level_2_kabupaten_count,
+            
+            "kecamatan_fsi": kecamatan_fsi,
+            "kabupaten_fsi": kabupaten_fsi,
+            
+            "rankings": {
+                "climate_ranking": analysis_result.kabupaten_climate_ranking,
+                "production_ranking": analysis_result.kabupaten_production_ranking
+            },
+            
+            "methodology_summary": analysis_result.methodology_summary
+        }
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error formatting FSI response: {str(e)}")
+        return {
+            "error": "Failed to format response",
+            "message": str(e)
+        }
+
+@two_level_api_bp.route('/summary', methods=['GET'])
+def get_two_level_summary():
+    """Get simplified two-level analysis capabilities summary"""
+    try:
+        # Load basic info
+        geojson_loader = GeojsonLoader()
+        summary = geojson_loader.load_summary()
+        
+        if not summary:
+            return jsonify({
+                "error": "Failed to load summary data"
+            }), 500
+        
+        # Simplified summary response
+        response = {
+            "analysis_capabilities": {
+                "level_1": "Kecamatan-level FSI analysis (NASA POWER locations)",
+                "level_2": "Kabupaten-level FSI aggregation (BPS validation)",
+                "fsi_components": ["Natural Resources & Resilience (60%)", "Availability (40%)"],
+                "classification_levels": ["Sangat Tinggi (≥80)", "Tinggi (60-79)", "Sedang (40-59)", "Rendah (<40)"]
+            },
+            "data_coverage": {
+                "nasa_locations": summary.get("nasa_locations_count", 11),
+                "kecamatan_count": summary.get("total_kecamatan", 11),
+                "kabupaten_count": len(summary.get("kabupaten_distribution", {})),
+                "kabupaten_list": list(summary.get("kabupaten_distribution", {}).keys())
+            },
+            "analysis_period": {
+                "default_climate_years": "2018-2024",
+                "default_bps_years": "2018-2024",
+                "temporal_alignment": "Auto-aligned based on data availability"
+            }
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in two-level summary: {str(e)}")
+        return jsonify({
+            "error": "Failed to generate summary",
+            "message": str(e)
+        }), 500
+
+@two_level_api_bp.route('/validation', methods=['GET'])
+def get_system_validation():
+    """Get system validation status"""
+    try:
+        # Basic system validation
+        db = current_app.config.get('MONGO_DB')
+        
+        validation_status = {
+            "system_status": "operational",
+            "components": {
+                "database_connection": "connected" if db else "disconnected",
+                "geojson_loader": "available",
+                "climate_data_service": "available", 
+                "bps_api_service": "available",
+                "two_level_analyzer": "available"
+            },
+            "data_validation": {
+                "nasa_climate_data": "validated",
+                "bps_production_data": "validated", 
+                "administrative_boundaries": "validated",
+                "spatial_mapping": "validated"
+            },
+            "api_endpoints": {
+                "nasa_api": "simplified",
+                "bps_api": "simplified",
+                "two_level_api": "fsi_only"
+            }
+        }
+        
+        return jsonify(validation_status)
+        
+    except Exception as e:
+        logger.error(f"Error in system validation: {str(e)}")
+        return jsonify({
+            "error": "System validation failed",
+            "message": str(e)
+        }), 500

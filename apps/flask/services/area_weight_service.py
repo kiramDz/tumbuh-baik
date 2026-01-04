@@ -191,28 +191,28 @@ class AreaWeightService:
             }
         
         return summary
-    
+
     def get_nasa_location_mapping(self) -> Dict[str, Dict[str, Any]]:
         """Get mapping between NASA locations and kecamatan with area weights"""
         if not self.area_weights:
             return {}
         
-        # This maps your NASA location names to kecamatan names with area info
-        nasa_mapping = {}
-        
         # Map based on your GeoJSON nasa_match field
+        # ALIGNED with KecamatanMappingService (Option A: SetiaBakti)
         nasa_location_map = {
             "Indrapuri": "Indrapuri",
             "Montasik": "Montasik", 
             "Darussalam": "Darussalam",
-            "Setia Bakti": "Sampoiniet",  # nasa_match -> NAME_3
+            "Jaya": "Jaya",
+            "Setia Bakti": "SetiaBakti",    # ← FIXED: Changed from "Sampoiniet" to "SetiaBakti"
             "Teunom": "Teunom",
-            "Pidie": "Grong-Grong",      # nasa_match -> NAME_3
-            "Indrajaya": "Delima",       # nasa_match -> NAME_3
+            "Pidie": "Pidie",               # ← FIXED: Changed from "Grong-Grong" to "Pidie"
+            "Indrajaya": "Indrajaya",       # ← FIXED: Changed from "Delima" to "Indrajaya"
             "Lhoksukon": "Lhoksukon",
-            "Juli": "Peudada",           # nasa_match -> NAME_3
-            "Kota Juang": "Jeumpa"       # nasa_match -> NAME_3
+            "Juli": "Juli",                 # ← FIXED: Changed from "Peudada" to "Juli"
+            "Kota Juang": "KotaJuang"       # ← FIXED: Changed from "Jeumpa" to "KotaJuang"
         }
+        nasa_mapping = {}
         
         for nasa_location, kecamatan_name in nasa_location_map.items():
             kecamatan_info = self.kecamatan_info.get(kecamatan_name)
@@ -223,5 +223,6 @@ class AreaWeightService:
                     "area_km2": kecamatan_info.area_km2,
                     "area_weight": kecamatan_info.area_weight
                 }
-        
+            else:
+                self.logger.warning(f"NASA location {nasa_location} maps to non-existent kecamatan: {kecamatan_name}")
         return nasa_mapping

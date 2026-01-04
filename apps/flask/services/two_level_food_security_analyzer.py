@@ -5,25 +5,24 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from services.food_security_analyzer import (
-    FoodSecurityAnalyzer, FoodSecurityAnalysis, 
-    FSCIClass, PCIClass, PSIClass, CRSClass
+    FoodSecurityAnalyzer, FoodSecurityAnalysis, FSIClass
 )
 from services.kecamatan_kabupatan_mapping_service import KecamatanKabupatenMappingService
 from services.bps_api_service import BPSApiService, RiceProductionData
 
 logger = logging.getLogger(__name__)
 
-@dataclass 
+@dataclass
 class KecamatanAnalysis:
-    """Kecamatan-level food security analysis (Level 1)"""
+    """Kecamatan-level food security analysis (Level 1) - FSI Only"""
     nasa_location_name: str
     kecamatan_name: str
     kabupaten_name: str
     area_km2: float
     area_weight: float
-    fsci_analysis: FoodSecurityAnalysis
+    fsi_analysis: FoodSecurityAnalysis 
     analysis_level: str = "kecamatan"
-
+    
 @dataclass
 class KabupatenValidation:
     """Kabupaten-level BPS validation data"""
@@ -35,28 +34,28 @@ class KabupatenValidation:
     production_trend: str
     data_years_available: List[int]
     data_coverage_years: int
+    
 
-@dataclass
+@dataclass 
 class KabupatenAnalysis:
-    """Kabupaten-level aggregated analysis (Level 2)"""
+    """Kabupaten-level aggregated analysis (Level 2) - FSI Only"""
     kabupaten_name: str
     bps_compatible_name: str
     total_area_km2: float
-    constituent_kecamatan: List[str]
+    sample_kecamatan: List[str]
     constituent_nasa_locations: List[str]
     
-    # Aggregated FSCI metrics
-    aggregated_fsci_score: float
-    aggregated_fsci_class: FSCIClass
-    aggregated_pci_score: float
-    aggregated_psi_score: float
-    aggregated_crs_score: float
+    # Simplified FSI metrics only
+    aggregated_fsi_score: float           # ← Updated: single FSI score
+    aggregated_fsi_class: FSIClass        # ← Updated: single FSI class
+    natural_resources_score: float        # ← Updated: component 1
+    availability_score: float             # ← Updated: component 2
     
     # Component analyses
     kecamatan_analyses: List[KecamatanAnalysis]
     bps_validation: KabupatenValidation
     
-    # Validation metrics
+    # Simplified validation metrics
     climate_production_correlation: float
     production_efficiency_score: float
     climate_potential_rank: int
@@ -65,10 +64,10 @@ class KabupatenAnalysis:
     
     validation_notes: str
     analysis_level: str = "kabupaten"
-
+    
 @dataclass
 class TwoLevelAnalysisResult:
-    """Complete two-level analysis result"""
+    """Complete two-level analysis result - Simplified"""
     analysis_timestamp: str
     analysis_period: str
     bps_data_period: str
@@ -81,7 +80,7 @@ class TwoLevelAnalysisResult:
     kecamatan_analyses: List[KecamatanAnalysis]
     kabupaten_analyses: List[KabupatenAnalysis]
     
-    # Cross-level insights
+    # Simplified insights
     cross_level_insights: Dict[str, Any]
     
     # Rankings
@@ -90,11 +89,12 @@ class TwoLevelAnalysisResult:
     
     methodology_summary: str
 
+
 class TwoLevelFoodSecurityAnalyzer:
     """
-    Two-Level Hybrid Food Security Analyzer
-    Level 1: Kecamatan climate-based analysis (NASA POWER locations)
-    Level 2: Kabupaten BPS-validated analysis (Real production data)
+    Simplified Two-Level Food Security Analyzer - FSI Only
+    Level 1: Kecamatan climate-based FSI analysis (NASA POWER locations)
+    Level 2: Kabupaten BPS-validated FSI analysis (Real production data)
     """
     
     def __init__(self):
@@ -108,14 +108,14 @@ class TwoLevelFoodSecurityAnalyzer:
         # Aggregation configuration
         self.aggregation_method = "area_weighted_average"
         
-        self.logger.info("Two-Level Food Security Analyzer initialized with real GeoJSON area weights")
+        self.logger.info("Two-Level Food Security Analyzer initialized (FSI Only)")
     
     def perform_two_level_analysis(self, 
                                   spatial_analysis_results: List[Dict[str, Any]],
                                   bps_start_year: int = 2018,
                                   bps_end_year: int = 2024) -> TwoLevelAnalysisResult:
         """
-        Perform complete two-level food security analysis
+        Perform complete two-level food security analysis - FSI Only
         
         Args:
             spatial_analysis_results: Results from spatial analysis (NASA location level)
@@ -126,7 +126,7 @@ class TwoLevelFoodSecurityAnalyzer:
             Complete TwoLevelAnalysisResult
         """
         try:
-            self.logger.info("Starting two-level food security analysis")
+            self.logger.info("Starting two-level FSI analysis")
             self.logger.info(f"Input: {len(spatial_analysis_results)} NASA location results")
             self.logger.info(f"BPS period: {bps_start_year}-{bps_end_year}")
             
@@ -163,17 +163,17 @@ class TwoLevelFoodSecurityAnalyzer:
                 methodology_summary=self._generate_methodology_summary()
             )
             
-            self.logger.info(f"Two-level analysis complete: {len(kecamatan_analyses)} kecamatan → {len(kabupaten_analyses)} kabupaten")
+            self.logger.info(f"Two-level FSI analysis complete: {len(kecamatan_analyses)} kecamatan → {len(kabupaten_analyses)} kabupaten")
             
             return result
             
         except Exception as e:
-            self.logger.error(f"Error in two-level analysis: {str(e)}")
+            self.logger.error(f"Error in two-level FSI analysis: {str(e)}")
             raise
     
     def _process_level_1_kecamatan_analyses(self, 
                                           spatial_results: List[Dict[str, Any]]) -> List[KecamatanAnalysis]:
-        """Process Level 1: Kecamatan climate-based analyses from NASA locations"""
+        """Process Level 1: Kecamatan climate-based FSI analyses from NASA locations"""
         try:
             kecamatan_analyses = []
             
@@ -188,7 +188,7 @@ class TwoLevelFoodSecurityAnalyzer:
                     continue
                 
                 # Convert spatial result to FoodSecurityAnalysis
-                fsci_analysis = self._convert_spatial_to_fsci_analysis(result)
+                fsi_analysis = self._convert_spatial_to_fsi_analysis(result)
                 
                 # Create KecamatanAnalysis with real mapping data
                 kecamatan_analysis = KecamatanAnalysis(
@@ -197,13 +197,13 @@ class TwoLevelFoodSecurityAnalyzer:
                     kabupaten_name=kecamatan_info.kabupaten_name,
                     area_km2=kecamatan_info.area_km2,
                     area_weight=kecamatan_info.area_weight,
-                    fsci_analysis=fsci_analysis
+                    fsi_analysis=fsi_analysis  # ← Updated: renamed from fsci_analysis
                 )
                 
                 kecamatan_analyses.append(kecamatan_analysis)
                 
                 self.logger.info(f"Level 1: {nasa_location_name} → {kecamatan_info.kecamatan_name} "
-                               f"(FSCI: {fsci_analysis.fsci_score}) [{kecamatan_info.kabupaten_name}]")
+                               f"(FSI: {fsi_analysis.fsi_score}) [{kecamatan_info.kabupaten_name}]")
             
             return kecamatan_analyses
             
@@ -237,7 +237,7 @@ class TwoLevelFoodSecurityAnalyzer:
                         self.logger.error(f"No kabupaten info found for {kabupaten_name}")
                         continue
                     
-                    # Aggregate FSCI scores using real area weights
+                    # Aggregate FSI scores using real area weights
                     aggregated_metrics = self._aggregate_kecamatan_metrics(kabupaten_name, kecamatan_group)
                     
                     # Get BPS validation data
@@ -260,14 +260,14 @@ class TwoLevelFoodSecurityAnalyzer:
                         kabupaten_name=kabupaten_name,
                         bps_compatible_name=kabupaten_info.bps_compatible_name,
                         total_area_km2=kabupaten_info.total_area_km2,
-                        constituent_kecamatan=[k.kecamatan_name for k in kecamatan_group],
+                        sample_kecamatan=[k.kecamatan_name for k in kecamatan_group],
                         constituent_nasa_locations=[k.nasa_location_name for k in kecamatan_group],
                         
-                        aggregated_fsci_score=aggregated_metrics['fsci'],
-                        aggregated_fsci_class=self.kecamatan_analyzer._classify_fsci_score(aggregated_metrics['fsci']),
-                        aggregated_pci_score=aggregated_metrics['pci'],
-                        aggregated_psi_score=aggregated_metrics['psi'],
-                        aggregated_crs_score=aggregated_metrics['crs'],
+                        # Updated FSI metrics only
+                        aggregated_fsi_score=aggregated_metrics['fsi'],
+                        aggregated_fsi_class=self.kecamatan_analyzer._classify_fsi_score(aggregated_metrics['fsi']),
+                        natural_resources_score=aggregated_metrics['natural_resources'],
+                        availability_score=aggregated_metrics['availability'],
                         
                         kecamatan_analyses=kecamatan_group,
                         bps_validation=bps_validation,
@@ -277,7 +277,7 @@ class TwoLevelFoodSecurityAnalyzer:
                         climate_potential_rank=0,  # Will be set in ranking phase
                         actual_production_rank=0,  # Will be set in ranking phase
                         performance_gap_category=self._determine_performance_gap_category(
-                            aggregated_metrics['fsci'], efficiency_score
+                            aggregated_metrics['fsi'], efficiency_score
                         ),
                         
                         validation_notes=self._generate_validation_notes(
@@ -288,7 +288,7 @@ class TwoLevelFoodSecurityAnalyzer:
                     kabupaten_analyses.append(kabupaten_analysis)
                     
                     self.logger.info(f"Level 2 complete for {kabupaten_name}: "
-                                   f"FSCI={aggregated_metrics['fsci']:.1f}, "
+                                   f"FSI={aggregated_metrics['fsi']:.1f}, "
                                    f"Production={bps_validation.latest_production_tons:.0f}t, "
                                    f"Correlation={correlation:.3f}")
                     
@@ -305,43 +305,49 @@ class TwoLevelFoodSecurityAnalyzer:
     def _aggregate_kecamatan_metrics(self, 
                                    kabupaten_name: str, 
                                    kecamatan_analyses: List[KecamatanAnalysis]) -> Dict[str, float]:
-        """Aggregate kecamatan FSCI scores to kabupaten level using real area weights"""
+        """Aggregate kecamatan FSI scores to kabupaten level using real area weights"""
         try:
-            # Use area-weighted aggregation
-            weighted_fsci = 0.0
-            weighted_pci = 0.0
-            weighted_psi = 0.0
-            weighted_crs = 0.0
+            # Use area-weighted aggregation for FSI only
+            weighted_fsi = 0.0
+            weighted_natural_resources = 0.0
+            weighted_availability = 0.0
             total_weight = 0.0
             
             for analysis in kecamatan_analyses:
                 weight = analysis.area_weight
                 
-                weighted_fsci += analysis.fsci_analysis.fsci_score * weight
-                weighted_pci += analysis.fsci_analysis.pci.pci_score * weight
-                weighted_psi += analysis.fsci_analysis.psi.psi_score * weight
-                weighted_crs += analysis.fsci_analysis.crs.crs_score * weight
+                # Updated to use FSI analysis structure
+                weighted_fsi += analysis.fsi_analysis.fsi_score * weight
+                weighted_natural_resources += analysis.fsi_analysis.natural_resources_score * weight
+                weighted_availability += analysis.fsi_analysis.availability_score * weight
                 total_weight += weight
             
             if total_weight == 0:
                 self.logger.warning(f"Zero total weight for {kabupaten_name}")
-                return {'fsci': 65.0, 'pci': 70.0, 'psi': 65.0, 'crs': 60.0}
+                return {
+                    'fsi': 65.0, 
+                    'natural_resources': 70.0, 
+                    'availability': 60.0
+                }
             
             aggregated_metrics = {
-                'fsci': round(weighted_fsci / total_weight, 2),
-                'pci': round(weighted_pci / total_weight, 2),
-                'psi': round(weighted_psi / total_weight, 2),
-                'crs': round(weighted_crs / total_weight, 2)
+                'fsi': round(weighted_fsi / total_weight, 2),
+                'natural_resources': round(weighted_natural_resources / total_weight, 2),
+                'availability': round(weighted_availability / total_weight, 2)
             }
             
-            self.logger.info(f"Aggregated metrics for {kabupaten_name}: "
-                           f"FSCI={aggregated_metrics['fsci']}, weights_sum={total_weight:.3f}")
+            self.logger.info(f"Aggregated FSI metrics for {kabupaten_name}: "
+                           f"FSI={aggregated_metrics['fsi']}, weights_sum={total_weight:.3f}")
             
             return aggregated_metrics
                 
         except Exception as e:
-            self.logger.error(f"Error aggregating metrics for {kabupaten_name}: {str(e)}")
-            return {'fsci': 65.0, 'pci': 70.0, 'psi': 65.0, 'crs': 60.0}
+            self.logger.error(f"Error aggregating FSI metrics for {kabupaten_name}: {str(e)}")
+            return {
+                'fsi': 65.0, 
+                'natural_resources': 70.0, 
+                'availability': 60.0
+            }
     
     def _fetch_bps_validation_data(self, 
                                   bps_kabupaten_name: str,
@@ -361,7 +367,7 @@ class TwoLevelFoodSecurityAnalyzer:
                 return self._create_default_bps_validation(bps_kabupaten_name)
             
             # Calculate metrics
-            productions = [record.produksi_padi_ton for record in historical_data.values()]
+            productions = [record.padi_ton for record in historical_data.values()]  # ← Updated: use padi_ton
             latest_production = productions[-1] if productions else 0.0
             average_production = np.mean(productions) if productions else 0.0
             
@@ -409,8 +415,8 @@ class TwoLevelFoodSecurityAnalyzer:
                                                 bps_validation: KabupatenValidation) -> float:
         """Calculate correlation between climate potential and actual production"""
         try:
-            # Normalize climate score (FSCI) to production scale
-            fsci_score = aggregated_metrics['fsci']
+            # Normalize climate score (FSI) to production scale
+            fsi_score = aggregated_metrics['fsi']  # ← Updated: use FSI score
             
             # Normalize production to expected range (based on Aceh rice production knowledge)
             # Max expected production per kabupaten ~ 400,000 tons
@@ -418,7 +424,7 @@ class TwoLevelFoodSecurityAnalyzer:
             normalized_production = min(100, (bps_validation.latest_production_tons / max_expected) * 100)
             
             # Simple correlation calculation (can be enhanced)
-            score_diff = abs(fsci_score - normalized_production)
+            score_diff = abs(fsi_score - normalized_production)
             correlation = max(0, (100 - score_diff) / 100)
             
             return round(correlation, 3)
@@ -432,12 +438,12 @@ class TwoLevelFoodSecurityAnalyzer:
                                              bps_validation: KabupatenValidation) -> float:
         """Calculate production efficiency relative to climate potential"""
         try:
-            fsci_score = aggregated_metrics['fsci']
+            fsi_score = aggregated_metrics['fsi']  # ← Updated: use FSI score
             actual_production = bps_validation.latest_production_tons
             
-            # Expected production based on FSCI (rough regional benchmark)
-            # FSCI 80 = 350,000 tons, FSCI 60 = 200,000 tons (linear scaling)
-            expected_production = ((fsci_score - 50) / 30) * 200000 + 150000
+            # Expected production based on FSI (rough regional benchmark)
+            # FSI 80 = 350,000 tons, FSI 60 = 200,000 tons (linear scaling)
+            expected_production = ((fsi_score - 50) / 30) * 200000 + 150000
             expected_production = max(100000, expected_production)  # Minimum threshold
             
             # Efficiency calculation
@@ -449,9 +455,9 @@ class TwoLevelFoodSecurityAnalyzer:
             self.logger.error(f"Error calculating efficiency: {str(e)}")
             return 75.0
     
-    def _determine_performance_gap_category(self, fsci_score: float, efficiency_score: float) -> str:
+    def _determine_performance_gap_category(self, fsi_score: float, efficiency_score: float) -> str:
         """Determine performance gap category"""
-        gap = efficiency_score - fsci_score
+        gap = efficiency_score - fsi_score
         
         if gap > 15:
             return "overperforming"
@@ -462,8 +468,8 @@ class TwoLevelFoodSecurityAnalyzer:
     
     def _generate_rankings(self, kabupaten_analyses: List[KabupatenAnalysis]) -> tuple:
         """Generate climate and production rankings"""
-        # Climate potential ranking
-        climate_sorted = sorted(kabupaten_analyses, key=lambda x: x.aggregated_fsci_score, reverse=True)
+        # Climate potential ranking (FSI)
+        climate_sorted = sorted(kabupaten_analyses, key=lambda x: x.aggregated_fsi_score, reverse=True)
         climate_ranking = []
         
         for rank, analysis in enumerate(climate_sorted, 1):
@@ -471,9 +477,9 @@ class TwoLevelFoodSecurityAnalyzer:
             climate_ranking.append({
                 "rank": rank,
                 "kabupaten_name": analysis.kabupaten_name,
-                "fsci_score": analysis.aggregated_fsci_score,
-                "fsci_class": analysis.aggregated_fsci_class.value,
-                "constituent_kecamatan": len(analysis.constituent_kecamatan)
+                "fsi_score": analysis.aggregated_fsi_score,        # ← Updated: FSI score
+                "fsi_class": analysis.aggregated_fsi_class.value,  # ← Updated: FSI class
+                "sample_kecamatan": len(analysis.sample_kecamatan)
             })
         
         # Production ranking
@@ -488,63 +494,30 @@ class TwoLevelFoodSecurityAnalyzer:
                 "kabupaten_name": analysis.kabupaten_name,
                 "latest_production_tons": analysis.bps_validation.latest_production_tons,
                 "production_trend": analysis.bps_validation.production_trend,
-                "data_years": analysis.bps_validation.data_coverage_years
             })
         
         return climate_ranking, production_ranking
     
     # Helper methods...
-    def _convert_spatial_to_fsci_analysis(self, spatial_result: Dict[str, Any]) -> FoodSecurityAnalysis:
+    def _convert_spatial_to_fsi_analysis(self, spatial_result: Dict[str, Any]) -> FoodSecurityAnalysis:
         """Convert spatial analysis result to FoodSecurityAnalysis object"""
-        # Implementation similar to previous version but updated for your data structure
-        from services.food_security_analyzer import (
-            ProductionCapacityIndex, ProductionStabilityIndex, ClimateResilienceScore
-        )
-        
         district = spatial_result.get('district', 'Unknown')
-        fsci_score = spatial_result.get('fsci_score', 65.0)
-        pci_score = spatial_result.get('pci_score', 75.0)
-        psi_score = spatial_result.get('psi_score', 70.0)
-        crs_score = spatial_result.get('crs_score', 68.0)
         
-        # Create simplified component objects
-        pci = ProductionCapacityIndex(
-            climate_suitability=pci_score * 0.8,
-            land_quality_factor=75.0,
-            water_availability_factor=70.0,
-            risk_adjustment_factor=25.0,
-            pci_score=pci_score,
-            pci_class=self.kecamatan_analyzer._classify_pci_score(pci_score)
-        )
+        # Extract FSI-related scores from spatial result
+        # You may need to adjust these field names based on your actual spatial results
+        fsi_score = spatial_result.get('fsi_score', 
+                    spatial_result.get('suitability_score', 65.0))  # fallback to suitability_score
         
-        psi = ProductionStabilityIndex(
-            temporal_stability=psi_score * 0.9,
-            climate_variability=30.0,
-            trend_consistency=75.0,
-            anomaly_resilience=70.0,
-            psi_score=psi_score,
-            psi_class=self.kecamatan_analyzer._classify_psi_score(psi_score)
-        )
-        
-        crs = ClimateResilienceScore(
-            temperature_resilience=crs_score * 0.95,
-            precipitation_resilience=crs_score * 1.05,
-            extreme_weather_resilience=crs_score,
-            adaptation_capacity=70.0,
-            crs_score=crs_score,
-            crs_class=self.kecamatan_analyzer._classify_crs_score(crs_score)
-        )
+        natural_resources_score = spatial_result.get('natural_resources_score', fsi_score * 0.9)
+        availability_score = spatial_result.get('availability_score', fsi_score * 1.1)
         
         return FoodSecurityAnalysis(
             district_name=district,
             district_code=spatial_result.get('district_code', 'Unknown'),
-            pci=pci,
-            psi=psi,
-            crs=crs,
-            fsci_score=fsci_score,
-            fsci_class=self.kecamatan_analyzer._classify_fsci_score(fsci_score),
-            investment_recommendation=spatial_result.get('investment_recommendation', 'Further evaluation needed'),
-            priority_ranking=spatial_result.get('priority_ranking', 0),
+            fsi_score=fsi_score,
+            fsi_class=self.kecamatan_analyzer._classify_fsi_score(fsi_score),
+            natural_resources_score=natural_resources_score,
+            availability_score=availability_score,
             analysis_timestamp=datetime.now().isoformat()
         )
     
@@ -568,7 +541,7 @@ class TwoLevelFoodSecurityAnalyzer:
         """Generate validation notes"""
         notes = []
         
-        fsci_score = aggregated_metrics['fsci']
+        fsi_score = aggregated_metrics['fsi']
         
         # Correlation assessment
         if correlation > 0.7:
@@ -597,13 +570,12 @@ class TwoLevelFoodSecurityAnalyzer:
     def _generate_cross_level_insights(self, 
                                      kecamatan_analyses: List[KecamatanAnalysis],
                                      kabupaten_analyses: List[KabupatenAnalysis]) -> Dict[str, Any]:
-        """Generate comprehensive cross-level insights"""
+        """Generate simplified cross-level insights"""
         try:
             insights = {
                 "methodology_validation": {},
                 "climate_production_alignment": {},
-                "spatial_variability": {},
-                "policy_recommendations": {}
+                "spatial_variability": {}
             }
             
             # Methodology validation
@@ -627,16 +599,14 @@ class TwoLevelFoodSecurityAnalyzer:
             
             # Spatial variability within kabupaten
             for analysis in kabupaten_analyses:
-                kecamatan_fsci_scores = [k.fsci_analysis.fsci_score for k in analysis.kecamatan_analyses]
-                
-                if len(kecamatan_fsci_scores) > 1:
-                    fsci_variance = np.var(kecamatan_fsci_scores)
-                    fsci_range = max(kecamatan_fsci_scores) - min(kecamatan_fsci_scores)
+                kecamatan_fsi_scores = [k.fsi_analysis.fsi_score for k in analysis.kecamatan_analyses]
+                if len(kecamatan_fsi_scores) > 1:
+                    fsi_variance = np.var(kecamatan_fsi_scores)
                     
                     insights["spatial_variability"][analysis.kabupaten_name] = {
-                        "kecamatan_fsci_range": f"{min(kecamatan_fsci_scores):.1f}-{max(kecamatan_fsci_scores):.1f}",
-                        "fsci_variance": round(fsci_variance, 2),
-                        "internal_variability": "high" if fsci_variance > 50 else "moderate" if fsci_variance > 15 else "low",
+                        "kecamatan_fsi_range": f"{min(kecamatan_fsi_scores):.1f}-{max(kecamatan_fsi_scores):.1f}",
+                        "fsi_variance": round(fsi_variance, 2),
+                        "internal_variability": "high" if fsi_variance > 50 else "moderate" if fsi_variance > 15 else "low",
                         "largest_contributor": max(analysis.kecamatan_analyses, key=lambda x: x.area_weight).kecamatan_name
                     }
             
@@ -648,8 +618,10 @@ class TwoLevelFoodSecurityAnalyzer:
     
     def _generate_methodology_summary(self) -> str:
         """Generate methodology summary for reporting"""
-        return ("Two-level hybrid food security analysis: (1) Kecamatan-level climate suitability analysis "
-                "using NASA POWER data at 10 locations mapped to administrative boundaries via GeoJSON, "
+        return ("Two-level FSI analysis: (1) Kecamatan-level Food Security Index (FSI) analysis "
+                "using NASA POWER data at 11 locations mapped to administrative boundaries via GeoJSON, "
                 "(2) Area-weighted aggregation to kabupaten level with BPS rice production validation (2018-2024). "
+                "FSI components: Natural Resources & Resilience (60%) + Availability (40%). "
                 "Climate potential assessed at micro-scale, validated against macro-scale actual production data "
                 "using Indonesian administrative hierarchy.")
+    

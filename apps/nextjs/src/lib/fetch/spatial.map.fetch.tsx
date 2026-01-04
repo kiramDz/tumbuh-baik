@@ -3,15 +3,14 @@ import axios from "axios";
 export interface SpatialAnalysisResponse {
   type: "FeatureCollection";
   metadata: {
+    analysis_type: "food_security_index_spatial_analysis";
     analysis_date: string;
     parameters_used: {
       districts: string;
-      fsci_parameters: string;
       analysis_period: {
         start_year: number;
         end_year: number;
       };
-      season_filter: string;
       aggregation_method: string;
       include_geometry: boolean;
       output_format: string;
@@ -19,23 +18,24 @@ export interface SpatialAnalysisResponse {
     total_districts: number;
     analyzed_districts: number;
     data_source: string;
-    processing_backend: string;
-    fsci_methodology: string;
+    analysis_method: string;
+    fsi_components: {
+      natural_resources: string;
+      availability: string;
+    };
+    summary_statistics: {
+      average_scores: {
+        fsi_score: number;
+        natural_resources_score: number;
+        availability_score: number;
+      };
+      fsi_distribution: Record<string, number>;
+    };
+    top_performing_districts: TopPerformingDistrict[];
+    data_period: string;
+    temporal_coverage: string;
   };
   features: SpatialFeature[];
-}
-
-export interface SpatialAnalysisParams {
-  districts?: string;
-  year_start?: number;
-  year_end?: number;
-  season?: "wet" | "dry" | "all";
-  aggregation?: "mean" | "median" | "percentile";
-  analysis_type?: "two-level" | "food-security";
-  include_bps_data?: boolean;
-  bps_start_year?: number;
-  bps_end_year?: number;
-  fsci_components?: "fsci" | "pci" | "psi" | "crs" | "all";
 }
 
 export interface SpatialFeature {
@@ -45,7 +45,6 @@ export interface SpatialFeature {
     type: "MultiPolygon";
     coordinates: number[][][];
   };
-  bbox: number[];
   properties: {
     // Administrative Data
     GID_3: string;
@@ -54,20 +53,29 @@ export interface SpatialFeature {
     NAME_3: string;
     TYPE_3: string;
 
-    // Legacy Climate Data (for backward compatibility)
+    // FSI Core Properties
+    fsi_score: number;
+    fsi_class: "Sangat Tinggi" | "Tinggi" | "Sedang" | "Rendah" | "No Data";
+    natural_resources_score: number;
+    availability_score: number;
+
+    // Suitability (for backward compatibility)
+    suitability_score: number;
+    classification: string;
+    confidence_level: string;
+
+    // Component Scores
+    temperature_score: number;
+    precipitation_score: number;
+    humidity_score: number;
+
+    // Climate Averages
     avg_temperature: number;
     avg_precipitation: number;
     avg_humidity: number;
 
-    //  ADD: Basic FSCI support in base SpatialFeature
-    fsci_score?: number;
-    fsci_class?:
-      | "Lumbung Pangan Primer"
-      | "Lumbung Pangan Sekunder"
-      | "Lumbung Pangan Tersier";
-    pci_score?: number;
-    psi_score?: number;
-    crs_score?: number;
+    // Risk Assessment
+    overall_risk: string;
 
     // Location Data
     nasa_lat: number;
@@ -75,17 +83,54 @@ export interface SpatialFeature {
     centroid_lat: number;
     centroid_lng: number;
     nasa_match: string;
+
+    // Analysis Metadata
+    analysis_timestamp: string;
   };
 }
 
-export interface TwoLevelAnalysisParams {
+export interface TopPerformingDistrict {
+  district: string;
+  fsi_score: number;
+  fsi_class: string;
+  natural_resources_score: number;
+  availability_score: number;
+  ranking: number;
+}
+
+export interface FSIAnalysisParams {
+  // Geographic scope
+  districts?: string;
+
+  // Time periods
   year_start?: number;
   year_end?: number;
   bps_start_year?: number;
   bps_end_year?: number;
+
+  // Analysis options
   season?: "wet" | "dry" | "all";
   aggregation?: "mean" | "median" | "percentile";
-  districts?: string;
+
+  // Analysis levels
+  analysis_level?: "kecamatan" | "kabupaten" | "both";
+  include_bps_data?: boolean;
+}
+
+export interface SpatialAnalysisParams
+  extends Omit<
+    FSIAnalysisParams,
+    "aggregation" | "bps_start_year" | "bps_end_year" | "season"
+  > {
+  aggregation?: "mean" | "median" | "max" | "min"; // Old enum
+}
+
+/**
+ * @deprecated Use FSIAnalysisParams instead
+ */
+export interface TwoLevelAnalysisParams
+  extends Omit<FSIAnalysisParams, "analysis_level" | "include_bps_data"> {
+  // Same as FSIAnalysisParams but without analysis_level and include_bps_data
 }
 
 export interface TwoLevelAnalysisResponse {
@@ -119,7 +164,6 @@ export interface TwoLevelAnalysisResponse {
     climate_potential_ranking: ClimateRanking[];
     actual_production_ranking: ProductionRanking[];
   };
-  recommendations: PolicyRecommendation[];
   summary_statistics: SummaryStatistics;
   temporal_alignment: TemporalAlignment;
 }
@@ -130,7 +174,6 @@ export interface FoodSecurityAnalysisParams {
   year_end?: number;
   season?: "wet" | "dry" | "all";
   aggregation?: "mean" | "median" | "percentile";
-  include_recommendations?: boolean;
   analysis_level?: "kecamatan" | "kabupaten" | "both";
   include_bps_data?: boolean;
   bps_start_year?: number;
@@ -141,15 +184,10 @@ export interface FoodSecurityResponse {
   type: "FeatureCollection";
   metadata: SpatialAnalysisResponse["metadata"] & {
     food_security_analysis: {
-      fsci_summary: {
-        average_fsci: number;
+      fsi_summary: {
+        average_fsi: number;
         classification_distribution: Record<string, number>;
         high_potential_districts: number;
-      };
-      investment_priorities: {
-        high_priority: string[];
-        medium_priority: string[];
-        low_priority: string[];
       };
     };
     administrative_mapping: {
@@ -164,24 +202,18 @@ export interface FoodSecurityResponse {
 
 export interface FoodSecurityFeature extends SpatialFeature {
   properties: SpatialFeature["properties"] & {
-    // FSCI Components
-    fsci_score: number;
-    fsci_class:
+    fsi_score: number;
+    fsi_class:
       | "Lumbung Pangan Primer"
       | "Lumbung Pangan Sekunder"
       | "Lumbung Pangan Tersier";
-    pci_score: number;
-    psi_score: number;
-    crs_score: number;
+    natural_resources_score: number;
+    availability_score: number;
 
     kabupaten_name: string;
     kecamatan_name: string;
     area_km2: number;
     area_weight: number;
-
-    // Investment Recommendations
-    investment_recommendation: string;
-    priority_level: "high" | "medium" | "low";
 
     // BPS Integration (optional)
     bps_compatible_name?: string;
@@ -193,7 +225,7 @@ export interface FoodSecurityFeature extends SpatialFeature {
 
 export interface ScatterPlotPoint {
   kabupaten_name: string;
-  fsci_score: number;
+  fsi_score: number;
   production_tons: number;
   area_km2: number;
   efficiency_score: number;
@@ -204,14 +236,12 @@ export interface ScatterPlotPoint {
 }
 
 export interface CorrelationMatrix {
-  fsci_vs_production: number;
-  pci_vs_production: number;
-  psi_vs_production: number;
-  crs_vs_production: number;
+  fsi_vs_production: number;
+  natural_resources_vs_production: number;
+  availability_vs_production: number;
+
   climate_components_correlation: {
-    pci_psi: number;
-    pci_crs: number;
-    psi_crs: number;
+    natural_resources_availability: number;
   };
   production_metrics_correlation: {
     latest_vs_average: number;
@@ -277,31 +307,13 @@ export interface KecamatanAnalysis {
   area_km2: number;
   area_weight: number;
 
-  // ✅ NEW: Direct FSCI properties (flattened from backend response)
-  fsci_score: number; // Direct access, not nested
-  pci_score: number; // Direct access, not nested
-  psi_score: number; // Direct access, not nested
-  crs_score: number; // Direct access, not nested
-  fsci_class: string; // FSCI classification
+  // FSI Properties
+  fsi_score: number;
+  fsi_class: string;
+  natural_resources_score: number;
+  availability_score: number;
 
-  investment_recommendation: string;
-
-  // ✅ DEPRECATED: Keep for backward compatibility, but mark as optional
-  fsci_analysis?: {
-    fsci_score: number;
-    fsci_class: string;
-    pci: {
-      pci_score: number;
-    };
-    psi: {
-      psi_score: number;
-    };
-    crs: {
-      crs_score: number;
-    };
-  };
-
-  // ✅ NEW: Additional properties from boundaries API response
+  // Location properties
   nasa_lat?: number;
   nasa_lng?: number;
   nasa_match?: string;
@@ -321,12 +333,11 @@ export interface KabupatenAnalysis {
   constituent_kecamatan: string[];
   constituent_nasa_locations: string[];
 
-  // Aggregated Climate Metrics
-  aggregated_fsci_score: number;
-  aggregated_fsci_class: string;
-  aggregated_pci_score: number;
-  aggregated_psi_score: number;
-  aggregated_crs_score: number;
+  // Aggregated FSI Metrics
+  aggregated_fsi_score: number;
+  aggregated_fsi_class: string;
+  aggregated_natural_resources_score: number;
+  aggregated_availability_score: number;
 
   // BPS Production Data
   latest_production_tons: number;
@@ -347,8 +358,8 @@ export interface KabupatenSummary {
   kabupaten_name: string;
   bps_compatible_name: string;
   climate_summary: {
-    fsci_score: number;
-    fsci_class: string;
+    fsi_score: number;
+    fsi_class: string;
     climate_rank: number;
   };
   production_summary: {
@@ -420,9 +431,9 @@ export interface CrossLevelInsights {
   spatial_variability: Record<
     string,
     {
-      fsci_variance: number;
+      fsi_variance: number;
       internal_variability: string;
-      kecamatan_fsci_range: string;
+      kecamatan_fsi_range: string;
       largest_contributor: string;
     }
   >;
@@ -431,21 +442,13 @@ export interface CrossLevelInsights {
     sample_size: string;
     validation_strength: "strong" | "moderate" | "weak";
   };
-  policy_recommendations: Record<string, any>;
-}
-
-export interface PolicyRecommendation {
-  category: string;
-  target: string[];
-  recommendation: string;
-  rationale: string;
 }
 
 export interface ClimateRanking {
   rank: number;
   kabupaten_name: string;
-  fsci_score: number;
-  fsci_class: string;
+  fsi_score: number;
+  fsi_class: string;
   constituent_kecamatan: number;
 }
 
@@ -459,7 +462,7 @@ export interface ProductionRanking {
 
 export interface SummaryStatistics {
   total_production_tons: number;
-  average_fsci_score: number;
+  average_fsi_score: number;
   high_potential_kabupaten: number;
   underperforming_kabupaten: number;
   average_climate_production_correlation: number;
@@ -482,6 +485,69 @@ const getFlaskBaseUrl = () => {
   return process.env.NEXT_PUBLIC_FLASK_URL || "http://localhost:5001";
 };
 
+export const getSpatialFSIAnalysis = async (
+  params: FSIAnalysisParams = {} //
+): Promise<SpatialAnalysisResponse> => {
+  try {
+    const {
+      districts = "all",
+      year_start = 2018,
+      year_end = 2024,
+      aggregation = "mean",
+    } = params;
+
+    // Convert new enum values to backend-compatible values
+    const backendAggregation =
+      aggregation === "percentile" ? "mean" : aggregation;
+
+    const queryParams = new URLSearchParams({
+      districts,
+      year_start: year_start.toString(),
+      year_end: year_end.toString(),
+      aggregation: backendAggregation,
+    });
+
+    console.log("🍚 Fetching FSI spatial analysis...");
+
+    const response = await axios.get(
+      `${getFlaskBaseUrl()}/api/v1/spatial-map?${queryParams}`,
+      {
+        timeout: 90000,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log(" FSI spatial analysis completed:", {
+      features_count: response.data.features.length,
+      avg_fsi:
+        response.data.metadata.summary_statistics.average_scores.fsi_score,
+      analyzed_districts: response.data.metadata.analyzed_districts,
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ FSI spatial analysis fetch error:", error);
+
+    if (error.code === "ECONNABORTED") {
+      throw new Error(
+        "FSI analysis timeout - try with smaller date range or fewer districts"
+      );
+    }
+
+    if (error.code === "ECONNREFUSED") {
+      throw new Error("Flask backend service unavailable");
+    }
+
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+
+    throw new Error("Failed to fetch FSI spatial analysis");
+  }
+};
+
 export const getSpatialDistricts = async () => {
   try {
     const response = await axios.get(
@@ -494,26 +560,22 @@ export const getSpatialDistricts = async () => {
       }
     );
 
-    // District data with food security context ONLY
     const enhancedDistricts = {
-      districts: response.data.districts || response.data,
+      districts: response.data.data?.districts || response.data.districts || [],
       metadata: {
-        total_districts:
-          response.data.total_districts || response.data.districts?.length || 0,
-        analysis_capability: "FSCI Food Security Analysis",
-        supported_analysis_types: ["food-security", "two-level"],
-        bps_compatible_count: response.data.bps_compatible_count || "Unknown",
-        last_updated: response.data.last_updated || new Date().toISOString(),
+        total_districts: response.data.total_districts || 0,
+        analysis_capability: "FSI Food Security Analysis",
+        last_updated: new Date().toISOString(),
       },
     };
 
     return enhancedDistricts;
   } catch (error: any) {
-    console.error("❌ Food security districts fetch error:", error);
+    console.error("❌ FSI districts fetch error:", error);
     if (error.response?.data?.message) {
       throw new Error(error.response.data.message);
     }
-    throw new Error("Failed to fetch districts for food security analysis");
+    throw new Error("Failed to fetch districts for FSI analysis");
   }
 };
 
@@ -529,40 +591,20 @@ export const getSpatialParameters = async () => {
       }
     );
 
-    // Transform response to focus ONLY on FSCI parameters
-    const fsciParameters = {
-      analysis_types: [
+    // Simplified FSI parameters
+    const fsiParameters = {
+      fsi_components: [
         {
-          value: "food-security",
-          label: "Food Security Index (FSCI)",
-          description: "Comprehensive FSCI with PCI/PSI/CRS components",
+          value: "natural_resources",
+          label: "Natural Resources",
+          description: "Climate sustainability and resilience (60%)",
+          weight: 0.6,
         },
         {
-          value: "two-level",
-          label: "Two-Level Analysis",
-          description: "Climate potential vs BPS production validation",
-        },
-      ],
-      fsci_components: [
-        {
-          value: "fsci",
-          label: "Complete FSCI",
-          description: "Production Capacity + Stability + Climate Risk",
-        },
-        {
-          value: "pci",
-          label: "Production Capacity Index",
-          description: "Climate suitability for food crop production",
-        },
-        {
-          value: "psi",
-          label: "Production Stability Index",
-          description: "Climate consistency and reliability",
-        },
-        {
-          value: "crs",
-          label: "Climate Risk Score",
-          description: "Climate variability and extreme weather risk",
+          value: "availability",
+          label: "Availability",
+          description: "Food supply adequacy proxy (40%)",
+          weight: 0.4,
         },
       ],
       aggregation_methods: [
@@ -577,72 +619,79 @@ export const getSpatialParameters = async () => {
           description: "Median aggregation (robust to outliers)",
         },
         {
-          value: "percentile",
-          label: "Percentile",
-          description: "75th percentile aggregation",
+          value: "max",
+          label: "Maximum",
+          description: "Maximum values",
+        },
+        {
+          value: "min",
+          label: "Minimum",
+          description: "Minimum values",
         },
       ],
-      seasonal_options: [
-        { value: "all", label: "Annual", description: "Full year analysis" },
-        { value: "wet", label: "Wet Season", description: "November - April" },
-        { value: "dry", label: "Dry Season", description: "May - October" },
+      fsi_classifications: [
+        {
+          value: "Sangat Tinggi",
+          label: "Very High",
+          range: "80-100",
+          color: "#22c55e",
+        },
+        { value: "Tinggi", label: "High", range: "60-79", color: "#84cc16" },
+        { value: "Sedang", label: "Medium", range: "40-59", color: "#f59e0b" },
+        { value: "Rendah", label: "Low", range: "0-39", color: "#ef4444" },
       ],
     };
 
-    return fsciParameters;
+    return fsiParameters;
   } catch (error: any) {
-    console.error("❌ FSCI parameters fetch error:", error);
+    console.error("❌ FSI parameters fetch error:", error);
     if (error.response?.data?.message) {
       throw new Error(error.response.data.message);
     }
-    throw new Error("Failed to fetch food security parameters");
+    throw new Error("Failed to fetch FSI parameters");
   }
 };
 
-export const exportFoodSecurityAnalysisCsv = async (
-  analysisData: FoodSecurityResponse,
+export const exportFSIAnalysisCsv = async (
+  analysisData: SpatialAnalysisResponse,
   filename?: string
 ) => {
   try {
     const csvData = analysisData.features.map((feature) => ({
       // Administrative Information
-      kecamatan_name:
-        feature.properties.kecamatan_name || feature.properties.NAME_3,
-      kabupaten_name:
-        feature.properties.kabupaten_name || feature.properties.NAME_2,
+      kecamatan_name: feature.properties.NAME_3,
+      kabupaten_name: feature.properties.NAME_2,
       province: feature.properties.NAME_1,
 
-      // Food Security Index Components
-      fsci_score: feature.properties.fsci_score,
-      fsci_classification: feature.properties.fsci_class,
-      pci_score: feature.properties.pci_score,
-      psi_score: feature.properties.psi_score,
-      crs_score: feature.properties.crs_score,
+      // FSI Components
+      fsi_score: feature.properties.fsi_score,
+      fsi_classification: feature.properties.fsi_class,
+      natural_resources_score: feature.properties.natural_resources_score,
+      availability_score: feature.properties.availability_score,
 
-      // Investment and Priority
-      priority_level: feature.properties.priority_level,
-      investment_recommendation: feature.properties.investment_recommendation,
+      // Climate Suitability (legacy)
+      suitability_score: feature.properties.suitability_score,
+      classification: feature.properties.classification,
+      confidence_level: feature.properties.confidence_level,
 
-      // BPS Integration (if available)
-      latest_production_tons:
-        feature.properties.latest_production_tons || "N/A",
-      production_efficiency_score:
-        feature.properties.production_efficiency_score || "N/A",
-      climate_production_correlation:
-        feature.properties.climate_production_correlation || "N/A",
+      // Component Scores
+      temperature_score: feature.properties.temperature_score,
+      precipitation_score: feature.properties.precipitation_score,
+      humidity_score: feature.properties.humidity_score,
 
-      // Geographic Information
-      area_km2: feature.properties.area_km2,
-      area_weight: feature.properties.area_weight,
-
-      // Legacy Climate Data (for reference)
+      // Climate Data
       avg_temperature: feature.properties.avg_temperature,
       avg_precipitation: feature.properties.avg_precipitation,
       avg_humidity: feature.properties.avg_humidity,
 
-      // Coordinates
+      // Risk & Location
+      overall_risk: feature.properties.overall_risk,
       nasa_lat: feature.properties.nasa_lat,
       nasa_lng: feature.properties.nasa_lng,
+      nasa_match: feature.properties.nasa_match,
+
+      // Analysis Info
+      analysis_timestamp: feature.properties.analysis_timestamp,
     }));
 
     const headers = Object.keys(csvData[0]);
@@ -666,7 +715,7 @@ export const exportFoodSecurityAnalysisCsv = async (
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
 
-    const defaultFilename = `food_security_analysis_${
+    const defaultFilename = `fsi_spatial_analysis_${
       new Date().toISOString().split("T")[0]
     }.csv`;
 
@@ -680,11 +729,11 @@ export const exportFoodSecurityAnalysisCsv = async (
 
     return {
       success: true,
-      message: `Successfully exported ${csvData.length} kecamatan with FSCI analysis`,
+      message: `Successfully exported ${csvData.length} districts with FSI analysis`,
       filename: filename || defaultFilename,
     };
   } catch (error) {
-    console.error("❌ Error exporting food security analysis CSV:", error);
+    console.error("❌ Error exporting FSI analysis CSV:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Export failed",
@@ -693,7 +742,7 @@ export const exportFoodSecurityAnalysisCsv = async (
 };
 
 export const getTwoLevelAnalysis = async (
-  params: TwoLevelAnalysisParams = {}
+  params: FSIAnalysisParams = {} //  Updated parameter type
 ): Promise<TwoLevelAnalysisResponse> => {
   const maxRetries = 3;
   let currentRetry = 0;
@@ -705,7 +754,6 @@ export const getTwoLevelAnalysis = async (
         year_end = 2024,
         bps_start_year = 2018,
         bps_end_year = 2024,
-        season = "all",
         aggregation = "mean",
         districts = "all",
       } = params;
@@ -715,7 +763,6 @@ export const getTwoLevelAnalysis = async (
         year_end: year_end.toString(),
         bps_start_year: bps_start_year.toString(),
         bps_end_year: bps_end_year.toString(),
-        season,
         aggregation,
         districts,
       });
@@ -723,19 +770,17 @@ export const getTwoLevelAnalysis = async (
       console.log(
         `🔄 Attempt ${
           currentRetry + 1
-        }/${maxRetries}: Fetching two-level analysis: ${queryParams.toString()}`
+        }/${maxRetries}: Fetching FSI two-level analysis: ${queryParams.toString()}`
       );
 
       const response = await axios.get(
         `${getFlaskBaseUrl()}/api/v1/two-level/analysis?${queryParams}`,
         {
-          timeout: 300000, // Increase to 5 minutes
+          timeout: 300000,
           headers: {
             "Content-Type": "application/json",
           },
-          // Add request interceptor for progress tracking
           onDownloadProgress: (progressEvent) => {
-            // Fix: Add null check for progressEvent.total
             if (progressEvent.lengthComputable && progressEvent.total) {
               const percentCompleted = Math.round(
                 (progressEvent.loaded * 100) / progressEvent.total
@@ -746,31 +791,35 @@ export const getTwoLevelAnalysis = async (
         }
       );
 
-      console.log("✅ Two-level analysis completed:", {
-        kecamatan_count: response.data.metadata.level_1_kecamatan_count,
-        kabupaten_count: response.data.metadata.level_2_kabupaten_count,
-        correlation:
-          response.data.summary_statistics
-            .average_climate_production_correlation,
+      //  FIXED: Safe access to nested properties with fallback values
+      const responseData = response.data;
+
+      console.log(" FSI two-level analysis completed:", {
+        kecamatan_count: responseData?.metadata?.level_1_kecamatan_count || 0,
+        kabupaten_count: responseData?.metadata?.level_2_kabupaten_count || 0,
+        avg_fsi: responseData?.summary_statistics?.average_fsi_score || 0,
+        response_type: responseData?.type || "unknown",
       });
 
       return response.data;
     } catch (error: any) {
       currentRetry++;
 
-      console.error(`❌ Attempt ${currentRetry} failed:`, error.message);
+      //  FIXED: Safe error message access
+      const errorMessage =
+        error?.message || error?.toString() || "Unknown error";
+      console.error(`❌ Attempt ${currentRetry} failed:`, errorMessage);
 
       if (error.code === "ECONNABORTED" && currentRetry < maxRetries) {
-        const delayMs = Math.pow(2, currentRetry) * 1000; // Exponential backoff
+        const delayMs = Math.pow(2, currentRetry) * 1000;
         console.log(`⏳ Retrying in ${delayMs / 1000}s...`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
 
-      // Final attempt failed or non-timeout error
       if (error.code === "ECONNABORTED") {
         throw new Error(
-          `Analysis timeout after ${maxRetries} attempts. The backend may be processing a large dataset. Please try with a smaller date range or fewer districts.`
+          `FSI analysis timeout after ${maxRetries} attempts. The backend may be processing a large dataset.`
         );
       }
 
@@ -780,90 +829,18 @@ export const getTwoLevelAnalysis = async (
         );
       }
 
-      if (error.response?.status === 500 && error.response?.data?.error) {
-        throw new Error(
-          `Backend analysis failed: ${error.response.data.error}`
-        );
-      }
-
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       }
 
-      throw new Error(`Failed to fetch two-level analysis: ${error.message}`);
+      throw new Error(
+        `Failed to fetch FSI two-level analysis: ${errorMessage}`
+      );
     }
   }
 
   throw new Error("Max retries exceeded");
 };
-
-// export const getTwoLevelAnalysis = async (
-//   params: TwoLevelAnalysisParams = {}
-// ): Promise<TwoLevelAnalysisResponse> => {
-//   try {
-//     const {
-//       year_start = 2018,
-//       year_end = 2024,
-//       bps_start_year = 2018,
-//       bps_end_year = 2024,
-//       season = "all",
-//       aggregation = "mean",
-//       districts = "all",
-//     } = params;
-
-//     const queryParams = new URLSearchParams({
-//       year_start: year_start.toString(),
-//       year_end: year_end.toString(),
-//       bps_start_year: bps_start_year.toString(),
-//       bps_end_year: bps_end_year.toString(),
-//       season,
-//       aggregation,
-//       districts,
-//     });
-//     console.log(
-//       `Fetching two-level food security analysis: ${queryParams.toString()}`
-//     );
-//     const response = await axios.get(
-//       `${getFlaskBaseUrl()}/api/v1/two-level/analysis?${queryParams}`,
-//       {
-//         timeout: 120000, // Extended timeout for complex analysis
-//         headers: {
-//           "Content-Type": "application/json",
-//         },
-//       }
-//     );
-//     console.log("✅ Two-level analysis completed:", {
-//       kecamatan_count: response.data.metadata.level_1_kecamatan_count,
-//       kabupaten_count: response.data.metadata.level_2_kabupaten_count,
-//       correlation:
-//         response.data.summary_statistics.average_climate_production_correlation,
-//     });
-
-//     return response.data;
-//   } catch (error: any) {
-//     console.error("❌ Two-level analysis fetch error:", error);
-
-//     if (error.code === "ECONNABORTED") {
-//       throw new Error(
-//         "Two-level analysis timeout - this is a complex operation, please try again"
-//       );
-//     }
-
-//     if (error.code === "ECONNREFUSED") {
-//       throw new Error("Flask backend service unavailable");
-//     }
-
-//     if (error.response?.status === 500 && error.response?.data?.error) {
-//       throw new Error(`Analysis failed: ${error.response.data.error}`);
-//     }
-
-//     if (error.response?.data?.message) {
-//       throw new Error(error.response.data.message);
-//     }
-
-//     throw new Error("Failed to fetch two-level food security analysis");
-//   }
-// };
 
 export const getFoodSecurityAnalysis = async (
   params: FoodSecurityAnalysisParams = {}
@@ -875,7 +852,6 @@ export const getFoodSecurityAnalysis = async (
       year_end = 2024,
       season = "all",
       aggregation = "mean",
-      include_recommendations = true,
       analysis_level = "both",
       include_bps_data = true,
       bps_start_year = 2018,
@@ -888,8 +864,7 @@ export const getFoodSecurityAnalysis = async (
       year_end: year_end.toString(),
       season,
       aggregation,
-      analysis_type: "food-security", // Enhanced spatial analysis with FSCI
-      include_recommendations: include_recommendations.toString(),
+      analysis_type: "food-security", // Enhanced spatial analysis with FSI
       analysis_level,
       include_bps_data: include_bps_data.toString(),
       bps_start_year: bps_start_year.toString(),
@@ -901,16 +876,16 @@ export const getFoodSecurityAnalysis = async (
     const response = await axios.get(
       `${getFlaskBaseUrl()}/api/v1/spatial-map?${queryParams}`,
       {
-        timeout: 90000, // Extended timeout for FSCI calculations
+        timeout: 90000, // Extended timeout for FSI calculations
         headers: {
           "Content-Type": "application/json",
         },
       }
     );
 
-    console.log("✅ Food security analysis completed:", {
+    console.log(" Food security analysis completed:", {
       features_count: response.data.features.length,
-      analysis_type: "Enhanced with FSCI components",
+      analysis_type: "Enhanced with FSI components",
       bps_integration: include_bps_data,
     });
 
@@ -941,18 +916,16 @@ export const exportTwoLevelAnalysisCsv = async (
   filename?: string
 ) => {
   try {
-    // Export kabupaten-level analysis with comprehensive metrics
     const csvData = analysisData.level_2_kabupaten_analysis.data.map(
       (kabupaten) => ({
         kabupaten_name: kabupaten.kabupaten_name,
         bps_compatible_name: kabupaten.bps_compatible_name,
 
-        // Climate Metrics
-        fsci_score: kabupaten.aggregated_fsci_score,
-        fsci_class: kabupaten.aggregated_fsci_class,
-        pci_score: kabupaten.aggregated_pci_score,
-        psi_score: kabupaten.aggregated_psi_score,
-        crs_score: kabupaten.aggregated_crs_score,
+        // FSI Metrics
+        fsi_score: kabupaten.aggregated_fsi_score,
+        fsi_class: kabupaten.aggregated_fsi_class,
+        natural_resources_score: kabupaten.aggregated_natural_resources_score,
+        availability_score: kabupaten.aggregated_availability_score,
 
         // Production Metrics
         latest_production_tons: kabupaten.latest_production_tons,
@@ -996,7 +969,7 @@ export const exportTwoLevelAnalysisCsv = async (
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
 
-    const defaultFilename = `two_level_food_security_analysis_${
+    const defaultFilename = `fsi_two_level_analysis_${
       new Date().toISOString().split("T")[0]
     }.csv`;
 
@@ -1010,14 +983,36 @@ export const exportTwoLevelAnalysisCsv = async (
 
     return {
       success: true,
-      message: `Successfully exported ${csvData.length} kabupaten analysis`,
+      message: `Successfully exported ${csvData.length} kabupaten FSI analysis`,
       filename: filename || defaultFilename,
     };
   } catch (error) {
-    console.error("❌ Error exporting two-level analysis CSV:", error);
+    console.error("❌ Error exporting FSI two-level analysis CSV:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Export failed",
     };
   }
+};
+
+export const convertToSpatialParams = (
+  params: FSIAnalysisParams
+): SpatialAnalysisParams => {
+  const { bps_start_year, bps_end_year, season, ...spatialParams } = params;
+
+  // Convert aggregation enum
+  let spatialAggregation: "mean" | "median" | "max" | "min" = "mean";
+  if (params.aggregation === "median") spatialAggregation = "median";
+
+  return {
+    ...spatialParams,
+    aggregation: spatialAggregation,
+  };
+};
+
+export const convertToTwoLevelParams = (
+  params: FSIAnalysisParams
+): TwoLevelAnalysisParams => {
+  const { analysis_level, include_bps_data, ...twoLevelParams } = params;
+  return twoLevelParams;
 };

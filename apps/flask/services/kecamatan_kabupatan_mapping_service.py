@@ -10,9 +10,7 @@ logger = logging.getLogger(__name__)
 class KecamatanInfo:
     """Complete kecamatan information with administrative and geographic data"""
     kecamatan_name: str
-    kecamatan_code: str
     kabupaten_name: str
-    kabupaten_code: str
     province: str
     area_km2: float
     area_weight: float
@@ -22,7 +20,6 @@ class KecamatanInfo:
 class KabupatenInfo:
     """Kabupaten information with constituent kecamatan"""
     kabupaten_name: str
-    kabupaten_code: str
     province: str
     total_area_km2: float
     kecamatan_count: int
@@ -46,30 +43,21 @@ class KecamatanKabupatenMappingService:
         
         # Initialize area weight service with actual GeoJSON data
         self.area_service = AreaWeightService()
-        
-        # Administrative codes mapping
-        self.kabupaten_codes = {
-            "AcehBesar": "1171",
-            "AcehJaya": "1118", 
-            "AcehUtara": "1104",
-            "Bireuen": "1111",
-            "Pidie": "1103"
-        }
-        
+                
         # NASA location to kecamatan name mapping
         # Based on your test results and nasa_match field
         self.nasa_to_kecamatan_mapping = {
-            # NASA Location → Actual Kecamatan Name
             "Indrapuri": "Indrapuri",
             "Montasik": "Montasik", 
             "Darussalam": "Darussalam",
-            "Setia Bakti": "Sampoiniet",
-            "Teunom": "Teunom",
-            "Pidie": "Grong-Grong",
-            "Indrajaya": "Delima",
+            "Jaya": "Jaya",                    
+            "Setia Bakti": "SetiaBakti",       
+            "Teunom": "Teunom",                           
+            "Pidie": "Pidie",                  
+            "Indrajaya": "Indrajaya",        
             "Lhoksukon": "Lhoksukon",
-            "Juli": "Peudada",
-            "Kota Juang": "Jeumpa"
+            "Juli": "Juli",                    
+            "Kota Juang": "KotaJuang"       
         }
         
         # Reverse mapping for lookup
@@ -105,24 +93,13 @@ class KecamatanKabupatenMappingService:
         if not area_info:
             self.logger.warning(f"No area info found for kecamatan: {actual_kecamatan}")
             return None
-        
-        # Get kabupaten code
-        kabupaten_code = self.kabupaten_codes.get(area_info.kabupaten_name)
-        if not kabupaten_code:
-            self.logger.warning(f"No kabupaten code found for: {area_info.kabupaten_name}")
-            return None
-        
-        # Generate kecamatan code (kabupaten_code + unique suffix)
-        kecamatan_code = f"{kabupaten_code}{str(hash(actual_kecamatan))[-3:]:0>3}"
-        
+                
         # Get NASA location name if different
         nasa_location = self.kecamatan_to_nasa_mapping.get(actual_kecamatan)
         
         return KecamatanInfo(
             kecamatan_name=actual_kecamatan,
-            kecamatan_code=kecamatan_code,
             kabupaten_name=area_info.kabupaten_name,
-            kabupaten_code=kabupaten_code,
             province="Aceh",
             area_km2=area_info.area_km2,
             area_weight=area_info.area_weight,
@@ -141,12 +118,10 @@ class KecamatanKabupatenMappingService:
         total_area = self.area_service.get_kabupaten_total_area(kabupaten_name)
         
         # Get codes and BPS name
-        kabupaten_code = self.kabupaten_codes.get(kabupaten_name, "Unknown")
         bps_name = self.bps_kabupaten_mapping.get(kabupaten_name, kabupaten_name)
         
         return KabupatenInfo(
             kabupaten_name=kabupaten_name,
-            kabupaten_code=kabupaten_code,
             province="Aceh",
             total_area_km2=total_area,
             kecamatan_count=len(constituent_kecamatan),
@@ -198,7 +173,6 @@ class KecamatanKabupatenMappingService:
             "kabupaten_validation": {},
             "nasa_mapping_validation": {},
             "bps_mapping_validation": {},
-            "administrative_codes_validation": {}
         }
         
         # Validate each kabupaten
@@ -212,7 +186,6 @@ class KecamatanKabupatenMappingService:
                 "total_area_km2": kabupaten_info.total_area_km2 if kabupaten_info else 0,
                 "weight_sum": round(sum(area_weights.values()), 4),
                 "weight_sum_valid": abs(sum(area_weights.values()) - 1.0) < 0.001,
-                "kabupaten_code": kabupaten_info.kabupaten_code if kabupaten_info else None,
                 "bps_compatible_name": kabupaten_info.bps_compatible_name if kabupaten_info else None
             }
         
@@ -226,7 +199,6 @@ class KecamatanKabupatenMappingService:
                 "kabupaten": kecamatan_info.kabupaten_name if kecamatan_info else None,
                 "area_km2": kecamatan_info.area_km2 if kecamatan_info else None,
                 "area_weight": kecamatan_info.area_weight if kecamatan_info else None,
-                "kecamatan_code": kecamatan_info.kecamatan_code if kecamatan_info else None
             }
         
         # Validate BPS mapping
@@ -235,14 +207,6 @@ class KecamatanKabupatenMappingService:
                 "bps_compatible_name": bps_name,
                 "kabupaten_exists": internal_name in self.get_all_kabupaten(),
                 "has_kecamatan": len(self.get_kecamatan_by_kabupaten(internal_name)) > 0
-            }
-        
-        # Validate administrative codes
-        for kabupaten_name, code in self.kabupaten_codes.items():
-            validation_results["administrative_codes_validation"][kabupaten_name] = {
-                "kabupaten_code": code,
-                "code_format_valid": len(code) == 4 and code.isdigit(),
-                "kabupaten_exists": kabupaten_name in self.get_all_kabupaten()
             }
         
         self.logger.info("Mapping consistency validation completed")
@@ -273,7 +237,6 @@ class KecamatanKabupatenMappingService:
                 if kecamatan_info:
                     kecamatan_details.append({
                         "kecamatan_name": kecamatan_name,
-                        "kecamatan_code": kecamatan_info.kecamatan_code,
                         "area_km2": kecamatan_info.area_km2,
                         "area_weight": kecamatan_info.area_weight,
                         "area_percentage": round(kecamatan_info.area_weight * 100, 1),
@@ -281,7 +244,6 @@ class KecamatanKabupatenMappingService:
                     })
             
             summary["kabupaten_details"][kabupaten_name] = {
-                "kabupaten_code": kabupaten_info.kabupaten_code,
                 "bps_compatible_name": kabupaten_info.bps_compatible_name,
                 "total_area_km2": kabupaten_info.total_area_km2,
                 "kecamatan_count": kabupaten_info.kecamatan_count,
@@ -297,7 +259,6 @@ class KecamatanKabupatenMappingService:
                     "kabupaten_name": kecamatan_info.kabupaten_name,
                     "area_km2": kecamatan_info.area_km2,
                     "area_weight": kecamatan_info.area_weight,
-                    "kecamatan_code": kecamatan_info.kecamatan_code
                 }
         
         # Administrative hierarchy
@@ -345,7 +306,6 @@ class KecamatanKabupatenMappingService:
                 aggregation_data["kecamatan_weights"][kecamatan_name] = {
                     "weight": weight,
                     "area_km2": kecamatan_info.area_km2,
-                    "kecamatan_code": kecamatan_info.kecamatan_code
                 }
                 
                 # NASA location weights (for mapping from NASA location results)

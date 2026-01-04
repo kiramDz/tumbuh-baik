@@ -24,57 +24,38 @@ def get_kabupaten_historical_production(kabupaten_name: str):
         start_year = int(request.args.get('start_year', 2018))
         end_year = int(request.args.get('end_year', 2024))
         
-        logger.info(f"Historical request: {kabupaten_name} ({start_year}-{end_year})")
+        logger.info(f"Fetching historical data for {kabupaten_name} ({start_year}-{end_year})")
         
-        start_time = datetime.now()
-        
-        # Fetch historical data (now uses batch strategy)
+        # Fetch historical data
         historical_data = bps_service.fetch_kabupaten_historical_data(
             kabupaten_name, start_year, end_year
         )
         
-        processing_time = (datetime.now() - start_time).total_seconds()
-        total_years = end_year - start_year + 1
-        logger.info(f"📊 Historical Performance: {processing_time:.2f}s for {total_years} years")
-        logger.info(f"   Found {len(historical_data)}/{total_years} years for {kabupaten_name}")
-        
         if not historical_data:
             return jsonify({
-                'status': 'error',
-                'error': f'No historical data found for {kabupaten_name}',
-                'available_kabupaten': bps_service.target_kabupaten
+                'error': f'No historical data found for {kabupaten_name}'
             }), 404
         
-        # Format simple response (unchanged)
-        multi_year_production = {}
+        # Format simple response
+        padi_ton = {}
         for year, record in historical_data.items():
-            multi_year_production[str(year)] = {
-                "produksi_padi_ton": record.produksi_padi_ton,
-                "produksi_beras_ton": record.produksi_beras_ton,
-            }
-        
+            padi_ton[str(year)] = record.padi_ton
+
         response_data = {
-            'status': 'success',
             'kabupaten': kabupaten_name,
-            'kode_wilayah': list(historical_data.values())[0].kode_wilayah,
-            'multi_year_data': multi_year_production,
-            'fetch_timestamp': datetime.now().isoformat()
+            'padi_ton': padi_ton
         }
         
         return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Error in historical production endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @bps_api_bp.route('/rice-production/multi-year-summary', methods=['GET'])
 def get_multi_year_production_summary():
     """
     Get multi-year production summary for all target kabupaten
-    Using optimize batch strategy only with 7 calls
     
     Query Parameters:
     - start_year: Starting year (default: 2018)  
@@ -84,20 +65,15 @@ def get_multi_year_production_summary():
         start_year = int(request.args.get('start_year', 2018))
         end_year = int(request.args.get('end_year', 2024))
         
-        logger.info(f"Fetching multi-year summary request: {start_year}-{end_year}")
+        logger.info(f"Fetching multi-year summary ({start_year}-{end_year})")
         
-        start_time = datetime.now()
-        
-        # Fetch multi-year data (now optimized)
+        # Fetch multi-year data
         multi_year_data = bps_service.fetch_multi_year_production_data(start_year, end_year)
         
         if not multi_year_data:
-            return jsonify({
-                'status': 'error',
-                'error': 'No multi-year data available'
-            }), 404
+            return jsonify({'error': 'No multi-year data available'}), 404
         
-        # Process data by kabupaten - simple format (unchanged)
+        # Process data by kabupaten
         kabupaten_summaries = {}
         
         for kabupaten_name in bps_service.target_kabupaten:
@@ -111,80 +87,19 @@ def get_multi_year_production_summary():
             
             if kabupaten_historical:
                 # Format yearly data
-                yearly_data = {}
+                padi_ton = {}
                 for year, record in kabupaten_historical.items():
-                    yearly_data[str(year)] = {
-                        "produksi_padi_ton": record.produksi_padi_ton,
-                        "produksi_beras_ton": record.produksi_beras_ton,
-                    }
+                    padi_ton[str(year)] = record.padi_ton
                 
-                # Simple kabupaten summary
                 kabupaten_summaries[kabupaten_name] = {
-                    "kode_wilayah": list(kabupaten_historical.values())[0].kode_wilayah,
-                    "yearly_production": yearly_data,
+                    'padi_ton': padi_ton
                 }
         
         return jsonify({
-            'status': 'success',
             'analysis_period': f"{start_year}-{end_year}",
-            'data_completeness': f"{len(multi_year_data)}/{end_year - start_year + 1} years",
-            'kabupaten_analysis': kabupaten_summaries,
-            'fetch_timestamp': datetime.now().isoformat()
+            'kabupaten_data': kabupaten_summaries
         })
         
     except Exception as e:
         logger.error(f"Error in multi-year summary endpoint: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
-
-@bps_api_bp.route('/rice-production/available-years', methods=['GET'])
-def get_available_years():
-    """
-    Get available years for BPS data
-    """
-    return jsonify({
-        'status': 'success',
-        'available_years': [2024, 2023, 2022, 2021, 2020, 2019, 2018],
-        'recommended_range': {
-            'start_year': 2018,
-            'end_year': 2024,
-            'total_years': 7
-        },
-        'note': 'Year availability depends on BPS API data publication schedule'
-    })
-
-@bps_api_bp.route('/rice-production/target-kabupaten', methods=['GET'])
-def get_target_kabupaten():
-    """
-    Get list of target kabupaten for analysis
-    """
-    return jsonify({
-        'status': 'success',
-        'target_kabupaten': bps_service.target_kabupaten,
-        'total_kabupaten': len(bps_service.target_kabupaten),
-        'kabupaten_mapping': bps_service.kabupaten_mapping
-    })
-
-# Error handlers
-@bps_api_bp.errorhandler(404)
-def not_found(error):
-    return jsonify({
-        'status': 'error',
-        'error': 'Endpoint not found',
-        'available_endpoints': [
-            '/api/v1/bps/rice-production/kabupaten/<name>/historical',
-            '/api/v1/bps/rice-production/multi-year-summary',
-            '/api/v1/bps/rice-production/available-years',
-            '/api/v1/bps/rice-production/target-kabupaten'
-        ]
-    }), 404
-
-@bps_api_bp.errorhandler(500)
-def internal_error(error):
-    return jsonify({
-        'status': 'error',
-        'error': 'Internal server error',
-        'message': 'Please check server logs for details'
-    }), 500
+        return jsonify({'error': str(e)}), 500

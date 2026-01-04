@@ -16,11 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Icons } from "@/app/dashboard/_components/icons";
 import { getTwoLevelAnalysis } from "@/lib/fetch/spatial.map.fetch";
-import type { TwoLevelAnalysisParams } from "@/lib/fetch/spatial.map.fetch";
+import type { FSIAnalysisParams } from "@/lib/fetch/spatial.map.fetch"; // ✅ Updated import
 
 export interface RankingTableProps {
   className?: string;
-  analysisParams?: TwoLevelAnalysisParams;
+  analysisParams?: FSIAnalysisParams; // ✅ Updated from TwoLevelAnalysisParams
   level?: "kabupaten" | "kecamatan";
   maxItems?: number;
   showFilters?: boolean;
@@ -30,14 +30,16 @@ export interface RankingTableProps {
 interface RankingItem {
   id: string;
   name: string;
-  fsci_score: number;
-  production_tons: number;
+  fsi_score: number; // ✅ Updated from fsci_score
+  padi_production_tons: number; // ✅ Updated from production_tons
   climate_correlation: number;
   rank: number;
   trend: "up" | "down" | "stable";
+  fsi_category: "Sangat Tinggi" | "Tinggi" | "Sedang" | "Rendah"; // ✅ Added FSI classification
+  production_growth?: number; // ✅ Added production trend from BPS data
 }
 
-type SortField = "fsci_score" | "production_tons" | "climate_correlation";
+type SortField = "fsi_score" | "padi_production_tons" | "climate_correlation"; // ✅ Updated fields
 type SortDirection = "asc" | "desc";
 
 export function RankingTable({
@@ -49,12 +51,13 @@ export function RankingTable({
   showExport = true,
 }: RankingTableProps) {
   // State management
-  const [sortField, setSortField] = useState<SortField>("fsci_score");
+  const [sortField, setSortField] = useState<SortField>("fsi_score"); // ✅ Updated default sort
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [fsiFilter, setFsiFilter] = useState<string>("all"); // ✅ Added FSI category filter
 
-  // Default parameters
-  const defaultParams: TwoLevelAnalysisParams = {
+  // ✅ Updated default parameters to FSI format
+  const defaultParams: FSIAnalysisParams = {
     year_start: 2018,
     year_end: 2024,
     bps_start_year: 2018,
@@ -62,6 +65,8 @@ export function RankingTable({
     season: "all",
     aggregation: "mean",
     districts: "all",
+    analysis_level: "both",
+    include_bps_data: true,
   };
 
   const params = analysisParams || defaultParams;
@@ -71,12 +76,14 @@ export function RankingTable({
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["two-level-analysis", params],
+    queryKey: ["fsi-two-level-ranking", params], // ✅ Updated query key
     queryFn: () => getTwoLevelAnalysis(params),
     refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
-  // Process and transform data for ranking table
+  // ✅ Process and transform data for FSI ranking table
   const rankingData = useMemo((): RankingItem[] => {
     if (!analysisData) return [];
 
@@ -96,52 +103,114 @@ export function RankingTable({
       return 0;
     };
 
+    // ✅ Helper function to extract latest padi production from BPS structure
+    const getLatestPadiProduction = (item: any): number => {
+      // Check for direct production fields first
+      const directProduction = getValue(
+        item,
+        "latest_production_tons",
+        "production_tons"
+      );
+      if (directProduction > 0) return directProduction;
+
+      // ✅ Extract from BPS padi_ton structure: {"2018": 375153.85, "2019": 396467.64, ...}
+      if (item.padi_ton && typeof item.padi_ton === "object") {
+        const years = Object.keys(item.padi_ton)
+          .map((y) => parseInt(y))
+          .filter((y) => !isNaN(y))
+          .sort((a, b) => b - a); // Get latest year first
+
+        if (years.length > 0) {
+          const latestYear = years[0];
+          const production = item.padi_ton[latestYear.toString()];
+          return typeof production === "number" ? production : 0;
+        }
+      }
+
+      return 0;
+    };
+
+    // ✅ Helper function to calculate production growth from BPS data
+    const calculateProductionGrowth = (item: any): number => {
+      if (!item.padi_ton || typeof item.padi_ton !== "object") return 0;
+
+      const years = Object.keys(item.padi_ton)
+        .map((y) => parseInt(y))
+        .filter((y) => !isNaN(y))
+        .sort((a, b) => a - b); // Sort ascending for growth calculation
+
+      if (years.length < 2) return 0;
+
+      const firstYear = years[0];
+      const lastYear = years[years.length - 1];
+      const firstValue = item.padi_ton[firstYear.toString()];
+      const lastValue = item.padi_ton[lastYear.toString()];
+
+      if (firstValue > 0 && lastValue > 0) {
+        return ((lastValue - firstValue) / firstValue) * 100;
+      }
+
+      return 0;
+    };
+
+    // ✅ Helper function to get FSI category
+    const getFsiCategory = (score: number): RankingItem["fsi_category"] => {
+      if (score >= 80) return "Sangat Tinggi";
+      if (score >= 60) return "Tinggi";
+      if (score >= 40) return "Sedang";
+      return "Rendah";
+    };
+
     const items: RankingItem[] = sourceData
       .map((item: any) => {
-        const fsci =
+        // ✅ Extract FSI score (updated from FSCI)
+        const fsi =
           level === "kabupaten"
-            ? getValue(item, "aggregated_fsci_score", "fsci_score", "fsci_mean")
-            : getValue(
-                item,
-                "fsci_score",
-                "fsci_mean",
-                "aggregated_fsci_score"
-              );
-        const production = getValue(
-          item,
-          "production_tons",
-          "latest_production_tons",
-          "total_production"
-        );
+            ? getValue(item, "aggregated_fsi_score", "fsi_score", "fsi_mean")
+            : getValue(item, "fsi_score", "fsi_mean", "aggregated_fsi_score");
+
+        // ✅ Extract padi production using BPS structure
+        const padiProduction = getLatestPadiProduction(item);
+
+        // Extract correlation
         const correlation = getValue(
           item,
           "climate_production_correlation",
-          "correlation"
+          "correlation",
+          "climate_correlation"
         );
 
-        // Simulate trend (in real app, calculate from historical data)
+        // Calculate production growth
+        const productionGrowth = calculateProductionGrowth(item);
+
+        // Simulate trend based on FSI score and production growth
         const getTrend = (): RankingItem["trend"] => {
-          const random = Math.random();
-          if (random > 0.6) return "up";
-          if (random < 0.4) return "down";
+          if (productionGrowth > 5) return "up";
+          if (productionGrowth < -5) return "down";
+          if (fsi > 75) return "up";
+          if (fsi < 50) return "down";
           return "stable";
         };
 
         return {
           id: item.id || `${level}_${Math.random()}`,
           name:
-            level === "kabupaten" ? item.kabupaten_name : item.kecamatan_name,
-          fsci_score: fsci,
-          production_tons: production,
+            level === "kabupaten"
+              ? item.kabupaten_name || item.name
+              : item.kecamatan_name || item.name,
+          fsi_score: fsi, // ✅ Updated from fsci_score
+          padi_production_tons: padiProduction, // ✅ Updated from production_tons
           climate_correlation: correlation,
           rank: 0, // Will be set after sorting
           trend: getTrend(),
+          fsi_category: getFsiCategory(fsi), // ✅ Added FSI classification
+          production_growth: productionGrowth, // ✅ Added growth calculation
         };
       })
-      .filter((item) => item.name && item.fsci_score > 0);
+      .filter((item) => item.name && item.fsi_score > 0);
 
-    // Sort items and assign ranks
-    const sortedItems = [...items].sort((a, b) => b.fsci_score - a.fsci_score);
+    // Sort items by FSI score and assign ranks
+    const sortedItems = [...items].sort((a, b) => b.fsi_score - a.fsi_score);
     sortedItems.forEach((item, index) => {
       item.rank = index + 1;
     });
@@ -158,6 +227,11 @@ export function RankingTable({
       filtered = filtered.filter((item) =>
         item.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // ✅ Apply FSI category filter
+    if (fsiFilter !== "all") {
+      filtered = filtered.filter((item) => item.fsi_category === fsiFilter);
     }
 
     // Apply sorting
@@ -177,7 +251,7 @@ export function RankingTable({
 
     // Limit results
     return filtered.slice(0, maxItems);
-  }, [rankingData, searchTerm, sortField, sortDirection, maxItems]);
+  }, [rankingData, searchTerm, fsiFilter, sortField, sortDirection, maxItems]);
 
   // Handle sorting
   const handleSort = (field: SortField) => {
@@ -189,25 +263,31 @@ export function RankingTable({
     }
   };
 
-  // Export functionality - Updated to only include available columns
+  // ✅ Export functionality - Updated for FSI and padi production
   const handleExport = () => {
     const csvContent = [
       // Header
       [
         "Rank",
         "Name",
-        "FSCI Score",
-        "Production (tons)",
+        "FSI Score", // ✅ Updated from FSCI
+        "FSI Category", // ✅ Added category
+        "Padi Production (tons)", // ✅ Updated from Wheat Production
+        "Production Growth (%)", // ✅ Added growth metric
         "Climate Correlation",
+        "Trend",
       ].join(","),
       // Data rows
       ...filteredAndSortedData.map((item) =>
         [
           item.rank,
-          item.name,
-          item.fsci_score.toFixed(1),
-          item.production_tons.toFixed(0),
+          `"${item.name}"`, // Quote names to handle commas
+          item.fsi_score.toFixed(1),
+          item.fsi_category,
+          item.padi_production_tons.toFixed(0),
+          item.production_growth?.toFixed(1) || "0",
           item.climate_correlation.toFixed(3),
+          item.trend,
         ].join(",")
       ),
     ].join("\n");
@@ -215,9 +295,9 @@ export function RankingTable({
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `${level}_ranking_${
+    link.download = `fsi_${level}_ranking_${
       new Date().toISOString().split("T")[0]
-    }.csv`;
+    }.csv`; // ✅ Updated filename
     link.click();
   };
 
@@ -252,7 +332,8 @@ export function RankingTable({
         <CardContent className="p-6">
           <div className="text-center text-red-600">
             <Icons.alertTriangle className="h-8 w-8 mx-auto mb-2" />
-            <p>Error loading ranking data</p>
+            <p>Error loading FSI ranking data</p>{" "}
+            {/* ✅ Updated error message */}
           </div>
         </CardContent>
       </Card>
@@ -266,7 +347,7 @@ export function RankingTable({
         <CardContent className="p-6">
           <div className="text-center text-gray-600">
             <Icons.list className="h-8 w-8 mx-auto mb-2" />
-            <p>No ranking data available</p>
+            <p>No FSI ranking data available</p> {/* ✅ Updated message */}
           </div>
         </CardContent>
       </Card>
@@ -279,7 +360,8 @@ export function RankingTable({
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center">
             <Icons.trophy className="h-5 w-5 mr-2" />
-            {level === "kabupaten" ? "Kabupaten" : "Kecamatan"} Rankings
+            {level === "kabupaten" ? "Kabupaten" : "Kecamatan"} FSI Rankings{" "}
+            {/* ✅ Updated title */}
             <Badge variant="outline" className="ml-2">
               {filteredAndSortedData.length} of {rankingData.length}
             </Badge>
@@ -299,7 +381,7 @@ export function RankingTable({
 
         {showFilters && (
           <div className="flex flex-wrap gap-4 mt-4">
-            {/* Search - Only filter now */}
+            {/* Search */}
             <div className="flex-1 min-w-[200px]">
               <Input
                 placeholder={`Search ${level}...`}
@@ -307,6 +389,21 @@ export function RankingTable({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full"
               />
+            </div>
+
+            {/* ✅ FSI Category Filter */}
+            <div className="min-w-[150px]">
+              <select
+                value={fsiFilter}
+                onChange={(e) => setFsiFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              >
+                <option value="all">All Categories</option>
+                <option value="Sangat Tinggi">Sangat Tinggi (≥80)</option>
+                <option value="Tinggi">Tinggi (60-79)</option>
+                <option value="Sedang">Sedang (40-59)</option>
+                <option value="Rendah">Rendah (&lt;40)</option>
+              </select>
             </div>
           </div>
         )}
@@ -321,31 +418,29 @@ export function RankingTable({
                 <TableHead className="min-w-[200px]">
                   {level === "kabupaten" ? "Kabupaten" : "Kecamatan"}
                 </TableHead>
-
                 <TableHead
                   className="text-center cursor-pointer"
-                  onClick={() => handleSort("fsci_score")}
+                  onClick={() => handleSort("fsi_score")} // ✅ Updated sort field
                 >
                   <div className="flex items-center justify-center space-x-1">
-                    <span>FSCI Score</span>
-                    {sortField === "fsci_score" && (
+                    <span>FSI Score</span> {/* ✅ Updated from FSCI */}
+                    {sortField === "fsi_score" && (
                       <Icons.arrowUpDown className="h-4 w-4" />
                     )}
                   </div>
                 </TableHead>
-
                 <TableHead
                   className="text-center cursor-pointer"
-                  onClick={() => handleSort("production_tons")}
+                  onClick={() => handleSort("padi_production_tons")} // ✅ Updated sort field
                 >
                   <div className="flex items-center justify-center space-x-1">
-                    <span>Wheat Production</span>
-                    {sortField === "production_tons" && (
+                    <span>Padi Production</span>{" "}
+                    {/* ✅ Updated from Wheat Production */}
+                    {sortField === "padi_production_tons" && (
                       <Icons.arrowUpDown className="h-4 w-4" />
                     )}
                   </div>
                 </TableHead>
-
                 <TableHead
                   className="text-center cursor-pointer"
                   onClick={() => handleSort("climate_correlation")}
@@ -357,7 +452,8 @@ export function RankingTable({
                     )}
                   </div>
                 </TableHead>
-
+                <TableHead className="text-center">Category</TableHead>{" "}
+                {/* ✅ Added FSI category column */}
                 <TableHead className="text-center">Trend</TableHead>
               </TableRow>
             </TableHeader>
@@ -390,26 +486,41 @@ export function RankingTable({
                     </div>
                   </TableCell>
 
-                  {/* FSCI Score */}
+                  {/* ✅ FSI Score (updated from FSCI) */}
                   <TableCell className="text-center">
                     <div className="space-y-1">
                       <div className="font-semibold">
-                        {item.fsci_score.toFixed(1)}
+                        {item.fsi_score.toFixed(1)}
                       </div>
                       <Progress
-                        value={item.fsci_score}
+                        value={item.fsi_score}
                         className="h-1 w-16 mx-auto"
                       />
                     </div>
                   </TableCell>
 
-                  {/* Wheat Production */}
+                  {/* ✅ Padi Production (updated from Wheat) */}
                   <TableCell className="text-center">
                     <div className="text-sm">
                       <div className="font-medium">
-                        {(item.production_tons / 1000).toFixed(1)}K
+                        {(item.padi_production_tons / 1000).toFixed(1)}K
                       </div>
-                      <div className="text-gray-500">tons</div>
+                      <div className="text-gray-500">tons padi</div>{" "}
+                      {/* ✅ Updated label */}
+                      {item.production_growth !== undefined && (
+                        <div
+                          className={`text-xs ${
+                            item.production_growth > 0
+                              ? "text-green-600"
+                              : item.production_growth < 0
+                              ? "text-red-600"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {item.production_growth > 0 ? "+" : ""}
+                          {item.production_growth.toFixed(1)}%
+                        </div>
+                      )}
                     </div>
                   </TableCell>
 
@@ -424,6 +535,32 @@ export function RankingTable({
                         className="h-1 w-12 mx-auto"
                       />
                     </div>
+                  </TableCell>
+
+                  {/* ✅ FSI Category */}
+                  <TableCell className="text-center">
+                    <Badge
+                      variant={
+                        item.fsi_category === "Sangat Tinggi"
+                          ? "default"
+                          : item.fsi_category === "Tinggi"
+                          ? "secondary"
+                          : item.fsi_category === "Sedang"
+                          ? "outline"
+                          : "destructive"
+                      }
+                      className={`text-xs ${
+                        item.fsi_category === "Sangat Tinggi"
+                          ? "bg-green-100 text-green-800"
+                          : item.fsi_category === "Tinggi"
+                          ? "bg-blue-100 text-blue-800"
+                          : item.fsi_category === "Sedang"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {item.fsi_category}
+                    </Badge>
                   </TableCell>
 
                   {/* Trend */}
@@ -449,15 +586,23 @@ export function RankingTable({
         {filteredAndSortedData.length === 0 && rankingData.length > 0 && (
           <div className="text-center py-8 text-gray-500">
             <Icons.search className="h-8 w-8 mx-auto mb-2" />
-            <p>No results found for current search</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSearchTerm("")}
-              className="mt-2"
-            >
-              Clear Search
-            </Button>
+            <p>No results found for current filters</p>
+            <div className="flex justify-center space-x-2 mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSearchTerm("")}
+              >
+                Clear Search
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFsiFilter("all")}
+              >
+                Clear Filters
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

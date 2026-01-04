@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 class RiceProductionData:
     kabupaten: str
     kode_wilayah: int
-    produksi_padi_ton: float
-    produksi_beras_ton: float
+    padi_ton: float
     year: int
 
 class BPSApiService:
@@ -88,7 +87,7 @@ class BPSApiService:
                         production_data = self._parse_production_record(record, year)
                         if production_data:
                             production_records.append(production_data)
-                            self.logger.info(f"{kabupaten_name}: {production_data.produksi_padi_ton:.2f} ton padi")
+                            self.logger.info(f"{kabupaten_name}: {production_data.padi_ton:.2f} ton padi")
                         
                     except Exception as e:
                         self.logger.error(f"Error parsing data for {kabupaten_name}: {str(e)}")
@@ -127,13 +126,13 @@ class BPSApiService:
                 
                 if year_data:
                     multi_year_data[year] = year_data
-                    self.logger.info(f"✅ Successfully fetched {len(year_data)} records for {year}")
+                    self.logger.info(f"Successfully fetched {len(year_data)} records for {year}")
                 else:
                     failed_years.append(year)
-                    self.logger.warning(f"❌ No data available for {year}")
+                    self.logger.warning(f"No data available for {year}")
                     
             except Exception as e:
-                self.logger.error(f"❌ Failed to fetch data for {year}: {str(e)}")
+                self.logger.error(f"Failed to fetch data for {year}: {str(e)}")
                 failed_years.append(year)
                 continue
         
@@ -162,29 +161,24 @@ class BPSApiService:
             
             # Extract production values (handle Indonesian number format)
             # zuxztj3b0i = Produksi Padi (ton)
-            # jufsvcze9h = Produksi Beras (ton)
-            
             padi_raw = variables.get('zuxztj3b0i', {}).get('value_raw')
-            beras_raw = variables.get('jufsvcze9h', {}).get('value_raw')
             
-            if not padi_raw or not beras_raw:
+            if not padi_raw:
                 self.logger.warning(f"Missing production data for {kabupaten}")
                 return None
             
             # Convert Indonesian number format to float
             # "178.318,81" -> 178318.81
             produksi_padi = self._parse_indonesian_number(padi_raw)
-            produksi_beras = self._parse_indonesian_number(beras_raw)
             
-            if produksi_padi is None or produksi_beras is None:
-                self.logger.warning(f"Could not parse numbers for {kabupaten}: padi={padi_raw}, beras={beras_raw}")
+            if produksi_padi is None:
+                self.logger.warning(f"Could not parse numbers for {kabupaten}: padi={padi_raw}")
                 return None
             
             return RiceProductionData(
                 kabupaten=kabupaten,
                 kode_wilayah=kode_wilayah,
-                produksi_padi_ton=produksi_padi,
-                produksi_beras_ton=produksi_beras,
+                padi_ton=produksi_padi,
                 year=year
             )
             
@@ -224,7 +218,7 @@ class BPSApiService:
         end_year: int = 2024
     ) -> Dict[int, RiceProductionData]:
         """
-        Use existing multi year batch data instead of individual calls. for eliminate 35 API call problem
+        Use existing multi year batch data instead of individual calls for eliminate 35 API call problem
         """
         self.logger.info(f"Fetching historical data for {kabupaten_name} ({start_year} - {end_year})")
         multi_year_data = self.fetch_multi_year_production_data(start_year, end_year)
@@ -238,64 +232,7 @@ class BPSApiService:
         self.logger.info(f"Found {len(kabupaten_historical)}/{end_year - start_year + 1} years for {kabupaten_name}")
         return kabupaten_historical
     
-    def get_production_summary(self, year: int = 2024) -> Dict[str, Any]:
-        """
-        Get summary statistics for rice production in target kabupaten
-        
-        Args:
-            year: Year of data to analyze
-            
-        Returns:
-            Summary statistics dictionary
-        """
-        try:
-            production_data = self.fetch_rice_production_data(year)
-            
-            if not production_data:
-                return {"error": "No production data available"}
-            
-            total_padi = sum(record.produksi_padi_ton for record in production_data)
-            total_beras = sum(record.produksi_beras_ton for record in production_data)
-            
-            # Calculate per-kabupaten statistics
-            kabupaten_stats = []
-            for record in production_data:
-                kabupaten_stats.append({
-                    "kabupaten": record.kabupaten,
-                    "kode_wilayah": record.kode_wilayah,
-                    "produksi_padi_ton": record.produksi_padi_ton,
-                    "produksi_beras_ton": record.produksi_beras_ton,
-                    "padi_percentage": round((record.produksi_padi_ton / total_padi) * 100, 2),
-                    "beras_percentage": round((record.produksi_beras_ton / total_beras) * 100, 2),
-                    "conversion_rate": round((record.produksi_beras_ton / record.produksi_padi_ton) * 100, 2) if record.produksi_padi_ton > 0 else 0
-                })
-            
-            # Sort by production volume
-            kabupaten_stats.sort(key=lambda x: x['produksi_padi_ton'], reverse=True)
-            
-            summary = {
-                "year": year,
-                "total_kabupaten": len(production_data),
-                "aggregate_production": {
-                    "total_padi_ton": round(total_padi, 2),
-                    "total_beras_ton": round(total_beras, 2),
-                    "average_padi_per_kabupaten": round(total_padi / len(production_data), 2),
-                    "average_beras_per_kabupaten": round(total_beras / len(production_data), 2),
-                    "overall_conversion_rate": round((total_beras / total_padi) * 100, 2) if total_padi > 0 else 0
-                },
-                "kabupaten_ranking": kabupaten_stats,
-                "top_producer": kabupaten_stats[0] if kabupaten_stats else None,
-                "data_source": "BPS Indonesia API",
-                "fetch_timestamp": None  # Will be set by API endpoint
-            }
-            
-            return summary
-            
-        except Exception as e:
-            self.logger.error(f"Error generating production summary: {str(e)}")
-            return {"error": str(e)}
-    
-    def get_production_for_spatial_analysis(self, year: int = 2024) -> Dict[str, float]:
+    def get_padi_production_only(self, year: int = 2024) -> Dict[str, float]:
         """
         Get production data formatted for spatial analysis integration
         Returns simple kabupaten -> production mapping
@@ -314,7 +251,7 @@ class BPSApiService:
             for record in production_data:
                 # Use standardized kabupaten name for spatial matching
                 standardized_name = self.kabupaten_mapping.get(record.kabupaten, record.kabupaten)
-                production_mapping[standardized_name] = record.produksi_padi_ton
+                production_mapping[standardized_name] = record.padi_ton
                 
             self.logger.info(f"Prepared production mapping for {len(production_mapping)} kabupaten")
             return production_mapping

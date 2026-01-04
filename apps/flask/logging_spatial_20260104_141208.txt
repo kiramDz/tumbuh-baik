@@ -1,0 +1,1187 @@
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.110.211:5001
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug: * Restarting with stat
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 977-193-005
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2018-2024, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=5.6mm/day, RH2M=82.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 55.6 (Cukup Sesuai) - Confidence: medium
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=72.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=72.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.4°C, PRECTOTCORR=8.3mm/day, RH2M=85.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=62.8 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=62.8 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=79.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.5 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 67.6
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:12:26] "GET /api/v1/spatial-map?districts=all&year_start=2018&year_end=2024&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2018-2024, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=5.6mm/day, RH2M=82.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 55.6 (Cukup Sesuai) - Confidence: medium
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=72.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=72.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.4°C, PRECTOTCORR=8.3mm/day, RH2M=85.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=62.8 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=62.8 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=79.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.5 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 67.6
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:13:15] "GET /api/v1/spatial-map?districts=all&year_start=2018&year_end=2024&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2020-2024, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=6.0mm/day, RH2M=82.3%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 54.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=70.7 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=70.7 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.6mm/day, RH2M=87.3%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=67.7 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=67.7 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.6mm/day, RH2M=87.3%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=67.7 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=67.7 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=7.2mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=66.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=66.3 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=7.2mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=66.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=66.3 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=7.2mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=66.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=66.3 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.2mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.6 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=66.2 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=66.2 (Tinggi)
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2020-2021, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.4°C, PRECTOTCORR=8.6mm/day, RH2M=85.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.8 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=61.7 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=61.7 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.8°C, PRECTOTCORR=7.6mm/day, RH2M=79.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=64.7 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=64.7 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.2mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.6 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=66.2 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=66.2 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 1827 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.2mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.6 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=66.2 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=66.2 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 66.4
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:15:42] "GET /api/v1/spatial-map?districts=all&year_start=2020&year_end=2024&aggregation=mean HTTP/1.1" 200 -
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.8°C, PRECTOTCORR=6.3mm/day, RH2M=81.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 53.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=70.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=70.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.2°C, PRECTOTCORR=9.4mm/day, RH2M=85.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=61.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=61.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=78.9%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.3 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 64.8
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:15:45] "GET /api/v1/spatial-map?districts=all&year_start=2020&year_end=2021&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2020-2021, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.8°C, PRECTOTCORR=6.3mm/day, RH2M=81.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 53.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=70.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=70.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.2°C, PRECTOTCORR=9.4mm/day, RH2M=85.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=61.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=61.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=78.9%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.3 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 64.8
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:15:48] "GET /api/v1/spatial-map?districts=all&year_start=2020&year_end=2021&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2020-2021, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.8°C, PRECTOTCORR=6.3mm/day, RH2M=81.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 53.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=70.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=70.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.2°C, PRECTOTCORR=9.4mm/day, RH2M=85.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=61.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=61.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=78.9%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.3 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 64.8
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:15:51] "GET /api/v1/spatial-map?districts=all&year_start=2020&year_end=2021&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2020-2021, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.8°C, PRECTOTCORR=6.3mm/day, RH2M=81.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 53.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=70.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=70.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.2°C, PRECTOTCORR=9.4mm/day, RH2M=85.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=61.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=61.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=78.9%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.3 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 64.8
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:15:55] "GET /api/v1/spatial-map?districts=all&year_start=2020&year_end=2021&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2020-2021, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.8°C, PRECTOTCORR=6.3mm/day, RH2M=81.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 53.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=70.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=70.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.1°C, PRECTOTCORR=6.9mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=67.1 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=67.1 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=8.0mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 47.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=63.9 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=63.9 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.2°C, PRECTOTCORR=9.4mm/day, RH2M=85.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=61.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=61.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=78.9%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 48.9 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.3 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=63.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 731 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=8.1mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 46.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=63.4 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 64.8
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:16:01] "GET /api/v1/spatial-map?districts=all&year_start=2020&year_end=2021&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2018-2024, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=5.6mm/day, RH2M=82.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 55.6 (Cukup Sesuai) - Confidence: medium
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=72.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=72.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.4°C, PRECTOTCORR=8.3mm/day, RH2M=85.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=62.8 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=62.8 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=79.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.5 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 67.6
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:20:36] "GET /api/v1/spatial-map?districts=all&year_start=2018&year_end=2024&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2019-2021, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=26.9°C, PRECTOTCORR=5.4mm/day, RH2M=81.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 56.0 (Cukup Sesuai) - Confidence: medium
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=73.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=73.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.2°C, PRECTOTCORR=6.0mm/day, RH2M=86.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 52.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=70.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=70.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.2°C, PRECTOTCORR=6.0mm/day, RH2M=86.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 52.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=70.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=70.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=7.1mm/day, RH2M=79.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=67.2 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=67.2 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=7.1mm/day, RH2M=79.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=67.2 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=67.2 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=7.1mm/day, RH2M=79.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=67.2 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=67.2 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.8°C, PRECTOTCORR=7.3mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=66.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=66.3 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.4°C, PRECTOTCORR=8.4mm/day, RH2M=85.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=62.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=62.5 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.0mm/day, RH2M=79.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.6 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=67.2 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=67.2 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.8°C, PRECTOTCORR=7.3mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=66.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=66.3 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 1096 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.8°C, PRECTOTCORR=7.3mm/day, RH2M=78.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=66.3 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=66.3 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 67.7
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:21:12] "GET /api/v1/spatial-map?districts=all&year_start=2019&year_end=2021&aggregation=mean HTTP/1.1" 200 -
+INFO:routes.spatial_api:Starting FSI spatial analysis request
+INFO:routes.spatial_api:FSI analysis parameters: districts=all, year_range=2018-2024, aggregation=mean
+INFO:services.food_security_analyzer:Food Security Index analyzer initialized (FSI)
+INFO:routes.spatial_api:Loading kecamatan spatial data...
+INFO:services.geojson_loader:Loading kecamatan GeoJSON from: /run/media/cryptedlm/local_d/Kuliah/Tugas Akhir/Repository/kkp-only/tumbuh-baik/apps/flask/data/geojson/aceh_nasa_kecamatan.geojson
+INFO:services.geojson_loader:Loaded 11 kecamatan
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Utara Kec Lhoksukon for Lhoksukon
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Utara Kec Lhoksukon
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.0°C, PRECTOTCORR=5.6mm/day, RH2M=82.0%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 55.6 (Cukup Sesuai) - Confidence: medium
+INFO:services.food_security_analyzer:Starting FSI analysis for Lhoksukon
+INFO:services.food_security_analyzer:FSI analysis complete for Lhoksukon: FSI=72.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Lhoksukon: FSI=72.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Juli for Juli
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Juli
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Juli
+INFO:services.food_security_analyzer:FSI analysis complete for Juli: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Juli: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Bireun Kec Kota Juang for Kota Juang
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Bireun Kec Kota Juang
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.3°C, PRECTOTCORR=6.2mm/day, RH2M=87.1%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.5 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for KotaJuang
+INFO:services.food_security_analyzer:FSI analysis complete for KotaJuang: FSI=69.4 (Tinggi)
+INFO:routes.spatial_api:Analyzed Kota Juang: FSI=69.4 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Indrapuri for Indrapuri
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Indrapuri
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrapuri
+INFO:services.food_security_analyzer:FSI analysis complete for Indrapuri: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrapuri: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Montasik for Montasik
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Montasik
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Montasik
+INFO:services.food_security_analyzer:FSI analysis complete for Montasik: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Montasik: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Besar Kec Darussalam for Darussalam
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Besar Kec Darussalam
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.1°C, PRECTOTCORR=6.9mm/day, RH2M=79.6%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 51.0 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Darussalam
+INFO:services.food_security_analyzer:FSI analysis complete for Darussalam: FSI=67.6 (Tinggi)
+INFO:routes.spatial_api:Analyzed Darussalam: FSI=67.6 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Jaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Jaya
+INFO:services.food_security_analyzer:FSI analysis complete for Jaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Jaya: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Setia Bakti for Setia Bakti
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Setia Bakti
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=24.4°C, PRECTOTCORR=8.3mm/day, RH2M=85.5%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.1 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for SetiaBakti
+INFO:services.food_security_analyzer:FSI analysis complete for SetiaBakti: FSI=62.8 (Tinggi)
+INFO:routes.spatial_api:Analyzed Setia Bakti: FSI=62.8 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Aceh Jaya Kec Teunom for Teunom
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Aceh Jaya Kec Teunom
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.7°C, PRECTOTCORR=7.4mm/day, RH2M=79.8%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 49.2 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Teunom
+INFO:services.food_security_analyzer:FSI analysis complete for Teunom: FSI=65.5 (Tinggi)
+INFO:routes.spatial_api:Analyzed Teunom: FSI=65.5 (Tinggi)
+INFO:services.climate_data_service:Found collection NASA Kab Pidie Kec Pidie for Pidie
+INFO:services.climate_data_service:Loading climate data from NASA Kab Pidie Kec Pidie
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Pidie
+INFO:services.food_security_analyzer:FSI analysis complete for Pidie: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Pidie: FSI=67.0 (Tinggi)
+INFO:services.climate_data_service:Found collection Nasa Kab Pidie Kec Indrajaya for Indrajaya
+INFO:services.climate_data_service:Loading climate data from Nasa Kab Pidie Kec Indrajaya
+INFO:services.climate_data_service:Loaded 2557 records
+INFO:services.climate_data_service:Aggregated climate data using mean: T2M=27.9°C, PRECTOTCORR=7.1mm/day, RH2M=78.2%
+INFO:services.rice_analyzer_service:Calculating rice suitability with enhanced evaluation
+INFO:services.rice_analyzer_service:Suitability calculated: 50.3 (Kurang Sesuai) - Confidence: low
+INFO:services.food_security_analyzer:Starting FSI analysis for Indrajaya
+INFO:services.food_security_analyzer:FSI analysis complete for Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:Analyzed Indrajaya: FSI=67.0 (Tinggi)
+INFO:routes.spatial_api:FSI spatial analysis complete: 11 districts processed, average FSI: 67.6
+INFO:werkzeug:127.0.0.1 - - [04/Jan/2026 14:21:44] "GET /api/v1/spatial-map?districts=all&year_start=2018&year_end=2024&aggregation=mean HTTP/1.1" 200 -

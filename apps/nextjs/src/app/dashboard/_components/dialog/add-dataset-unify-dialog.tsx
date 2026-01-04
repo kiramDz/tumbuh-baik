@@ -56,29 +56,31 @@ type LocationEntry = {
 type AcehLocations = {
   [kabupaten: string]: LocationEntry[];
 };
-
 const ACEH_LOCATIONS: AcehLocations = {
-  "Kabupaten Aceh Besar": [
-    { name: "Kec. Indrapuri", lat: 5.4218918, lon: 95.4463322 },
-    { name: "Kec. Montasik", lat: 5.4803, lon: 95.4594 },
-    { name: "Kec. Darussalam", lat: 5.5945451, lon: 95.4201377 },
-  ],
-  "Kabupaten Aceh Jaya": [
-    { name: "Kec. Jaya/Lamno", lat: 5.1526721, lon: 95.1509617 },
-    { name: "Kec. Setia Bakti", lat: 4.8333007, lon: 95.4867971 },
-    { name: "Kec. Pasie Raya", lat: 4.6136123, lon: 95.8614504 },
-    { name: "Kec. Teunom", lat: 4.4999535, lon: 95.7700208 },
-  ],
-  "Kabupaten Pidie": [
-    { name: "Kec. Pidie", lat: 5.3759998, lon: 95.9148038 },
-    { name: "Kec. Indrajaya", lat: 5.3114261, lon: 95.8978653 },
-  ],
   "Kabupaten Aceh Utara": [
-    { name: "Kec. Lhoksukon", lat: 5.051701, lon: 97.318123 },
+    { name: "Kec. Lhoksukon", lat: 5.0323933, lon: 97.31531 },
   ],
+
   "Kabupaten Bireuen": [
-    { name: "Kec. Juli", lat: 5.0735373, lon: 96.5879472 },
-    { name: "Kec. Kota Juang", lat: 5.190849, lon: 96.6728368 },
+    { name: "Kec. Juli", lat: 5.1872539, lon: 96.6991391 },
+    { name: "Kec. Kota Juang", lat: 5.2067313, lon: 96.711344 },
+  ],
+
+  "Kabupaten Aceh Besar": [
+    { name: "Kec. Indrapuri", lat: 5.4117925, lon: 95.4418927 },
+    { name: "Kec. Montasik", lat: 5.465827, lon: 95.4340119 },
+    { name: "Kec. Darussalam", lat: 5.5859711, lon: 95.3913794 },
+  ],
+
+  "Kabupaten Aceh Jaya": [
+    { name: "Kec. Jaya/Lamno", lat: 5.0804551, lon: 95.3515282 },
+    { name: "Kec. Setia Bakti", lat: 4.7639286, lon: 95.5762011 },
+    { name: "Kec. Teunom", lat: 4.451494, lon: 95.8573616 },
+  ],
+
+  "Kabupaten Pidie": [
+    { name: "Kec. Pidie", lat: 5.3580667, lon: 95.9413261 },
+    { name: "Kec. Indrajaya", lat: 5.3108487, lon: 95.9459862 },
   ],
 };
 
