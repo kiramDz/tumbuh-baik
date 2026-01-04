@@ -34,26 +34,29 @@ interface FSIMapProps {
   className?: string;
 }
 
-function getFSIClassification(score: number): string {
-  if (score >= 80) return "sangat_tinggi";
-  if (score >= 60) return "tinggi";
-  if (score >= 40) return "sedang";
-  return "rendah";
-}
-
-function getFSIPerformanceLevel(score: number): string {
-  if (score >= 80) return "Sangat Tinggi";
-  if (score >= 60) return "Tinggi";
-  if (score >= 40) return "Sedang";
-  return "Rendah";
+function getFSIPerformanceLevel(feature: any): string {
+  // Use the actual classification from Flask hybrid system
+  return feature.properties.fsi_class || "No Data";
 }
 
 // FSI Color scheme function
-function getFSIColor(score: number): string {
-  if (score >= 80) return "#22c55e"; // Green (Sangat Tinggi)
-  if (score >= 60) return "#84cc16"; // Lime (Tinggi)
-  if (score >= 40) return "#f59e0b"; // Amber (Sedang)
-  return "#ef4444"; // Red (Rendah)
+function getFSIColor(feature: any): string {
+  const fsiClass = feature.properties.fsi_class;
+  // Map Flask classification to colors
+  switch (fsiClass) {
+    case "Sangat Tinggi":
+      return "#22c55e"; // Green
+    case "Tinggi":
+      return "#84cc16"; // Lime
+    case "Sedang":
+      return "#f59e0b"; // Amber
+    case "Rendah":
+      return "#f97316"; // Orange
+    case "Sangat Rendah":
+      return "#ef4444"; // Red
+    default:
+      return "#9ca3af"; // Gray for "No Data"
+  }
 }
 
 export function FSIMap({
@@ -118,19 +121,19 @@ export function FSIMap({
   }, [analysisData]);
 
   // ✅ Feature styling using FSI scores (Updated from FSCI)
-const getFeatureStyle = (feature: any) => {
-  const score = feature.properties.fsi_score || 0;
-  const isSelected = selectedFeature?.properties?.NAME_3 === feature.properties.NAME_3; 
+  const getFeatureStyle = (feature: any) => {
+    const isSelected =
+      selectedFeature?.properties?.NAME_3 === feature.properties.NAME_3;
 
-  return {
-    fillColor: getFSIColor(score),
-    weight: isSelected ? 3 : 1,
-    opacity: 1,
-    color: isSelected ? "#1f2937" : "#ffffff",
-    dashArray: isSelected ? "5, 5" : "",
-    fillOpacity: 0.8,
+    return {
+      fillColor: getFSIColor(feature), // ✅ Use Flask classification
+      weight: isSelected ? 3 : 1,
+      opacity: 1,
+      color: isSelected ? "#1f2937" : "#ffffff",
+      dashArray: isSelected ? "5, 5" : "",
+      fillOpacity: 0.8,
+    };
   };
-};
 
   // Ensure component only renders on client side
   useEffect(() => {
@@ -144,39 +147,42 @@ const getFeatureStyle = (feature: any) => {
   const onEachFeature = (feature: any, layer: any) => {
     const props = feature.properties;
 
-    // ✅ Safe FSI property access (Updated from FSCI)
     const safeFSIScore =
       typeof props.fsi_score === "number" && !isNaN(props.fsi_score)
         ? props.fsi_score
         : 0;
 
     const regionName = props.NAME_3 || props.NAME_2 || "Unknown Region";
-    const safePerformance = getFSIPerformanceLevel(safeFSIScore);
-    const safeNaturalResources = props.natural_resources_score || 0; // ✅ Updated component
-    const safeAvailability = props.availability_score || 0; // ✅ Updated component
 
-    // ✅ Enhanced popup content for FSI data (Updated from FSCI)
+    // ✅ Use Flask classification instead of manual calculation
+    const flaskClassification = props.fsi_class || "No Data";
+
+    const safeNaturalResources = props.natural_resources_score || 0;
+    const safeAvailability = props.availability_score || 0;
+
+    // ✅ FIXED: Enhanced popup content for FSI data
     const popupContent = `
     <div class="p-3 min-w-[280px]">
       <div class="font-semibold text-lg text-gray-900 mb-2">
         ${regionName}
       </div>
       <div class="text-xs text-gray-600 mb-3">
-        Kecamatan Level • FSI Analysis
+        Kecamatan Level • FSI Analysis (Flask Hybrid)
       </div>
       
       <div class="space-y-3">
         <!-- FSI Score Display -->
         <div class="text-center p-3 rounded-lg" style="background-color: ${getFSIColor(
-          safeFSIScore
+          feature
         )}20;">
           <div class="text-xs text-gray-600 mb-1">Food Security Index</div>
           <div class="text-2xl font-bold" style="color: ${getFSIColor(
-            safeFSIScore
+            feature
           )}">
             ${safeFSIScore.toFixed(1)}
           </div>
-          <div class="text-sm font-medium mt-1">${safePerformance}</div>
+          <div class="text-sm font-medium mt-1">${flaskClassification}</div>
+          <div class="text-xs text-gray-500 mt-1">Flask Hybrid Classification</div>
         </div>
         
         <!-- FSI Components (60/40 weighting) -->
@@ -222,9 +228,6 @@ const getFeatureStyle = (feature: any) => {
           </div>
         </div>
         
-        <div class="text-xs text-gray-500 mt-2">
-          Area: ${props.area_km2?.toFixed(1) || "N/A"} km²
-        </div>
         
         ${
           props.nasa_match
@@ -390,42 +393,50 @@ const getFeatureStyle = (feature: any) => {
         </div>
       </div>
 
-      {/* ✅ FSI Color Legend (Updated from FSCI) */}
       <div className="absolute top-4 right-4 bg-white bg-opacity-95 p-3 rounded-lg shadow-lg z-[1000]">
         <div className="text-sm space-y-2">
-          <div className="font-semibold text-gray-900">FSI Performance</div>{" "}
-          {/* ✅ Updated */}
+          <div className="font-semibold text-gray-900">
+            FSI Performance (Flask Hybrid)
+          </div>
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
               <div
                 className="w-4 h-4 rounded"
                 style={{ backgroundColor: "#22c55e" }}
               ></div>
-              <span className="text-xs">Sangat Tinggi (80+)</span>{" "}
-              {/* ✅ Updated */}
+              <span className="text-xs">Sangat Tinggi</span>
             </div>
             <div className="flex items-center space-x-2">
               <div
                 className="w-4 h-4 rounded"
                 style={{ backgroundColor: "#84cc16" }}
               ></div>
-              <span className="text-xs">Tinggi (60-79)</span> {/* ✅ Updated */}
+              <span className="text-xs">Tinggi</span>
             </div>
             <div className="flex items-center space-x-2">
               <div
                 className="w-4 h-4 rounded"
                 style={{ backgroundColor: "#f59e0b" }}
               ></div>
-              <span className="text-xs">Sedang (40-59)</span> {/* ✅ Updated */}
+              <span className="text-xs">Sedang</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div
+                className="w-4 h-4 rounded"
+                style={{ backgroundColor: "#f97316" }}
+              ></div>
+              <span className="text-xs">Rendah</span>
             </div>
             <div className="flex items-center space-x-2">
               <div
                 className="w-4 h-4 rounded"
                 style={{ backgroundColor: "#ef4444" }}
               ></div>
-              <span className="text-xs">Rendah (&lt;40)</span>{" "}
-              {/* ✅ Updated */}
+              <span className="text-xs">Sangat Rendah</span>
             </div>
+          </div>
+          <div className="text-xs text-gray-500 pt-1 border-t">
+            BPS-Calibrated Classification
           </div>
         </div>
       </div>
@@ -440,16 +451,15 @@ const getFeatureStyle = (feature: any) => {
                 "Unknown Region"}
             </div>
             <div className="text-xs text-gray-600">
-              Kecamatan Level Analysis
+              Kecamatan Level Analysis (Flask Hybrid)
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t">
-              <span className="text-gray-700">FSI Score:</span>{" "}
-              {/* ✅ Updated */}
+              <span className="text-gray-700">FSI Score:</span>
               <span
                 className="text-xl font-bold"
                 style={{
-                  color: getFSIColor(selectedFeature.properties.fsi_score || 0),
+                  color: getFSIColor(selectedFeature), // ✅ Use Flask color
                 }}
               >
                 {typeof selectedFeature.properties.fsi_score === "number" &&
@@ -461,11 +471,10 @@ const getFeatureStyle = (feature: any) => {
 
             <div className="text-xs">
               <span className="font-medium">
-                {getFSIPerformanceLevel(
-                  selectedFeature.properties.fsi_score || 0
-                )}{" "}
-                {/* ✅ Updated */}
+                {selectedFeature.properties.fsi_class || "No Data"}{" "}
+                {/* ✅ Use Flask classification */}
               </span>
+              <span className="text-gray-500 ml-2">(Flask Hybrid)</span>
             </div>
 
             {/* ✅ FSI Component Scores (Updated from PCI/PSI/CRS) */}

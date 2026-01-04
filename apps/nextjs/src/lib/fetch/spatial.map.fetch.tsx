@@ -633,12 +633,38 @@ export const getSpatialParameters = async () => {
         {
           value: "Sangat Tinggi",
           label: "Very High",
-          range: "80-100",
+          range: "72.6+",
           color: "#22c55e",
+          description: "Top producer regions (Aceh Utara - 330k tons)",
         },
-        { value: "Tinggi", label: "High", range: "60-79", color: "#84cc16" },
-        { value: "Sedang", label: "Medium", range: "40-59", color: "#f59e0b" },
-        { value: "Rendah", label: "Low", range: "0-39", color: "#ef4444" },
+        {
+          value: "Tinggi",
+          label: "High",
+          range: "67.0 (Pidie)",
+          color: "#84cc16",
+          description: "High producer regions (Pidie - 220k tons)",
+        },
+        {
+          value: "Sedang",
+          label: "Medium",
+          range: "67.6 (Aceh Besar)",
+          color: "#f59e0b",
+          description: "Medium producer regions (Aceh Besar - 182k tons)",
+        },
+        {
+          value: "Rendah",
+          label: "Low",
+          range: "69.4 (Bireuen)",
+          color: "#f97316",
+          description: "Lower producer regions (Bireuen - 153k tons)",
+        },
+        {
+          value: "Sangat Rendah",
+          label: "Very Low",
+          range: "<65.5",
+          color: "#ef4444",
+          description: "Lowest producer regions (Aceh Jaya - 50k tons)",
+        },
       ],
     };
 

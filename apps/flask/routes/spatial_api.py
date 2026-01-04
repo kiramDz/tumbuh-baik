@@ -235,6 +235,22 @@ def get_climate_potential_analysis():
         logger.info(f"FSI spatial analysis complete: {total_districts} districts processed, "
                    f"average FSI: {avg_fsi:.1f}")
         
+        if len(fsi_results) >= 5:
+            logger.info("Applying hybrid FSI classification (percentile + BPS validation)...")
+            fsi_results = food_security_analyzer.apply_hybrid_fsi_classification(fsi_results)
+            
+            # Update GeoDataFrame with new classifications
+            for idx, kecamatan in kecamatan_gdf.iterrows():
+                nasa_match = kecamatan['nasa_match']
+                
+                if nasa_match in analysis_results:
+                    for fsi_result in fsi_results:
+                        if fsi_result.district_name.replace(' ', '') == nasa_match.replace(' ', ''):
+                            kecamatan_gdf.at[idx, 'fsi_class'] = fsi_result.fsi_class.value
+                            break
+        else:
+            logger.info("Using fixed thresholds (insufficient data for hybrid classification)")
+        
         return jsonify(simplified_response), 200
         
     except Exception as e:

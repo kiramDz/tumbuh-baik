@@ -16,71 +16,92 @@ export interface FSILegendProps {
     tinggi_count: number;
     sedang_count: number;
     rendah_count: number;
+    sangat_rendah_count: number; // ✅ Added missing field
   };
   /** Selected FSI range for highlighting */
-  selectedRange?: "sangat_tinggi" | "tinggi" | "sedang" | "rendah" | null;
+  selectedRange?:
+    | "sangat_tinggi"
+    | "tinggi"
+    | "sedang"
+    | "rendah"
+    | "sangat_rendah"
+    | null; // ✅ Added "sangat_rendah"
   /** Callback when legend item is clicked */
   onRangeSelect?: (
-    range: "sangat_tinggi" | "tinggi" | "sedang" | "rendah" | null
+    range:
+      | "sangat_tinggi"
+      | "tinggi"
+      | "sedang"
+      | "rendah"
+      | "sangat_rendah"
+      | null // ✅ Added "sangat_rendah"
   ) => void;
-  /** Compact mode for sidebar display */
+  /** Other props... */
   compact?: boolean;
-  /** Show statistics */
   showStats?: boolean;
-  /** Interactive legend items */
   interactive?: boolean;
-  /** Loading state */
   isLoading?: boolean;
   className?: string;
 }
 
 // FSCI Classification system
-
 const FSI_RANGES = [
   {
     id: "sangat_tinggi" as const,
     label: "Sangat Tinggi",
     label_en: "Very High",
-    range: "80 - 100",
-    color: "#22c55e", // Green-600 - Excellent FSI
+    range: "72.6+", // ✅ Based on Lhoksukon (top performer)
+    color: "#22c55e", // Green-600
     bgColor: "#D1FAE5", // Green-100
-    description:
-      "Ketahanan pangan sangat optimal dengan sumber daya alam berkualitas tinggi",
-    description_en: "Optimal food security with high-quality natural resources",
+    description: "Ketahanan pangan optimal - Top producer regions (Aceh Utara)",
+    description_en: "Optimal food security - Top producer regions",
     icon: Icons.trendingUp,
   },
   {
     id: "tinggi" as const,
     label: "Tinggi",
     label_en: "High",
-    range: "60 - 79",
-    color: "#84cc16", // Lime-500 - Good FSI
+    range: "67.0 - 69.4", // ✅ Based on Pidie regions (2nd tier producers)
+    color: "#84cc16", // Lime-500
     bgColor: "#ECFCCB", // Lime-100
-    description: "Ketahanan pangan stabil dengan ketersediaan yang baik",
-    description_en: "Stable food security with good availability",
+    description: "Ketahanan pangan baik - High producer regions (Pidie)",
+    description_en: "Good food security - High producer regions",
     icon: Icons.checkCircle,
   },
   {
     id: "sedang" as const,
     label: "Sedang",
     label_en: "Medium",
-    range: "40 - 59",
-    color: "#f59e0b", // Amber-500 - Moderate FSI
+    range: "67.6", // ✅ Based on Aceh Besar regions (3rd tier producers)
+    color: "#f59e0b", // Amber-500
     bgColor: "#FEF3C7", // Amber-100
-    description: "Ketahanan pangan moderat dengan tantangan tertentu",
-    description_en: "Moderate food security with certain challenges",
+    description:
+      "Ketahanan pangan moderat - Medium producer regions (Aceh Besar)",
+    description_en: "Moderate food security - Medium producer regions",
     icon: Icons.alertTriangle,
   },
   {
     id: "rendah" as const,
     label: "Rendah",
     label_en: "Low",
-    range: "< 40",
-    color: "#ef4444", // Red-500 - Poor FSI
-    bgColor: "#FEE2E2", // Red-100
-    description: "Ketahanan pangan rendah memerlukan perhatian khusus",
-    description_en: "Low food security requiring special attention",
+    range: "69.4", // ✅ Based on Bireuen regions (4th tier producers)
+    color: "#f97316", // Orange-500
+    bgColor: "#FED7AA", // Orange-100
+    description: "Ketahanan pangan rendah - Lower producer regions (Bireuen)",
+    description_en: "Low food security - Lower producer regions",
     icon: Icons.alertCircle,
+  },
+  {
+    id: "sangat_rendah" as const,
+    label: "Sangat Rendah",
+    label_en: "Very Low",
+    range: "< 65.5", // ✅ Based on Aceh Jaya regions (lowest producers)
+    color: "#ef4444", // Red-500
+    bgColor: "#FEE2E2", // Red-100
+    description:
+      "Ketahanan pangan sangat rendah - Lowest producer regions (Aceh Jaya)",
+    description_en: "Very low food security - Lowest producer regions",
+    icon: Icons.alertTriangle,
   },
 ] as const;
 
@@ -119,11 +140,12 @@ export function FSILegend({
         return stats.sedang_count || 0;
       case "rendah":
         return stats.rendah_count || 0;
+      case "sangat_rendah": // ✅ Added missing case
+        return stats.sangat_rendah_count || 0;
       default:
         return 0;
     }
   };
-
   // Get percentage for a range
   const getRangePercentage = (rangeId: string): number => {
     if (!stats || stats.total_regions === 0) return 0;

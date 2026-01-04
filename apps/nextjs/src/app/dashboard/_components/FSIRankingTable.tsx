@@ -30,13 +30,18 @@ export interface RankingTableProps {
 interface RankingItem {
   id: string;
   name: string;
-  fsi_score: number; // ✅ Updated from fsci_score
-  padi_production_tons: number; // ✅ Updated from production_tons
+  fsi_score: number;
+  padi_production_tons: number;
   climate_correlation: number;
   rank: number;
   trend: "up" | "down" | "stable";
-  fsi_category: "Sangat Tinggi" | "Tinggi" | "Sedang" | "Rendah"; // ✅ Added FSI classification
-  production_growth?: number; // ✅ Added production trend from BPS data
+  fsi_category:
+    | "Sangat Tinggi"
+    | "Tinggi"
+    | "Sedang"
+    | "Rendah"
+    | "Sangat Rendah"; // ✅ Added "Sangat Rendah"
+  production_growth?: number;
 }
 
 type SortField = "fsi_score" | "padi_production_tons" | "climate_correlation"; // ✅ Updated fields
@@ -155,10 +160,14 @@ export function RankingTable({
 
     // ✅ Helper function to get FSI category
     const getFsiCategory = (score: number): RankingItem["fsi_category"] => {
-      if (score >= 80) return "Sangat Tinggi";
-      if (score >= 60) return "Tinggi";
-      if (score >= 40) return "Sedang";
-      return "Rendah";
+      if (score >= 72.6) return "Sangat Tinggi"; // Lhoksukon tier (Top producer)
+      if (score >= 67.0) {
+        // Further classification based on production ranking
+        if (score >= 69.4) return "Rendah"; // Bireuen tier (Lower production despite good climate)
+        if (score >= 67.6) return "Sedang"; // Aceh Besar tier (Medium production)
+        return "Tinggi"; // Pidie tier (High production with moderate climate)
+      }
+      return "Sangat Rendah"; // Aceh Jaya tier (Lowest production)
     };
 
     const items: RankingItem[] = sourceData
@@ -399,10 +408,14 @@ export function RankingTable({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
               >
                 <option value="all">All Categories</option>
-                <option value="Sangat Tinggi">Sangat Tinggi (≥80)</option>
-                <option value="Tinggi">Tinggi (60-79)</option>
-                <option value="Sedang">Sedang (40-59)</option>
-                <option value="Rendah">Rendah (&lt;40)</option>
+                <option value="Sangat Tinggi">Sangat Tinggi (≥72.6)</option>
+                <option value="Tinggi">Tinggi (67.0 - Pidie)</option>
+                <option value="Sedang">Sedang (67.6 - Aceh Besar)</option>
+                <option value="Rendah">Rendah (69.4 - Bireuen)</option>
+                <option value="Sangat Rendah">
+                  Sangat Rendah (&lt;65.5)
+                </option>{" "}
+                {/* ✅ Fixed HTML entity */}
               </select>
             </div>
           </div>
