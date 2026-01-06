@@ -16,7 +16,7 @@ const Logo = memo(({ onClick }: { onClick: () => void }) => (
     aria-label="logo"
   >
     <LogoSvg className="w-8 h-8" fill="currentColor" />
-    <span className="text-md md:text-2xl font-bold md:font-bold ">Weatherly</span>
+    <span className="text-md md:text-2xl font-bold md:font-bold ">Zona Petik</span>
   </div>
 ));
 Logo.displayName = "Logo";
