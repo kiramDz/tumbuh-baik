@@ -47,8 +47,8 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
   const criteria = {
     isRainSesuai: rain >= 5.7 && rain <= 16.7,
     isTempSesuai: temp >= 24 && temp <= 29,
-    isHumiditySesuai: humidity >= 33 && humidity <= 90,
-    isRadiationSesuai: radiation >= 15 && radiation <= 25,
+    isHumiditySesuai: humidity >= 33 && humidity <= 90,  // Sesuai kriteria penelitian: 33-90%
+    isRadiationSesuai: radiation >= 15 && radiation <= 25,  // Sesuai kriteria penelitian: 15-25 MJ/m²/hari
   };
 
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
@@ -311,181 +311,181 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ monthData }) => {
   );
 };
 
-// ============================================================
-// Yearly Calendar Component - 12 Bulan dalam 1 Tampilan
-// ============================================================
+// // ============================================================
+// // Yearly Calendar Component - 12 Bulan dalam 1 Tampilan
+// // ============================================================
 
-interface YearlyCalendarProps {
-  summary: SuitabilitySummary;
-  title?: string;
-}
+// interface YearlyCalendarProps {
+//   summary: SuitabilitySummary;
+//   title?: string;
+// }
 
-const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
-  const [isOpen, setIsOpen] = useState(false); // Ubah default ke false (tertutup)
+// const YearlyCalendar: React.FC<YearlyCalendarProps> = ({ summary, title }) => {
+//   const [isOpen, setIsOpen] = useState(false); // Ubah default ke false (tertutup)
 
-  // Hitung rentang tahun dari data
-  const yearRange = useMemo(() => {
-    if (summary.months.length === 0) return "";
-    const firstMonth = summary.months[0];
-    const lastMonth = summary.months[summary.months.length - 1];
-    if (firstMonth.year === lastMonth.year) {
-      return `${firstMonth.year}`;
-    }
-    return `${firstMonth.year} - ${lastMonth.year}`;
-  }, [summary.months]);
+//   // Hitung rentang tahun dari data
+//   const yearRange = useMemo(() => {
+//     if (summary.months.length === 0) return "";
+//     const firstMonth = summary.months[0];
+//     const lastMonth = summary.months[summary.months.length - 1];
+//     if (firstMonth.year === lastMonth.year) {
+//       return `${firstMonth.year}`;
+//     }
+//     return `${firstMonth.year} - ${lastMonth.year}`;
+//   }, [summary.months]);
 
-  return (
-    <Card>
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="w-5 h-5" />
-              <div>
-                <CardTitle className="text-base">
-                  {title || `Kalender Tahunan ${yearRange}`}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Ringkasan kesesuaian tanam selama {summary.months.length} bulan
-                </CardDescription>
-              </div>
-            </div>
+//   return (
+//     <Card>
+//       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+//         <CardHeader className="pb-3">
+//           <div className="flex items-center justify-between">
+//             <div className="flex items-center gap-2">
+//               <CalendarDays className="w-5 h-5" />
+//               <div>
+//                 <CardTitle className="text-base">
+//                   {title || `Kalender Tahunan ${yearRange}`}
+//                 </CardTitle>
+//                 <CardDescription className="text-xs">
+//                   Ringkasan kesesuaian tanam selama {summary.months.length} bulan
+//                 </CardDescription>
+//               </div>
+//             </div>
             
-            <div className="flex items-center gap-3">
-              {/* Summary Stats */}
-              <div className="hidden sm:flex items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-green-400" />
-                  <span className="text-sm font-medium">{summary.totalSangatCocok}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-green-200" />
-                  <span className="text-sm font-medium">{summary.totalCukupCocok}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
-                  <span className="text-sm font-medium">{summary.totalTidakCocok}</span>
-                </div>
-              </div>
+//             <div className="flex items-center gap-3">
+//               {/* Summary Stats */}
+//               <div className="hidden sm:flex items-center gap-3">
+//                 <div className="flex items-center gap-1.5">
+//                   <div className="w-3 h-3 rounded-full bg-green-400" />
+//                   <span className="text-sm font-medium">{summary.totalSangatCocok}</span>
+//                 </div>
+//                 <div className="flex items-center gap-1.5">
+//                   <div className="w-3 h-3 rounded-full bg-green-200" />
+//                   <span className="text-sm font-medium">{summary.totalCukupCocok}</span>
+//                 </div>
+//                 <div className="flex items-center gap-1.5">
+//                   <div className="w-3 h-3 rounded-full bg-red-400" />
+//                   <span className="text-sm font-medium">{summary.totalTidakCocok}</span>
+//                 </div>
+//               </div>
               
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1">
-                  <span className="text-xs">{isOpen ? "Tutup Detail" : "Lihat Detail"}</span>
-                  <ChevronDown className={clsx("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-          </div>
+//               <CollapsibleTrigger asChild>
+//                 <Button variant="ghost" size="sm" className="gap-1">
+//                   <span className="text-xs">{isOpen ? "Tutup Detail" : "Lihat Detail"}</span>
+//                   <ChevronDown className={clsx("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+//                 </Button>
+//               </CollapsibleTrigger>
+//             </div>
+//           </div>
           
-          {/* Mobile Stats */}
-          <div className="flex sm:hidden items-center gap-4 mt-2">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-green-400" />
-              <span className="text-sm">Sangat Cocok: <strong>{summary.totalSangatCocok}</strong></span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-green-200" />
-              <span className="text-sm">Cukup: <strong>{summary.totalCukupCocok}</strong></span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-400" />
-              <span className="text-sm">Tidak: <strong>{summary.totalTidakCocok}</strong></span>
-            </div>
-          </div>
-        </CardHeader>
+//           {/* Mobile Stats */}
+//           <div className="flex sm:hidden items-center gap-4 mt-2">
+//             <div className="flex items-center gap-1.5">
+//               <div className="w-3 h-3 rounded-full bg-green-400" />
+//               <span className="text-sm">Sangat Cocok: <strong>{summary.totalSangatCocok}</strong></span>
+//             </div>
+//             <div className="flex items-center gap-1.5">
+//               <div className="w-3 h-3 rounded-full bg-green-200" />
+//               <span className="text-sm">Cukup: <strong>{summary.totalCukupCocok}</strong></span>
+//             </div>
+//             <div className="flex items-center gap-1.5">
+//               <div className="w-3 h-3 rounded-full bg-red-400" />
+//               <span className="text-sm">Tidak: <strong>{summary.totalTidakCocok}</strong></span>
+//             </div>
+//           </div>
+//         </CardHeader>
 
-        {/* Ringkasan Per Bulan (Tampil saat ditutup) */}
-        {!isOpen && (
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              {summary.months.map((monthData) => {
-                const isBulanCocokTanam = monthData.totalTidakCocok <= 15;
+//         {/* Ringkasan Per Bulan (Tampil saat ditutup) */}
+//         {!isOpen && (
+//           <CardContent className="pt-0">
+//             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+//               {summary.months.map((monthData) => {
+//                 const isBulanCocokTanam = monthData.totalTidakCocok <= 15;
                 
-                return (
-                  <div 
-                    key={monthData.monthKey}
-                    className={clsx(
-                      "border-2 rounded-lg p-4 transition-all hover:shadow-md",
-                      isBulanCocokTanam 
-                        ? "border-green-400 bg-green-50/50" 
-                        : "border-red-400 bg-red-50/50"
-                    )}
-                  >
-                    <div className="space-y-3">
-                      {/* Nama Bulan */}
-                      <div className="font-bold text-base text-center">
-                        {monthData.month}
-                      </div>
+//                 return (
+//                   <div 
+//                     key={monthData.monthKey}
+//                     className={clsx(
+//                       "border-2 rounded-lg p-4 transition-all hover:shadow-md",
+//                       isBulanCocokTanam 
+//                         ? "border-green-400 bg-green-50/50" 
+//                         : "border-red-400 bg-red-50/50"
+//                     )}
+//                   >
+//                     <div className="space-y-3">
+//                       {/* Nama Bulan */}
+//                       <div className="font-bold text-base text-center">
+//                         {monthData.month}
+//                       </div>
                       
-                      {/* Status Badge */}
-                      <div className="flex justify-center">
-                        <Badge 
-                          variant={isBulanCocokTanam ? "default" : "destructive"}
-                          className="px-3 py-1"
-                        >
-                          {isBulanCocokTanam ? "✓ Cocok Tanam" : "✕ Tidak Cocok"}
-                        </Badge>
-                      </div>
+//                       {/* Status Badge */}
+//                       <div className="flex justify-center">
+//                         <Badge 
+//                           variant={isBulanCocokTanam ? "default" : "destructive"}
+//                           className="px-3 py-1"
+//                         >
+//                           {isBulanCocokTanam ? "✓ Cocok Tanam" : "✕ Tidak Cocok"}
+//                         </Badge>
+//                       </div>
                       
-                      {/* Statistik Sederhana */}
-                      <div className="text-center text-sm text-muted-foreground">
-                        <div className="font-medium">
-                          {monthData.totalSangatCocok + monthData.totalCukupCocok} dari {monthData.daysInMonth} hari
-                        </div>
-                        <div className="text-xs mt-0.5">
-                          kondisi baik
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+//                       {/* Statistik Sederhana */}
+//                       <div className="text-center text-sm text-muted-foreground">
+//                         <div className="font-medium">
+//                           {monthData.totalSangatCocok + monthData.totalCukupCocok} dari {monthData.daysInMonth} hari
+//                         </div>
+//                         <div className="text-xs mt-0.5">
+//                           kondisi baik
+//                         </div>
+//                       </div>
+//                     </div>
+//                   </div>
+//                 );
+//               })}
+//             </div>
             
-            {/* Info Helper */}
-            <div className="mt-4 pt-3 border-t">
-              <p className="text-xs text-center text-muted-foreground">
-                Klik <strong>Lihat Detail</strong> untuk melihat kalender lengkap per tanggal
-              </p>
-            </div>
-          </CardContent>
-        )}
+//             {/* Info Helper */}
+//             <div className="mt-4 pt-3 border-t">
+//               <p className="text-xs text-center text-muted-foreground">
+//                 Klik <strong>Lihat Detail</strong> untuk melihat kalender lengkap per tanggal
+//               </p>
+//             </div>
+//           </CardContent>
+//         )}
 
-        {/* Detail Kalender (Tampil saat dibuka) */}
-        <CollapsibleContent>
-          <CardContent className="pt-0">
-            {/* Grid 12 Bulan: 4 kolom x 3 baris */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
-              {summary.months.map((monthData) => (
-                <MiniCalendar key={monthData.monthKey} monthData={monthData} />
-              ))}
-            </div>
+//         {/* Detail Kalender (Tampil saat dibuka) */}
+//         <CollapsibleContent>
+//           <CardContent className="pt-0">
+//             {/* Grid 12 Bulan: 4 kolom x 3 baris */}
+//             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
+//               {summary.months.map((monthData) => (
+//                 <MiniCalendar key={monthData.monthKey} monthData={monthData} />
+//               ))}
+//             </div>
             
-            {/* Legend */}
-            <div className="flex flex-wrap items-center justify-center gap-4 mt-4 pt-3 border-t text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-sm bg-green-400"></div>
-                <span>Sangat Cocok (4/4)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-sm bg-green-200"></div>
-                <span>Cukup Cocok (3/4)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-sm bg-red-400"></div>
-                <span>Tidak Cocok (&lt;3)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-sm bg-gray-100 border"></div>
-                <span>Tidak ada data</span>
-              </div>
-            </div>
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
-  );
-};
+//             {/* Legend */}
+//             <div className="flex flex-wrap items-center justify-center gap-4 mt-4 pt-3 border-t text-xs text-muted-foreground">
+//               <div className="flex items-center gap-1.5">
+//                 <div className="w-4 h-4 rounded-sm bg-green-400"></div>
+//                 <span>Sangat Cocok (4/4)</span>
+//               </div>
+//               <div className="flex items-center gap-1.5">
+//                 <div className="w-4 h-4 rounded-sm bg-green-200"></div>
+//                 <span>Cukup Cocok (3/4)</span>
+//               </div>
+//               <div className="flex items-center gap-1.5">
+//                 <div className="w-4 h-4 rounded-sm bg-red-400"></div>
+//                 <span>Tidak Cocok (&lt;3)</span>
+//               </div>
+//               <div className="flex items-center gap-1.5">
+//                 <div className="w-4 h-4 rounded-sm bg-gray-100 border"></div>
+//                 <span>Tidak ada data</span>
+//               </div>
+//             </div>
+//           </CardContent>
+//         </CollapsibleContent>
+//       </Collapsible>
+//     </Card>
+//   );
+// };
 
 // ============================================================
 // CALENDAR GRID FUNCTIONS
@@ -714,25 +714,45 @@ export default function PeriodCalendar() {
                                   {format(new Date(dayData.forecast_date), "eeee, d MMMM yyyy", { locale: id })}
                                 </div>
                                 <div className="space-y-1.5 text-sm">
-                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isRainSesuai && "text-red-600")}>
-                                    <Droplets className="w-4 h-4 text-blue-500" />
-                                    <span>Hujan: <strong>{rain.toFixed(2)} mm</strong></span>
-                                    {suitability.criteria && !suitability.criteria.isRainSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                  <div className={clsx("flex items-center justify-between gap-2", suitability.criteria && !suitability.criteria.isRainSesuai && "text-red-600")}>
+                                    <div className="flex items-center gap-2">
+                                      <Droplets className="w-4 h-4 text-blue-500" />
+                                      <span>Hujan: <strong>{rain.toFixed(2)} mm</strong></span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {suitability.criteria && !suitability.criteria.isRainSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                      <span className="text-xs text-muted-foreground">(5.7-16.7)</span>
+                                    </div>
                                   </div>
-                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isTempSesuai && "text-red-600")}>
-                                    <Thermometer className="w-4 h-4 text-orange-500" />
-                                    <span>Suhu: <strong>{temp.toFixed(2)}°C</strong></span>
-                                    {suitability.criteria && !suitability.criteria.isTempSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                  <div className={clsx("flex items-center justify-between gap-2", suitability.criteria && !suitability.criteria.isTempSesuai && "text-red-600")}>
+                                    <div className="flex items-center gap-2">
+                                      <Thermometer className="w-4 h-4 text-orange-500" />
+                                      <span>Suhu: <strong>{temp.toFixed(2)}°C</strong></span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {suitability.criteria && !suitability.criteria.isTempSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                      <span className="text-xs text-muted-foreground">(24-29)</span>
+                                    </div>
                                   </div>
-                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isHumiditySesuai && "text-red-600")}>
-                                    <Wind className="w-4 h-4 text-cyan-500" />
-                                    <span>Kelembaban: <strong>{humidity.toFixed(2)}%</strong></span>
-                                    {suitability.criteria && !suitability.criteria.isHumiditySesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                  <div className={clsx("flex items-center justify-between gap-2", suitability.criteria && !suitability.criteria.isHumiditySesuai && "text-red-600")}>
+                                    <div className="flex items-center gap-2">
+                                      <Wind className="w-4 h-4 text-cyan-500" />
+                                      <span>Kelembaban: <strong>{humidity.toFixed(2)}%</strong></span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {suitability.criteria && !suitability.criteria.isHumiditySesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                      <span className="text-xs text-muted-foreground">(33-90)</span>
+                                    </div>
                                   </div>
-                                  <div className={clsx("flex items-center gap-2", suitability.criteria && !suitability.criteria.isRadiationSesuai && "text-red-600")}>
-                                    <Sun className="w-4 h-4 text-yellow-500" />
-                                    <span>Radiasi: <strong>{radiation.toFixed(2)} MJ/m²</strong></span>
-                                    {suitability.criteria && !suitability.criteria.isRadiationSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                  <div className={clsx("flex items-center justify-between gap-2", suitability.criteria && !suitability.criteria.isRadiationSesuai && "text-red-600")}>
+                                    <div className="flex items-center gap-2">
+                                      <Sun className="w-4 h-4 text-yellow-500" />
+                                      <span>Radiasi: <strong>{radiation.toFixed(2)} MJ/m²</strong></span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      {suitability.criteria && !suitability.criteria.isRadiationSesuai && <XCircle className="w-3 h-3 text-red-500" />}
+                                      <span className="text-xs text-muted-foreground">(15-25)</span>
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="pt-2 border-t">
@@ -804,13 +824,13 @@ export default function PeriodCalendar() {
 
   return (
     <div className="space-y-4">
-      {/* Kalender Tahunan - 12 Bulan */}
+      {/* Kalender Tahunan - 12 Bulan
       {yearlySummary && (
         <YearlyCalendar 
           summary={yearlySummary} 
           title={`Ringkasan Kalender Tanam 1 Tahun`}
         />
-      )}
+      )} */}
 
       {/* Kalender Per Periode */}
       <Card>

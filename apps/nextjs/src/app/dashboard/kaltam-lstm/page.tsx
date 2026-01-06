@@ -22,8 +22,8 @@ export default async function Page() {
       </div>
       <Separator />
       
-      {/* Kalender Tahunan */}
-      <LSTMYearlyCalendar />
+      {/* Kalender Tahunan
+      <LSTMYearlyCalendar /> */}
       
       <div className="w-full flex gap-4">
         <LSTMDialog />

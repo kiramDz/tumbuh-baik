@@ -64,4 +64,75 @@ lstmConfigRoute.get("/", async (c) => {
   }
 });
 
+lstmConfigRoute.put("/:id", async (c) => {
+  try {
+    await db();
+    const id = c.req.param("id");
+    const { name, columns, startDate } = await c.req.json();
+
+    if (!name || !Array.isArray(columns) || columns.length === 0) {
+      return c.json({ message: "Name and columns are required" }, 400);
+    }
+
+    if (!startDate) {
+      return c.json({ message: "Start date is required" }, 400);
+    }
+
+    for (const column of columns) {
+      if (!column.collectionName || !column.columnName) {
+        return c.json(
+          {
+            message: "Each column must have collectionName and columnName",
+          },
+          400
+        );
+      }
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+
+    const updateData = {
+      name: name.trim(),
+      columns,
+      startDate: start,
+      endDate: end,
+    };
+
+    const result = await LSTMConfig.findByIdAndUpdate(id, updateData, {
+      new: true,
+    });
+
+    if (!result) {
+      return c.json({ message: "Config not found" }, 404);
+    }
+
+    return c.json({ message: "Config updated", data: result });
+  } catch (error) {
+    console.error("LSTM config update error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+lstmConfigRoute.delete("/:id", async (c) => {
+  try {
+    await db();
+    const id = c.req.param("id");
+
+    const result = await LSTMConfig.findByIdAndDelete(id);
+
+    if (!result) {
+      return c.json({ message: "Config not found" }, 404);
+    }
+
+    return c.json({ message: "Config deleted successfully" });
+  } catch (error) {
+    console.error("LSTM config delete error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
 export default lstmConfigRoute;
