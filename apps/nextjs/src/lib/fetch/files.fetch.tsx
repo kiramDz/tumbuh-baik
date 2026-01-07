@@ -427,8 +427,8 @@ export const createForecastConfig = async (data: {
 
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post("http://localhost:5001/run-forecast");
-    // const res = await axios.post("https://api.zonapetik.tech/run-forecast");
+    // const res = await axios.post("http://localhost:5001/run-forecast");
+    const res = await axios.post("https://api.zonapetik.tech/run-forecast");
     return res.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
