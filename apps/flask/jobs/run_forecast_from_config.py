@@ -35,7 +35,6 @@ def is_valid_column(collection_name, column_name, client):
     if any(keyword in column_name.lower() for keyword in forbidden_keywords):
         return False, f"Column {column_name} contains forbidden keyword for forecasting"
     
-    # Optional: Check if column contains numeric data
     try:
         sample_doc = client["tugas_akhir"][collection_name].find_one({column_name: {"$exists": True}})
         if sample_doc and not isinstance(sample_doc[column_name], (int, float)):
@@ -46,11 +45,12 @@ def is_valid_column(collection_name, column_name, client):
 
 def run_forecast_from_config():
     try:
-
-        # Kosongkan collection temp-hw di awal
+        # Kosongkan collections di awal
         db["temp-hw"].delete_many({})
-        db["temp-decompose"].delete_many({})  # Tambah: kosongkan temp-decompose
+        db["temp-decompose"].delete_many({})
         db["decompose"].delete_many({})
+        db["holt-winter"].delete_many({})
+        db["hw-historical"].delete_many({})
 
         config = db.forecast_configs.find_one_and_update(
             {"status": "pending"},
@@ -61,19 +61,14 @@ def run_forecast_from_config():
         if not config:
             return jsonify({"message": "No pending forecast config found."}), 404
         
-        # Kosongkan collection holt-winter di awal (tanpa perlu pengecekan)
-        db["holt-winter"].delete_many({})
-        
-        # Ambil info kolom yang akan dianalisis
         name = config.get("name", f"forecast_{int(time.time())}")
         columns = config.get("columns", [])
         forecast_coll = config.get("forecastResultCollection")
         config_id = str(config["_id"])
 
-        start_date_str = config.get("startDate")  # ISO format dari MongoDB
+        start_date_str = config.get("startDate")
         end_date_str = config.get("endDate")
 
-        # Validasi tanggal
         if not start_date_str or not end_date_str:
             error_msg = "startDate and endDate are required in config"
             db.forecast_configs.update_one(
@@ -82,7 +77,6 @@ def run_forecast_from_config():
             )
             return jsonify({"error": error_msg}), 400
         
-        # Parse tanggal ke format yang bisa digunakan
         try:
             start_date = pd.to_datetime(start_date_str).date()
             end_date = pd.to_datetime(end_date_str).date()
@@ -95,7 +89,6 @@ def run_forecast_from_config():
             )
             return jsonify({"error": error_msg}), 400
         
-
         for item in columns:
             collection = item["collectionName"]
             column = item["columnName"]
@@ -108,8 +101,6 @@ def run_forecast_from_config():
                 return jsonify({"error": error_msg}), 400
         
         results = []
-        forecast_data = {}  # Untuk menyimpan semua forecast berdasarkan tanggal
-        decompose_data = {}
         error_metrics_list = []
 
         for item in columns:
@@ -119,44 +110,17 @@ def run_forecast_from_config():
             print(f"[INFO] Processing {collection} - {column}")
             
             try:
-                # Jalankan analisis Holt-Winter (sekarang mengembalikan list dari 3 split ratio)
                 result_list = run_optimized_hw_analysis(
                     collection_name=collection,
                     target_column=column,
-                    save_collection="holt-winter", 
                     config_id=config_id,
-                    append_column_id=True,
                     client=client,
                     start_date=start_date,  
                     end_date=end_date
                 )
                 
-                # Tambahkan semua hasil dari 3 split ratio
                 results.extend(result_list)
-
-                # Ambil hasil forecast untuk semua split ratio
-                temp_forecasts = list(db["holt-winter"].find({"config_id": config_id}))
                 
-                for forecast_doc in temp_forecasts:
-                    forecast_date = pd.to_datetime(forecast_doc["forecast_date"]).strftime("%Y-%m-%d")
-                    split_ratio = forecast_doc.get("split_ratio", "unknown")
-                    forecast_key = f"{forecast_date}_{split_ratio}"
-
-                    if forecast_key not in forecast_data:
-                        forecast_data[forecast_key] = {
-                            "forecast_date": forecast_date,
-                            "split_ratio": split_ratio,
-                            "timestamp": datetime.now().isoformat(),
-                            "config_id": config_id,
-                            "parameters": {}
-                        }
-                    
-                    if "parameters" in forecast_doc:
-                        forecast_data[forecast_key]["parameters"].update(
-                            forecast_doc["parameters"]
-                        )
-                
-                # Simpan metrik evaluasi untuk setiap split ratio
                 for result in result_list:
                     if result.get("error_metrics"):
                         error_metrics_list.append({
@@ -180,46 +144,89 @@ def run_forecast_from_config():
                 traceback.print_exc()
                 return jsonify({"error": error_msg}), 500
         
-        # Simpan hasil gabungan ke collection final
-        if forecast_data:
-            # Hapus data lama untuk config ini
+        # Combine multi-parameter per tanggal untuk forecast
+        forecast_combined = {}
+        all_forecasts = list(db["holt-winter"].find({"config_id": config_id}))
+        
+        for doc in all_forecasts:
+            date_str = pd.to_datetime(doc["forecast_date"]).strftime("%Y-%m-%d")
+            split_ratio = doc.get("split_ratio", "unknown")
+            key = f"{date_str}_{split_ratio}"
+            
+            if key not in forecast_combined:
+                forecast_combined[key] = {
+                    "forecast_date": date_str,
+                    "split_ratio": split_ratio,
+                    "config_id": config_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "parameters": {}
+                }
+            
+            if "parameters" in doc:
+                forecast_combined[key]["parameters"].update(doc["parameters"])
+        
+        # Combine multi-parameter per tanggal untuk historical (train + validation)
+        historical_combined = {}
+        all_historical = list(db["hw-historical"].find({"config_id": config_id}))
+        
+        for doc in all_historical:
+            date_str = pd.to_datetime(doc["date"]).strftime("%Y-%m-%d")
+            split_ratio = doc.get("split_ratio", "unknown")
+            data_type = doc.get("data_type", "unknown")
+            key = f"{date_str}_{split_ratio}_{data_type}"
+            
+            if key not in historical_combined:
+                historical_combined[key] = {
+                    "date": date_str,
+                    "split_ratio": split_ratio,
+                    "data_type": data_type,
+                    "config_id": config_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "parameters": {}
+                }
+            
+            if "parameters" in doc:
+                historical_combined[key]["parameters"].update(doc["parameters"])
+        
+        # Replace dengan data combined
+        if forecast_combined:
             db["holt-winter"].delete_many({"config_id": config_id})
-            
-            # Insert data gabungan
-            combined_docs = list(forecast_data.values())
-            db["holt-winter"].insert_many(combined_docs)
-            
-            print(f"✓ Inserted {len(combined_docs)} combined forecast documents")
+            db["holt-winter"].insert_many(list(forecast_combined.values()))
+            print(f"✓ Inserted {len(forecast_combined)} combined forecast documents")
+        
+        if historical_combined:
+            db["hw-historical"].delete_many({"config_id": config_id})
+            db["hw-historical"].insert_many(list(historical_combined.values()))
+            print(f"✓ Inserted {len(historical_combined)} combined historical documents")
         
         # Bersihkan collection temporary
         db["temp-hw"].delete_many({})
         db["temp-decompose"].delete_many({})
         
-        # Update status config dan simpan error metrics
-        update_data = {
-            "status": "done",
-            "error_metrics": error_metrics_list
-        }
-
         # Update status config
         db.forecast_configs.update_one(
             {"_id": config["_id"]},
-            {"$set": update_data}
+            {"$set": {
+                "status": "done",
+                "error_metrics": error_metrics_list
+            }}
         )
 
         return jsonify({
-        "message": f"Forecasting completed for config: {name}",
-        "forecastResultCollection": forecast_coll,
-        "results": convert_objectid(results),
-        "total_forecast_dates": len(forecast_data),
-        "error_metrics": error_metrics_list
-         }), 200
+            "message": f"Forecasting completed for config: {name}",
+            "forecastResultCollection": forecast_coll,
+            "results": convert_objectid(results),
+            "total_forecast_dates": len(forecast_combined),
+            "total_historical_records": len(historical_combined),
+            "error_metrics": error_metrics_list
+        }), 200
         
     except Exception as e:
-        error_msg = f"Internal server error: {str(e)}"
-        db.forecast_configs.update_one(
-            {"_id": config["_id"]},
-            {"$set": {"status": "failed", "errorMessage": error_msg}}
-        )
+        error_msg = f"Unexpected error: {str(e)}"
         traceback.print_exc()
+        if config:
+            db.forecast_configs.update_one(
+                {"_id": config["_id"]},
+                {"$set": {"status": "failed", "errorMessage": error_msg}}
+            )
         return jsonify({"error": error_msg}), 500

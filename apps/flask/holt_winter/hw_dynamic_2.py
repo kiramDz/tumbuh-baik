@@ -42,7 +42,6 @@ def fit_robust_model(data, best_params, param_name="NDVI"):
             return None
 
 
-
 def post_process_forecast(forecast, param_name, lam=None):
     """
     Post-processing untuk memastikan forecast masuk akal
@@ -51,7 +50,6 @@ def post_process_forecast(forecast, param_name, lam=None):
     if param_name in ["RR", "RR_imputed", "PRECTOTCORR"]: 
         if lam is not None:  
             forecast = (forecast * lam + 1) ** (1/lam) - 1
-        # Beda threshold saja
         if param_name == "PRECTOTCORR":
             forecast = np.clip(forecast, 0, 200)  
         else:
@@ -63,11 +61,10 @@ def post_process_forecast(forecast, param_name, lam=None):
     elif param_name in ["TAVG", "TMAX", "TMIN", "T2M"]:  
         forecast = np.clip(forecast, 10, 50)  
     elif param_name in ["ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]:
-    # NASA ALLSKY dalam MJ/m²/day, bukan W/m²
         if param_name == "ALLSKY_SFC_SW_DWN":
-            forecast = np.clip(forecast, 0, 30)  # Range realistis MJ/m²/day
+            forecast = np.clip(forecast, 0, 30)
         else:
-            forecast = np.clip(forecast, 0, 1400)  # BMKG masih W/m²
+            forecast = np.clip(forecast, 0, 1400)
     else:
         print(f"Warning: No post-processing defined for {param_name}")
     return forecast
@@ -100,7 +97,6 @@ def detect_seasonal_period(data, param_name):
         return best_period
     else:
         return 365  
-    
 
 
 def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
@@ -110,21 +106,17 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     print(f"\n--- Grid Search for Indonesian Rainfall Pattern: {param_name} ---")
     print(f"📊 Using validation ratio: {validation_ratio * 100:.0f}%")
     
-    # Tentukan frekuensi dan panjang minimum berdasarkan parameter
     is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
-    min_data_length = 46 if is_ndvi else 365  # 2 tahun untuk NDVI (~46 pengukuran), 1 tahun untuk lainnya
-
+    min_data_length = 46 if is_ndvi else 365
 
     if len(train_data) < min_data_length:
         print(f"❌ Insufficient data (need at least {min_data_length} {'pengukuran' if is_ndvi else 'hari'})")
         return None, None
     
-    # Parameter grid yang lebih konservatif untuk rainfall
     alpha_range = [0.3, 0.5, 0.7]  
     beta_range = [0.1, 0.3, 0.5]
     gamma_range = [0.3, 0.5, 0.7]
 
-    # Hapus logika penentuan seasonal_periods_options yang lama
     best_period = detect_seasonal_period(train_data, param_name)
     seasonal_periods_options = [best_period]
     if is_ndvi:
@@ -138,9 +130,8 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     best_metrics = None
     valid_models = 0
     
-   # atur proporsi data train dan validasi data
     if is_ndvi:
-            val_size = max(4, int(len(train_data) * validation_ratio))
+        val_size = max(4, int(len(train_data) * validation_ratio))
     else:
         val_size = int(len(train_data) * validation_ratio)
         val_size = max(30, val_size) 
@@ -150,10 +141,6 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     val_split = train_data[split_point:]
     
     print(f"Train: {len(train_split)} days, Validation: {len(val_split)} days")
-    print(f"Train size: {len(train_split)}")
-    print(f"Val size: {len(val_split)}")
-    print(f"Train sample: {train_split[:5].to_list()}")
-    print(f"Val sample: {val_split[:5].to_list()}")
     
     for seasonal_periods in seasonal_periods_options:
         if len(train_split) < seasonal_periods * 2:
@@ -164,7 +151,6 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                 for gamma in gamma_range:
                     try:
                         print(f"🔧 Trying: alpha={alpha}, beta={beta}, gamma={gamma}, season={seasonal_periods}")
-                        # Fit model
                         model = ExponentialSmoothing(
                             train_split,
                             trend="add",
@@ -177,11 +163,9 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                             optimized=False
                         )
                         
-                        # Forecast
                         forecast = model.forecast(len(val_split))
                         forecast = post_process_forecast(forecast, param_name)
                         
-                        # Calculate metrics
                         mae = mean_absolute_error(val_split, forecast)
                         mad = np.mean(np.abs(val_split - np.mean(val_split)))
                         mse = mean_squared_error(val_split, forecast)
@@ -210,6 +194,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                             
                     except Exception as e:
                         continue
+    
     if best_params:
         print(f"\n🎯 Best Params: {best_params}")
         print(f"📈 Metrics: {best_metrics}")
@@ -219,11 +204,63 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     return best_params, best_metrics
 
 
+def save_historical_data_bulk(db, collection_name, target_column, train_data, val_data, 
+                               split_name, config_id):
+    """
+    Menyimpan train dan validation data ke hw-historical menggunakan bulk operations
+    """
+    print(f"\n💾 Saving historical data for {split_name}...")
+    
+    all_docs = []
+    
+    # Prepare train documents
+    for date, value in train_data.items():
+        doc = {
+            "date": date.to_pydatetime(),
+            "timestamp": datetime.now().isoformat(),
+            "source_collection": collection_name,
+            "config_id": config_id,
+            "split_ratio": split_name,
+            "data_type": "train",
+            "parameters": {
+                target_column: {
+                    "actual_value": float(value)
+                }
+            }
+        }
+        all_docs.append(doc)
+    
+    # Prepare validation documents
+    for date, value in val_data.items():
+        doc = {
+            "date": date.to_pydatetime(),
+            "timestamp": datetime.now().isoformat(),
+            "source_collection": collection_name,
+            "config_id": config_id,
+            "split_ratio": split_name,
+            "data_type": "validation",
+            "parameters": {
+                target_column: {
+                    "actual_value": float(value)
+                }
+            }
+        }
+        all_docs.append(doc)
+    
+    # Bulk insert
+    if all_docs:
+        db["hw-historical"].insert_many(all_docs, ordered=False)
+        print(f"✅ Saved {len(all_docs)} historical documents ({len(train_data)} train + {len(val_data)} val)")
+    
+    return len(all_docs)
 
-def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None, start_date=None, end_date=None):
+
+def run_optimized_hw_analysis(collection_name, target_column, config_id=None, client=None, 
+                               start_date=None, end_date=None):
     """
     Fungsi Holt-Winter yang dinamis berdasarkan parameter dari forecast_config
     Menjalankan 3 split ratio: 70:30, 80:20, 90:10
+    Menyimpan ke hw-historical (train + validation) dan holt-winter (forecast)
     """
     print(f"=== Start Holt-Winter Analysis for {collection_name}.{target_column} ===")
     
@@ -240,17 +277,14 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
     db = client["tugas_akhir"]
     
     try:
-        # Fetch data dari collection yang ditentukan
         source_data = list(db[collection_name].find().sort("Date", 1))
         print(f"Fetched {len(source_data)} records from {collection_name}")
         
         if not source_data:
             raise ValueError(f"No data found in collection {collection_name}")
         
-        # Prepare DataFrame
         df = pd.DataFrame(source_data)
         
-        # Cek apakah ada kolom Date/timestamp
         date_column = None
         for col in ['Date', 'date', 'timestamp', 'Timestamp']:
             if col in df.columns:
@@ -260,40 +294,22 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if date_column is None:
             raise ValueError(f"No date column found in {collection_name}")
         
-        # Set timestamp index
         df['timestamp'] = pd.to_datetime(df[date_column])
         df.set_index('timestamp', inplace=True)
-
-        # Pastikan indeks harian tanpa duplikasi
         df = df[~df.index.duplicated(keep='first')]
 
-        # Tentukan frekuensi berdasarkan parameter
         is_ndvi = target_column in ["NDVI", "NDVI_imputed"]
         freq = '16D' if is_ndvi else 'D'
 
         date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq=freq)
-        missing_dates = date_range.difference(df.index)
-        print(f"Missing dates: {missing_dates}")
-
-         # Reindex dengan interpolasi untuk NDVI, fill_value=0 untuk lainnya
         df = df.reindex(date_range)
 
         if target_column in ["PRECTOTCORR", "RR"]:
-            # Curah hujan: missing = tidak hujan
             df[target_column] = df[target_column].fillna(0)
-
         elif is_ndvi:
-            df[target_column] = df[target_column].interpolate(
-                method="linear",
-                limit_direction="both"
-            )
-
+            df[target_column] = df[target_column].interpolate(method="linear", limit_direction="both")
         else:
-            df[target_column] = df[target_column].interpolate(
-                method="time",
-                limit_direction="both"
-    )
-
+            df[target_column] = df[target_column].interpolate(method="time", limit_direction="both")
         
         print(f"Data range: {df.index[0]} to {df.index[-1]}")
         
@@ -301,22 +317,16 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             raise ValueError(f"Column '{target_column}' not found in {collection_name}")
         
         param_data = df[target_column].dropna()
-
         lam = None
         
         if len(param_data) < 100:
             raise ValueError(f"Insufficient data for {target_column}")
         
-        print(f"Data summary for {target_column}:")
-        print(f"Total values: {len(param_data)}")
-        print(f"Zero values: {(param_data == 0).sum()}")
-        print(f"Non-zero values: {(param_data > 0).sum()}")
-        print(f"Mean: {param_data.mean():.3f}, Std: {param_data.std():.3f}")
+        print(f"Data summary for {target_column}: Total={len(param_data)}, Mean={param_data.mean():.3f}")
 
+        # Decomposition
         try:
             best_period = detect_seasonal_period(param_data, target_column)
-            print(f"🔍 Starting decompose for {target_column}, data length: {len(param_data)}, period: {best_period}")
-            
             decompose_result = seasonal_decompose(param_data, model='additive', period=best_period, extrapolate_trend='freq')
             decompose_docs = []
             for i, date in enumerate(param_data.index):
@@ -334,14 +344,11 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                 decompose_docs.append(doc)
             
             db["temp-decompose"].insert_many(decompose_docs)
-            print(f"✅ Decompose success: {len(decompose_docs)} documents saved to temp-decompose")
+            print(f"✅ Decompose success: {len(decompose_docs)} documents saved")
             
         except Exception as e:
-            print(f"❌ Decompose failed for {target_column}: {str(e)}")
-            print(f"❌ Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
-        # Tentukan 3 split ratio yang akan digunakan
+            print(f"❌ Decompose failed: {str(e)}")
+        
         split_ratios = [
             {"ratio": 0.30, "name": "70:30"},
             {"ratio": 0.20, "name": "80:20"},
@@ -356,143 +363,118 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             split_name = split_config["name"]
             
             print(f"\n{'='*60}")
-            print(f"🔄 Processing split ratio: {split_name} (train:{int((1-val_ratio)*100)}%, val:{int(val_ratio*100)}%)")
+            print(f"🔄 Processing split ratio: {split_name}")
             print(f"{'='*60}")
             
-            # Grid search dengan validation_ratio tertentu
+            # Split data untuk train dan validation
+            if is_ndvi:
+                val_size = max(4, int(len(param_data) * val_ratio))
+            else:
+                val_size = max(30, int(len(param_data) * val_ratio))
+            
+            split_point = len(param_data) - val_size
+            train_split = param_data[:split_point]
+            val_split = param_data[split_point:]
+            
+            print(f"📊 Train size: {len(train_split)}, Validation size: {len(val_split)}")
+            
+            # ⭐ SIMPAN HISTORICAL DATA (train + validation) - BULK INSERT
+            save_historical_data_bulk(
+                db=db,
+                collection_name=collection_name,
+                target_column=target_column,
+                train_data=train_split,
+                val_data=val_split,
+                split_name=split_name,
+                config_id=config_id
+            )
+            
+            # Grid search dengan full data
             best_params, error_metrics = grid_search_hw_params(param_data, target_column, validation_ratio=val_ratio)
             
             if best_params is None:
                 print(f"⚠️  No valid model found for split {split_name}")
                 continue
             
-            print(f"🔎 param_data length: {len(param_data)}")
-            print(f"📊 Best params for {split_name}: {best_params}")
-
+            # Fit final model dengan FULL data
             final_model = fit_robust_model(param_data, best_params, target_column)
-            fitted_values = final_model.fittedvalues
-            print(f"Fitted values range: {fitted_values.min():.3f} to {fitted_values.max():.3f}")
             
             if final_model is None:
                 print(f"⚠️  Failed to fit final model for split {split_name}")
                 continue
             
+            # Forecast dates
             if start_date is not None and end_date is not None:
                 forecast_start_date = pd.to_datetime(start_date)
                 forecast_end_date = pd.to_datetime(end_date)
-                print(f"[INFO] Using custom date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
             else:
                 last_data_date = df.index[-1]
                 forecast_start_date = last_data_date + pd.Timedelta(days=1)
                 forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
-                print(f"[INFO] Using default date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
         
             date_increment = '16D' if is_ndvi else 'D'
             forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
             forecast_steps = len(forecast_dates)
-
-            print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
             
             # Generate forecast
             print(f"Generating forecast for {target_column} ({split_name})...")
             try:
                 forecast = final_model.forecast(steps=forecast_steps)
-                print(f"Raw forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
-                print(f"First 10 raw forecast values: {forecast[:10].round(3).to_list()}")
-
-                if forecast is None or len(forecast) == 0:
-                    raise ValueError("Forecast result is empty")
                 
                 if hasattr(forecast, 'values'):
                     forecast = forecast.values
                 
                 forecast = np.array(forecast).flatten()
-                
-                if np.isnan(forecast).any() or np.isinf(forecast).any():
-                    raise ValueError("Forecast contains NaN or infinite values")
-                
-                # Post-process forecast
                 forecast = post_process_forecast(forecast, target_column, lam)
                 
-                print(f"✓ {target_column} forecast completed for {split_name}")
-                print(f"  Processed forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
+                print(f"✓ Forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
                 
             except Exception as e:
-                raise ValueError(f"Forecast generation failed for {split_name}: {str(e)}")
+                raise ValueError(f"Forecast generation failed: {str(e)}")
             
-            # Prepare forecast documents dengan split_ratio
+            # Prepare forecast documents - BULK INSERT
             forecast_docs = []
-            date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
             
-            try:
-                for i, forecast_date in enumerate(forecast_dates):
-                    forecast_value = float(forecast[i])
-                    
-                    if np.isnan(forecast_value) or np.isinf(forecast_value):
-                        print(f"Warning: Skipping invalid forecast value at index {i}")
-                        continue
+            for i, forecast_date in enumerate(forecast_dates):
+                forecast_value = float(forecast[i])
+                
+                if np.isnan(forecast_value) or np.isinf(forecast_value):
+                    continue
 
-                    doc = {
-                        "forecast_date": forecast_date.to_pydatetime(),
-                        "timestamp": datetime.now().isoformat(),
-                        "source_collection": collection_name,
-                        "config_id": config_id,
-                        "split_ratio": split_name,
-                        "parameters": {
-                            target_column: {
-                                "forecast_value": forecast_value,
-                                "model_metadata": {
-                                    "alpha": best_params["alpha"],
-                                    "beta": best_params["beta"],
-                                    "gamma": best_params["gamma"],
-                                    "use_seasonal": best_params.get("use_seasonal", True),
-                                    "seasonal_periods": best_params.get("seasonal_periods", 23 if is_ndvi else best_params.get("seasonal_periods", 7)),
-                                    "lambda_boxcox": lam if lam is not None else None
-                                }
+                doc = {
+                    "forecast_date": forecast_date.to_pydatetime(),
+                    "timestamp": datetime.now().isoformat(),
+                    "source_collection": collection_name,
+                    "config_id": config_id,
+                    "split_ratio": split_name,
+                    "parameters": {
+                        target_column: {
+                            "forecast_value": forecast_value,
+                            "model_metadata": {
+                                "alpha": best_params["alpha"],
+                                "beta": best_params["beta"],
+                                "gamma": best_params["gamma"],
+                                "use_seasonal": best_params.get("use_seasonal", True),
+                                "seasonal_periods": best_params.get("seasonal_periods", 23 if is_ndvi else 7),
+                                "lambda_boxcox": lam if lam is not None else None
                             }
                         }
                     }
-
-                    if append_column_id:
-                        doc["column_id"] = f"{collection_name}_{target_column}"
-
-                    forecast_docs.append(doc)
-                
-            except Exception as e:
-                raise ValueError(f"Error preparing forecast documents: {str(e)}")
+                }
+                forecast_docs.append(doc)
             
-            # Upsert ke collection
-            upsert_count = 0
-            for doc in forecast_docs:
-                target_col = list(doc["parameters"].keys())[0]
-                result = db[save_collection].update_one(
-                    {
-                        "forecast_date": doc["forecast_date"],
-                        "config_id": doc["config_id"],
-                        "split_ratio": doc["split_ratio"]
-                    },
-                    {
-                        "$set": {
-                            f"parameters.{target_col}": doc["parameters"][target_col],
-                            "timestamp": doc["timestamp"],
-                            "source_collection": doc["source_collection"],
-                            "column_id": doc.get("column_id")
-                        }
-                    },
-                    upsert=True
-                )
-            if result.upserted_id or result.modified_count > 0:
-                upsert_count += 1
-
-            print(f"✓ Upserted {upsert_count} forecast documents for {split_name} to {save_collection}")
+            # Bulk insert forecast
+            if forecast_docs:
+                db["holt-winter"].insert_many(forecast_docs, ordered=False)
+                print(f"✅ Saved {len(forecast_docs)} forecast documents for {split_name}")
             
             result_summary = {
                 "collection_name": collection_name,
                 "target_column": target_column,
                 "split_ratio": split_name,
+                "train_days": len(train_split),
+                "validation_days": len(val_split),
                 "forecast_days": len(forecast_docs),
-                "documents_processed": upsert_count,
-                "save_collection": save_collection,
                 "model_params": best_params,
                 "error_metrics": error_metrics,
                 "forecast_range": {
@@ -504,9 +486,9 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             }
             
             all_results.append(result_summary)
-            print(f"✓ Analysis completed for {collection_name}.{target_column} ({split_name})")
+            print(f"✓ Analysis completed for {split_name}")
         
-        return all_results if all_results else [{"error": "No valid models found for any split ratio"}]
+        return all_results if all_results else [{"error": "No valid models found"}]
         
     except Exception as e:
         print(f"❌ Error in Holt-Winter analysis: {str(e)}")
