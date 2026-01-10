@@ -1,4 +1,3 @@
-
 from pymongo import MongoClient
 import pandas as pd
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
@@ -109,6 +108,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     Grid search disesuaikan untuk pola curah hujan Indonesia
     """
     print(f"\n--- Grid Search for Indonesian Rainfall Pattern: {param_name} ---")
+    print(f"📊 Using validation ratio: {validation_ratio * 100:.0f}%")
     
     # Tentukan frekuensi dan panjang minimum berdasarkan parameter
     is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
@@ -223,6 +223,7 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
 def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None, start_date=None, end_date=None):
     """
     Fungsi Holt-Winter yang dinamis berdasarkan parameter dari forecast_config
+    Menjalankan 3 split ratio: 70:30, 80:20, 90:10
     """
     print(f"=== Start Holt-Winter Analysis for {collection_name}.{target_column} ===")
     
@@ -340,150 +341,172 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             print(f"❌ Error type: {type(e).__name__}")
             import traceback
             traceback.print_exc()
-        # Grid search
-        best_params, error_metrics = grid_search_hw_params(param_data, target_column)
+        # Tentukan 3 split ratio yang akan digunakan
+        split_ratios = [
+            {"ratio": 0.30, "name": "70:30"},
+            {"ratio": 0.20, "name": "80:20"},
+            {"ratio": 0.10, "name": "90:10"}
+        ]
         
-        if best_params is None:
-            raise ValueError(f"No valid model found for {target_column}")
-        print(f"🔎 param_data length: {len(param_data)}")
-        print(f"📊 Best params: {best_params}")
+        all_results = []
+        
+        # Loop untuk setiap split ratio
+        for split_config in split_ratios:
+            val_ratio = split_config["ratio"]
+            split_name = split_config["name"]
+            
+            print(f"\n{'='*60}")
+            print(f"🔄 Processing split ratio: {split_name} (train:{int((1-val_ratio)*100)}%, val:{int(val_ratio*100)}%)")
+            print(f"{'='*60}")
+            
+            # Grid search dengan validation_ratio tertentu
+            best_params, error_metrics = grid_search_hw_params(param_data, target_column, validation_ratio=val_ratio)
+            
+            if best_params is None:
+                print(f"⚠️  No valid model found for split {split_name}")
+                continue
+            
+            print(f"🔎 param_data length: {len(param_data)}")
+            print(f"📊 Best params for {split_name}: {best_params}")
 
-        final_model = fit_robust_model(param_data, best_params, target_column)
-        fitted_values = final_model.fittedvalues
-        print(f"Fitted values range: {fitted_values.min():.3f} to {fitted_values.max():.3f}")
+            final_model = fit_robust_model(param_data, best_params, target_column)
+            fitted_values = final_model.fittedvalues
+            print(f"Fitted values range: {fitted_values.min():.3f} to {fitted_values.max():.3f}")
+            
+            if final_model is None:
+                print(f"⚠️  Failed to fit final model for split {split_name}")
+                continue
+            
+            if start_date is not None and end_date is not None:
+                forecast_start_date = pd.to_datetime(start_date)
+                forecast_end_date = pd.to_datetime(end_date)
+                print(f"[INFO] Using custom date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
+            else:
+                last_data_date = df.index[-1]
+                forecast_start_date = last_data_date + pd.Timedelta(days=1)
+                forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
+                print(f"[INFO] Using default date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
         
-        if final_model is None:
-            raise ValueError(f"Failed to fit final model for {target_column}")
-        
-        if start_date is not None and end_date is not None:
-            forecast_start_date = pd.to_datetime(start_date)
-            forecast_end_date = pd.to_datetime(end_date)
-            print(f"[INFO] Using custom date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
-        else:
-            last_data_date = df.index[-1]
-            forecast_start_date = last_data_date + pd.Timedelta(days=1)
-            forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
-            print(f"[INFO] Using default date range: {forecast_start_date.date()} to {forecast_end_date.date()}")
-        
-        date_increment = '16D' if is_ndvi else 'D'
+            date_increment = '16D' if is_ndvi else 'D'
+            forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
+            forecast_steps = len(forecast_dates)
 
-        forecast_dates = pd.date_range(start=forecast_start_date, end=forecast_end_date, freq=date_increment)
-        forecast_steps = len(forecast_dates)
+            print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
+            
+            # Generate forecast
+            print(f"Generating forecast for {target_column} ({split_name})...")
+            try:
+                forecast = final_model.forecast(steps=forecast_steps)
+                print(f"Raw forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
+                print(f"First 10 raw forecast values: {forecast[:10].round(3).to_list()}")
 
-        
-        print(f"Forecast horizon: {forecast_steps} {'pengukuran' if is_ndvi else 'hari'}")
-        
-        # Generate forecast
-        print(f"Generating forecast for {target_column}...")
-        try:
-            forecast = final_model.forecast(steps=forecast_steps)
-            print(f"Raw forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
-            print(f"First 10 raw forecast values: {forecast[:10].round(3).to_list()}")
-
-            if forecast is None or len(forecast) == 0:
-                raise ValueError("Forecast result is empty")
-            
-            if hasattr(forecast, 'values'):
-                forecast = forecast.values
-            
-            forecast = np.array(forecast).flatten()
-            
-            if np.isnan(forecast).any() or np.isinf(forecast).any():
-                raise ValueError("Forecast contains NaN or infinite values")
-            
-            # Post-process forecast
-            forecast = post_process_forecast(forecast, target_column, lam)
-            
-            print(f"✓ {target_column} forecast completed")
-            print(f"  Processed forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
-            
-        except Exception as e:
-            raise ValueError(f"Forecast generation failed: {str(e)}")
-        
-        # Prepare forecast documents
-        forecast_docs = []
-        date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
-        
-        try:
-            for i, forecast_date in enumerate(forecast_dates):
-                forecast_value = float(forecast[i])
+                if forecast is None or len(forecast) == 0:
+                    raise ValueError("Forecast result is empty")
                 
-                forecast_value = float(forecast[i])
-                if np.isnan(forecast_value) or np.isinf(forecast_value):
-                    print(f"Warning: Skipping invalid forecast value at index {i}")
-                    continue
+                if hasattr(forecast, 'values'):
+                    forecast = forecast.values
+                
+                forecast = np.array(forecast).flatten()
+                
+                if np.isnan(forecast).any() or np.isinf(forecast).any():
+                    raise ValueError("Forecast contains NaN or infinite values")
+                
+                # Post-process forecast
+                forecast = post_process_forecast(forecast, target_column, lam)
+                
+                print(f"✓ {target_column} forecast completed for {split_name}")
+                print(f"  Processed forecast range: {forecast.min():.3f} to {forecast.max():.3f}")
+                
+            except Exception as e:
+                raise ValueError(f"Forecast generation failed for {split_name}: {str(e)}")
+            
+            # Prepare forecast documents dengan split_ratio
+            forecast_docs = []
+            date_increment = pd.Timedelta(days=16) if is_ndvi else pd.Timedelta(days=1)
+            
+            try:
+                for i, forecast_date in enumerate(forecast_dates):
+                    forecast_value = float(forecast[i])
+                    
+                    if np.isnan(forecast_value) or np.isinf(forecast_value):
+                        print(f"Warning: Skipping invalid forecast value at index {i}")
+                        continue
 
-                doc = {
-                    "forecast_date": forecast_date.to_pydatetime(),
-                    "timestamp": datetime.now().isoformat(),
-                    "source_collection": collection_name,
-                    "config_id": config_id,
-                    "parameters": {
-                        target_column: {
-                            "forecast_value": forecast_value,
-                            "model_metadata": {
-                                "alpha": best_params["alpha"],
-                                "beta": best_params["beta"],
-                                "gamma": best_params["gamma"],
-                                "use_seasonal": best_params.get("use_seasonal", True),
-                                "seasonal_periods": best_params.get("seasonal_periods", 23 if is_ndvi else best_params.get("seasonal_periods", 7)),
-                                "lambda_boxcox": lam if lam is not None else None
+                    doc = {
+                        "forecast_date": forecast_date.to_pydatetime(),
+                        "timestamp": datetime.now().isoformat(),
+                        "source_collection": collection_name,
+                        "config_id": config_id,
+                        "split_ratio": split_name,
+                        "parameters": {
+                            target_column: {
+                                "forecast_value": forecast_value,
+                                "model_metadata": {
+                                    "alpha": best_params["alpha"],
+                                    "beta": best_params["beta"],
+                                    "gamma": best_params["gamma"],
+                                    "use_seasonal": best_params.get("use_seasonal", True),
+                                    "seasonal_periods": best_params.get("seasonal_periods", 23 if is_ndvi else best_params.get("seasonal_periods", 7)),
+                                    "lambda_boxcox": lam if lam is not None else None
+                                }
                             }
                         }
                     }
-                }
 
-                if append_column_id:
-                    doc["column_id"] = f"{collection_name}_{target_column}"
+                    if append_column_id:
+                        doc["column_id"] = f"{collection_name}_{target_column}"
 
-                forecast_docs.append(doc)
+                    forecast_docs.append(doc)
+                
+            except Exception as e:
+                raise ValueError(f"Error preparing forecast documents: {str(e)}")
             
-        except Exception as e:
-            raise ValueError(f"Error preparing forecast documents: {str(e)}")
-        
-        # Upsert ke collection
-        upsert_count = 0
-        for doc in forecast_docs:
-            target_column = list(doc["parameters"].keys())[0]  # ambil nama parameter
-            result = db[save_collection].update_one(
-                {
-                    "forecast_date": doc["forecast_date"],
-                    "config_id": doc["config_id"]
-                },
-                {
-                    "$set": {
-                        f"parameters.{target_column}": doc["parameters"][target_column],  # hanya overwrite kolom ini
-                        "timestamp": doc["timestamp"],
-                        "source_collection": doc["source_collection"],
-                        "column_id": doc.get("column_id")
-                    }
-                },
-                upsert=True
-            )
-        if result.upserted_id or result.modified_count > 0:
-            upsert_count += 1
+            # Upsert ke collection
+            upsert_count = 0
+            for doc in forecast_docs:
+                target_col = list(doc["parameters"].keys())[0]
+                result = db[save_collection].update_one(
+                    {
+                        "forecast_date": doc["forecast_date"],
+                        "config_id": doc["config_id"],
+                        "split_ratio": doc["split_ratio"]
+                    },
+                    {
+                        "$set": {
+                            f"parameters.{target_col}": doc["parameters"][target_col],
+                            "timestamp": doc["timestamp"],
+                            "source_collection": doc["source_collection"],
+                            "column_id": doc.get("column_id")
+                        }
+                    },
+                    upsert=True
+                )
+            if result.upserted_id or result.modified_count > 0:
+                upsert_count += 1
 
-        
-        print(f"✓ Upserted {upsert_count} forecast documents to {save_collection}")
-        
-        result_summary = {
-            "collection_name": collection_name,
-            "target_column": target_column,
-            "forecast_days": len(forecast_docs),
-            "documents_processed": upsert_count,
-            "save_collection": save_collection,
-            "model_params": best_params,
-            "error_metrics": error_metrics,  
-            "forecast_range": {
-                "start": forecast_start_date.strftime("%Y-%m-%d"),
-                "end": forecast_end_date.strftime("%Y-%m-%d"),
-                "min": float(forecast.min()),
-                "max": float(forecast.max())
+            print(f"✓ Upserted {upsert_count} forecast documents for {split_name} to {save_collection}")
+            
+            result_summary = {
+                "collection_name": collection_name,
+                "target_column": target_column,
+                "split_ratio": split_name,
+                "forecast_days": len(forecast_docs),
+                "documents_processed": upsert_count,
+                "save_collection": save_collection,
+                "model_params": best_params,
+                "error_metrics": error_metrics,
+                "forecast_range": {
+                    "start": forecast_start_date.strftime("%Y-%m-%d"),
+                    "end": forecast_end_date.strftime("%Y-%m-%d"),
+                    "min": float(forecast.min()),
+                    "max": float(forecast.max())
+                }
             }
-        }
+            
+            all_results.append(result_summary)
+            print(f"✓ Analysis completed for {collection_name}.{target_column} ({split_name})")
         
-        print(f"✓ Analysis completed for {collection_name}.{target_column}")
-        return result_summary
+        return all_results if all_results else [{"error": "No valid models found for any split ratio"}]
         
     except Exception as e:
         print(f"❌ Error in Holt-Winter analysis: {str(e)}")

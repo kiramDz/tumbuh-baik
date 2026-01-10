@@ -119,52 +119,57 @@ def run_forecast_from_config():
             print(f"[INFO] Processing {collection} - {column}")
             
             try:
-                # Jalankan analisis Holt-Winter
-                result = run_optimized_hw_analysis(
+                # Jalankan analisis Holt-Winter (sekarang mengembalikan list dari 3 split ratio)
+                result_list = run_optimized_hw_analysis(
                     collection_name=collection,
                     target_column=column,
-                    save_collection="temp-hw", 
+                    save_collection="holt-winter", 
                     config_id=config_id,
                     append_column_id=True,
                     client=client,
                     start_date=start_date,  
                     end_date=end_date
                 )
-                results.append(result)
+                
+                # Tambahkan semua hasil dari 3 split ratio
+                results.extend(result_list)
 
-                # Simpan metrik evaluasi untuk kolom ini
-                if result.get("error_metrics"):
-                    error_metrics_list.append({
-                        "collectionName": collection,
-                        "columnName": column,
-                        "metrics": {
-                            "mae": result["error_metrics"].get("mae"),
-                            "rmse": result["error_metrics"].get("rmse"),
-                            "mape": result["error_metrics"].get("mape"),
-                            "mse": result["error_metrics"].get("mse")
-                        }
-                    })
-
-                # Ambil hasil forecast untuk digabung
-                temp_forecasts = list(db["temp-hw"].find({"config_id": config_id}))
+                # Ambil hasil forecast untuk semua split ratio
+                temp_forecasts = list(db["holt-winter"].find({"config_id": config_id}))
                 
                 for forecast_doc in temp_forecasts:
                     forecast_date = pd.to_datetime(forecast_doc["forecast_date"]).strftime("%Y-%m-%d")
+                    split_ratio = forecast_doc.get("split_ratio", "unknown")
+                    forecast_key = f"{forecast_date}_{split_ratio}"
 
-                    
-                    if forecast_date not in forecast_data:
-                        forecast_data[forecast_date] = {
+                    if forecast_key not in forecast_data:
+                        forecast_data[forecast_key] = {
                             "forecast_date": forecast_date,
+                            "split_ratio": split_ratio,
                             "timestamp": datetime.now().isoformat(),
                             "config_id": config_id,
                             "parameters": {}
                         }
                     
-                    # Tambahkan parameter ke struktur gabungan
                     if "parameters" in forecast_doc:
-                        forecast_data[forecast_date]["parameters"].update(
+                        forecast_data[forecast_key]["parameters"].update(
                             forecast_doc["parameters"]
                         )
+                
+                # Simpan metrik evaluasi untuk setiap split ratio
+                for result in result_list:
+                    if result.get("error_metrics"):
+                        error_metrics_list.append({
+                            "collectionName": collection,
+                            "columnName": column,
+                            "split_ratio": result.get("split_ratio"),
+                            "metrics": {
+                                "mae": result["error_metrics"].get("mae"),
+                                "rmse": result["error_metrics"].get("rmse"),
+                                "mape": result["error_metrics"].get("mape"),
+                                "mse": result["error_metrics"].get("mse")
+                            }
+                        })
                 
             except Exception as e:
                 error_msg = f"Holt-Winter failed for {collection}:{column} → {str(e)}"
@@ -188,29 +193,6 @@ def run_forecast_from_config():
         
         # Bersihkan collection temporary
         db["temp-hw"].delete_many({})
-
-        temp_decomposes = list(db["temp-decompose"].find({"config_id": config_id}))
-
-        for decompose_doc in temp_decomposes:
-            decompose_date = pd.to_datetime(decompose_doc["date"]).strftime("%Y-%m-%d")
-
-            if decompose_date not in decompose_data:
-                decompose_data[decompose_date] = {
-                    "date": decompose_date,
-                    "timestamp": datetime.now().isoformat(),
-                    "config_id": config_id,
-                    "parameters": {}
-                }
-            
-            if "parameters" in decompose_doc:
-                decompose_data[decompose_date]["parameters"].update(
-                    decompose_doc["parameters"]
-                )
-        
-        if decompose_data:
-            combined_decompose_docs = list(decompose_data.values())
-            db["decompose"].insert_many(combined_decompose_docs)
-        
         db["temp-decompose"].delete_many({})
         
         # Update status config dan simpan error metrics
