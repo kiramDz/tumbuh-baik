@@ -2,9 +2,9 @@ import mongoose, { Schema } from "mongoose";
 
 const DatasetMetaSchema = new Schema(
   {
-    name: { type: String, required: true }, // Nama koleksi, digunakan untuk identifikasi
+    name: { type: String, required: true },
     source: { type: String, required: true },
-    filename: { type: String, required: true }, // Nama file yang diupload
+    filename: { type: String, required: true },
     collectionName: { type: String, required: true },
     fileSize: { type: Number, required: true },
     totalRecords: { type: Number, required: true },
@@ -19,10 +19,10 @@ const DatasetMetaSchema = new Schema(
     description: { type: String },
     uploadDate: { type: Date, default: Date.now },
     errorMessage: { type: String },
-    isAPI: { type: Boolean, default: false }, // Flag untuk menandakan dataset fetch vs upload
+    isAPI: { type: Boolean, default: false },
     lastUpdated: { type: Date },
-    apiConfig: { type: Schema.Types.Mixed }, // Optional: menyimpan konfigurasi API jika diperlukan
-    deletedAt: { type: Date, default: null }, // Untuk soft delete
+    apiConfig: { type: Schema.Types.Mixed },
+    deletedAt: { type: Date, default: null },
   },
   {
     collection: "dataset_meta",
