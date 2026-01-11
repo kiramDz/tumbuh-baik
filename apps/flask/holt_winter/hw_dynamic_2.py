@@ -25,9 +25,6 @@ def fit_robust_model(data, best_params, param_name="NDVI"):
         ).fit(
             optimized=True
         )
-        forecast_raw = model.forecast(steps=30)
-        print("📈 Raw forecast (30 hari):")
-        print(forecast_raw.round(2).to_list())
         return model
     except Exception as e:
         print(f"Model fitting failed: {e}")
@@ -102,20 +99,28 @@ def detect_seasonal_period(data, param_name):
 def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
     """
     Grid search disesuaikan untuk pola curah hujan Indonesia
+    Return: best_params, error_metrics, predicted_validation
     """
     print(f"\n--- Grid Search for Indonesian Rainfall Pattern: {param_name} ---")
     print(f"📊 Using validation ratio: {validation_ratio * 100:.0f}%")
     
     is_ndvi = param_name in ["NDVI", "NDVI_imputed"]
+    is_rainfall_or_radiation = param_name in ["RR", "RR_imputed", "PRECTOTCORR", "ALLSKY_SFC_SW_DWN", "SRAD", "GHI"]
     min_data_length = 46 if is_ndvi else 365
 
     if len(train_data) < min_data_length:
         print(f"❌ Insufficient data (need at least {min_data_length} {'pengukuran' if is_ndvi else 'hari'})")
-        return None, None
+        return None, None, None
     
-    alpha_range = [0.3, 0.5, 0.7]  
-    beta_range = [0.1, 0.3, 0.5]
-    gamma_range = [0.3, 0.5, 0.7]
+    # Range lebih lebar untuk parameter yang noisy (curah hujan & radiasi)
+    if is_rainfall_or_radiation:
+        alpha_range = [0.1, 0.2, 0.3, 0.5, 0.7]
+        beta_range = [0.01, 0.05, 0.1, 0.2, 0.3]
+        gamma_range = [0.1, 0.2, 0.3, 0.5]
+    else:
+        alpha_range = [0.3, 0.5, 0.7]  
+        beta_range = [0.1, 0.3, 0.5]
+        gamma_range = [0.3, 0.5, 0.7]
 
     best_period = detect_seasonal_period(train_data, param_name)
     seasonal_periods_options = [best_period]
@@ -123,11 +128,11 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
         seasonal_periods_options.extend([best_period//2, best_period*2] if best_period > 4 else [4])
     else:
         seasonal_periods_options.extend([best_period//2, best_period*2] if best_period > 7 else [7])
-        print(f"Testing seasonal periods: {seasonal_periods_options}")
     
     best_score = float('inf')
     best_params = None
     best_metrics = None
+    best_predicted_val = None
     valid_models = 0
     
     if is_ndvi:
@@ -150,7 +155,6 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
             for beta in beta_range:
                 for gamma in gamma_range:
                     try:
-                        print(f"🔧 Trying: alpha={alpha}, beta={beta}, gamma={gamma}, season={seasonal_periods}")
                         model = ExponentialSmoothing(
                             train_split,
                             trend="add",
@@ -167,7 +171,6 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                         forecast = post_process_forecast(forecast, param_name)
                         
                         mae = mean_absolute_error(val_split, forecast)
-                        mad = np.mean(np.abs(val_split - np.mean(val_split)))
                         mse = mean_squared_error(val_split, forecast)
                         mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
                         rmse = np.sqrt(mse)
@@ -183,37 +186,33 @@ def grid_search_hw_params(train_data, param_name, validation_ratio=0.10):
                             }
                             best_metrics = {
                                 'mae': mae,
-                                'mad': mad,
                                 'mape': mape,
                                 'mse': mse,
-                                'rmse': rmse,
-                                'valid_models': valid_models + 1
+                                'rmse': rmse
                             }
-                            print(f"✅ New best found! Score: {score:.4f}, Params: {best_params}")
+                            best_predicted_val = forecast
                             valid_models += 1
                             
-                    except Exception as e:
+                    except Exception:
                         continue
     
     if best_params:
         print(f"\n🎯 Best Params: {best_params}")
         print(f"📈 Metrics: {best_metrics}")
-    else:
-        print("❌ No valid model found.")
-
-    return best_params, best_metrics
+    
+    return best_params, best_metrics, best_predicted_val
 
 
 def save_historical_data_bulk(db, collection_name, target_column, train_data, val_data, 
-                               split_name, config_id):
+                               predicted_val, split_name, config_id):
     """
-    Menyimpan train dan validation data ke hw-historical menggunakan bulk operations
+    Menyimpan train, validation, dan predicted_validation ke hw-historical
     """
     print(f"\n💾 Saving historical data for {split_name}...")
     
     all_docs = []
     
-    # Prepare train documents
+    # Train documents
     for date, value in train_data.items():
         doc = {
             "date": date.to_pydatetime(),
@@ -230,7 +229,7 @@ def save_historical_data_bulk(db, collection_name, target_column, train_data, va
         }
         all_docs.append(doc)
     
-    # Prepare validation documents
+    # Validation documents (actual)
     for date, value in val_data.items():
         doc = {
             "date": date.to_pydatetime(),
@@ -247,10 +246,29 @@ def save_historical_data_bulk(db, collection_name, target_column, train_data, va
         }
         all_docs.append(doc)
     
+    # Predicted validation documents
+    if predicted_val is not None:
+        for i, (date, actual_value) in enumerate(val_data.items()):
+            if i < len(predicted_val):
+                doc = {
+                    "date": date.to_pydatetime(),
+                    "timestamp": datetime.now().isoformat(),
+                    "source_collection": collection_name,
+                    "config_id": config_id,
+                    "split_ratio": split_name,
+                    "data_type": "predicted_validation",
+                    "parameters": {
+                        target_column: {
+                            "predicted_value": float(predicted_val[i])
+                        }
+                    }
+                }
+                all_docs.append(doc)
+    
     # Bulk insert
     if all_docs:
         db["hw-historical"].insert_many(all_docs, ordered=False)
-        print(f"✅ Saved {len(all_docs)} historical documents ({len(train_data)} train + {len(val_data)} val)")
+        print(f"✅ Saved {len(all_docs)} historical documents")
     
     return len(all_docs)
 
@@ -260,7 +278,7 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
     """
     Fungsi Holt-Winter yang dinamis berdasarkan parameter dari forecast_config
     Menjalankan 3 split ratio: 70:30, 80:20, 90:10
-    Menyimpan ke hw-historical (train + validation) dan holt-winter (forecast)
+    Menyimpan ke hw-historical (train + validation + predicted_validation) dan holt-winter (forecast)
     """
     print(f"=== Start Holt-Winter Analysis for {collection_name}.{target_column} ===")
     
@@ -304,14 +322,12 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
         date_range = pd.date_range(start=df.index[0], end=df.index[-1], freq=freq)
         df = df.reindex(date_range)
 
-        if target_column in ["PRECTOTCORR", "RR"]:
+        if target_column in ["PRECTOTCORR", "RR", "RR_imputed"]:
             df[target_column] = df[target_column].fillna(0)
         elif is_ndvi:
             df[target_column] = df[target_column].interpolate(method="linear", limit_direction="both")
         else:
             df[target_column] = df[target_column].interpolate(method="time", limit_direction="both")
-        
-        print(f"Data range: {df.index[0]} to {df.index[-1]}")
         
         if target_column not in df.columns:
             raise ValueError(f"Column '{target_column}' not found in {collection_name}")
@@ -322,7 +338,7 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
         if len(param_data) < 100:
             raise ValueError(f"Insufficient data for {target_column}")
         
-        print(f"Data summary for {target_column}: Total={len(param_data)}, Mean={param_data.mean():.3f}")
+        print(f"Data summary: Total={len(param_data)}, Mean={param_data.mean():.3f}")
 
         # Decomposition
         try:
@@ -344,7 +360,7 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
                 decompose_docs.append(doc)
             
             db["temp-decompose"].insert_many(decompose_docs)
-            print(f"✅ Decompose success: {len(decompose_docs)} documents saved")
+            print(f"✅ Decompose success: {len(decompose_docs)} documents")
             
         except Exception as e:
             print(f"❌ Decompose failed: {str(e)}")
@@ -357,7 +373,6 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
         
         all_results = []
         
-        # Loop untuk setiap split ratio
         for split_config in split_ratios:
             val_ratio = split_config["ratio"]
             split_name = split_config["name"]
@@ -366,7 +381,7 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
             print(f"🔄 Processing split ratio: {split_name}")
             print(f"{'='*60}")
             
-            # Split data untuk train dan validation
+            # Split data
             if is_ndvi:
                 val_size = max(4, int(len(param_data) * val_ratio))
             else:
@@ -376,31 +391,34 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
             train_split = param_data[:split_point]
             val_split = param_data[split_point:]
             
-            print(f"📊 Train size: {len(train_split)}, Validation size: {len(val_split)}")
+            print(f"📊 Train: {len(train_split)}, Validation: {len(val_split)}")
             
-            # ⭐ SIMPAN HISTORICAL DATA (train + validation) - BULK INSERT
+            # Grid search - RETURN predicted_validation
+            best_params, error_metrics, predicted_val = grid_search_hw_params(
+                param_data, target_column, validation_ratio=val_ratio
+            )
+            
+            if best_params is None:
+                print(f"⚠️  No valid model found for split {split_name}")
+                continue
+            
+            # Save historical data (train + validation + predicted_validation)
             save_historical_data_bulk(
                 db=db,
                 collection_name=collection_name,
                 target_column=target_column,
                 train_data=train_split,
                 val_data=val_split,
+                predicted_val=predicted_val,
                 split_name=split_name,
                 config_id=config_id
             )
             
-            # Grid search dengan full data
-            best_params, error_metrics = grid_search_hw_params(param_data, target_column, validation_ratio=val_ratio)
-            
-            if best_params is None:
-                print(f"⚠️  No valid model found for split {split_name}")
-                continue
-            
-            # Fit final model dengan FULL data
+            # Fit final model dengan FULL data untuk forecast
             final_model = fit_robust_model(param_data, best_params, target_column)
             
             if final_model is None:
-                print(f"⚠️  Failed to fit final model for split {split_name}")
+                print(f"⚠️  Failed to fit final model")
                 continue
             
             # Forecast dates
@@ -417,7 +435,6 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
             forecast_steps = len(forecast_dates)
             
             # Generate forecast
-            print(f"Generating forecast for {target_column} ({split_name})...")
             try:
                 forecast = final_model.forecast(steps=forecast_steps)
                 
@@ -432,7 +449,7 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
             except Exception as e:
                 raise ValueError(f"Forecast generation failed: {str(e)}")
             
-            # Prepare forecast documents - BULK INSERT
+            # Save forecast documents
             forecast_docs = []
             
             for i, forecast_date in enumerate(forecast_dates):
@@ -454,19 +471,16 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
                                 "alpha": best_params["alpha"],
                                 "beta": best_params["beta"],
                                 "gamma": best_params["gamma"],
-                                "use_seasonal": best_params.get("use_seasonal", True),
-                                "seasonal_periods": best_params.get("seasonal_periods", 23 if is_ndvi else 7),
-                                "lambda_boxcox": lam if lam is not None else None
+                                "seasonal_periods": best_params.get("seasonal_periods", 23 if is_ndvi else 7)
                             }
                         }
                     }
                 }
                 forecast_docs.append(doc)
             
-            # Bulk insert forecast
             if forecast_docs:
                 db["holt-winter"].insert_many(forecast_docs, ordered=False)
-                print(f"✅ Saved {len(forecast_docs)} forecast documents for {split_name}")
+                print(f"✅ Saved {len(forecast_docs)} forecast documents")
             
             result_summary = {
                 "collection_name": collection_name,
@@ -476,22 +490,15 @@ def run_optimized_hw_analysis(collection_name, target_column, config_id=None, cl
                 "validation_days": len(val_split),
                 "forecast_days": len(forecast_docs),
                 "model_params": best_params,
-                "error_metrics": error_metrics,
-                "forecast_range": {
-                    "start": forecast_start_date.strftime("%Y-%m-%d"),
-                    "end": forecast_end_date.strftime("%Y-%m-%d"),
-                    "min": float(forecast.min()),
-                    "max": float(forecast.max())
-                }
+                "error_metrics": error_metrics
             }
             
             all_results.append(result_summary)
-            print(f"✓ Analysis completed for {split_name}")
         
         return all_results if all_results else [{"error": "No valid models found"}]
         
     except Exception as e:
-        print(f"❌ Error in Holt-Winter analysis: {str(e)}")
+        print(f"❌ Error: {str(e)}")
         raise e
     
     finally:
