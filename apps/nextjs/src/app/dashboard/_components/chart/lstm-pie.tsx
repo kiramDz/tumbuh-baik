@@ -13,13 +13,13 @@ import { useMemo } from "react"
 
 const COLORS = {
     mae: "hsl(var(--chart-1))",
-    mse: "hsl(var(--chart-2))",
+    rmse: "hsl(var(--chart-2))",
     mape: "hsl(var(--chart-3))",
 }
 
 const chartConfig = {
     mae: { label: "MAE", color: COLORS.mae },
-    mse: { label: "MSE", color: COLORS.mse },
+    rmse: { label: "RMSE", color: COLORS.rmse },
     mape: { label: "MAPE", color: COLORS.mape },
 } satisfies ChartConfig
 
@@ -164,7 +164,7 @@ export function LSTMPieChart() {
                     
                     const chartData = [
                         { key: "mae", value: metrics.mae || 0, fill: COLORS.mae },
-                        { key: "mse", value: metrics.mse || 0, fill: COLORS.mse },
+                        { key: "rmse", value: metrics.rmse || 0, fill: COLORS.rmse },
                         { key: "mape", value: metrics.mape || 0, fill: COLORS.mape },
                     ]
 
@@ -186,9 +186,6 @@ export function LSTMPieChart() {
                                             </p>
                                         </TooltipContent>
                                     </Tooltip>
-                                    <Badge variant="outline" className="text-xs font-normal">
-                                        AIC: {(metrics.aic || 0).toExponential(2)}
-                                    </Badge>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                     {collectionLabel}

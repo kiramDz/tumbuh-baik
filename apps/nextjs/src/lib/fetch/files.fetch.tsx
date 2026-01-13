@@ -535,6 +535,16 @@ export const createForecastConfig = async (data: {
   return response.data;
 };
 
+export const updateForecastConfig = async (id: string, data: { name: string; columns: { collectionName: string; columnName: string }[]; startDate: string; }) => {
+  const response = await axios.put(`/api/v1/forecast-config/${id}`, data);
+  return response.data;
+};
+
+export const deleteForecastConfig = async (id: string) => {
+  const response = await axios.delete(`/api/v1/forecast-config/${id}`);
+  return response.data;
+};
+
 export const getLSTMConfigs = async () => {
   const response = await axios.get("/api/v1/lstm-config");
   return response.data.data;
