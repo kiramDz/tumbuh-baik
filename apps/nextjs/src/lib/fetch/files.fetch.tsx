@@ -1,4 +1,6 @@
 import axios from "axios";
+import { FLASK_API_URL } from "../env";
+
 export interface DatasetMetaType {
   name: string;
   source: string;
@@ -568,7 +570,7 @@ export const deleteLSTMConfig = async (id: string) => {
 export const triggerForecastRun = async () => {
   try {
     // const res = await axios.post("http://localhost:5001/run-forecast");
-    const res = await axios.post("https://api.zonapetik.tech/run-forecast");
+    const res = await axios.post(`${FLASK_API_URL}/run-forecast`);
     return res.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
@@ -580,7 +582,7 @@ export const triggerForecastRun = async () => {
 
 export const triggerLSTMForecast = async () => {
   try {
-    const res = await axios.post("http://127.0.0.1:5001/run-lstm");
+    const res = await axios.post(`${FLASK_API_URL}/run-lstm`);
     return res.data;
   } catch (error) {
     console.error("Trigger LSTM forecast failed:", error);
