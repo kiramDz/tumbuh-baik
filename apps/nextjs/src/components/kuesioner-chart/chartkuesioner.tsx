@@ -34,14 +34,14 @@ export default function ChartKuesioner() {
                   <Users className="w-4 h-4 mr-2" />
                   Petani
                 </TabsTrigger>
-                <TabsTrigger value="manajemen">
+                {/* <TabsTrigger value="manajemen">
                   <Building2 className="w-4 h-4 mr-2" />
                   Manajemen
-                </TabsTrigger>
-                <TabsTrigger value="periode">
+                </TabsTrigger> */}
+                {/* <TabsTrigger value="periode">
                   <Calendar className="w-4 h-4 mr-2" />
                   Periode Tanam
-                </TabsTrigger>
+                </TabsTrigger> */}
               </TabsList>
             </div>
           </CardContent>
