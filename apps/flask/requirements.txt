@@ -8,3 +8,6 @@ scikit-learn
 python-dotenv
 tensorflow[and-cuda]
 lstm
+torch
+torchvision
+torchaudio
