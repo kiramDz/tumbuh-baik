@@ -48,20 +48,32 @@ const getParameterValue = (parameters: any, paramNames: string[]): number => {
 
 const getSuitability = (rain: number, temp: number, humidity: number, radiation: number) => {
   const criteria = {
-    isRainSesuai: rain >= 5.7 && rain <= 16.7,
+    isRainSesuai: rain >= 5.7 && rain <= 16.7, // Syarat Mutlak Tanam
     isTempSesuai: temp >= 24 && temp <= 29,
     isHumiditySesuai: humidity >= 33 && humidity <= 90,
     isRadiationSesuai: radiation >= 15 && radiation <= 25,
   };
 
+  // 1. SYARAT MUTLAK: HUJAN
+  // Jika hujan kurang/banjir, langsung tidak cocok (Bera), tidak peduli parameter lain bagus.
+  if (!criteria.isRainSesuai) {
+    return { type: "tidakCocok" as const };
+  }
+
+  // 2. HITUNG SKOR (Hujan sudah pasti sesuai di sini)
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
   
+  // Skor 4/4: Sempurna
   if (sesuaiCount === 4) {
     return { type: "sangatCocok" as const };
   }
+  
+  // Skor 3/4: Masih cocok tanam
   if (sesuaiCount === 3) {
     return { type: "cukupCocok" as const };
   }
+  
+  // Skor < 3: Tidak cocok (parameter pendukung buruk)
   return { type: "tidakCocok" as const };
 };
 

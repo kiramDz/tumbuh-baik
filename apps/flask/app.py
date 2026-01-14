@@ -11,7 +11,11 @@ from pymongo import MongoClient
 # === Init Flask ===
 app = Flask(__name__)
 
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://3.107.238.87"]}})
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost:3000", 
+    "http://3.107.238.87",
+    "https://www.zonapetik.tech"
+]}})
 
 # === MongoDB Connection ===
 MONGO_URI = os.getenv("MONGO_URI")
