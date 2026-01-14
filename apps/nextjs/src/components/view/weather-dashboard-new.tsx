@@ -1,58 +1,111 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { Banner } from "./banner";
 import { WeatherHeader } from "./weather-header";
 import { WeatherTabs } from "./weather-tabs";
-import WeatherIcon from "./weather-icon";
-import CurrentWeatherCard from "./current-weather";
+import { WeatherLoading } from "./weather-loading";
+import { WeatherError } from "./weather-error";
+import { WeatherMainDisplay } from "./weather-main-display";
 import { getBmkgLive } from "@/lib/fetch/files.fetch";
-import { getTodayWeather, getHourlyForecastData } from "@/lib/bmkg-utils";
-import { WeatherChartTabs } from "./chart/weather-chart-tabs";
+import { getTodayWeather, getDailyForecastData, getHourlyForecastData } from "@/lib/bmkg-utils";
+
+// Only lazy load non-critical chart component
+const WeatherChart = dynamic(() => import("./weather-chart").then(mod => ({ default: mod.WeatherChart })), {
+  loading: () => (
+    <div className="min-h-[300px] bg-gray-100 dark:bg-gray-800 rounded-lg" />
+  ),
+  ssr: false
+});
 
 interface WeatherDashboardProps {
   unit: "metric" | "imperial";
 }
 
-const WeatherDashboard: React.FC<WeatherDashboardProps> = ({ unit }) => {
-  const { data: bmkgApiResponse } = useQuery({
+const WeatherDashboard: React.FC<WeatherDashboardProps> = React.memo(({ unit }) => {
+  const [selectedGampong, setSelectedGampong] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const { data: bmkgApiResponse, isLoading, error, refetch } = useQuery({
     queryKey: ["bmkg-api"],
     queryFn: getBmkgLive,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    staleTime: 15 * 60 * 1000,
+    gcTime: 20 * 60 * 1000,
   });
+
   const bmkgData = bmkgApiResponse?.data;
 
-  const mainData = useMemo(() => {
-    return bmkgData?.[0]?.data ?? [];
-  }, [bmkgData]);
+  useEffect(() => {
+    if (!selectedGampong && bmkgData?.length) {
+      setSelectedGampong(bmkgData[0].kode_gampong);
+    }
+  }, [bmkgData, selectedGampong]);
 
-  const latestData = useMemo(() => getTodayWeather(mainData), [mainData]);
+  const selected = useMemo(() => {
+    return bmkgData?.find((item: any) => item.kode_gampong === selectedGampong) ?? null;
+  }, [bmkgData, selectedGampong]);
 
-  const hourlyForecast = useMemo(() => getHourlyForecastData(mainData), [mainData]);
+  const selectedData = useMemo(() => selected?.data ?? [], [selected]);
+
+  const latestData = useMemo(() => getTodayWeather(selectedData), [selectedData]);
+  const dailyForecast = useMemo(() => getDailyForecastData(bmkgData), [bmkgData]);
+  const hourlyForecast = useMemo(() => getHourlyForecastData(selectedData), [selectedData]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  }, [refetch]);
 
   return (
-    <>
-      <div className="bg-inherit min-h-screen flex flex-col space-y-4 md:space-y-6 px-0 ">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900/30 dark:to-indigo-900/30">
+      <div className="flex flex-col space-y-6 p-6">
+        
+        {/* Banner Component */}
         <Banner />
+
+        {/* Weather Tabs Wrapper */}
         <WeatherTabs defaultTab="weather">
-          <WeatherHeader bmkgData={bmkgData} />
-
-          <div className="w-full flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 lg:gap-6">
-            <div className="flex-1 w-full">{latestData && <CurrentWeatherCard bmkgCurrent={{ ...latestData }} unit={unit} />}</div>
-            <div className="flex-1 w-full flex justify-center lg:justify-end">{latestData && <WeatherIcon description={latestData.weather_desc} />}</div>
-          </div>
-
-          {hourlyForecast.length > 0 ? (
-            <>
-              <WeatherChartTabs hourlyForecast={hourlyForecast} />
-            </>
+          {isLoading ? (
+            <WeatherLoading />
+          ) : error ? (
+            <WeatherError error={error} onRetry={handleRefresh} />
           ) : (
-            <div className="text-center py-8">Loading ...</div>
+            <div className="space-y-6">
+              
+              {/* Weather Header */}
+              {selectedGampong && (
+                <WeatherHeader 
+                  bmkgData={bmkgData} 
+                  selectedCode={selectedGampong}
+                  onGampongChange={setSelectedGampong}
+                />
+              )}
+
+              {/* Main Weather Display */}
+              {latestData && selected && (
+                <WeatherMainDisplay 
+                  latestData={latestData}
+                  unit={unit}
+                />
+              )}
+
+              {/* Weather Chart */}
+              <WeatherChart 
+                hourlyForecast={hourlyForecast} 
+              />
+            </div>
           )}
         </WeatherTabs>
       </div>
-    </>
+    </div>
   );
-};
+});
+
+WeatherDashboard.displayName = 'WeatherDashboard';
 
 export default WeatherDashboard;

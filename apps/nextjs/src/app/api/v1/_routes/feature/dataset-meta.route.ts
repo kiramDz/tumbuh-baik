@@ -55,6 +55,40 @@ datasetMetaRoute.get("/recycle-bin", async (c) => {
   }
 });
 
+// GET - Display soft deleted datasets in recycle bin
+datasetMetaRoute.get("/recycle-bin", async (c) => {
+  try {
+    await db();
+    const page = Number(c.req.query("page")) || 1;
+    const pageSize = Number(c.req.query("pageSize")) || 10;
+
+    const total = await DatasetMeta.countDocuments({ deletedAt: { $ne: null } });
+    console.log("Total deleted items:", total); // 👈 ad
+    const datasets = await DatasetMeta.find({ deletedAt: { $ne: null } })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ deletedAt: -1 })
+      .lean();
+
+    console.log("Found datasets:", datasets.length);
+
+    return c.json({
+      message: "Recycle bin data retrieved successfully",
+      data: {
+        items: datasets,
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / pageSize),
+        pageSize,
+      },
+    });
+  } catch (error) {
+    console.error("Get recycle bin error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
 // GET - Buat slug untuk setiap dataset baru
 datasetMetaRoute.get("/:slug", async (c) => {
   try {
@@ -171,6 +205,76 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
   } catch (error) {
     console.error("Error fetching chart data:", error);
     return c.json({ message: "Server error" }, 500);
+  }
+});
+// DELETE - Soft delete dataset (move to recycle bin)
+datasetMetaRoute.patch("/:collectionName/delete", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    const dataset = await DatasetMeta.findOneAndUpdate(
+      { collectionName },
+      { $set: { deletedAt: new Date() } }, // 👈 set kolom deletedAt
+      { new: true }
+    );
+
+    if (!dataset) return c.json({ message: "Dataset not found" }, 404);
+    console.log("Updated dataset:", dataset);
+
+    return c.json({ message: "Dataset moved to recycle bin", success: true, data: dataset }, 200);
+  } catch (error) {
+    console.error("Soft delete dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+// PATCH - Restore soft deleted dataset from recycle bin
+datasetMetaRoute.patch("/:collectionName/restore", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    const dataset = await DatasetMeta.findOneAndUpdate({ collectionName }, { deletedAt: null }, { new: true });
+
+    if (!dataset) return c.json({ message: "Dataset not found" }, 404);
+
+    return c.json({ message: "Dataset restored successfully", data: dataset }, 200);
+  } catch (error) {
+    console.error("Restore dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+// DELETE - Permanently delete dataset and its metadata (from recycle bin)
+datasetMetaRoute.delete("/:collectionName", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    // Hapus metadata
+    await DatasetMeta.deleteOne({ collectionName });
+
+    const connection = mongoose.connection;
+
+    if (!connection.db) {
+      throw new Error("Database connection is not established");
+    }
+
+    const collections = await connection.db.listCollections().toArray();
+    const exists = collections.some((col) => col.name === collectionName);
+
+    if (exists) {
+      await connection.db.dropCollection(collectionName);
+    }
+
+    return c.json({ message: "Dataset deleted successfully" }, 200);
+  } catch (error) {
+    console.error("Delete dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
   }
 });
 // DELETE - Soft delete dataset (move to recycle bin)

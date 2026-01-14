@@ -28,13 +28,13 @@ const data = {
           url: "/dashboard/kaltam",
         },
         {
-          title: "lstm",
-          url: "/dashboard/kaltam",
+          title: "LSTM",
+          url: "/dashboard/kaltam-lstm",
         },
       ],
     },
     {
-      title: "Data bibit",
+      title: "Data Bibit",
       url: "/dashboard/bibit",
       icon: Bean,
     },
@@ -46,6 +46,7 @@ const data = {
     {
       title: "Recycle Bin",
       url: "/dashboard/recycle-bin",
+
       icon: Trash,
     },
   ],
@@ -78,7 +79,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
               <a href="#">
                 <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">Zona Petik</span>
+                <span className="text-base font-semibold">ZonaPetik.</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

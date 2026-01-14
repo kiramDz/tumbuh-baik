@@ -4,8 +4,19 @@ import * as React from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type ComboboxProps = {
   options: string[];
@@ -18,7 +29,12 @@ export function Combobox({ options, value, onValueChange, label }: ComboboxProps
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
 
-  const displayValue = options.includes(value) ? value : inputValue || value;
+  // --- PERBAIKAN DI SINI ---
+  // Kita menggunakan Set untuk menghapus duplikat secara otomatis.
+  // Jika options = ["Mustajab", "Budi", "Mustajab"], hasilnya jadi ["Mustajab", "Budi"]
+  const uniqueOptions = Array.from(new Set(options));
+
+  const displayValue = uniqueOptions.includes(value) ? value : inputValue || value;
 
   const handleSelect = (val: string) => {
     onValueChange(val);
@@ -28,10 +44,17 @@ export function Combobox({ options, value, onValueChange, label }: ComboboxProps
 
   return (
     <div className="space-y-1">
-      {label && <label className="text-sm font-medium text-foreground">{label}</label>}
+      {label && (
+        <label className="text-sm font-medium text-foreground">{label}</label>
+      )}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+          >
             {displayValue || "Pilih atau ketik nama benih..."}
             <ChevronsUpDown className="opacity-50 h-4 w-4" />
           </Button>
@@ -50,10 +73,20 @@ export function Combobox({ options, value, onValueChange, label }: ComboboxProps
             <CommandList>
               <CommandEmpty>Tidak ditemukan.</CommandEmpty>
               <CommandGroup>
-                {options.map((opt) => (
-                  <CommandItem key={opt} value={opt} onSelect={handleSelect}>
+                {/* Kita melakukan map dari uniqueOptions, bukan options asli */}
+                {uniqueOptions.map((opt) => (
+                  <CommandItem 
+                    key={opt} // Sekarang aman menggunakan opt sebagai key karena sudah unik
+                    value={opt} 
+                    onSelect={handleSelect}
+                  >
                     {opt}
-                    <Check className={cn("ml-auto h-4 w-4", value === opt ? "opacity-100" : "opacity-0")} />
+                    <Check
+                      className={cn(
+                        "ml-auto h-4 w-4",
+                        value === opt ? "opacity-100" : "opacity-0"
+                      )}
+                    />
                   </CommandItem>
                 ))}
               </CommandGroup>

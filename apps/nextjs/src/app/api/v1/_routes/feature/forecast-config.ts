@@ -18,6 +18,10 @@ forecastConfigRoute.post("/", async (c) => {
       return c.json({ message: "Start date is required" }, 400);
     }
 
+    if (!startDate) {
+      return c.json({ message: "Start date is required" }, 400);
+    }
+
     for (const column of columns) {
       if (!column.collectionName || !column.columnName) {
         return c.json(

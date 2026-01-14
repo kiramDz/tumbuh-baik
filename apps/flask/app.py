@@ -5,6 +5,8 @@ import os
 
 from helpers.objectid_converter import convert_objectid
 from jobs.run_forecast_from_config import run_forecast_from_config
+from jobs.run_lstm import run_lstm_from_config
+from pymongo import MongoClient
 
 # === Init Flask ===
 app = Flask(__name__)
@@ -26,6 +28,10 @@ def home():
 @app.route("/run-forecast", methods=["POST"])
 def run_forecast():
     return run_forecast_from_config()
+
+@app.route("/run-lstm", methods=["POST"])
+def run_lstm():
+    return run_lstm_from_config()
 
 
 @app.route("/check-mongodb")

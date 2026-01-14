@@ -90,6 +90,41 @@ export async function exportHoltWinterCsv(sortBy = "forecast_date", sortOrder = 
   }
 }
 
+
+
+
+
+export async function exportLSTMForecastCsv(sortBy = "forecast_date", sortOrder = "desc") {
+  try {
+    const response = await axios.get("/api/v1/export-csv/lstm/daily", {
+      params: { sortBy, sortOrder },
+      responseType: "blob",
+    });
+
+    if (response.status === 200) {
+      const blob = new Blob([response.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const filename = `lstm_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      return { success: true, message: "File downloaded successfully" };
+    }
+
+  } catch (error) {
+    console.error("Export LSTM Forecast CSV failed:", error);
+    return { success: false, message: "Export failed" };
+  }
+}
+
 export const getBmkgLive = async () => {
   try {
     const response = await axios.get("/api/v1/bmkg-live/all");
@@ -132,6 +167,36 @@ export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
     }
   } catch (error) {
     console.error("Error fetching HW Daily:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+
+export const getLSTMDaily = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/lstm/daily", {
+      params: { page, pageSize },
+    });
+    if (res.status === 200) {
+      console.log("🟢 Retrieved documents:", res.data.length);
+      console.log("✅ LSTM API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching LSTM Daily:", error);
     return {
       items: [],
       total: 0,
@@ -227,6 +292,49 @@ export const getUsers = async (page = 1, pageSize = 10) => {
       totalPages: 1,
       pageSize,
     };
+  }
+};
+
+export const getAllKuesionerPetani = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner/petani");
+    console.log("getAllKuesionerPetani", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner petani:", error);
+    throw error;
+  }
+}
+
+// export const getKuesionerPetaniById = async (id: string) => {
+//   try {
+//     const res = await axios.get(`/api/v1/kuesioner/petani/${id}`);
+//     return res.data;
+//   } catch (error) {
+//     console.error("Error fetching kuesioner petani by ID:", error);
+//     throw error;
+//   }
+// };
+
+export const getAllKuesionerManajemen = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner-manajemen/manajemen");
+    console.log("getAllKuesionerManajemen", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner manajemen:", error);
+    throw error;
+  }
+};
+
+export const getAllKuesionerPeriode = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner-periode/periode");
+    console.log("getAllKuesionerPeriode", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner periode:", error);
+    throw error;
   }
 };
 
@@ -348,7 +456,7 @@ export const PermanentDeleteDataset = async (collectionName: string) => {
 };
 
 // for dataset table
-// lib/fetch/files.fetch.ts
+// lib/fetch/files.fetch.tsx
 export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 10, sortBy = "Date", sortOrder: "asc" | "desc" = "desc") {
   try {
     const res = await axios.get(`/api/v1/dataset-meta/${slug}`, {
@@ -381,6 +489,8 @@ export async function getDynamicDatasetData(slug: string, page = 1, pageSize = 1
     };
   }
 }
+
+
 
 export const AddDatasetMeta = async (data: {
   name: string;
@@ -425,6 +535,36 @@ export const createForecastConfig = async (data: {
   return response.data;
 };
 
+export const updateForecastConfig = async (id: string, data: { name: string; columns: { collectionName: string; columnName: string }[]; startDate: string; }) => {
+  const response = await axios.put(`/api/v1/forecast-config/${id}`, data);
+  return response.data;
+};
+
+export const deleteForecastConfig = async (id: string) => {
+  const response = await axios.delete(`/api/v1/forecast-config/${id}`);
+  return response.data;
+};
+
+export const getLSTMConfigs = async () => {
+  const response = await axios.get("/api/v1/lstm-config");
+  return response.data.data;
+};
+
+export const createLSTMConfig = async (data: { name: string; columns: { collectionName: string; columnName: string }[]; startDate: string; }) => {
+  const response = await axios.post("/api/v1/lstm-config", data);
+  return response.data;
+};
+
+export const updateLSTMConfig = async (id: string, data: { name: string; columns: { collectionName: string; columnName: string }[]; startDate: string; }) => {
+  const response = await axios.put(`/api/v1/lstm-config/${id}`, data);
+  return response.data;
+};
+
+export const deleteLSTMConfig = async (id: string) => {
+  const response = await axios.delete(`/api/v1/lstm-config/${id}`);
+  return response.data;
+};
+
 export const triggerForecastRun = async () => {
   try {
     // const res = await axios.post("http://localhost:5001/run-forecast");
@@ -435,5 +575,160 @@ export const triggerForecastRun = async () => {
       return { message: "Tidak ada config pending" };
     }
     throw error;
+  }
+};
+
+export const triggerLSTMForecast = async () => {
+  try {
+    const res = await axios.post("http://127.0.0.1:5001/run-lstm");
+    return res.data;
+  } catch (error) {
+    console.error("Trigger LSTM forecast failed:", error);
+    throw error;
+  }
+};
+
+// ==================== FARM API FUNCTIONS ====================
+
+// Get all farms (optional filter by userId)
+export const getAllFarms = async (userId?: string) => {
+  try {
+    const params = userId ? { userId } : {};
+    const res = await axios.get("/api/v1/farm", { params });
+    console.log("getAllFarms", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching all farms:", error);
+    throw error;
+  }
+};
+
+// Get farm by ID
+export const getFarmById = async (id: string) => {
+  try {
+    const res = await axios.get(`/api/v1/farm/${id}`);
+    console.log("getFarmById", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching farm by ID:", error);
+    throw error;
+  }
+};
+
+// Get all farms by user ID
+export const getFarmsByUserId = async (userId: string) => {
+  try {
+    const res = await axios.get(`/api/v1/farm/user/${userId}`);
+    console.log("getFarmsByUserId", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching farms by user ID:", error);
+    throw error;
+  }
+};
+
+// Create new farm
+export const createFarm = async (data: any) => {
+  try {
+    const res = await axios.post("/api/v1/farm", data);
+    console.log("createFarm", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Create farm error:", error);
+    throw error;
+  }
+};
+
+// Update farm by ID
+export const updateFarm = async (id: string, data: any) => {
+  try {
+    const res = await axios.put(`/api/v1/farm/${id}`, data);
+    console.log("updateFarm", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Update farm error:", error);
+    throw error;
+  }
+};
+
+// Delete farm by ID
+export const deleteFarm = async (id: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/farm/${id}`);
+    console.log("deleteFarm", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Delete farm error:", error);
+    throw error;
+  }
+};
+
+// ==================== DECOMPOSE LSTM API FUNCTIONS ====================
+
+export const getDecomposeLSTM = async () => {
+  try {
+    const res = await axios.get("/api/v1/decompose-lstm/all");
+    console.log("✅ Decompose LSTM API response:", res.data);
+    return res.data.data || [];
+  } catch (error) {
+    console.error("Error fetching Decompose LSTM:", error);
+    return [];
+  }
+};
+
+export const getDecomposeLSTMByDate = async (date: string) => {
+  try {
+    const res = await axios.get(`/api/v1/decompose-lstm/date/${date}`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Error fetching Decompose LSTM by date:", error);
+    throw error;
+  }
+};
+
+export const getDecomposeLSTMByConfigId = async (configId: string) => {
+  try {
+    const res = await axios.get(`/api/v1/decompose-lstm/config/${configId}`);
+    return res.data.data || [];
+  } catch (error) {
+    console.error("Error fetching Decompose LSTM by config:", error);
+    return [];
+  }
+};
+
+// Fetch historical data from collection for comparison with forecast
+export const fetchHistoricalData = async (collectionName: string, columnName: string) => {
+  try {
+    const countResponse = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
+      params: { 
+        page: 1, 
+        pageSize: 10,
+        sortBy: "Date",
+        sortOrder: "asc"
+      }
+    });
+    
+    const total = countResponse.data?.data?.total || 0;
+    if (total === 0) return [];
+
+    const response = await axios.get(`/api/v1/dataset-meta/${collectionName}`, {
+      params: { 
+        page: 1, 
+        pageSize: total,
+        sortBy: "Date",
+        sortOrder: "asc"
+      }
+    });
+    
+    const items = response.data?.data?.items || [];
+    return items
+      .filter((item: any) => item.Date && item[columnName] != null)
+      .map((item: any) => ({
+        date: item.Date,
+        value: item[columnName]
+      }));
+  } catch (error) {
+    console.error(`Error fetching historical data for ${collectionName}:`, error);
+    return [];
   }
 };
