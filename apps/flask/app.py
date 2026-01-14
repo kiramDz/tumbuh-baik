@@ -34,6 +34,10 @@ def run_lstm():
     print("Received request to run LSTM forecast")
     return run_lstm_from_config()
 
+@app.route("/run-lstm" , methods=["GET"])
+def run_lstm_get():
+    print("Received GET request to run LSTM forecast")
+    return jsonify({"message": "Use POST method to run LSTM forecast"}), 200
 
 @app.route("/check-mongodb")
 def check_mongodb():
