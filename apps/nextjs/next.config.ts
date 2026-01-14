@@ -21,7 +21,6 @@ const nextConfig: NextConfig = {
   // Experimental optimizations for better performance
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'date-fns'],
-    reactCompiler: false,
   },
   
   // Production optimizations
