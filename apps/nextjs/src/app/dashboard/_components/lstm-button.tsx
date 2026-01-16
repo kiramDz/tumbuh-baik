@@ -22,7 +22,7 @@ const RunLSTMButton = () => {
     };
 
     return (
-        <Button onClick={handleClick} variant="outline">
+        <Button onClick={handleClick} variant="outline" className="text-base">
             Jalankan Forecast LSTM
         </Button>
     );

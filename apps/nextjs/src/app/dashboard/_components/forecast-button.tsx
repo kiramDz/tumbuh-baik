@@ -22,7 +22,7 @@ const RunForecastButton = () => {
   };
 
   return (
-    <Button onClick={handleClick} variant="outline">
+    <Button onClick={handleClick} variant="outline" className="text-base">
       Jalankan Holt-Winter
     </Button>
   );

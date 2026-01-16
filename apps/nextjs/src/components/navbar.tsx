@@ -21,13 +21,13 @@ const Logo = memo(({ onClick }: { onClick: () => void }) => (
     aria-label="logo"
   >
     <div className="relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-600 to-gray-800 rounded-full blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-300" />
-      <div className="relative p-3 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full shadow-lg">
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-300" />
+      <div className="relative p-3 bg-gradient-to-br from-teal-600 to-emerald-700 rounded-full shadow-lg">
         <LogoSvg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="currentColor" />
       </div>
     </div>
     <div className="hidden sm:block text-left">
-      <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-gray-700 via-gray-800 to-gray-900 bg-clip-text text-transparent">
+      <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-teal-600 via-emerald-600 to-green-700 bg-clip-text text-transparent">
         ZonaPETIK
       </div>
       <div className="text-sm text-gray-500 dark:text-gray-400 -mt-1">
@@ -50,8 +50,8 @@ const SearchSuggestions = memo(({ suggestions, selectedIndex, onSelect, onMouseE
         {suggestions.map((city, index) => (
           <li
             key={`${city.name}-${city.lat}-${city.lon}`}
-            className={`cursor-pointer select-none relative py-3 px-4 mx-2 rounded-xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-              index === selectedIndex ? "bg-gray-50 dark:bg-gray-700/50 border-l-4 border-gray-600" : ""
+            className={`cursor-pointer select-none relative py-3 px-4 mx-2 rounded-xl transition-all duration-200 hover:bg-teal-50 dark:hover:bg-teal-900/20 ${
+              index === selectedIndex ? "bg-teal-50 dark:bg-teal-900/20 border-l-4 border-teal-600" : ""
             }`}
             onClick={() => onSelect(city)}
             onMouseEnter={() => onMouseEnter(index)}
@@ -95,7 +95,7 @@ const WeatherStatus = memo(() => {
   return (
     <Badge 
       variant="outline" 
-      className="hidden md:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-gray-200 dark:border-gray-700 animate-fadeIn"
+      className="hidden md:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200 dark:border-teal-700 animate-fadeIn"
     >
       <div className="transition-transform duration-300 hover:scale-110">
         {isDaytime ? (
@@ -211,7 +211,7 @@ const NavBar = () => {
 
       {/* Progress Bar */}
       <motion.div
-        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 rounded-full"
+        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-600 to-green-600 rounded-full"
         initial={{ width: "0%" }}
         animate={{ width: isScrolled ? "100%" : "0%" }}
         transition={{ duration: 0.3, ease: "easeOut" }}

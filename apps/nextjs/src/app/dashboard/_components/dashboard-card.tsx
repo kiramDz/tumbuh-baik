@@ -14,20 +14,20 @@ interface DashboardCardProps {
 const DashboardCard: React.FC<DashboardCardProps> = ({ href, icon: Icon, title, description }) => {
   return (
     <Link href={href} className="group block">
-      <Card className="h-full transition-all duration-300 hover:shadow-lg hover:border-primary/50">
+      <Card className="h-full transition-all duration-300 hover:shadow-lg hover:border-teal-500/50">
         <CardContent className="p-6">
           <div className="flex flex-col gap-4">
             {/* Icon Container */}
             <div className="flex items-center justify-between">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 text-teal-700 dark:text-teal-300 transition-all duration-300 group-hover:from-teal-600 group-hover:to-emerald-600 group-hover:text-white">
                 <Icon className="h-6 w-6" />
               </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:translate-x-1 group-hover:text-primary" />
+              <ArrowRight className="h-5 w-5 text-muted-foreground transition-all duration-300 group-hover:translate-x-1 group-hover:text-teal-600 dark:group-hover:text-teal-400" />
             </div>
 
             {/* Content */}
             <div className="space-y-2">
-              <h3 className="font-semibold text-lg leading-tight line-clamp-1 transition-colors group-hover:text-primary">
+              <h3 className="font-semibold text-lg leading-tight line-clamp-1 transition-colors group-hover:text-teal-600 dark:group-hover:text-teal-400">
                 {title}
               </h3>
               <p className="text-sm text-muted-foreground line-clamp-2">

@@ -35,21 +35,21 @@ export const WeatherTabs = React.memo<ProjectTabsProps>(({ defaultTab = "activit
         <TabsList className="w-full justify-start border-b bg-transparent p-0">
           <TabsTrigger 
             value="weather" 
-            className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+            className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-base data-[state=active]:border-teal-600 data-[state=active]:bg-transparent data-[state=active]:text-teal-600"
           >
             <CloudSun className="h-4 w-4" />
             Weather
           </TabsTrigger>
           <TabsTrigger 
             value="calender" 
-            className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+            className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-base data-[state=active]:border-teal-600 data-[state=active]:bg-transparent data-[state=active]:text-teal-600"
           >
             <CalendarDays className="h-4 w-4" />
             Calendar
           </TabsTrigger>
           <TabsTrigger 
             value="kuesioner" 
-            className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+            className="rounded-none flex items-center gap-2 border-b-2 border-transparent px-4 py-2 text-base data-[state=active]:border-teal-600 data-[state=active]:bg-transparent data-[state=active]:text-teal-600"
           >
             <ChartNoAxesGantt className="h-4 w-4" />
             Kuesioner

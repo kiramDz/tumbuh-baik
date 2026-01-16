@@ -129,7 +129,7 @@ export function ForecastConfigList() {
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-12">
           <Database className="h-10 w-10 text-muted-foreground mb-3" />
-          <p className="font-medium">Belum ada konfigurasi</p>
+          <p className="font-medium text-base">Belum ada konfigurasi</p>
           <p className="text-sm text-muted-foreground">
             Buat konfigurasi baru untuk memulai
           </p>
@@ -259,7 +259,7 @@ function ConfigCard({ config }: { config: ForecastConfig }) {
           {/* Header */}
           <div className="mb-3">
             <div className="flex items-start justify-between mb-1">
-              <h4 className="font-medium text-sm truncate flex-1">{config.name}</h4>
+              <h4 className="font-medium text-base truncate flex-1">{config.name}</h4>
               <div className="flex gap-1 ml-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -295,12 +295,12 @@ function ConfigCard({ config }: { config: ForecastConfig }) {
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <StatusIcon className={`h-3.5 w-3.5 ${status.color}`} />
-              <span className={`text-xs ${status.color}`}>{status.label}</span>
+              <StatusIcon className={`h-4 w-4 ${status.color}`} />
+              <span className={`text-sm ${status.color}`}>{status.label}</span>
               {config.createdAt && (
                 <>
                   <span className="text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-sm text-muted-foreground">
                     {formatDistanceToNow(new Date(config.createdAt), { addSuffix: true, locale: id })}
                   </span>
                 </>
@@ -313,7 +313,7 @@ function ConfigCard({ config }: { config: ForecastConfig }) {
             {config.columns?.slice(0, 3).map((col, idx) => (
               <Tooltip key={idx}>
                 <TooltipTrigger asChild>
-                  <Badge variant="secondary" className="text-xs font-normal cursor-help">
+                  <Badge variant="secondary" className="text-sm font-normal cursor-help">
                     {getDisplayName(col.columnName)}
                   </Badge>
                 </TooltipTrigger>
@@ -327,7 +327,7 @@ function ConfigCard({ config }: { config: ForecastConfig }) {
             {(config.columns?.length || 0) > 3 && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Badge variant="outline" className="text-xs font-normal cursor-help">
+                  <Badge variant="outline" className="text-sm font-normal cursor-help">
                     +{(config.columns?.length || 0) - 3}
                   </Badge>
                 </TooltipTrigger>
@@ -347,14 +347,14 @@ function ConfigCard({ config }: { config: ForecastConfig }) {
 
           {/* Status Messages */}
           {config.status === "running" && (
-            <div className="flex items-center gap-2 text-blue-600 text-xs">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <div className="flex items-center gap-2 text-blue-600 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
               <span>Memproses...</span>
             </div>
           )}
 
           {config.errorMessage && (
-            <p className="text-xs text-destructive line-clamp-1">
+            <p className="text-sm text-destructive line-clamp-1">
               {config.errorMessage}
             </p>
           )}
@@ -539,7 +539,7 @@ function ConfigCard({ config }: { config: ForecastConfig }) {
                       <Badge 
                         key={index} 
                         variant="secondary"
-                        className="pl-2 pr-1 py-1 gap-1 text-xs"
+                        className="pl-2 pr-1 py-1 gap-1 text-sm"
                       >
                         <span className="text-muted-foreground max-w-[80px] truncate">
                           {item.collectionName}

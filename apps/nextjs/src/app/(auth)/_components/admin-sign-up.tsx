@@ -29,17 +29,17 @@ export function AdminSignUp() {
   const handleSignUp = async () => {
     // Validation
     if (!firstName || !lastName || !email || !password || !passwordConfirmation) {
-      setError("All fields are required");
+      setError("Semua kolom harus diisi");
       return;
     }
 
     if (password !== passwordConfirmation) {
-      setError("Passwords do not match");
+      setError("Kata sandi tidak cocok");
       return;
     }
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Kata sandi minimal 8 karakter");
       return;
     }
 
@@ -62,7 +62,7 @@ export function AdminSignUp() {
           toast.error(ctx.error.message);
         },
         onSuccess: async () => {
-          toast.success("Account created successfully!");
+          toast.success("Akun berhasil dibuat!");
           router.push("/dashboard");
         },
       },
@@ -70,17 +70,17 @@ export function AdminSignUp() {
   };
 
   return (
-    <div className="relative min-h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="relative min-h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-gray-900 dark:to-teal-900/30">
       
       {/* Left Panel */}
       <div className="relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black" />
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-600 via-emerald-700 to-green-800" />
         <div className="absolute inset-0 bg-black/20" />
 
         {/* Decorative elements */}
         <div className="absolute top-20 right-20 w-32 h-32 bg-white/5 rounded-full blur-xl" />
         <div className="absolute bottom-32 left-16 w-24 h-24 bg-white/5 rounded-full blur-lg" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gray-700/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl" />
 
         <div className="relative z-20 flex items-center text-xl font-bold text-white">
           <div className="mr-3 p-2 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -105,9 +105,9 @@ export function AdminSignUp() {
             <CardContent className="p-8">
               <blockquote className="space-y-4">
                 <p className="text-lg leading-relaxed font-medium text-white">
-                  &ldquo;Join us in making agriculture smarter and more sustainable through technology and data-driven solutions.&rdquo;
+                  &ldquo;Bergabunglah dengan kami dalam menjadikan pertanian lebih cerdas dan berkelanjutan melalui teknologi dan solusi berbasis data.&rdquo;
                 </p>
-                <footer className="text-sm opacity-90 font-medium text-white">— Tumbuh Baik Team</footer>
+                <footer className="text-sm opacity-90 font-medium text-white">— Tim Tumbuh Baik</footer>
               </blockquote>
             </CardContent>
           </Card>
@@ -121,22 +121,22 @@ export function AdminSignUp() {
           {/* Mobile Header */}
           <div className="text-center space-y-2 lg:hidden">
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Tumbuh Baik</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Create Your Account</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Buat Akun Anda</p>
           </div>
 
           {/* Sign Up Card */}
           <Card className="w-full shadow-lg border">
             <CardHeader className="space-y-3">
               <div className="flex flex-col items-center space-y-3">
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-full">
-                  <UserPlus className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+                <div className="p-3 bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 rounded-full">
+                  <UserPlus className="h-6 w-6 text-teal-700 dark:text-teal-300" />
                 </div>
                 <div className="text-center space-y-1">
                   <CardTitle className="text-2xl font-bold">
-                    Create Account
+                    Buat Akun
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    Enter your information to create an account
+                    Masukkan informasi Anda untuk membuat akun
                   </CardDescription>
                 </div>
               </div>
@@ -156,7 +156,7 @@ export function AdminSignUp() {
               {/* Name Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first-name">First Name</Label>
+                  <Label htmlFor="first-name">Nama Depan</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -171,7 +171,7 @@ export function AdminSignUp() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last-name">Last Name</Label>
+                  <Label htmlFor="last-name">Nama Belakang</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -189,13 +189,13 @@ export function AdminSignUp() {
 
               {/* Email Field */}
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Alamat Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="john.doe@example.com"
+                    placeholder="nama@example.com"
                     required
                     className="pl-10"
                     onChange={(e) => setEmail(e.target.value)}
@@ -207,13 +207,13 @@ export function AdminSignUp() {
 
               {/* Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Kata Sandi</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Create a strong password"
+                    placeholder="Buat kata sandi yang kuat"
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -236,19 +236,19 @@ export function AdminSignUp() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Must be at least 8 characters
+                  Minimal 8 karakter
                 </p>
               </div>
 
               {/* Confirm Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password-confirmation">Confirm Password</Label>
+                <Label htmlFor="password-confirmation">Konfirmasi Kata Sandi</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password-confirmation"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
+                    placeholder="Konfirmasi kata sandi Anda"
                     autoComplete="new-password"
                     value={passwordConfirmation}
                     onChange={(e) => setPasswordConfirmation(e.target.value)}
@@ -281,18 +281,18 @@ export function AdminSignUp() {
               <Button
                 type="submit"
                 disabled={loading || !firstName || !lastName || !email || !password || !passwordConfirmation}
-                className="w-full"
+                className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white"
                 size="lg"
                 onClick={handleSignUp}
               >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Account...
+                    Membuat Akun...
                   </>
                 ) : (
                   <>
-                    Create Account
+                    Buat Akun
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -304,9 +304,9 @@ export function AdminSignUp() {
 
             <CardFooter className="flex flex-col space-y-4 pt-6">
               <div className="text-sm text-center text-muted-foreground">
-                Already have an account?{" "}
+                Sudah punya akun?{" "}
                 <Link href="/sign-in" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
-                  Sign in
+                  Masuk
                 </Link>
               </div>
             </CardFooter>

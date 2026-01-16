@@ -129,7 +129,7 @@ export function LSTMConfigList() {
             <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                     <Database className="h-10 w-10 text-muted-foreground mb-3" />
-                    <p className="font-medium">Belum ada konfigurasi</p>
+                    <p className="font-medium text-base">Belum ada konfigurasi</p>
                     <p className="text-sm text-muted-foreground">
                         Buat konfigurasi baru untuk memulai
                     </p>
@@ -259,7 +259,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                     {/* Header */}
                     <div className="mb-3">
                         <div className="flex items-start justify-between mb-1">
-                            <h4 className="font-medium text-sm truncate flex-1">{config.name}</h4>
+                            <h4 className="font-medium text-base truncate flex-1">{config.name}</h4>
                             <div className="flex gap-1 ml-2">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -296,11 +296,11 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                         </div>
                         <div className="flex items-center gap-1.5">
                             <StatusIcon className={`h-3.5 w-3.5 ${status.color}`} />
-                            <span className={`text-xs ${status.color}`}>{status.label}</span>
+                            <span className={`text-sm ${status.color}`}>{status.label}</span>
                             {config.createdAt && (
                                 <>
                                     <span className="text-muted-foreground">·</span>
-                                    <span className="text-xs text-muted-foreground">
+                                    <span className="text-sm text-muted-foreground">
                                         {formatDistanceToNow(new Date(config.createdAt), { addSuffix: true, locale: id })}
                                     </span>
                                 </>
@@ -313,12 +313,12 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                         {config.columns?.slice(0, 3).map((col, idx) => (
                             <Tooltip key={idx}>
                                 <TooltipTrigger asChild>
-                                    <Badge variant="secondary" className="text-xs font-normal cursor-help">
+                                    <Badge variant="secondary" className="text-sm font-normal cursor-help">
                                         {getDisplayName(col.columnName)}
                                     </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                    <p className="text-xs text-white">
+                                    <p className="text-sm text-white">
                                         Kolom: <code className="bg-muted px-1 rounded text-foreground">{col.columnName}</code>
                                     </p>
                                 </TooltipContent>
@@ -327,12 +327,12 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                         {(config.columns?.length || 0) > 3 && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Badge variant="outline" className="text-xs font-normal cursor-help">
+                                    <Badge variant="outline" className="text-sm font-normal cursor-help">
                                         +{(config.columns?.length || 0) - 3}
                                     </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="max-w-[200px]">
-                                    <div className="text-xs space-y-1">
+                                    <div className="text-sm space-y-1">
                                         {config.columns?.slice(3).map((col, idx) => (
                                             <p key={idx}>
                                                 {getDisplayName(col.columnName)}
@@ -347,14 +347,14 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
 
                     {/* Status Messages */}
                     {config.status === "running" && (
-                        <div className="flex items-center gap-2 text-blue-600 text-xs">
+                        <div className="flex items-center gap-2 text-blue-600 text-sm">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             <span>Memproses...</span>
                         </div>
                     )}
 
                     {config.errorMessage && (
-                        <p className="text-xs text-destructive line-clamp-1">
+                        <p className="text-sm text-destructive line-clamp-1">
                             {config.errorMessage}
                         </p>
                     )}
@@ -365,8 +365,8 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
                 <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0">
                     <DialogHeader className="px-6 pt-6 pb-4">
-                        <DialogTitle>Edit Konfigurasi</DialogTitle>
-                        <DialogDescription>
+                        <DialogTitle className="text-xl">Edit Konfigurasi</DialogTitle>
+                        <DialogDescription className="text-base">
                             Ubah pengaturan peramalan LSTM yang sudah ada.
                         </DialogDescription>
                     </DialogHeader>
@@ -375,7 +375,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                         <div className="space-y-5">
                             {/* Nama Konfigurasi */}
                             <div className="space-y-2">
-                                <Label htmlFor="edit-name" className="text-sm font-medium">
+                                <Label htmlFor="edit-name" className="text-base font-medium">
                                     Nama Konfigurasi
                                 </Label>
                                 <Input
@@ -390,7 +390,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                             {/* Tanggal Mulai Peramalan */}
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <Label className="text-sm font-medium">Tanggal Mulai Peramalan</Label>
+                                    <Label className="text-base font-medium">Tanggal Mulai Peramalan</Label>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -405,7 +405,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                                         <Button 
                                             variant="outline" 
                                             className={cn(
-                                                "w-full justify-start text-left font-normal h-10", 
+                                                "w-full justify-start text-left font-normal h-10 text-base", 
                                                 !editStartDate && "text-muted-foreground"
                                             )}
                                         >
@@ -426,7 +426,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
 
                                 {/* Preview Tanggal Akhir */}
                                 {endDate && (
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground">
                                         Peramalan hingga: <span className="font-medium text-foreground">{format(endDate, "PPP", { locale: id })}</span>
                                     </p>
                                 )}
@@ -437,7 +437,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                             {/* Dataset Selection */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
-                                    <Label className="text-sm font-medium">Pilih Kolom Dataset</Label>
+                                    <Label className="text-base font-medium">Pilih Kolom Dataset</Label>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -455,7 +455,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                                 ) : datasetList.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-12 text-center">
                                         <Database className="h-12 w-12 text-muted-foreground mb-3" />
-                                        <p className="text-sm text-muted-foreground">Tidak ada dataset tersedia</p>
+                                        <p className="text-base text-muted-foreground">Tidak ada dataset tersedia</p>
                                     </div>
                                 ) : (
                                     <ScrollArea className="h-[200px]">
@@ -466,11 +466,11 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
                                                                 <Database className="h-4 w-4 text-primary" />
-                                                                <CardTitle className="text-sm font-medium">
+                                                                <CardTitle className="text-base font-medium">
                                                                     {dataset.name || dataset.collectionName}
                                                                 </CardTitle>
                                                             </div>
-                                                            <Badge variant="outline" className="text-xs font-normal">
+                                                            <Badge variant="outline" className="text-sm font-normal">
                                                                 {dataset.columns?.length || 0} kolom
                                                             </Badge>
                                                         </div>
@@ -489,9 +489,9 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                                                                             <label 
                                                                                 className={`
                                                                                     flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer
-                                                                                    text-sm transition-all duration-150
+                                                                                    text-base transition-all duration-150
                                                                                     ${isChecked 
-                                                                                        ? 'bg-primary/10 text-primary border border-primary/30' 
+                                                                                        ? 'bg-teal-50 text-teal-700 border border-teal-300 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800' 
                                                                                         : 'hover:bg-muted border border-transparent'
                                                                                     }
                                                                                 `}
@@ -509,7 +509,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                                                                             </label>
                                                                         </TooltipTrigger>
                                                                         <TooltipContent side="top">
-                                                                            <p className="text-xs text-white">
+                                                                            <p className="text-sm text-white">
                                                                                 Kolom: <code className="bg-muted px-1 rounded text-foreground">{col}</code>
                                                                             </p>
                                                                         </TooltipContent>
@@ -529,8 +529,8 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                             {editSelectedColumns.length > 0 && (
                                 <div className="space-y-2 pb-2">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-sm font-medium">Kolom Terpilih</Label>
-                                        <Badge variant="secondary" className="text-xs">
+                                        <Label className="text-base font-medium">Kolom Terpilih</Label>
+                                        <Badge variant="secondary" className="text-sm">
                                             {editSelectedColumns.length} dipilih
                                         </Badge>
                                     </div>
@@ -539,7 +539,7 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                                             <Badge 
                                                 key={index} 
                                                 variant="secondary"
-                                                className="pl-2 pr-1 py-1 gap-1 text-xs"
+                                                className="pl-2 pr-1 py-1 gap-1 text-sm"
                                             >
                                                 <span className="text-muted-foreground max-w-[80px] truncate">
                                                     {item.collectionName}
@@ -564,12 +564,13 @@ function ConfigCard({ config }: { config: LSTMConfig }) {
                     </div>
 
                     <DialogFooter className="px-6 py-4 border-t bg-muted/30">
-                        <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={updateMutation.isPending}>
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={updateMutation.isPending} className="text-base">
                             Batal
                         </Button>
                         <Button 
                             onClick={handleUpdate} 
                             disabled={updateMutation.isPending || !editName.trim() || editSelectedColumns.length === 0 || !editStartDate}
+                            className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-base"
                         >
                             {updateMutation.isPending ? (
                                 <>

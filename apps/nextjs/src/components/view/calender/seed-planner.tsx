@@ -244,26 +244,26 @@ export default function CalendarSeedPlanner() {
 
     return (
       <Card className="mt-6">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Calendar className="w-5 h-5" />
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
             Jadwal Penanaman
           </CardTitle>
 
           {/* Model indicator */}
-          <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-            <Cloud className="w-5 h-5 text-blue-600" />
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="text-sm font-medium text-blue-800">Model Prediksi:</span>
+          <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-lg border border-teal-200">
+            <Cloud className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600 shrink-0" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span className="text-xs sm:text-sm font-medium text-teal-800">Model Prediksi:</span>
               <Badge 
                 variant={currentModel === "lstm" ? "default" : "secondary"}
-                className="w-fit"
+                className="w-fit bg-gradient-to-r from-teal-600 to-emerald-600 text-white text-xs"
               >
                 {currentModel === "lstm" ? "LSTM Neural Network" : "Holt Winters"}
               </Badge>
               {isForecastLoading && (
-                <span className="text-xs text-blue-600 animate-pulse flex items-center gap-1">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                <span className="text-[10px] sm:text-xs text-teal-600 animate-pulse flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-teal-600 rounded-full animate-bounce"></div>
                   Memuat data...
                 </span>
               )}
@@ -272,11 +272,11 @@ export default function CalendarSeedPlanner() {
 
           {/* Weather Statistics */}
           {plantingDays.length > 0 && (
-            <Card className="bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-emerald-700" />
-                  <span className="text-sm font-semibold text-emerald-900">Analisis Kondisi Cuaca</span>
+            <Card className="bg-gradient-to-r from-teal-50 to-emerald-50 border-teal-200">
+              <CardContent className="pt-3 sm:pt-4">
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 text-teal-700" />
+                  <span className="text-xs sm:text-sm font-semibold text-teal-900">Analisis Kondisi Cuaca</span>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="flex flex-col items-center p-3 bg-emerald-100 rounded-lg border border-emerald-200">
@@ -415,7 +415,7 @@ export default function CalendarSeedPlanner() {
           <Separator className="my-6" />
 
           {/* Summary */}
-          <Card className="bg-gradient-to-r from-green-50 to-blue-50">
+          <Card className="bg-gradient-to-r from-teal-50 to-emerald-50">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Clock className="w-4 h-4" />
@@ -445,8 +445,8 @@ export default function CalendarSeedPlanner() {
               </div>
               
               <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
-                <Cloud className="w-4 h-4 text-blue-600" />
-                <span className="text-sm text-blue-700">
+                <Cloud className="w-4 h-4 text-teal-600" />
+                <span className="text-sm text-teal-700">
                   Prediksi menggunakan model: 
                   <span className="font-semibold ml-1">
                     {currentModel === "lstm" ? "LSTM Neural Network" : "Holt Winters"}
@@ -464,7 +464,7 @@ export default function CalendarSeedPlanner() {
     <div className="space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-xl">
             <Sprout className="w-5 h-5 text-green-600" />
             Perencanaan Penanaman Benih
           </CardTitle>
@@ -472,7 +472,7 @@ export default function CalendarSeedPlanner() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="seed-select" className="flex items-center gap-2 text-sm font-medium">
+              <Label htmlFor="seed-select" className="flex items-center gap-2 text-base font-medium">
                 <Sprout className="w-4 h-4" />
                 Pilih Benih
               </Label>
@@ -484,7 +484,7 @@ export default function CalendarSeedPlanner() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="duration-input" className="flex items-center gap-2 text-sm font-medium">
+              <Label htmlFor="duration-input" className="flex items-center gap-2 text-base font-medium">
                 <Clock className="w-4 h-4" />
                 Durasi (Hari)
               </Label>
@@ -494,12 +494,12 @@ export default function CalendarSeedPlanner() {
                 placeholder="Durasi tanam" 
                 value={duration} 
                 onChange={(e) => setDuration(Number(e.target.value))}
-                className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                className="transition-all duration-200 focus:ring-2 focus:ring-teal-500"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="start-date" className="flex items-center gap-2 text-sm font-medium">
+              <Label htmlFor="start-date" className="flex items-center gap-2 text-base font-medium">
                 <Calendar className="w-4 h-4" />
                 Tanggal Mulai Tanam
               </Label>
@@ -508,12 +508,12 @@ export default function CalendarSeedPlanner() {
                 type="date" 
                 value={startDate} 
                 onChange={(e) => setStartDate(e.target.value)}
-                className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                className="transition-all duration-200 focus:ring-2 focus:ring-teal-500"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="semai-status" className="flex items-center gap-2 text-sm font-medium">
+              <Label htmlFor="semai-status" className="flex items-center gap-2 text-base font-medium">
                 <Info className="w-4 h-4" />
                 Status Semai
               </Label>
@@ -530,7 +530,7 @@ export default function CalendarSeedPlanner() {
           </div>
 
           <Button 
-            className="mt-6 w-full sm:w-auto px-8 py-2" 
+            className="mt-6 w-full sm:w-auto px-8 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-base" 
             size="lg"
             onClick={handleSubmit} 
             disabled={!selectedSeedName || !duration || !startDate || isForecastLoading}

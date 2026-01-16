@@ -63,8 +63,8 @@ export const WeatherHeader = React.memo<WeatherHeaderProps>(({
             
             {/* Date Card */}
             <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity" />
-              <div className="relative bg-gradient-to-br from-gray-800 to-gray-700 p-4 rounded-2xl shadow-lg border border-white/20">
+              <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity" />
+              <div className="relative bg-gradient-to-br from-teal-600 to-emerald-700 p-4 rounded-2xl shadow-lg border border-white/20">
                 <div className="flex flex-col items-center">
                   <Calendar className="w-5 h-5 text-white/80 mb-1" />
                   <span className="text-4xl font-bold text-white leading-none">{date}</span>
@@ -151,7 +151,7 @@ export const WeatherHeader = React.memo<WeatherHeaderProps>(({
       </CardHeader>
 
       {/* Bottom Accent Line */}
-      <div className="h-1 bg-gradient-to-r from-gray-700 via-gray-600 to-gray-500" />
+      <div className="h-1 bg-gradient-to-r from-teal-500 via-emerald-600 to-green-600" />
     </Card>
   );
 });

@@ -98,7 +98,7 @@ function EmptyState() {
             <CardContent className="flex flex-col items-center justify-center py-16">
                 <Activity className="h-12 w-12 text-muted-foreground mb-4" />
                 <p className="font-medium text-lg">Belum ada data peramalan</p>
-                <p className="text-sm text-muted-foreground text-center max-w-sm mt-1">
+                <p className="text-base text-muted-foreground text-center max-w-sm mt-1">
                     Jalankan model peramalan terlebih dahulu untuk melihat grafik prediksi
                 </p>
             </CardContent>
@@ -164,10 +164,10 @@ function ParamChart({ param, data, mode }: ParamChartProps) {
             <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                     <div className="space-y-1">
-                        <CardTitle className="text-xl font-semibold">
+                        <CardTitle className="text-2xl font-semibold">
                             {getParamLabel(param)}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2">
+                        <CardDescription className="flex items-center gap-2 text-sm">
                             <Calendar className="h-3.5 w-3.5" />
                             {mode === "combined" 
                                 ? `Data historis (${years[0]}-${years[years.length - 1]}) & prediksi` 
@@ -183,20 +183,20 @@ function ParamChart({ param, data, mode }: ParamChartProps) {
                 
                 <div className="grid grid-cols-3 gap-4 pt-4">
                     <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Minimum</p>
-                        <p className="text-sm font-medium tabular-nums">
+                        <p className="text-sm text-muted-foreground">Minimum</p>
+                        <p className="text-base font-medium tabular-nums">
                             {minValue.toFixed(2)} {unit}
                         </p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Rata-rata</p>
-                        <p className="text-sm font-medium tabular-nums">
+                        <p className="text-sm text-muted-foreground">Rata-rata</p>
+                        <p className="text-base font-medium tabular-nums">
                             {avgValue.toFixed(2)} {unit}
                         </p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Maksimum</p>
-                        <p className="text-sm font-medium tabular-nums">
+                        <p className="text-sm text-muted-foreground">Maksimum</p>
+                        <p className="text-base font-medium tabular-nums">
                             {maxValue.toFixed(2)} {unit}
                         </p>
                     </div>
@@ -230,7 +230,7 @@ function ParamChart({ param, data, mode }: ParamChartProps) {
                             axisLine={false} 
                             tickMargin={8}
                             interval={tickInterval}
-                            className="text-xs"
+                            className="text-sm"
                             tick={{ fill: 'hsl(var(--muted-foreground))' }}
                         />
                         <YAxis 
@@ -238,7 +238,7 @@ function ParamChart({ param, data, mode }: ParamChartProps) {
                             axisLine={false}
                             tickMargin={8}
                             width={50}
-                            className="text-xs"
+                            className="text-sm"
                             tick={{ fill: 'hsl(var(--muted-foreground))' }}
                             tickFormatter={(value) => value.toFixed(1)}
                         />

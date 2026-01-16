@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { fontMono, fontMonserrat } from "@/lib/font";
+import { fontMono, fontSans } from "@/lib/font";
 import { cn } from "@/lib/utils";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import QueryProvider from "@/context/query-provider";
@@ -40,7 +40,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body 
-        className={cn(`min-h-svh bg-background font-mono antialiased`, fontMonserrat.variable, fontMono.variable)}
+        className={cn(`min-h-svh bg-background font-sans antialiased`, fontSans.variable, fontMono.variable)}
       >
         <QueryProvider>
           {children}

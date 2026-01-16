@@ -121,7 +121,7 @@ export function RoundedPieChart() {
 
   if (isLoading) {
     return (
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[...Array(2)].map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
@@ -141,7 +141,7 @@ export function RoundedPieChart() {
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-10">
           <PieChartIcon className="h-10 w-10 text-muted-foreground mb-3" />
-          <p className="font-medium">Belum ada data metrik</p>
+          <p className="font-medium text-base">Belum ada data metrik</p>
           <p className="text-sm text-muted-foreground">
             Jalankan peramalan untuk melihat metrik error
           </p>
@@ -154,7 +154,7 @@ export function RoundedPieChart() {
 
   return (
     <TooltipProvider>
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {errorMetricsArray.map((entry: any, index: number) => {
           const metrics = entry.metrics ?? {};
           // Ambil collection dari mapping, fallback ke entry.collectionName
@@ -175,25 +175,25 @@ export function RoundedPieChart() {
                 <div className="flex items-center justify-between">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <CardTitle className="text-base font-medium cursor-help">
+                      <CardTitle className="text-base sm:text-lg font-medium cursor-help">
                         {displayName}
                       </CardTitle>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="text-xs">
+                      <p className="text-sm">
                         Kolom: <code className="bg-muted px-1 rounded">{entry.columnName}</code>
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {collectionLabel}
                 </p>
               </CardHeader>
 
               <CardContent className="pt-0">
-                <div className="flex items-center gap-4">
-                  <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px] sm:h-[180px]">
                     <PieChart>
                       <ChartTooltip content={<ChartTooltipContent nameKey="key" hideLabel />} />
                       <Pie 
@@ -224,10 +224,10 @@ export function RoundedPieChart() {
                           style={{ backgroundColor: item.fill }} 
                         />
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground uppercase w-10">
+                          <span className="text-sm text-muted-foreground uppercase w-10">
                             {item.key}
                           </span>
-                          <span className="text-xs font-medium tabular-nums">
+                          <span className="text-sm font-medium tabular-nums">
                             {item.value.toFixed(2)}
                           </span>
                         </div>

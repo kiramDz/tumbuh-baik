@@ -32,7 +32,7 @@ export const config = {
   matcher: ["/dashboard/:path*", "/admin/:path*", "/sign-in", "/sign-up"],
 };
 
-export default async function authMiddleware(req: NextRequest) {
+export default async function authProxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const sessionCookie = getSessionCookie(req);
 

@@ -15,8 +15,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signIn } from "@/lib/better-auth/auth-client";
 
 export const metadata: Metadata = {
-  title: "Admin Sign In - Authentication",
-  description: "Admin authentication portal for Tumbuh Baik platform.",
+  title: "Masuk Admin - Autentikasi",
+  description: "Portal autentikasi admin untuk platform Tumbuh Baik.",
 };
 
 export default function AdminSignIn() {
@@ -28,17 +28,17 @@ export default function AdminSignIn() {
   const router = useRouter();
 
   return (
-    <div className="relative min-h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="relative min-h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-gray-900 dark:to-teal-900/30">
       
       {/* Left Panel */}
       <div className="relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black" />
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-600 via-emerald-700 to-green-800" />
         <div className="absolute inset-0 bg-black/20" />
 
         {/* Decorative elements */}
         <div className="absolute top-20 right-20 w-32 h-32 bg-white/5 rounded-full blur-xl" />
         <div className="absolute bottom-32 left-16 w-24 h-24 bg-white/5 rounded-full blur-lg" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gray-700/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl" />
 
         <div className="relative z-20 flex items-center text-xl font-bold text-white">
           <div className="mr-3 p-2 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -79,22 +79,22 @@ export default function AdminSignIn() {
           {/* Mobile Header */}
           <div className="text-center space-y-2 lg:hidden">
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Tumbuh Baik</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Admin Portal</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Portal Admin</p>
           </div>
 
           {/* Sign In Card */}
           <Card className="w-full shadow-lg border">
             <CardHeader className="space-y-3">
               <div className="flex flex-col items-center space-y-3">
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-full">
-                  <Lock className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+                <div className="p-3 bg-gradient-to-br from-teal-100 to-emerald-100 dark:from-teal-900/30 dark:to-emerald-900/30 rounded-full">
+                  <Lock className="h-6 w-6 text-teal-700 dark:text-teal-300" />
                 </div>
                 <div className="text-center space-y-1">
                   <CardTitle className="text-2xl font-bold">
-                    Sign In
+                    Masuk
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    Enter your credentials to access the admin dashboard
+                    Masukkan kredensial Anda untuk mengakses dashboard admin
                   </CardDescription>
                 </div>
               </div>
@@ -113,7 +113,7 @@ export default function AdminSignIn() {
 
               {/* Email Field */}
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Alamat Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -131,13 +131,13 @@ export default function AdminSignIn() {
 
               {/* Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Kata Sandi</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder="Masukkan kata sandi Anda"
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -172,7 +172,7 @@ export default function AdminSignIn() {
                 id="signin-button"
                 type="submit"
                 disabled={loading || !email || !password}
-                className="w-full"
+                className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white"
                 size="lg"
                 onClick={async () => {
                   try {
@@ -183,13 +183,13 @@ export default function AdminSignIn() {
 
                     if (result?.error) {
                       console.error("SIGNIN ERROR:", result.error);
-                      setError(result.error.message || "Login failed");
+                      setError(result.error.message || "Login gagal");
                     } else {
                       router.push("/dashboard");
                     }
                   } catch (err) {
                     console.error("SIGNIN CATCH ERROR:", err);
-                    setError("Unexpected error occurred");
+                    setError("Terjadi kesalahan yang tidak terduga");
                   } finally {
                     setLoading(false);
                   }
@@ -198,11 +198,11 @@ export default function AdminSignIn() {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing In...
+                    Masuk...
                   </>
                 ) : (
                   <>
-                    Sign In
+                    Masuk
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -214,9 +214,9 @@ export default function AdminSignIn() {
 
             <CardFooter className="flex flex-col space-y-4 pt-6">
               <div className="text-sm text-center text-muted-foreground">
-                Don&apos;t have an account?{" "}
+                Belum punya akun?{" "}
                 <Link href="/sign-up" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
-                  Sign up now
+                  Daftar sekarang
                 </Link>
               </div>
             </CardFooter>

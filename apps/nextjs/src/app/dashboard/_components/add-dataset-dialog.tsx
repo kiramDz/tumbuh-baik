@@ -127,7 +127,7 @@ export default function AddDatasetDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white">
           <Plus className="w-4 h-4 mr-2" />
           Tambah Dataset
         </Button>

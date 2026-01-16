@@ -27,7 +27,7 @@ export const WeatherMainDisplay = React.memo(({
     <div className="grid grid-cols-1 gap-6">
       
       {/* Current Weather Card - Full Width */}
-      <Card className="bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white border-0 shadow-2xl overflow-hidden">
+      <Card className="bg-gradient-to-br from-teal-500 via-emerald-600 to-green-700 text-white border-0 shadow-2xl overflow-hidden">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div>

@@ -80,11 +80,11 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
   // Ini masuk kategori "Cukup Cocok".
   if (sesuaiCount === 3) {
     return {
-      color: "bg-green-100 hover:bg-green-200 border-green-300",
+      color: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300",
       label: "Cukup Cocok (Kondisi Baik)",
       count: 3,
       icon: "●",
-      iconColor: "text-green-600",
+      iconColor: "text-yellow-700",
       criteria,
       type: "cukupCocok" as const,
     };
@@ -300,7 +300,7 @@ export default function PeriodCalendar() {
     <TabsContent value={period} className="mt-4 space-y-4">
       <Alert>
         <div className="flex items-start gap-2">
-          <Info className="h-4 w-4 mt-0.5" />
+          <Info className="h-4 w-4 mt-0.5 text-teal-600" />
           <AlertDescription className="flex-1">
             Periode Tanam: <strong>{periodRanges[period]}</strong>
           </AlertDescription>
@@ -446,7 +446,7 @@ export default function PeriodCalendar() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-center py-12 gap-2">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
               <span className="text-muted-foreground">Memuat data prediksi...</span>
             </div>
           </CardContent>
@@ -484,11 +484,11 @@ export default function PeriodCalendar() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs border-teal-600 text-teal-600">
                 Model Prediksi
               </Badge>
               <Select value={selectedModel} onValueChange={(value: ModelType) => setSelectedModel(value)}>
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="w-44 border-teal-600 focus:ring-teal-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -503,7 +503,7 @@ export default function PeriodCalendar() {
           <Tabs defaultValue="Periode-1" className="w-full">
             <TabsList className="grid w-full grid-cols-3 h-auto">
               {["Periode-1", "Periode-2", "Periode-3"].map((period) => (
-                <TabsTrigger key={period} value={period} className="flex flex-col py-2">
+                <TabsTrigger key={period} value={period} className="flex flex-col py-2 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700 data-[state=active]:border-teal-600">
                   <span className="font-semibold">{period}</span>
                   <span className="text-xs text-muted-foreground">{periodRanges[period as keyof typeof periodRanges]}</span>
                 </TabsTrigger>
@@ -534,8 +534,8 @@ export default function PeriodCalendar() {
                 <p className="text-xs text-muted-foreground leading-none">4/4 parameter sesuai</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-green-100/50">
-              <div className="w-7 h-7 bg-green-200 border border-green-300 rounded-md flex items-center justify-center text-green-800 font-bold text-lg">●</div>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-yellow-100/50">
+              <div className="w-7 h-7 bg-yellow-200 border border-yellow-300 rounded-md flex items-center justify-center text-yellow-800 font-bold text-lg">●</div>
               <div className="space-y-1">
                 <p className="font-medium text-sm leading-none">Cukup Cocok</p>
                 <p className="text-xs text-muted-foreground leading-none">3/4 (Hujan Wajib + 2 Lainnya)</p>

@@ -167,25 +167,25 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
         <TooltipProvider>
             <Dialog open={open} onOpenChange={handleOpenChange}>
                 <DialogTrigger asChild>
-                    <Button>
+                    <Button className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-base">
                         <Plus className="h-4 w-4 mr-2" />
                         Tambah Konfigurasi
                     </Button>
                 </DialogTrigger>
 
-                <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0">
-                    <DialogHeader className="px-6 pt-6 pb-4">
-                        <DialogTitle>Konfigurasi Peramalan Baru</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[85vh] flex flex-col p-0">
+                    <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4">
+                        <DialogTitle className="text-base sm:text-lg md:text-xl">Konfigurasi Peramalan Baru</DialogTitle>
+                        <DialogDescription className="text-xs sm:text-sm md:text-base">
                             Pilih dataset dan kolom yang ingin diramalkan menggunakan model LSTM.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-hidden px-6">
-                        <div className="space-y-5">
+                    <div className="flex-1 overflow-hidden px-4 sm:px-6">
+                        <div className="space-y-4 sm:space-y-5">
                             {/* Nama Konfigurasi */}
                             <div className="space-y-2">
-                                <Label htmlFor="config-name" className="text-sm font-medium">
+                                <Label htmlFor="config-name" className="text-sm sm:text-base font-medium">
                                     Nama Konfigurasi
                                 </Label>
                                 <Input 
@@ -200,7 +200,7 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                             {/* Tanggal Mulai Peramalan */}
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <Label className="text-sm font-medium">Tanggal Mulai Peramalan</Label>
+                                    <Label className="text-base font-medium">Tanggal Mulai Peramalan</Label>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -215,7 +215,7 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                                         <Button 
                                             variant="outline" 
                                             className={cn(
-                                                "w-full justify-start text-left font-normal h-10", 
+                                                "w-full justify-start text-left font-normal h-10 text-base", 
                                                 !startDate && "text-muted-foreground"
                                             )}
                                         >
@@ -236,7 +236,7 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
 
                                 {/* Preview Tanggal Akhir */}
                                 {endDate && (
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground">
                                         Peramalan hingga: <span className="font-medium text-foreground">{format(endDate, "PPP", { locale: id })}</span>
                                     </p>
                                 )}
@@ -247,7 +247,7 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                             {/* Dataset Selection */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
-                                    <Label className="text-sm font-medium">Pilih Kolom Dataset</Label>
+                                    <Label className="text-base font-medium">Pilih Kolom Dataset</Label>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
                                             <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -265,8 +265,8 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                                 ) : datasetList.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-12 text-center">
                                         <Database className="h-12 w-12 text-muted-foreground mb-3" />
-                                        <p className="text-sm text-muted-foreground">Tidak ada dataset tersedia</p>
-                                        <p className="text-xs text-muted-foreground mt-1">Upload dataset terlebih dahulu</p>
+                                        <p className="text-base text-muted-foreground">Tidak ada dataset tersedia</p>
+                                        <p className="text-sm text-muted-foreground mt-1">Upload dataset terlebih dahulu</p>
                                     </div>
                                 ) : (
                                     <ScrollArea className="h-[200px]">
@@ -277,11 +277,11 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
                                                                 <Database className="h-4 w-4 text-primary" />
-                                                                <CardTitle className="text-sm font-medium">
+                                                                <CardTitle className="text-base font-medium">
                                                                     {dataset.name || dataset.collectionName}
                                                                 </CardTitle>
                                                             </div>
-                                                            <Badge variant="outline" className="text-xs font-normal">
+                                                            <Badge variant="outline" className="text-sm font-normal">
                                                                 {dataset.columns?.length || 0} kolom
                                                             </Badge>
                                                         </div>
@@ -300,9 +300,9 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                                                                             <label 
                                                                                 className={`
                                                                                     flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer
-                                                                                    text-sm transition-all duration-150
+                                                                                    text-base transition-all duration-150
                                                                                     ${isChecked 
-                                                                                        ? 'bg-primary/10 text-primary border border-primary/30' 
+                                                                                        ? 'bg-teal-50 text-teal-700 border border-teal-300 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800' 
                                                                                         : 'hover:bg-muted border border-transparent'
                                                                                     }
                                                                                 `}
@@ -338,8 +338,8 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                             {selected.length > 0 && (
                                 <div className="space-y-2 pb-2">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-sm font-medium">Kolom Terpilih</Label>
-                                        <Badge variant="secondary" className="text-xs">
+                                        <Label className="text-base font-medium">Kolom Terpilih</Label>
+                                        <Badge variant="secondary" className="text-sm">
                                             {selected.length} dipilih
                                         </Badge>
                                     </div>
@@ -348,7 +348,7 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                                             <Badge 
                                                 key={index} 
                                                 variant="secondary"
-                                                className="pl-2 pr-1 py-1 gap-1 text-xs"
+                                                className="pl-2 pr-1 py-1 gap-1 text-sm"
                                             >
                                                 <span className="text-muted-foreground max-w-[80px] truncate">
                                                     {item.collectionName}
@@ -377,12 +377,14 @@ export function LSTMDialog({ onSubmit }: LSTMDialogProps) {
                             variant="outline" 
                             onClick={() => handleOpenChange(false)}
                             disabled={isPending}
+                            className="text-base"
                         >
                             Batal
                         </Button>
                         <Button 
                             onClick={handleSave} 
                             disabled={isPending || !name.trim() || selected.length === 0 || !startDate}
+                            className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-base"
                         >
                             {isPending ? (
                                 <>

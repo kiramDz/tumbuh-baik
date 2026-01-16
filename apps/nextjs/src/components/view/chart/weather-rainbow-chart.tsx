@@ -65,21 +65,21 @@ export function RainbowGlowGradientLineChart({ hourlyForecast }: WeatherChartPro
             <Line
               dataKey="temperature"
               type="bump"
-              stroke="url(#colorGray)"
+              stroke="url(#colorTeal)"
               dot={false}
               strokeWidth={2}
-              filter="url(#gray-line-glow)"
+              filter="url(#teal-line-glow)"
             />
             <defs>
-              <linearGradient id="colorGray" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#1f2937" stopOpacity={0.9} />
-                <stop offset="20%" stopColor="#374151" stopOpacity={0.9} />
-                <stop offset="40%" stopColor="#4b5563" stopOpacity={0.9} />
-                <stop offset="60%" stopColor="#6b7280" stopOpacity={0.9} />
-                <stop offset="80%" stopColor="#9ca3af" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#d1d5db" stopOpacity={0.9} />
+              <linearGradient id="colorTeal" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.9} />
+                <stop offset="20%" stopColor="#0d9488" stopOpacity={0.9} />
+                <stop offset="40%" stopColor="#10b981" stopOpacity={0.9} />
+                <stop offset="60%" stopColor="#059669" stopOpacity={0.9} />
+                <stop offset="80%" stopColor="#22c55e" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#16a34a" stopOpacity={0.9} />
               </linearGradient>
-              <filter id="gray-line-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <filter id="teal-line-glow" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur stdDeviation="10" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
               </filter>

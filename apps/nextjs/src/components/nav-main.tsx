@@ -19,7 +19,7 @@ export function NavMain({
 }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel className="mt-10">Platform</SidebarGroupLabel>
+      <SidebarGroupLabel className="mt-10 text-base">Platform</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <Collapsible key={item.title} asChild defaultOpen={item.isActive} className="group/collapsible">
@@ -27,7 +27,7 @@ export function NavMain({
               {item.items ? (
                 <>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip={item.title}>
+                    <SidebarMenuButton tooltip={item.title} className="text-base">
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                       {item.items && ( // Hanya render chevron jika ada sub-item
@@ -37,7 +37,7 @@ export function NavMain({
                   </CollapsibleTrigger>
                 </>
               ) : (
-                <SidebarMenuButton tooltip={item.title} asChild>
+                <SidebarMenuButton tooltip={item.title} asChild className="text-base">
                   <a href={item.url}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
@@ -48,7 +48,7 @@ export function NavMain({
                 <SidebarMenuSub >
                   {item.items?.map((subItem) => (
                     <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton asChild>
+                      <SidebarMenuSubButton asChild className="text-base">
                         <a href={`${subItem.url}`}>
                           <span>{subItem.title}</span>
                         </a>
