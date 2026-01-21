@@ -80,11 +80,11 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
   // Ini masuk kategori "Cukup Cocok".
   if (sesuaiCount === 3) {
     return {
-      color: "bg-yellow-100 hover:bg-yellow-200 border-yellow-300",
+      color: "bg-yellow-300 hover:bg-yellow-400 border-yellow-400",
       label: "Cukup Cocok (Kondisi Baik)",
       count: 3,
       icon: "●",
-      iconColor: "text-yellow-700",
+      iconColor: "text-yellow-800",
       criteria,
       type: "cukupCocok" as const,
     };
@@ -534,8 +534,8 @@ export default function PeriodCalendar() {
                 <p className="text-xs text-muted-foreground leading-none">4/4 parameter sesuai</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-yellow-100/50">
-              <div className="w-7 h-7 bg-yellow-200 border border-yellow-300 rounded-md flex items-center justify-center text-yellow-800 font-bold text-lg">●</div>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-yellow-300/50">
+              <div className="w-7 h-7 bg-yellow-400 border border-yellow-500 rounded-md flex items-center justify-center text-yellow-900 font-bold text-lg">●</div>
               <div className="space-y-1">
                 <p className="font-medium text-sm leading-none">Cukup Cocok</p>
                 <p className="text-xs text-muted-foreground leading-none">3/4 (Hujan Wajib + 2 Lainnya)</p>

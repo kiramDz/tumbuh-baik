@@ -56,9 +56,7 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
 
   // 1. SYARAT MUTLAK: HUJAN
   // Jika hujan kurang/banjir, langsung tidak cocok (Bera), tidak peduli parameter lain bagus.
-  if (!criteria.isRainSesuai) {
-    return { type: "tidakCocok" as const };
-  }
+
 
   // 2. HITUNG SKOR (Hujan sudah pasti sesuai di sini)
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
@@ -197,7 +195,7 @@ const MiniCalendar: React.FC<{ monthData: MonthCalendarData }> = ({ monthData })
       case "sangatCocok":
         return "bg-green-400 text-green-900 font-medium";
       case "cukupCocok":
-        return "bg-green-200 text-green-800 font-medium";
+        return "bg-yellow-300 text-yellow-900 font-medium";
       case "tidakCocok":
         return "bg-red-400 text-red-900 font-medium";
       default:
@@ -221,7 +219,7 @@ const MiniCalendar: React.FC<{ monthData: MonthCalendarData }> = ({ monthData })
               {monthData.totalSangatCocok}
             </span>
             <span className="flex items-center gap-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-200"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-300"></span>
               {monthData.totalCukupCocok}
             </span>
             <span className="flex items-center gap-0.5">
@@ -348,7 +346,7 @@ export function LSTMYearlyCalendar() {
                   <span className="text-sm font-medium">{summary.totalSangatCocok}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-green-200" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-300" />
                   <span className="text-sm font-medium">{summary.totalCukupCocok}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -435,7 +433,7 @@ export function LSTMYearlyCalendar() {
                 <span>Sangat Cocok (4/4)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-4 h-4 rounded-sm bg-green-200"></div>
+                <div className="w-4 h-4 rounded-sm bg-yellow-300"></div>
                 <span>Cukup Cocok (3/4)</span>
               </div>
               <div className="flex items-center gap-1.5">
