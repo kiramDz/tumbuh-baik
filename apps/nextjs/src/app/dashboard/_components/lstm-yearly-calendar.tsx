@@ -56,7 +56,9 @@ const getSuitability = (rain: number, temp: number, humidity: number, radiation:
 
   // 1. SYARAT MUTLAK: HUJAN
   // Jika hujan kurang/banjir, langsung tidak cocok (Bera), tidak peduli parameter lain bagus.
-
+  if (!criteria.isRainSesuai) {
+    return { type: "tidakCocok" as const };
+  }
 
   // 2. HITUNG SKOR (Hujan sudah pasti sesuai di sini)
   const sesuaiCount = Object.values(criteria).filter(Boolean).length;
