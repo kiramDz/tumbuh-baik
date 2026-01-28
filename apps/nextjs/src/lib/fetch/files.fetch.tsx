@@ -582,7 +582,7 @@ export const triggerForecastRun = async () => {
 
 export const triggerLSTMForecast = async () => {
   try {
-    const res = await axios.post(`${FLASK_API_URL}/run-lstm`);
+    const res = await axios.post("https://lstm.zonapetik.tech/run-lstm");
     return res.data;
   } catch (error) {
     console.error("Trigger LSTM forecast failed:", error);
