@@ -113,6 +113,7 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
           </Select>
         </div>
       </CardHeader>
+
       <CardContent>
         <ChartContainer config={chartConfig}>
           <LineChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>

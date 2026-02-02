@@ -1,8 +1,10 @@
 from pymongo import MongoClient
 from flask import Flask, jsonify, request, Blueprint, Response, stream_with_context, current_app
 from flask_cors import CORS
+import os
 from helpers.objectid_converter import convert_objectid
 from jobs.run_forecast_from_config import run_forecast_from_config
+from jobs.run_lstm import run_lstm_from_config
 from bson import ObjectId
 import json
 from bson.json_util import dumps
@@ -44,7 +46,6 @@ from preprocessing.bmkg.preprocessing_bmkg import (
 from preprocessing.convert.xlsx_to_csv import convert_single_xlsx
 from preprocessing.convert.xlsx_merge_csv import merge_multiple_xlsx
 
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,37 +53,27 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Initialize Flask app
 app = Flask(__name__)
-CORS(app, origins=os.getenv("CORS_ORIGINS", "http://localhost:3000"))
-# CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://3.107.238.87"]}})
 
+CORS(app, resources={r"/*": {"origins": [
+    "http://localhost:3000", 
+    "http://3.107.238.87",
+    "https://www.zonapetik.tech"
+]}})
 
-# MongoDB connection using environment variables
 mongo_uri = os.getenv("MONGODB_URI")
 db_name = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
 mongo_client = MongoClient(mongo_uri)
 db = mongo_client[db_name]
-from flask import Flask, jsonify
-from flask_cors import CORS
-from helpers.objectid_converter import convert_objectid
-from jobs.run_forecast_from_config import run_forecast_from_config
-from jobs.run_lstm import run_lstm_from_config
-from pymongo import MongoClient
+app.config['MONGO_DB'] = db  # ⚠️ PENTING - Jangan sampai hilang!
 
-app = Flask(__name__)
-CORS(app, origins="http://localhost:3000") 
-
-# Configure Flask app
-app.config['MONGO_DB'] = db
-app.config['MONGO_CLIENT'] = mongo_client
-
-# Initialize blueprint - MOVED HERE
 preprocessing_bp = Blueprint('preprocessing', __name__, url_prefix="/api/v1")
 
+# === Routes ===
 @app.route("/")
 def home():
     return jsonify({"message": "Flask Holt-Winter API is running!"})
+
 
 @app.route("/run-forecast", methods=["POST"])
 def run_forecast():
@@ -90,15 +81,17 @@ def run_forecast():
 
 @app.route("/run-lstm", methods=["POST"])
 def run_lstm():
+    print("Received request to run LSTM forecast")
     return run_lstm_from_config()
 
+@app.route("/run-lstm" , methods=["GET"])
+def run_lstm_get():
+    print("Received GET request to run LSTM forecast")
+    return jsonify({"message": "Use POST method to run LSTM forecast"}), 200
 
 @app.route("/check-mongodb")
 def check_mongodb():
     try:
-        client = MongoClient("mongodb+srv://hilmi0:8ZqtGJVyMiF8x7YN@cluster0.uuonyyb.mongodb.net/tugas_akhir?retryWrites=true&w=majority&appName=Cluster0")
-        # client = MongoClient("mongodb://host.docker.internal:27017/")
-        db = client["tugas_akhir"]
         collections = db.list_collection_names()
         return jsonify({
             "status": "connected",
@@ -142,7 +135,7 @@ def get_all_datasets():
         return json.loads(dumps({"data": datasets})), 200
     except Exception as e:
         return jsonify({"message": f"Server error: {str(e)}"}), 500
-
+    
 @app.route("/api/v1/dataset/<collection_name>", methods=["GET"])
 def get_dataset_by_collection(collection_name):
     """Get dataset by collection name with pagination"""
@@ -232,7 +225,7 @@ def get_dataset_by_collection(collection_name):
     except Exception as e:
         print(f"Error fetching dataset: {str(e)}")
         return jsonify({"message": f"Server error: {str(e)}"}), 500
-
+    
 
 @app.route("/api/v1/datasets/<collection_name>/<object_id>", methods=["GET"])
 def get_dataset_document_by_id(collection_name, object_id):
@@ -767,172 +760,6 @@ def preprocess_nasa_stream(collection_name):
         }
     )
 
-# @preprocessing_bp.route("/preprocess/nasa/<collection_name>/stream", methods=["GET"])
-# def preprocess_nasa_stream(collection_name):
-#     """
-#     SSE endpoint for real-time preprocessing logs
-#     Stream preprocessing progress to frontend
-#     """
-#     def generate():
-#         # Create log queue for this session
-#         log_queue = Queue()
-#         session_id = f"{collection_name}_{int(time.time())}"
-        
-#         # Setup custom log handler that captures logs
-#         class SSELogHandler(logging.Handler):
-#             def emit(self, record):
-#                 log_entry = self.format(record)
-                
-#                 # Parse progress information
-#                 if "PROGRESS:" in log_entry:
-#                     try:
-#                         # Extract PROGRESS:percentage:stage:message
-#                         progress_part = log_entry.split("PROGRESS:")[1]
-#                         parts = progress_part.split(":", 2)  # Split into max 3 parts
-                        
-#                         print(f"[DEBUG] Progress parts: {parts}")  # Debug log
-                        
-#                         if len(parts) >= 3:
-#                             # Parse percentage with error handling
-#                             try:
-#                                 percentage_str = parts[0].strip()
-#                                 percentage = int(percentage_str) if percentage_str.isdigit() else 0
-#                             except (ValueError, AttributeError):
-#                                 percentage = 0
-                                
-#                             log_queue.put({
-#                                 'type': 'progress',
-#                                 'percentage': percentage,  # Now properly parsed
-#                                 'stage': parts[1].strip() if len(parts) > 1 else 'processing',
-#                                 'message': parts[2].strip() if len(parts) > 2 else 'Processing...'
-#                             })
-#                         else:
-#                             # If parsing fails, treat as regular log but try to extract percentage
-#                             log_queue.put({
-#                                 'type': 'log',
-#                                 'level': record.levelname,
-#                                 'message': log_entry,
-#                                 'timestamp': time.time()
-#                             })
-#                     except (ValueError, IndexError) as e:
-#                         print(f"[DEBUG] Error parsing progress: {e}")  # Debug log
-#                         # If parsing fails, treat as regular log
-#                         log_queue.put({
-#                             'type': 'log',
-#                             'level': record.levelname,
-#                             'message': log_entry,
-#                             'timestamp': time.time()
-#                         })
-#                 else:
-#                     log_queue.put({
-#                         'type': 'log',
-#                         'level': record.levelname,
-#                         'message': log_entry,
-#                         'timestamp': time.time()
-#                     })
-        
-#         # Add handler to preprocessing logger
-#         sse_handler = SSELogHandler()
-#         sse_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
-        
-#         preprocessing_logger = logging.getLogger('preprocessing.nasa.preprocessing_nasa')
-#         preprocessing_logger.addHandler(sse_handler)
-#         preprocessing_logger.setLevel(logging.INFO)
-        
-#         try:
-#             # Send initial connection message
-#             yield f"data: {json.dumps({'type': 'connected', 'session_id': session_id, 'collection': collection_name})}\n\n"
-            
-#             # Get db and app instance from current request context
-#             db_instance = current_app.config['MONGO_DB']
-            
-#             # Start preprocessing in background thread
-#             preprocessing_result = {'status': None, 'data': None, 'error': None}
-            
-#             def run_preprocessing():
-#                 try:
-#                     # Send starting message
-#                     log_queue.put({
-#                         'type': 'progress',
-#                         'stage': 'starting',
-#                         'percentage': 0,
-#                         'message': 'Initializing NASA POWER preprocessing...'
-#                     })
-                    
-#                     # Run actual preprocessing
-#                     preprocessor = NasaPreprocessor(db_instance, collection_name)
-#                     result = preprocessor.preprocess()
-                    
-#                     # Store result
-#                     preprocessing_result['status'] = 'success'
-#                     preprocessing_result['data'] = result
-                    
-#                     # Send completion
-#                     log_queue.put({
-#                         'type': 'complete',
-#                         'status': 'success',
-#                         'result': {
-#                             'recordCount': result.get('recordCount'),
-#                             'originalRecordCount': result.get('originalRecordCount'),
-#                             'cleanedCollection': result.get('cleanedCollection'),
-#                             'preprocessing_report': result.get('preprocessing_report')
-#                         }
-#                     })
-                    
-#                 except Exception as e:
-#                     preprocessing_result['status'] = 'error'
-#                     preprocessing_result['error'] = str(e)
-                    
-#                     log_queue.put({
-#                         'type': 'error',
-#                         'message': str(e),
-#                         'traceback': traceback.format_exc()
-#                     })
-#                 finally:
-#                     # Signal completion
-#                     log_queue.put({'type': 'done'})
-            
-#             # Start preprocessing thread
-#             thread = threading.Thread(target=run_preprocessing)
-#             thread.daemon = True
-#             thread.start()
-            
-#             # Stream logs to client
-#             while True:
-#                 try:
-#                     # Get log from queue (timeout to check if client disconnected)
-#                     log_data = log_queue.get(timeout=1)
-                    
-#                     # Check if done
-#                     if log_data.get('type') == 'done':
-#                         break
-                    
-#                     # Send log to client as SSE
-#                     yield f"data: {json.dumps(log_data)}\n\n"
-                    
-#                 except:
-#                     # Timeout - send keepalive
-#                     yield ": keepalive\n\n"
-#                     continue
-                    
-#         except GeneratorExit:
-#             # Client disconnected
-#             logger.info(f"Client disconnected from preprocessing stream: {collection_name}")
-#         finally:
-#             # Cleanup
-#             preprocessing_logger.removeHandler(sse_handler)
-    
-#     return Response(
-#         stream_with_context(generate()),
-#         mimetype='text/event-stream',
-#         headers={
-#             'Cache-Control': 'no-cache',
-#             'X-Accel-Buffering': 'no',
-#             'Connection': 'keep-alive',
-#             'Access-Control-Allow-Origin': '*'  # Adjust for production
-#         }
-#     )
-
 @preprocessing_bp.route("/preprocess/bmkg/<collection_name>", methods=["POST"])
 def preprocess_bmkg_dataset(collection_name):
     """Preprocessing a BMKG dataset"""
@@ -1427,8 +1254,7 @@ def get_decomposition_data(slug):
         logger.error(f"Error fetching decomposition data: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"message": f"Server error: {str(e)}"}), 500
-    
-# TAMBAHKAN BARIS INI
+
 app.register_blueprint(preprocessing_bp)
 
 if __name__ == "__main__":

@@ -13,7 +13,14 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { DataTablePagination } from "@/app/dashboard/_components/table/data-table-pagination";
 
 interface DataTableProps<TData, TValue> {
@@ -30,10 +37,17 @@ interface DataTableProps<TData, TValue> {
   };
 }
 
-export function RecycleBinUI<TData, TValue>({ columns, data, pagination }: DataTableProps<TData, TValue>) {
+export function RecycleBinUI<TData, TValue>({
+  columns,
+  data,
+  pagination,
+}: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const table = useReactTable({
     data,
@@ -42,7 +56,10 @@ export function RecycleBinUI<TData, TValue>({ columns, data, pagination }: DataT
     rowCount: pagination.total,
     pageCount: pagination.totalPages,
     onPaginationChange: (updater) => {
-      const newPagination = typeof updater === "function" ? updater(table.getState().pagination) : updater;
+      const newPagination =
+        typeof updater === "function"
+          ? updater(table.getState().pagination)
+          : updater;
       if (newPagination.pageSize !== table.getState().pagination.pageSize) {
         pagination.onPageSizeChange(newPagination.pageSize);
       } else {
@@ -90,7 +107,16 @@ export function RecycleBinUI<TData, TValue>({ columns, data, pagination }: DataT
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
-                    return <TableHead key={header.id}>{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}</TableHead>;
+                    return (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
+                    );
                   })}
                 </TableRow>
               ))}
@@ -98,15 +124,26 @@ export function RecycleBinUI<TData, TValue>({ columns, data, pagination }: DataT
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
                     No results.
                   </TableCell>
                 </TableRow>
@@ -114,7 +151,11 @@ export function RecycleBinUI<TData, TValue>({ columns, data, pagination }: DataT
             </TableBody>
           </Table>
         </div>
-        <DataTablePagination table={table} totalItems={pagination.total} onPageChange={pagination.onPageChange} />
+        <DataTablePagination
+          table={table}
+          totalItems={pagination.total}
+          onPageChange={pagination.onPageChange}
+        />
       </div>
     </>
   );

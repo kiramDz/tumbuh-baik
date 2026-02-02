@@ -7,7 +7,14 @@ import Link from "next/link";
 import { Loader2, Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -29,7 +36,6 @@ export default function AdminSignIn() {
 
   return (
     <div className="relative min-h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      
       {/* Left Panel */}
       <div className="relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black" />
@@ -63,9 +69,14 @@ export default function AdminSignIn() {
             <CardContent className="p-8">
               <blockquote className="space-y-4">
                 <p className="text-lg leading-relaxed font-medium text-white">
-                  &ldquo;Climate change is real. It is happening right now, it is the most urgent threat facing our entire species and we need to work collectively together and stop procrastinating.&rdquo;
+                  &ldquo;Climate change is real. It is happening right now, it
+                  is the most urgent threat facing our entire species and we
+                  need to work collectively together and stop
+                  procrastinating.&rdquo;
                 </p>
-                <footer className="text-sm opacity-90 font-medium text-white">— Leonardo Di Caprio</footer>
+                <footer className="text-sm opacity-90 font-medium text-white">
+                  — Leonardo Di Caprio
+                </footer>
               </blockquote>
             </CardContent>
           </Card>
@@ -75,11 +86,14 @@ export default function AdminSignIn() {
       {/* Right Panel */}
       <div className="flex h-full items-center justify-center p-4 lg:p-8">
         <div className="flex w-full max-w-md flex-col items-center justify-center space-y-6">
-          
           {/* Mobile Header */}
           <div className="text-center space-y-2 lg:hidden">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Tumbuh Baik</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Admin Portal</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              Tumbuh Baik
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Admin Portal
+            </p>
           </div>
 
           {/* Sign In Card */}
@@ -90,9 +104,7 @@ export default function AdminSignIn() {
                   <Lock className="h-6 w-6 text-gray-700 dark:text-gray-300" />
                 </div>
                 <div className="text-center space-y-1">
-                  <CardTitle className="text-2xl font-bold">
-                    Sign In
-                  </CardTitle>
+                  <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
                   <CardDescription className="text-sm">
                     Enter your credentials to access the admin dashboard
                   </CardDescription>
@@ -103,7 +115,6 @@ export default function AdminSignIn() {
             <Separator />
 
             <CardContent className="pt-6 space-y-4">
-              
               {/* Error Alert */}
               {error && (
                 <Alert variant="destructive">
@@ -207,7 +218,6 @@ export default function AdminSignIn() {
                   </>
                 )}
               </Button>
-
             </CardContent>
 
             <Separator />
@@ -215,7 +225,10 @@ export default function AdminSignIn() {
             <CardFooter className="flex flex-col space-y-4 pt-6">
               <div className="text-sm text-center text-muted-foreground">
                 Don&apos;t have an account?{" "}
-                <Link href="/sign-up" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+                <Link
+                  href="/sign-up"
+                  className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                >
                   Sign up now
                 </Link>
               </div>
@@ -225,11 +238,17 @@ export default function AdminSignIn() {
           {/* Footer Text */}
           <p className="text-xs text-center text-muted-foreground max-w-sm px-4">
             By signing in, you agree to our{" "}
-            <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
+            <Link
+              href="/terms"
+              className="underline underline-offset-4 hover:text-primary"
+            >
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
+            <Link
+              href="/privacy"
+              className="underline underline-offset-4 hover:text-primary"
+            >
               Privacy Policy
             </Link>
           </p>

@@ -1,4 +1,6 @@
 import axios from "axios";
+import { FLASK_API_URL } from "../env";
+
 export interface DatasetMetaType {
   _id: string;
   name: string;
@@ -7,6 +9,7 @@ export interface DatasetMetaType {
   description?: string;
   status: string;
   uploadDate: string;
+  deletedAt?: string;
   isAPI: boolean; // Added API flag for fetching NASA
   lastUpdated?: string; // Dated latest updating
   apiConfig?: Record<string, any>; // API config
@@ -40,6 +43,15 @@ export interface DecompositionData {
   };
 }
 
+export interface NasaPowerParams {
+  start: string; // format YYYYMMDD
+  end: string;
+  latitude: number;
+  longitude: number;
+  parameters: string[];
+  community?: string;
+}
+
 export interface RefreshResult {
   id: string;
   name: string;
@@ -61,10 +73,22 @@ export interface RefreshAllResponse {
   };
 }
 
+const getBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "https://zonapetik.tech";
+  }
+
+  // Local development
+  return "http://localhost:3000";
+};
 export async function exportDatasetCsv(
   collectionName: string,
   sortBy = "Date",
-  sortOrder = "desc"
+  sortOrder = "desc",
 ) {
   try {
     const response = await axios.get("/api/v1/export-csv/dataset-meta", {
@@ -78,9 +102,7 @@ export async function exportDatasetCsv(
       const link = document.createElement("a");
 
       const contentDisposition = response.headers["content-disposition"];
-      let filename = `${collectionName}_data_${
-        new Date().toISOString().split("T")[0]
-      }.csv`;
+      let filename = `${collectionName}_data_${new Date().toISOString().split("T")[0]}.csv`;
 
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -107,10 +129,11 @@ export async function exportDatasetCsv(
 }
 export async function exportHoltWinterCsv(
   sortBy = "forecast_date",
-  sortOrder = "desc"
+  sortOrder = "desc",
 ) {
   try {
-    const response = await axios.get("/api/v1/export-csv/hw-daily", {
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(`${baseUrl}/api/v1/export-csv/hw-daily`, {
       params: { sortBy, sortOrder },
       responseType: "blob",
     });
@@ -137,12 +160,279 @@ export async function exportHoltWinterCsv(
   } catch (error: any) {
     console.error(
       "Export HW CSV failed:",
-      error?.response?.data || error.message
+      error?.response?.data || error.message,
     );
     return { success: false, message: "Export failed" };
   }
 }
+export async function exportLSTMForecastCsv(
+  sortBy = "forecast_date",
+  sortOrder = "desc",
+) {
+  try {
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(
+      `${baseUrl}/api/v1/export-csv/lstm/daily`,
+      {
+        params: { sortBy, sortOrder },
+        responseType: "blob",
+      },
+    );
 
+    if (response.status === 200) {
+      const blob = new Blob([response.data], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const filename = `lstm_daily_${new Date().toISOString().split("T")[0]}.csv`;
+      link.href = url;
+      link.download = filename;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      return { success: true, message: "File downloaded successfully" };
+    }
+  } catch (error) {
+    console.error("Export LSTM Forecast CSV failed:", error);
+    return { success: false, message: "Export failed" };
+  }
+}
+export const getBmkgLive = async () => {
+  try {
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(`${baseUrl}/api/v1/bmkg-live/all`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG live data:", error);
+    throw new Error(
+      error?.response?.data?.description || "Failed to fetch BMKG live data",
+    );
+  }
+};
+//bmkg api
+export const getBmkgApi = async () => {
+  try {
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(`${baseUrl}/api/v1/bmkg-api/all`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching BMKG API data:", error);
+    throw new Error(
+      error?.response?.data?.description || "Failed to fetch BMKG data",
+    );
+  }
+};
+// holt winter table
+export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/hw/daily", {
+      params: { page, pageSize },
+    });
+    if (res.status === 200) {
+      console.log("🟢 Retrieved documents:", res.data.length);
+      console.log("✅ HW API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching HW Daily:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+export const getLSTMDaily = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/lstm/daily", {
+      params: { page, pageSize },
+    });
+    if (res.status === 200) {
+      console.log("🟢 Retrieved documents:", res.data.length);
+      console.log("✅ LSTM API response:", res.data.data);
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Error fetching LSTM Daily:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+export const getSeeds = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/seeds", {
+      params: { page, pageSize },
+    });
+
+    if (res.status === 200) {
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Get seeds error:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+export const createSeed = async (data: { name: string; duration: number }) => {
+  try {
+    const res = await axios.post("/api/v1/seeds", data);
+    return res.data.data;
+  } catch (error) {
+    console.error("Create seed error:", error);
+    throw error;
+  }
+};
+export const updateSeed = async (
+  id: string,
+  data: { name: string; duration: number },
+) => {
+  try {
+    const res = await axios.put(`/api/v1/seeds/${id}`, data);
+    return res.data.data;
+  } catch (error) {
+    console.error("Update seed error:", error);
+    throw error;
+  }
+};
+
+export const deleteSeed = async (id: string) => {
+  try {
+    const res = await axios.delete(`/api/v1/seeds/${id}`);
+    return res.data;
+  } catch (error) {
+    console.error("Delete seed error:", error);
+    throw error;
+  }
+};
+export const getUsers = async (page = 1, pageSize = 10) => {
+  try {
+    const res = await axios.get("/api/v1/user", {
+      params: { page, pageSize },
+    });
+
+    if (res.status === 200) {
+      return (
+        res.data.data || {
+          items: [],
+          total: 0,
+          currentPage: 1,
+          totalPages: 1,
+          pageSize,
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Get users error:", error);
+    return {
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 1,
+      pageSize,
+    };
+  }
+};
+export const updateUserRole = async (
+  userId: string,
+  role: "user" | "admin",
+) => {
+  try {
+    const res = await axios.put(`/api/v1/user/${userId}/role`, { role });
+    return res.data.data;
+  } catch (error) {
+    console.error("Update user role error:", error);
+    throw error;
+  }
+};
+export const getAllKuesionerPetani = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner/petani");
+    console.log("getAllKuesionerPetani", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner petani:", error);
+    throw error;
+  }
+};
+
+// export const getKuesionerPetaniById = async (id: string) => {
+//   try {
+//     const res = await axios.get(`/api/v1/kuesioner/petani/${id}`);
+//     return res.data;
+//   } catch (error) {
+//     console.error("Error fetching kuesioner petani by ID:", error);
+//     throw error;
+//   }
+// };
+export const getAllKuesionerManajemen = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner-manajemen/manajemen");
+    console.log("getAllKuesionerManajemen", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner manajemen:", error);
+    throw error;
+  }
+};
+export const getAllKuesionerPeriode = async () => {
+  try {
+    const res = await axios.get("/api/v1/kuesioner-periode/periode");
+    console.log("getAllKuesionerPeriode", res.data);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching kuesioner periode:", error);
+    throw error;
+  }
+};
+export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
+  try {
+    const res = await axios.get("/api/v1/dataset-meta");
+    return res.data.data;
+  } catch (error) {
+    console.error("Get all dataset meta error:", error);
+    throw error;
+  }
+};
 export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
   try {
     console.log("[GetRecycleBinDatasets] Fetching recycle bin datasets", {
@@ -174,11 +464,21 @@ export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
     throw error;
   }
 };
-
+export const SoftDeleteDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/delete`,
+    );
+    return res.data.data;
+  } catch (error) {
+    console.error("Soft delete dataset error:", error);
+    throw error;
+  }
+};
 export const RestoreDataset = async (collectionName: string) => {
   try {
     const res = await axios.patch(
-      `/api/v1/dataset-meta/${collectionName}/restore`
+      `/api/v1/dataset-meta/${collectionName}/restore`,
     );
     return res.data.data;
   } catch (error) {
@@ -186,7 +486,6 @@ export const RestoreDataset = async (collectionName: string) => {
     throw error;
   }
 };
-
 export const PermanentDeleteDataset = async (collectionName: string) => {
   try {
     const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
@@ -197,281 +496,6 @@ export const PermanentDeleteDataset = async (collectionName: string) => {
   }
 };
 
-export async function exportLSTMForecastCsv(
-  sortBy = "forecast_date",
-  sortOrder = "desc"
-) {
-  try {
-    const response = await axios.get("/api/v1/export-csv/lstm/daily", {
-      params: { sortBy, sortOrder },
-      responseType: "blob",
-    });
-
-    if (response.status === 200) {
-      const blob = new Blob([response.data], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      const filename = `lstm_daily_${
-        new Date().toISOString().split("T")[0]
-      }.csv`;
-      link.href = url;
-      link.download = filename;
-      link.style.display = "none";
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      return { success: true, message: "File downloaded successfully" };
-    }
-  } catch (error) {
-    console.error("Export LSTM Forecast CSV failed:", error);
-    return { success: false, message: "Export failed" };
-  }
-}
-
-export const getBmkgLive = async () => {
-  try {
-    const response = await axios.get("/api/v1/bmkg-live/all");
-    return response.data;
-  } catch (error: any) {
-    console.error("Error fetching BMKG live data:", error);
-    throw new Error(
-      error?.response?.data?.description || "Failed to fetch BMKG live data"
-    );
-  }
-};
-
-//bmkg api
-export const getBmkgApi = async () => {
-  try {
-    const response = await axios.get("/api/v1/bmkg-api/all");
-    return response.data;
-  } catch (error: any) {
-    console.error("Error fetching BMKG API data:", error);
-    throw new Error(
-      error?.response?.data?.description || "Failed to fetch BMKG data"
-    );
-  }
-};
-
-// holt winter table
-export const getHoltWinterDaily = async (page = 1, pageSize = 10) => {
-  try {
-    const res = await axios.get("/api/v1/hw/daily", {
-      params: { page, pageSize },
-    });
-    if (res.status === 200) {
-      console.log("🟢 Retrieved documents:", res.data.length);
-      console.log("✅ HW API response:", res.data.data);
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Error fetching HW Daily:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-    };
-  }
-};
-
-export const getLSTMDaily = async (page = 1, pageSize = 10) => {
-  try {
-    const res = await axios.get("/api/v1/lstm/daily", {
-      params: { page, pageSize },
-    });
-    if (res.status === 200) {
-      console.log("🟢 Retrieved documents:", res.data.length);
-      console.log("✅ LSTM API response:", res.data.data);
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Error fetching LSTM Daily:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-    };
-  }
-};
-
-export const getSeeds = async (page = 1, pageSize = 10) => {
-  try {
-    const res = await axios.get("/api/v1/seeds", {
-      params: { page, pageSize },
-    });
-
-    if (res.status === 200) {
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Get seeds error:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-    };
-  }
-};
-
-export const createSeed = async (data: { name: string; duration: number }) => {
-  try {
-    const res = await axios.post("/api/v1/seeds", data);
-    return res.data.data;
-  } catch (error) {
-    console.error("Create seed error:", error);
-    throw error;
-  }
-};
-
-export const deleteSeed = async (id: string) => {
-  await axios.delete(`/api/v1/seeds/${id}`);
-};
-
-export const getUsers = async (page = 1, pageSize = 10) => {
-  try {
-    const res = await axios.get("/api/v1/user", {
-      params: { page, pageSize },
-    });
-
-    if (res.status === 200) {
-      return (
-        res.data.data || {
-          items: [],
-          total: 0,
-          currentPage: 1,
-          totalPages: 1,
-          pageSize,
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Get users error:", error);
-    return {
-      items: [],
-      total: 0,
-      currentPage: 1,
-      totalPages: 1,
-      pageSize,
-    };
-  }
-};
-
-export const getAllKuesionerPetani = async () => {
-  try {
-    const res = await axios.get("/api/v1/kuesioner/petani");
-    console.log("getAllKuesionerPetani", res.data);
-    return res.data;
-  } catch (error) {
-    console.error("Error fetching kuesioner petani:", error);
-    throw error;
-  }
-};
-
-// export const getKuesionerPetaniById = async (id: string) => {
-//   try {
-//     const res = await axios.get(`/api/v1/kuesioner/petani/${id}`);
-//     return res.data;
-//   } catch (error) {
-//     console.error("Error fetching kuesioner petani by ID:", error);
-//     throw error;
-//   }
-// };
-
-export const getAllKuesionerManajemen = async () => {
-  try {
-    const res = await axios.get("/api/v1/kuesioner-manajemen/manajemen");
-    console.log("getAllKuesionerManajemen", res.data);
-    return res.data;
-  } catch (error) {
-    console.error("Error fetching kuesioner manajemen:", error);
-    throw error;
-  }
-};
-
-export const getAllKuesionerPeriode = async () => {
-  try {
-    const res = await axios.get("/api/v1/kuesioner-periode/periode");
-    console.log("getAllKuesionerPeriode", res.data);
-    return res.data;
-  } catch (error) {
-    console.error("Error fetching kuesioner periode:", error);
-    throw error;
-  }
-};
-
-export const updateUserRole = async (
-  userId: string,
-  role: "user" | "admin"
-) => {
-  try {
-    const res = await axios.put(`/api/v1/user/${userId}/role`, { role });
-    return res.data.data;
-  } catch (error) {
-    console.error("Update user role error:", error);
-    throw error;
-  }
-};
-
-// for dataset card
-export const GetAllDatasetMeta = async (): Promise<DatasetMetaType[]> => {
-  try {
-    const res = await axios.get("/api/v1/dataset-meta");
-    return res.data.data;
-  } catch (error) {
-    console.error("Get all dataset meta error:", error);
-    throw error;
-  }
-};
-
-//for dataset detail page
-export const GetDatasetBySlug = async (
-  slug: string
-): Promise<{ meta: any; items: any[] }> => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}`, {
-    cache: "no-store", // optional jika ingin real-time
-  });
-
-  if (!res.ok) throw new Error("Failed to fetch dataset");
-
-  const json = await res.json();
-  return json.data;
-};
-
 // for dataset table
 // lib/fetch/files.fetch.tsx
 export async function getDynamicDatasetData(
@@ -479,7 +503,7 @@ export async function getDynamicDatasetData(
   page = 1,
   pageSize = 10,
   sortBy = "Date",
-  sortOrder: "asc" | "desc" = "desc"
+  sortOrder: "asc" | "desc" = "desc",
 ) {
   try {
     const res = await axios.get(`/api/v1/dataset-meta/${slug}`, {
@@ -512,7 +536,6 @@ export async function getDynamicDatasetData(
     };
   }
 }
-
 export const AddDatasetMeta = async (data: {
   name: string;
   source: string;
@@ -556,6 +579,23 @@ export const createForecastConfig = async (data: {
   return response.data;
 };
 
+export const updateForecastConfig = async (
+  id: string,
+  data: {
+    name: string;
+    columns: { collectionName: string; columnName: string }[];
+    startDate: string;
+  },
+) => {
+  const response = await axios.put(`/api/v1/forecast-config/${id}`, data);
+  return response.data;
+};
+
+export const deleteForecastConfig = async (id: string) => {
+  const response = await axios.delete(`/api/v1/forecast-config/${id}`);
+  return response.data;
+};
+
 export const getLSTMConfigs = async () => {
   const response = await axios.get("/api/v1/lstm-config");
   return response.data.data;
@@ -570,20 +610,41 @@ export const createLSTMConfig = async (data: {
   return response.data;
 };
 
+export const updateLSTMConfig = async (
+  id: string,
+  data: {
+    name: string;
+    columns: { collectionName: string; columnName: string }[];
+    startDate: string;
+  },
+) => {
+  const response = await axios.put(`/api/v1/lstm-config/${id}`, data);
+  return response.data;
+};
+
+export const deleteLSTMConfig = async (id: string) => {
+  const response = await axios.delete(`/api/v1/lstm-config/${id}`);
+  return response.data;
+};
 export const triggerForecastRun = async () => {
   try {
-    const res = await axios.post("https://api.zonapetik.tech/run-forecast");
+    // const res = await axios.post("http://localhost:5001/run-forecast");
+    const res = await axios.post(`${FLASK_API_URL}/run-forecast`);
     return res.data;
-  } catch (error) {
-    console.error("Trigger forecast run failed:", error);
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return { message: "Tidak ada config pending" };
+    }
     throw error;
   }
 };
 
 export const triggerLSTMForecast = async () => {
   try {
-    const res = await axios.post("http://127.0.0.1:5001/run-lstm");
-    return res.data;
+    const baseUrl = getBaseUrl();
+    const apiUrl =
+      baseUrl === "" ? "https://lstm.zonapetik.tech" : `${baseUrl}/lstm`;
+    const res = await axios.post(`${apiUrl}/run-lstm`);
   } catch (error) {
     console.error("Trigger LSTM forecast failed:", error);
     throw error;
@@ -664,7 +725,6 @@ export const deleteFarm = async (id: string) => {
     throw error;
   }
 };
-
 // ==================== DECOMPOSE LSTM API FUNCTIONS ====================
 
 export const getDecomposeLSTM = async () => {
@@ -697,11 +757,10 @@ export const getDecomposeLSTMByConfigId = async (configId: string) => {
     return [];
   }
 };
-
 // Fetch historical data from collection for comparison with forecast
 export const fetchHistoricalData = async (
   collectionName: string,
-  columnName: string
+  columnName: string,
 ) => {
   try {
     const countResponse = await axios.get(
@@ -713,7 +772,7 @@ export const fetchHistoricalData = async (
           sortBy: "Date",
           sortOrder: "asc",
         },
-      }
+      },
     );
 
     const total = countResponse.data?.data?.total || 0;
@@ -738,24 +797,441 @@ export const fetchHistoricalData = async (
   } catch (error) {
     console.error(
       `Error fetching historical data for ${collectionName}:`,
-      error
+      error,
     );
     return [];
   }
 };
+//for dataset detail page
+export const GetDatasetBySlug = async (
+  slug: string,
+): Promise<{ meta: any; items: any[] }> => {
+  const baseUrl = getBaseUrl();
+  const url = `${baseUrl}/api/v1/dataset-meta/${slug}`;
 
-export interface NasaPowerParams {
-  start: string; // format YYYYMMDD
-  end: string;
-  latitude: number;
-  longitude: number;
-  parameters: string[];
-  community?: string;
-}
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch dataset");
+
+  const json = await res.json();
+  return json.data;
+};
+
+export const GetChartDataBySlug = async (
+  slug: string,
+): Promise<{
+  items: any[];
+  numericColumns: string[];
+  dateColumn: string;
+} | null> => {
+  const baseUrl = getBaseUrl(); // Gunakan helper yang sama
+  const url = `${baseUrl}/api/v1/dataset-meta/${slug}/chart-data`;
+
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch chart data");
+
+  const json = await res.json();
+  return json.data;
+};
+
+// Check if BMKG dataset can be preprocessed
+export const checkBmkgDatasetForPreprocessing = async (
+  collectionName: string,
+) => {
+  try {
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(
+      `${baseUrl}/api/v1/preprocess/bmkg/${collectionName}/validate`,
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error validating BMKG dataset:", error);
+    throw error;
+  }
+};
+
+// Archive dataset function
+export const archiveDataset = async (idOrSlug: string) => {
+  try {
+    // First check current status to provide better feedback
+    let currentDataset;
+    try {
+      if (idOrSlug.match(/^[0-9a-fA-F]{24}$/)) {
+        // It's an ObjectId, get by ID
+        const allDatasets = await GetAllDatasetMeta();
+        currentDataset = allDatasets.find((d) => d._id === idOrSlug);
+      } else {
+        // It's a collection name, get status info
+        const statusInfo = await getDatasetStatusInfo(idOrSlug);
+        currentDataset = { status: statusInfo.status, isAPI: statusInfo.isAPI };
+      }
+    } catch (statusError) {
+      console.warn(
+        "Could not get current dataset status, proceeding with archive request",
+      );
+    }
+
+    const res = await axios.put(
+      `/api/v1/dataset-meta/${idOrSlug}`,
+      {
+        status: "archived",
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    console.log("✅ Dataset archived successfully:", res.data);
+    return {
+      success: true,
+      data: res.data.data,
+      message: "Dataset archived successfully",
+    };
+  } catch (error: any) {
+    console.error("❌ Archive dataset error:", error);
+
+    // Handle status transition validation errors from your route
+    if (error.response?.data?.message?.includes("Invalid status transition")) {
+      return {
+        success: false,
+        message: `Cannot archive dataset: ${error.response.data.message}`,
+        currentStatus: error.response.data.currentStatus,
+        attemptedStatus: error.response.data.attemptedStatus,
+        validTransitions: error.response.data.validTransitions,
+      };
+    }
+
+    throw error;
+  }
+};
+
+// Reactivate archive dataset function
+export const reactivateArchivedDataset = async (collectionName: string) => {
+  try {
+    const res = await axios.patch(
+      `/api/v1/dataset-meta/${collectionName}/reactivate`,
+    );
+
+    return {
+      success: true,
+      data: res.data.data,
+      message: res.data.message,
+      statusTransition: res.data.statusTransition,
+    };
+  } catch (error: any) {
+    console.error("❌ Reactivate dataset error:", error);
+
+    if (error.response?.data?.message) {
+      return {
+        success: false,
+        message: error.response.data.message,
+      };
+    }
+
+    throw error;
+  }
+};
+
+export const canDatasetBeArchived = (
+  currentStatus: string,
+): { canArchive: boolean; reason?: string } => {
+  if (currentStatus === "archived") {
+    return {
+      canArchive: false,
+      reason: "Dataset is already archived",
+    };
+  }
+
+  return { canArchive: true };
+};
+
+export const canDatasetBeRefreshed = (
+  currentStatus: string,
+  isAPI: boolean = false,
+): { canRefresh: boolean; reason?: string } => {
+  if (currentStatus === "archived") {
+    return {
+      canRefresh: false,
+      reason: "Archived datasets cannot be refreshed",
+    };
+  }
+
+  if (isAPI) {
+    // API datasets can be refreshed from any non-archived status
+    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
+
+    if (!refreshableStatuses.includes(currentStatus)) {
+      return {
+        canRefresh: false,
+        reason: `API dataset with status '${currentStatus}' cannot be refreshed`,
+      };
+    }
+  } else {
+    // Non-API datasets have manual refresh (to be implemented)
+    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
+
+    if (!refreshableStatuses.includes(currentStatus)) {
+      return {
+        canRefresh: false,
+        reason: `Non-API dataset with status '${currentStatus}' cannot be refreshed`,
+      };
+    }
+  }
+
+  return { canRefresh: true };
+};
+
+export const getDatasetRefreshInfo = async (idOrCollectionName: string) => {
+  try {
+    // First try to get dataset info to determine if it's API or not
+    let isAPI = false;
+    let collectionName = idOrCollectionName;
+
+    // If it looks like an ObjectId, find the collection name first
+    if (idOrCollectionName.match(/^[0-9a-fA-F]{24}$/)) {
+      const allDatasets = await GetAllDatasetMeta();
+      const dataset = allDatasets.find((d) => d._id === idOrCollectionName);
+      if (dataset) {
+        isAPI = dataset.isAPI;
+        collectionName = dataset.collectionName;
+      }
+    } else {
+      // Get status info to determine API type
+      const statusInfo = await getDatasetStatusInfo(idOrCollectionName);
+      isAPI = statusInfo.isAPI;
+    }
+
+    // Get appropriate refresh status
+    const refreshStatus = await getDatasetRefreshStatus(
+      isAPI ? idOrCollectionName : collectionName,
+      isAPI,
+    );
+
+    return {
+      isAPI,
+      collectionName,
+      refreshMethod: isAPI ? "nasa-power-api" : "manual-upload",
+      ...refreshStatus,
+    };
+  } catch (error) {
+    console.error("❌ Get dataset refresh info error:", error);
+    return {
+      isAPI: false,
+      collectionName: idOrCollectionName,
+      refreshMethod: "unknown",
+      canRefresh: false,
+      message: "Could not determine dataset refresh information",
+    };
+  }
+};
+
+// Check if dataset can be preprocessed
+export const canDatasetBePreprocessed = (
+  currentStatus: string,
+): { canPreprocess: boolean; reason?: string } => {
+  const allowedStatuses = ["raw", "latest"];
+
+  if (!allowedStatuses.includes(currentStatus)) {
+    return {
+      canPreprocess: false,
+      reason: `Cannot preprocess dataset with status '${currentStatus}'. Only 'raw' and 'latest' datasets can be preprocessed.`,
+    };
+  }
+
+  return { canPreprocess: true };
+};
+
+// Function to get dataset status info
+export const getDatasetStatusInfo = async (collectionName: string) => {
+  try {
+    const res = await axios.get(
+      `/api/v1/dataset-meta/${collectionName}/status`,
+    );
+    return res.data;
+  } catch (error) {
+    console.error("Get dataset status error:", error);
+    throw error;
+  }
+};
+
+// ENHANCED: Get single dataset refresh status (works for both API and non-API)
+export const getDatasetRefreshStatus = async (
+  idOrCollectionName: string,
+  isAPI: boolean = false,
+) => {
+  try {
+    if (isAPI) {
+      // For NASA Power API datasets, get comprehensive refresh info
+      const response = await axios.get(`/api/v1/nasa-power/refreshable`);
+      const datasets = response.data.data || [];
+
+      const dataset = datasets.find(
+        (d: any) =>
+          d._id === idOrCollectionName ||
+          d.collectionName === idOrCollectionName,
+      );
+
+      if (!dataset) {
+        return {
+          canRefresh: false,
+          message: "Dataset not found",
+          status: "unknown",
+        };
+      }
+
+      return {
+        canRefresh: dataset.refreshInfo.canRefresh,
+        status: dataset.refreshInfo.statusInfo.current,
+        allowsRefresh: dataset.refreshInfo.statusInfo.allowsRefresh,
+        willBecomeAfterRefresh:
+          dataset.refreshInfo.statusInfo.willBecomeAfterRefresh,
+        willDeleteCleanedCollection:
+          dataset.refreshInfo.statusInfo.willDeleteCleanedCollection,
+        daysSinceLastRecord: dataset.refreshInfo.daysSinceLastRecord,
+        lastRecordDate: dataset.refreshInfo.lastRecordDate,
+        refreshEligibility: dataset.refreshInfo.refreshEligibility,
+        message: dataset.refreshInfo.refreshEligibility,
+      };
+    } else {
+      // For non-API datasets, use dataset-meta status endpoint
+      const response = await axios.get(
+        `/api/v1/dataset-meta/${idOrCollectionName}/status`,
+      );
+      return response.data;
+    }
+  } catch (error) {
+    console.error("Error checking dataset refresh status:", error);
+    return {
+      canRefresh: false,
+      message: "Unable to check refresh status",
+      status: "unknown",
+    };
+  }
+};
+export const UpdateDatasetMeta = async (
+  _id: string,
+  data: {
+    name?: string;
+    source?: string;
+    fileType?: "csv" | "json";
+    filename?: string;
+    collectionName?: string;
+    status?: string;
+    description?: string;
+  },
+) => {
+  try {
+    const res = await axios.put(`/api/v1/dataset-meta/${_id}`, data, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("API response:", res.data);
+    return res.data.data;
+  } catch (error) {
+    console.error("❌ Update dataset meta error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get seasonal decomposition data for a specific parameter from a preprocessed dataset
+ *
+ * @param slug - Collection name (must be a _cleaned collection)
+ * @param parameter - Parameter name (e.g., T2M, RH2M, ALLSKY_SFC_SW_DWN, PRECTOTCORR)
+ * @returns Decomposition data with trend, seasonal, and residual components
+ */
+export const GetDecompositionDataBySlug = async (
+  slug: string,
+  parameter: string,
+): Promise<DecompositionData> => {
+  try {
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(
+      `${baseUrl === "" ? "http://localhost:5001" : baseUrl}/api/v1/dataset-meta/${encodeURIComponent(
+        slug,
+      )}/decomposition`,
+      {
+        params: { parameter },
+      },
+    );
+
+    if (response.status === 200) {
+      return response.data;
+    }
+
+    throw new Error("Failed to fetch decomposition data");
+  } catch (error: any) {
+    console.error("❌ Get decomposition data error:", error);
+
+    if (error.response?.status === 404) {
+      if (error.response.data?.available_parameters) {
+        throw new Error(
+          `No decomposition data found for parameter '${parameter}'. Available parameters: ${error.response.data.available_parameters.join(
+            ", ",
+          )}`,
+        );
+      }
+      throw new Error(
+        error.response.data?.message || "Decomposition data not found",
+      );
+    }
+
+    if (error.response?.status === 400) {
+      throw new Error(
+        error.response.data?.message || "Dataset must be preprocessed first",
+      );
+    }
+
+    throw error;
+  }
+};
+
+/**
+ * Get available parameters for decomposition from a preprocessed dataset
+ *
+ * @param slug - Collection name (must be a _cleaned collection)
+ * @returns List of available parameters that have decomposition data
+ */
+export const GetAvailableDecompositionParameters = async (
+  slug: string,
+): Promise<string[]> => {
+  try {
+    const baseUrl = getBaseUrl();
+    // Try to fetch decomposition for a dummy parameter to get available parameters list
+    const response = await axios.get(
+      `${baseUrl === "" ? "http://localhost:5001" : baseUrl}/api/v1/dataset-meta/${encodeURIComponent(
+        slug,
+      )}/decomposition`,
+      {
+        params: { parameter: "__check_available__" },
+        validateStatus: (status) => status === 404 || status === 200,
+      },
+    );
+
+    if (response.status === 404 && response.data?.available_parameters) {
+      return response.data.available_parameters;
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error getting available decomposition parameters:", error);
+    return [];
+  }
+};
 
 export const fetchNasaPowerData = async (params: NasaPowerParams) => {
   try {
-    const response = await axios.get(`/api/v1/nasa-power`, {
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(`${baseUrl}/api/v1/nasa-power`, {
       params: {
         start: params.start,
         end: params.end,
@@ -780,7 +1256,11 @@ export const saveNasaPowerData = async (data: {
   nasaParams: NasaPowerParams;
 }) => {
   try {
-    const response = await axios.post(`/api/v1/nasa-power/save`, data);
+    const baseUrl = getBaseUrl();
+    const response = await axios.post(
+      `${baseUrl}/api/v1/nasa-power/save`,
+      data,
+    );
     return response.data;
   } catch (error) {
     console.error("Error saving NASA Power data:", error);
@@ -819,8 +1299,9 @@ export const refreshNasaPowerDataset = async (datasetId: string) => {
     }
 
     // Proceed with refresh
+    const baseUrl = getBaseUrl();
     const response = await axios.post(
-      `/api/v1/nasa-power/refresh/${datasetId}`
+      `${baseUrl}/api/v1/nasa-power/refresh/${datasetId}`,
     );
 
     return {
@@ -847,7 +1328,10 @@ export const refreshNasaPowerDataset = async (datasetId: string) => {
 // Fetch All NASA datasets
 export const refreshAllNasaDatasets = async (): Promise<RefreshAllResponse> => {
   try {
-    const response = await axios.post("/api/v1/nasa-power/refresh-all");
+    const baseUrl = getBaseUrl();
+    const response = await axios.post(
+      `${baseUrl}/api/v1/nasa-power/refresh-all`,
+    );
     console.log("Full response:", response);
     console.log("response.data:", response.data);
     console.log("response.status:", response.status);
@@ -863,11 +1347,13 @@ export const preprocessNasaDatasetWithStream = (
   onLog: (log: any) => void,
   onProgress: (progress: number, stage: string, message: string) => void,
   onComplete: (result: any) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
 ) => {
+  const baseUrl = getBaseUrl();
+  const apiUrl = baseUrl === "" ? "http://localhost:5001" : baseUrl;
   const encodedName = encodeURIComponent(collectionName);
   const eventSource = new EventSource(
-    `http://localhost:5001/api/v1/preprocess/nasa/${encodedName}/stream`
+    `${apiUrl}/api/v1/preprocess/nasa/${encodedName}/stream`,
   );
 
   let connectionTimeout: NodeJS.Timeout;
@@ -882,7 +1368,7 @@ export const preprocessNasaDatasetWithStream = (
     connectionTimeout = setTimeout(() => {
       if (!hasCompletedSuccessfully) {
         onError(
-          "Connection timeout - preprocessing may still be running in background"
+          "Connection timeout - preprocessing may still be running in background",
         );
         eventSource.close();
       }
@@ -915,7 +1401,7 @@ export const preprocessNasaDatasetWithStream = (
           onProgress(
             progressValue,
             data.stage || "Processing",
-            data.message || "Processing..."
+            data.message || "Processing...",
           );
           break;
 
@@ -1003,11 +1489,13 @@ export const preprocessBmkgDatasetWithStream = (
   onLog: (log: any) => void,
   onProgress: (progress: number, stage: string, message: string) => void,
   onComplete: (result: any) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
 ) => {
+  const baseUrl = getBaseUrl();
+  const apiUrl = baseUrl === "" ? "http://localhost:5001" : baseUrl;
   const encodedName = encodeURIComponent(collectionName);
   const eventSource = new EventSource(
-    `http://localhost:5001/api/v1/preprocess/bmkg/${encodedName}/stream`
+    `${apiUrl}/api/v1/preprocess/bmkg/${encodedName}/stream`,
   );
 
   let connectionTimeout: NodeJS.Timeout;
@@ -1020,7 +1508,7 @@ export const preprocessBmkgDatasetWithStream = (
     }
     connectionTimeout = setTimeout(() => {
       onError(
-        "Connection timeout - preprocessing may still be running in background"
+        "Connection timeout - preprocessing may still be running in background",
       );
       eventSource.close();
     }, 300000); // 5 minutes timeout
@@ -1052,7 +1540,7 @@ export const preprocessBmkgDatasetWithStream = (
           onProgress(
             progressValue,
             data.stage || "Processing",
-            data.message || "Processing..."
+            data.message || "Processing...",
           );
           break;
 
@@ -1081,7 +1569,7 @@ export const preprocessBmkgDatasetWithStream = (
 
         case "error":
           onError(
-            data.message || "An error occurred during BMKG preprocessing"
+            data.message || "An error occurred during BMKG preprocessing",
           );
           eventSource.close();
           break;
@@ -1137,12 +1625,12 @@ export const preprocessBmkgDataset = async (
     max_gap_interpolate?: number;
     columns_to_process?: string[];
     parameter_configs?: Record<string, any>;
-  }
+  },
 ) => {
   try {
     const response = await axios.post(
       `/api/v1/preprocess/bmkg/${collectionName}`,
-      options || {}
+      options || {},
     );
     return response.data;
   } catch (error) {
@@ -1179,298 +1667,10 @@ export const getAllBmkgPreprocessingJobs = async (page = 1, pageSize = 10) => {
   }
 };
 
-export const SoftDeleteDataset = async (collectionName: string) => {
-  try {
-    const res = await axios.patch(
-      `/api/v1/dataset-meta/${collectionName}/delete`
-    );
-    return res.data.data;
-  } catch (error) {
-    console.error("Soft delete dataset error:", error);
-    throw error;
-  }
-};
-
-// Check if BMKG dataset can be preprocessed
-export const checkBmkgDatasetForPreprocessing = async (
-  collectionName: string
-) => {
-  try {
-    const response = await axios.get(
-      `/api/v1/preprocess/bmkg/${collectionName}/validate`
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Error validating BMKG dataset:", error);
-    throw error;
-  }
-};
-
-// Archive dataset function
-export const archiveDataset = async (idOrSlug: string) => {
-  try {
-    // First check current status to provide better feedback
-    let currentDataset;
-    try {
-      if (idOrSlug.match(/^[0-9a-fA-F]{24}$/)) {
-        // It's an ObjectId, get by ID
-        const allDatasets = await GetAllDatasetMeta();
-        currentDataset = allDatasets.find((d) => d._id === idOrSlug);
-      } else {
-        // It's a collection name, get status info
-        const statusInfo = await getDatasetStatusInfo(idOrSlug);
-        currentDataset = { status: statusInfo.status, isAPI: statusInfo.isAPI };
-      }
-    } catch (statusError) {
-      console.warn(
-        "Could not get current dataset status, proceeding with archive request"
-      );
-    }
-
-    const res = await axios.put(
-      `/api/v1/dataset-meta/${idOrSlug}`,
-      {
-        status: "archived",
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    console.log("✅ Dataset archived successfully:", res.data);
-    return {
-      success: true,
-      data: res.data.data,
-      message: "Dataset archived successfully",
-    };
-  } catch (error: any) {
-    console.error("❌ Archive dataset error:", error);
-
-    // Handle status transition validation errors from your route
-    if (error.response?.data?.message?.includes("Invalid status transition")) {
-      return {
-        success: false,
-        message: `Cannot archive dataset: ${error.response.data.message}`,
-        currentStatus: error.response.data.currentStatus,
-        attemptedStatus: error.response.data.attemptedStatus,
-        validTransitions: error.response.data.validTransitions,
-      };
-    }
-
-    throw error;
-  }
-};
-
-// Reactivate archive dataset function
-export const reactivateArchivedDataset = async (collectionName: string) => {
-  try {
-    const res = await axios.patch(
-      `/api/v1/dataset-meta/${collectionName}/reactivate`
-    );
-
-    return {
-      success: true,
-      data: res.data.data,
-      message: res.data.message,
-      statusTransition: res.data.statusTransition,
-    };
-  } catch (error: any) {
-    console.error("❌ Reactivate dataset error:", error);
-
-    if (error.response?.data?.message) {
-      return {
-        success: false,
-        message: error.response.data.message,
-      };
-    }
-
-    throw error;
-  }
-};
-
-export const canDatasetBeArchived = (
-  currentStatus: string
-): { canArchive: boolean; reason?: string } => {
-  if (currentStatus === "archived") {
-    return {
-      canArchive: false,
-      reason: "Dataset is already archived",
-    };
-  }
-
-  return { canArchive: true };
-};
-
-export const canDatasetBeRefreshed = (
-  currentStatus: string,
-  isAPI: boolean = false
-): { canRefresh: boolean; reason?: string } => {
-  if (currentStatus === "archived") {
-    return {
-      canRefresh: false,
-      reason: "Archived datasets cannot be refreshed",
-    };
-  }
-
-  if (isAPI) {
-    // API datasets can be refreshed from any non-archived status
-    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
-
-    if (!refreshableStatuses.includes(currentStatus)) {
-      return {
-        canRefresh: false,
-        reason: `API dataset with status '${currentStatus}' cannot be refreshed`,
-      };
-    }
-  } else {
-    // Non-API datasets have manual refresh (to be implemented)
-    const refreshableStatuses = ["raw", "latest", "preprocessed", "validated"];
-
-    if (!refreshableStatuses.includes(currentStatus)) {
-      return {
-        canRefresh: false,
-        reason: `Non-API dataset with status '${currentStatus}' cannot be refreshed`,
-      };
-    }
-  }
-
-  return { canRefresh: true };
-};
-
-export const getDatasetRefreshInfo = async (idOrCollectionName: string) => {
-  try {
-    // First try to get dataset info to determine if it's API or not
-    let isAPI = false;
-    let collectionName = idOrCollectionName;
-
-    // If it looks like an ObjectId, find the collection name first
-    if (idOrCollectionName.match(/^[0-9a-fA-F]{24}$/)) {
-      const allDatasets = await GetAllDatasetMeta();
-      const dataset = allDatasets.find((d) => d._id === idOrCollectionName);
-      if (dataset) {
-        isAPI = dataset.isAPI;
-        collectionName = dataset.collectionName;
-      }
-    } else {
-      // Get status info to determine API type
-      const statusInfo = await getDatasetStatusInfo(idOrCollectionName);
-      isAPI = statusInfo.isAPI;
-    }
-
-    // Get appropriate refresh status
-    const refreshStatus = await getDatasetRefreshStatus(
-      isAPI ? idOrCollectionName : collectionName,
-      isAPI
-    );
-
-    return {
-      isAPI,
-      collectionName,
-      refreshMethod: isAPI ? "nasa-power-api" : "manual-upload",
-      ...refreshStatus,
-    };
-  } catch (error) {
-    console.error("❌ Get dataset refresh info error:", error);
-    return {
-      isAPI: false,
-      collectionName: idOrCollectionName,
-      refreshMethod: "unknown",
-      canRefresh: false,
-      message: "Could not determine dataset refresh information",
-    };
-  }
-};
-
-// Check if dataset can be preprocessed
-export const canDatasetBePreprocessed = (
-  currentStatus: string
-): { canPreprocess: boolean; reason?: string } => {
-  const allowedStatuses = ["raw", "latest"];
-
-  if (!allowedStatuses.includes(currentStatus)) {
-    return {
-      canPreprocess: false,
-      reason: `Cannot preprocess dataset with status '${currentStatus}'. Only 'raw' and 'latest' datasets can be preprocessed.`,
-    };
-  }
-
-  return { canPreprocess: true };
-};
-
-// Function to get dataset status info
-export const getDatasetStatusInfo = async (collectionName: string) => {
-  try {
-    const res = await axios.get(
-      `/api/v1/dataset-meta/${collectionName}/status`
-    );
-    return res.data;
-  } catch (error) {
-    console.error("Get dataset status error:", error);
-    throw error;
-  }
-};
-
-// ENHANCED: Get single dataset refresh status (works for both API and non-API)
-export const getDatasetRefreshStatus = async (
-  idOrCollectionName: string,
-  isAPI: boolean = false
-) => {
-  try {
-    if (isAPI) {
-      // For NASA Power API datasets, get comprehensive refresh info
-      const response = await axios.get(`/api/v1/nasa-power/refreshable`);
-      const datasets = response.data.data || [];
-
-      const dataset = datasets.find(
-        (d: any) =>
-          d._id === idOrCollectionName ||
-          d.collectionName === idOrCollectionName
-      );
-
-      if (!dataset) {
-        return {
-          canRefresh: false,
-          message: "Dataset not found",
-          status: "unknown",
-        };
-      }
-
-      return {
-        canRefresh: dataset.refreshInfo.canRefresh,
-        status: dataset.refreshInfo.statusInfo.current,
-        allowsRefresh: dataset.refreshInfo.statusInfo.allowsRefresh,
-        willBecomeAfterRefresh:
-          dataset.refreshInfo.statusInfo.willBecomeAfterRefresh,
-        willDeleteCleanedCollection:
-          dataset.refreshInfo.statusInfo.willDeleteCleanedCollection,
-        daysSinceLastRecord: dataset.refreshInfo.daysSinceLastRecord,
-        lastRecordDate: dataset.refreshInfo.lastRecordDate,
-        refreshEligibility: dataset.refreshInfo.refreshEligibility,
-        message: dataset.refreshInfo.refreshEligibility,
-      };
-    } else {
-      // For non-API datasets, use dataset-meta status endpoint
-      const response = await axios.get(
-        `/api/v1/dataset-meta/${idOrCollectionName}/status`
-      );
-      return response.data;
-    }
-  } catch (error) {
-    console.error("Error checking dataset refresh status:", error);
-    return {
-      canRefresh: false,
-      message: "Unable to check refresh status",
-      status: "unknown",
-    };
-  }
-};
-
 export const updateDatasetStatus = async (
   idOrSlug: string,
   newStatus: string,
-  additionalData?: Record<string, any>
+  additionalData?: Record<string, any>,
 ) => {
   try {
     const updateData = {
@@ -1485,7 +1685,7 @@ export const updateDatasetStatus = async (
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     console.log("✅ Dataset status updated successfully:", res.data);
@@ -1551,7 +1751,7 @@ export const checkDatasetOperations = async (collectionName: string) => {
 
 export const validateStatusTransition = (
   currentStatus: string,
-  newStatus: string
+  newStatus: string,
 ): {
   isValid: boolean;
   reason?: string;
@@ -1585,11 +1785,10 @@ export const validateStatusTransition = (
 
   return { isValid: true };
 };
-
 export const refreshNonApiDataset = async (collectionName: string) => {
   try {
     const response = await axios.post(
-      `/api/v1/dataset-meta/${collectionName}/refresh`
+      `/api/v1/dataset-meta/${collectionName}/refresh`,
     );
 
     return {
@@ -1615,7 +1814,10 @@ export const refreshNonApiDataset = async (collectionName: string) => {
 };
 export const getNasaPowerRefreshableDatasets = async () => {
   try {
-    const response = await axios.get(`/api/v1/nasa-power/refreshable`);
+    const baseUrl = getBaseUrl();
+    const response = await axios.get(
+      `${baseUrl}/api/v1/nasa-power/refreshable`,
+    );
     return response.data;
   } catch (error) {
     console.error("Error getting NASA Power refreshable datasets:", error);
@@ -1666,7 +1868,8 @@ export const AddXlsxDatasetMeta = async (data: {
       formData.append("file", data.file);
     }
 
-    const res = await axios.post("/api/v1/dataset-meta", formData, {
+    const baseUrl = getBaseUrl();
+    const res = await axios.post(`${baseUrl}/api/v1/dataset-meta`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
@@ -1675,135 +1878,5 @@ export const AddXlsxDatasetMeta = async (data: {
   } catch (error) {
     console.error("Add XLSX dataset meta error:", error);
     throw error;
-  }
-};
-
-export const GetChartDataBySlug = async (
-  slug: string
-): Promise<{
-  items: any[];
-  numericColumns: string[];
-  dateColumn: string;
-} | null> => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/v1/dataset-meta/${slug}/chart-data`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) throw new Error("Failed to fetch chart data");
-
-  const json = await res.json();
-
-  return json.data;
-};
-
-export const UpdateDatasetMeta = async (
-  _id: string,
-  data: {
-    name?: string;
-    source?: string;
-    fileType?: "csv" | "json";
-    filename?: string;
-    collectionName?: string;
-    status?: string;
-    description?: string;
-  }
-) => {
-  try {
-    const res = await axios.put(`/api/v1/dataset-meta/${_id}`, data, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    console.log("API response:", res.data);
-    return res.data.data;
-  } catch (error) {
-    console.error("❌ Update dataset meta error:", error);
-    throw error;
-  }
-};
-
-/**
- * Get seasonal decomposition data for a specific parameter from a preprocessed dataset
- *
- * @param slug - Collection name (must be a _cleaned collection)
- * @param parameter - Parameter name (e.g., T2M, RH2M, ALLSKY_SFC_SW_DWN, PRECTOTCORR)
- * @returns Decomposition data with trend, seasonal, and residual components
- */
-export const GetDecompositionDataBySlug = async (
-  slug: string,
-  parameter: string
-): Promise<DecompositionData> => {
-  try {
-    const response = await axios.get(
-      `http://localhost:5001/api/v1/dataset-meta/${encodeURIComponent(
-        slug
-      )}/decomposition`,
-      {
-        params: { parameter },
-      }
-    );
-
-    if (response.status === 200) {
-      return response.data;
-    }
-
-    throw new Error("Failed to fetch decomposition data");
-  } catch (error: any) {
-    console.error("❌ Get decomposition data error:", error);
-
-    if (error.response?.status === 404) {
-      if (error.response.data?.available_parameters) {
-        throw new Error(
-          `No decomposition data found for parameter '${parameter}'. Available parameters: ${error.response.data.available_parameters.join(
-            ", "
-          )}`
-        );
-      }
-      throw new Error(
-        error.response.data?.message || "Decomposition data not found"
-      );
-    }
-
-    if (error.response?.status === 400) {
-      throw new Error(
-        error.response.data?.message || "Dataset must be preprocessed first"
-      );
-    }
-
-    throw error;
-  }
-};
-
-/**
- * Get available parameters for decomposition from a preprocessed dataset
- *
- * @param slug - Collection name (must be a _cleaned collection)
- * @returns List of available parameters that have decomposition data
- */
-export const GetAvailableDecompositionParameters = async (
-  slug: string
-): Promise<string[]> => {
-  try {
-    // Try to fetch decomposition for a dummy parameter to get available parameters list
-    const response = await axios.get(
-      `http://localhost:5001/api/v1/dataset-meta/${encodeURIComponent(
-        slug
-      )}/decomposition`,
-      {
-        params: { parameter: "__check_available__" },
-        validateStatus: (status) => status === 404 || status === 200,
-      }
-    );
-
-    if (response.status === 404 && response.data?.available_parameters) {
-      return response.data.available_parameters;
-    }
-
-    return [];
-  } catch (error) {
-    console.error("Error getting available decomposition parameters:", error);
-    return [];
   }
 };

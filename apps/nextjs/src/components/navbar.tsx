@@ -21,13 +21,16 @@ const Logo = memo(({ onClick }: { onClick: () => void }) => (
     aria-label="logo"
   >
     <div className="relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-600 to-gray-800 rounded-full blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-300" />
-      <div className="relative p-3 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full shadow-lg">
-        <LogoSvg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="currentColor" />
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full blur-lg opacity-20 group-hover:opacity-40 transition-opacity duration-300" />
+      <div className="relative p-3 bg-gradient-to-br from-teal-600 to-emerald-700 rounded-full shadow-lg">
+        <LogoSvg
+          className="w-8 h-8 md:w-10 md:h-10 text-white"
+          fill="currentColor"
+        />
       </div>
     </div>
     <div className="hidden sm:block text-left">
-      <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-gray-700 via-gray-800 to-gray-900 bg-clip-text text-transparent">
+      <div className="text-xl md:text-2xl font-bold bg-gradient-to-r from-teal-600 via-emerald-600 to-green-700 bg-clip-text text-transparent">
         ZonaPETIK
       </div>
       <div className="text-sm text-gray-500 dark:text-gray-400 -mt-1">
@@ -38,43 +41,57 @@ const Logo = memo(({ onClick }: { onClick: () => void }) => (
 ));
 Logo.displayName = "Logo";
 
-const SearchSuggestions = memo(({ suggestions, selectedIndex, onSelect, onMouseEnter }: {
-  suggestions: City[];
-  selectedIndex: number;
-  onSelect: (city: City) => void;
-  onMouseEnter: (index: number) => void
-}) => (
-  <div className="absolute left-0 right-0 top-full mt-2 z-50 animate-slideDown">
-    <div className="bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-200 dark:border-gray-700 backdrop-blur-lg">
-      <ul className="max-h-60 rounded-2xl py-2 overflow-auto" role="listbox" aria-label="City suggestions" tabIndex={-1}>
-        {suggestions.map((city, index) => (
-          <li
-            key={`${city.name}-${city.lat}-${city.lon}`}
-            className={`cursor-pointer select-none relative py-3 px-4 mx-2 rounded-xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
-              index === selectedIndex ? "bg-gray-50 dark:bg-gray-700/50 border-l-4 border-gray-600" : ""
-            }`}
-            onClick={() => onSelect(city)}
-            onMouseEnter={() => onMouseEnter(index)}
-            role="option"
-            aria-selected={index === selectedIndex}
-            tabIndex={-1}
-            id={`city-option-${index}`}
-          >
-            <div className="flex items-center gap-3">
-              <MapPin className="w-4 h-4 text-gray-400" />
-              <span className="block truncate font-medium text-gray-800 dark:text-gray-200">
-                {city.name}
-              </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {city.country}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
+const SearchSuggestions = memo(
+  ({
+    suggestions,
+    selectedIndex,
+    onSelect,
+    onMouseEnter,
+  }: {
+    suggestions: City[];
+    selectedIndex: number;
+    onSelect: (city: City) => void;
+    onMouseEnter: (index: number) => void;
+  }) => (
+    <div className="absolute left-0 right-0 top-full mt-2 z-50 animate-slideDown">
+      <div className="bg-white dark:bg-gray-800 shadow-2xl rounded-2xl border border-gray-200 dark:border-gray-700 backdrop-blur-lg">
+        <ul
+          className="max-h-60 rounded-2xl py-2 overflow-auto"
+          role="listbox"
+          aria-label="City suggestions"
+          tabIndex={-1}
+        >
+          {suggestions.map((city, index) => (
+            <li
+              key={`${city.name}-${city.lat}-${city.lon}`}
+              className={`cursor-pointer select-none relative py-3 px-4 mx-2 rounded-xl transition-all duration-200 hover:bg-teal-50 dark:hover:bg-teal-900/20 ${
+                index === selectedIndex
+                  ? "bg-teal-50 dark:bg-teal-900/20 border-l-4 border-teal-600"
+                  : ""
+              }`}
+              onClick={() => onSelect(city)}
+              onMouseEnter={() => onMouseEnter(index)}
+              role="option"
+              aria-selected={index === selectedIndex}
+              tabIndex={-1}
+              id={`city-option-${index}`}
+            >
+              <div className="flex items-center gap-3">
+                <MapPin className="w-4 h-4 text-gray-400" />
+                <span className="block truncate font-medium text-gray-800 dark:text-gray-200">
+                  {city.name}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {city.country}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
-  </div>
-));
+  ),
+);
 SearchSuggestions.displayName = "SearchSuggestions";
 
 const WeatherStatus = memo(() => {
@@ -93,9 +110,9 @@ const WeatherStatus = memo(() => {
   }, []);
 
   return (
-    <Badge 
-      variant="outline" 
-      className="hidden md:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-gray-200 dark:border-gray-700 animate-fadeIn"
+    <Badge
+      variant="outline"
+      className="hidden md:flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 border-teal-200 dark:border-teal-700 animate-fadeIn"
     >
       <div className="transition-transform duration-300 hover:scale-110">
         {isDaytime ? (
@@ -105,9 +122,9 @@ const WeatherStatus = memo(() => {
         )}
       </div>
       <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-        {currentTime.toLocaleTimeString('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit'
+        {currentTime.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
         })}
       </span>
     </Badge>
@@ -147,8 +164,8 @@ const NavBar = () => {
       setIsScrolled(window.scrollY > 10);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const handleLogoClick = useCallback(() => {
@@ -162,9 +179,10 @@ const NavBar = () => {
       transition={{ duration: 0.3 }}
       className={`
         sticky top-0 z-50 transition-all duration-300 backdrop-blur-xl
-        ${isScrolled
-          ? 'bg-white/90 dark:bg-gray-900/90 shadow-lg border-b border-gray-200/60 dark:border-gray-700/60'
-          : 'bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/40 dark:border-gray-700/40'
+        ${
+          isScrolled
+            ? "bg-white/90 dark:bg-gray-900/90 shadow-lg border-b border-gray-200/60 dark:border-gray-700/60"
+            : "bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/40 dark:border-gray-700/40"
         }
       `}
       role="navigation"
@@ -172,7 +190,6 @@ const NavBar = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          
           {/* Left Section - Logo */}
           <motion.div
             initial={{ x: -20, opacity: 0 }}
@@ -205,13 +222,12 @@ const NavBar = () => {
             </div>
             <MobileMenu />
           </motion.div>
-
         </div>
       </div>
 
       {/* Progress Bar */}
       <motion.div
-        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 rounded-full"
+        className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-600 to-green-600 rounded-full"
         initial={{ width: "0%" }}
         animate={{ width: isScrolled ? "100%" : "0%" }}
         transition={{ duration: 0.3, ease: "easeOut" }}
@@ -222,7 +238,7 @@ const NavBar = () => {
           opacity: 0;
           animation: fadeIn 0.6s ease-out forwards;
         }
-        
+
         @keyframes fadeIn {
           to {
             opacity: 1;

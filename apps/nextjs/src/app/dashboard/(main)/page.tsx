@@ -2,7 +2,10 @@
 
 import PageContainer from "@/components/ui/page-container";
 import { FileText, Sparkles } from "lucide-react";
-import { DashboardCard, DashboardCardSkeleton } from "../_components/dashboard-card";
+import {
+  DashboardCard,
+  DashboardCardSkeleton,
+} from "../_components/dashboard-card";
 import { GetAllDatasetMeta } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -20,10 +23,14 @@ export default function Page() {
         {/* Header Section */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Hi, Welcome back</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Hi, Welcome back
+            </h1>
             <span className="text-3xl">👋</span>
           </div>
-          <p className="text-muted-foreground">Manage your datasets and explore agricultural data insights</p>
+          <p className="text-muted-foreground">
+            Manage your datasets and explore agricultural data insights
+          </p>
         </div>
 
         <Separator />
@@ -34,7 +41,8 @@ export default function Page() {
             <h2 className="text-lg font-semibold">Your Datasets</h2>
             {data && data.length > 0 && (
               <span className="text-sm text-muted-foreground">
-                {data.length} {data.length === 1 ? "dataset" : "datasets"} available
+                {data.length} {data.length === 1 ? "dataset" : "datasets"}{" "}
+                available
               </span>
             )}
           </div>
@@ -42,7 +50,9 @@ export default function Page() {
           {/* Error State */}
           {error && (
             <Alert variant="destructive">
-              <AlertDescription>Failed to load datasets. Please try refreshing the page.</AlertDescription>
+              <AlertDescription>
+                Failed to load datasets. Please try refreshing the page.
+              </AlertDescription>
             </Alert>
           )}
 
@@ -64,7 +74,10 @@ export default function Page() {
                   collectionName={dataset.collectionName}
                   href={`/dashboard/data/${dataset.collectionName}`}
                   title={dataset.name}
-                  description={dataset.description || `Explore data from ${dataset.collectionName} collection`}
+                  description={
+                    dataset.description ||
+                    `Explore data from ${dataset.collectionName} collection`
+                  }
                   icon={FileText}
                 />
               ))}
@@ -78,7 +91,10 @@ export default function Page() {
                 <Sparkles className="h-10 w-10 text-muted-foreground" />
               </div>
               <h3 className="mt-4 text-lg font-semibold">No datasets found</h3>
-              <p className="mt-2 text-sm text-muted-foreground max-w-sm">Get started by adding your first dataset to begin analyzing agricultural data.</p>
+              <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+                Get started by adding your first dataset to begin analyzing
+                agricultural data.
+              </p>
             </div>
           )}
         </div>

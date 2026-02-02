@@ -28,7 +28,9 @@ datasetMetaRoute.get("/recycle-bin", async (c) => {
     const page = Number(c.req.query("page")) || 1;
     const pageSize = Number(c.req.query("pageSize")) || 10;
 
-    const total = await DatasetMeta.countDocuments({ deletedAt: { $ne: null } });
+    const total = await DatasetMeta.countDocuments({
+      deletedAt: { $ne: null },
+    });
     console.log("Total deleted items:", total); // 👈 ad
     const datasets = await DatasetMeta.find({ deletedAt: { $ne: null } })
       .skip((page - 1) * pageSize)
@@ -73,7 +75,12 @@ datasetMetaRoute.get("/:slug", async (c) => {
     try {
       Model = mongoose.model(slug);
     } catch {
-      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+      Model = (mongoose.models[slug] ||
+        mongoose.model(
+          slug,
+          new mongoose.Schema({}, { strict: false }),
+          slug,
+        )) as mongoose.Model<any>;
     }
 
     const sortQuery: Record<string, 1 | -1> = {
@@ -101,7 +108,7 @@ datasetMetaRoute.get("/:slug", async (c) => {
           sortOrder,
         },
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("Error fetching dynamic dataset:", error);
@@ -117,7 +124,9 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     console.log("[DEBUG] API chart-data called with slug:", slug);
 
     // Gunakan type assertion untuk meta
-    const meta = (await DatasetMeta.findOne({ collectionName: slug }).lean()) as {
+    const meta = (await DatasetMeta.findOne({
+      collectionName: slug,
+    }).lean()) as {
       name: string;
       collectionName: string;
       columns: string[];
@@ -127,7 +136,9 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     if (!meta) return c.json({ message: "Dataset not found" }, 404);
 
     // Validasi kolom Date
-    const hasDateColumn = meta.columns.some((col: string) => col.toLowerCase() === "date");
+    const hasDateColumn = meta.columns.some(
+      (col: string) => col.toLowerCase() === "date",
+    );
 
     if (!hasDateColumn) {
       return c.json(
@@ -135,7 +146,7 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
           message: "Dataset tidak memiliki kolom Date",
           data: null,
         },
-        200
+        200,
       );
     }
 
@@ -143,7 +154,12 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     try {
       Model = mongoose.model(slug);
     } catch {
-      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+      Model = (mongoose.models[slug] ||
+        mongoose.model(
+          slug,
+          new mongoose.Schema({}, { strict: false }),
+          slug,
+        )) as mongoose.Model<any>;
     }
 
     // Fetch SEMUA data, sort by Date ascending untuk chart
@@ -166,7 +182,7 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
           dateColumn: "Date",
         },
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("Error fetching chart data:", error);
@@ -182,13 +198,16 @@ datasetMetaRoute.patch("/:collectionName/delete", async (c) => {
     const dataset = await DatasetMeta.findOneAndUpdate(
       { collectionName },
       { $set: { deletedAt: new Date() } }, // 👈 set kolom deletedAt
-      { new: true }
+      { new: true },
     );
 
     if (!dataset) return c.json({ message: "Dataset not found" }, 404);
     console.log("Updated dataset:", dataset);
 
-    return c.json({ message: "Dataset moved to recycle bin", success: true, data: dataset }, 200);
+    return c.json(
+      { message: "Dataset moved to recycle bin", success: true, data: dataset },
+      200,
+    );
   } catch (error) {
     console.error("Soft delete dataset error:", error);
     const { message, status } = parseError(error);
@@ -202,11 +221,18 @@ datasetMetaRoute.patch("/:collectionName/restore", async (c) => {
     await db();
     const { collectionName } = c.req.param();
 
-    const dataset = await DatasetMeta.findOneAndUpdate({ collectionName }, { deletedAt: null }, { new: true });
+    const dataset = await DatasetMeta.findOneAndUpdate(
+      { collectionName },
+      { deletedAt: null },
+      { new: true },
+    );
 
     if (!dataset) return c.json({ message: "Dataset not found" }, 404);
 
-    return c.json({ message: "Dataset restored successfully", data: dataset }, 200);
+    return c.json(
+      { message: "Dataset restored successfully", data: dataset },
+      200,
+    );
   } catch (error) {
     console.error("Restore dataset error:", error);
     const { message, status } = parseError(error);
@@ -288,7 +314,11 @@ datasetMetaRoute.post("/", async (c) => {
     const columns = data[0] ? Object.keys(data[0]) : [];
 
     // Insert data ke collection dinamis
-    const dynamicModel = mongoose.model(collectionName, new mongoose.Schema({}, { strict: false }), collectionName);
+    const dynamicModel = mongoose.model(
+      collectionName,
+      new mongoose.Schema({}, { strict: false }),
+      collectionName,
+    );
     await dynamicModel.insertMany(data);
 
     // Simpan metadata
@@ -323,7 +353,7 @@ datasetMetaRoute.post("/", async (c) => {
         message: "Dataset uploaded and metadata saved successfully",
         data: newDataset,
       },
-      201
+      201,
     );
   } catch (error) {
     console.error("Upload dataset error:", error);
@@ -335,7 +365,13 @@ datasetMetaRoute.post("/", async (c) => {
 datasetMetaRoute.get("/rainfall-summary", async (c) => {
   try {
     await db();
-    const Model = mongoose.models["rainfall"] || mongoose.model("rainfall", new mongoose.Schema({}, { strict: false }), "rainfall");
+    const Model =
+      mongoose.models["rainfall"] ||
+      mongoose.model(
+        "rainfall",
+        new mongoose.Schema({}, { strict: false }),
+        "rainfall",
+      );
 
     const summary = await Model.aggregate([
       {

@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Building2, Calendar } from "lucide-react";
@@ -25,7 +31,11 @@ export default function ChartKuesioner() {
         </CardHeader>
       </Card>
 
-      <Tabs value={selectedDataType} onValueChange={(value) => setSelectedDataType(value as DataType)} className="space-y-4">
+      <Tabs
+        value={selectedDataType}
+        onValueChange={(value) => setSelectedDataType(value as DataType)}
+        className="space-y-4"
+      >
         <Card className="border-none shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -34,31 +44,15 @@ export default function ChartKuesioner() {
                   <Users className="w-4 h-4 mr-2" />
                   Petani
                 </TabsTrigger>
-                <TabsTrigger value="manajemen">
+                {/* <TabsTrigger value="manajemen">
                   <Building2 className="w-4 h-4 mr-2" />
                   Manajemen
-                </TabsTrigger>
-                <TabsTrigger value="periode">
+                </TabsTrigger> */}
+                {/* <TabsTrigger value="periode">
                   <Calendar className="w-4 h-4 mr-2" />
                   Periode Tanam
-                </TabsTrigger>
+                </TabsTrigger> */}
               </TabsList>
-
-              {selectedDataType === "petani" && (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  Data Petani
-                </Badge>
-              )}
-              {selectedDataType === "manajemen" && (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  Data Manajemen
-                </Badge>
-              )}
-              {selectedDataType === "periode" && (
-                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                  Data Periode
-                </Badge>
-              )}
             </div>
           </CardContent>
         </Card>

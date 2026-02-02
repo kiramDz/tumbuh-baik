@@ -32,7 +32,7 @@ export const config = {
   matcher: ["/dashboard/:path*", "/admin/:path*", "/sign-in", "/sign-up"],
 };
 
-export default async function authMiddleware(req: NextRequest) {
+export default async function authProxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const sessionCookie = getSessionCookie(req);
 
@@ -77,9 +77,7 @@ export default async function authMiddleware(req: NextRequest) {
   if (pathname.startsWith("/dashboard") || pathname.startsWith("/admin")) {
     if (!sessionCookie) {
       // Not logged in, redirect to sign-in
-      return NextResponse.redirect(
-        new URL(`/sign-in?next=${pathname}${search}`, req.url),
-      );
+      return NextResponse.redirect(new URL(`/sign-in?next=${pathname}${search}`, req.url));
     }
 
     // Get user role for authorization
@@ -87,9 +85,7 @@ export default async function authMiddleware(req: NextRequest) {
 
     // If session is invalid (userRole is null), redirect to login
     if (!userRole) {
-      return NextResponse.redirect(
-        new URL(`/sign-in?next=${pathname}${search}`, req.url),
-      );
+      return NextResponse.redirect(new URL(`/sign-in?next=${pathname}${search}`, req.url));
     }
 
     // Dashboard access - only admins

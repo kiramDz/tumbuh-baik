@@ -13,13 +13,13 @@ import { useMemo } from "react"
 
 const COLORS = {
     mae: "hsl(var(--chart-1))",
-    mse: "hsl(var(--chart-2))",
+    rmse: "hsl(var(--chart-2))",
     mape: "hsl(var(--chart-3))",
 }
 
 const chartConfig = {
     mae: { label: "MAE", color: COLORS.mae },
-    mse: { label: "MSE", color: COLORS.mse },
+    rmse: { label: "RMSE", color: COLORS.rmse },
     mape: { label: "MAPE", color: COLORS.mape },
 } satisfies ChartConfig
 
@@ -27,6 +27,7 @@ const chartConfig = {
 const COLUMN_NAME_MAPPING: Record<string, string> = {
     // Kelembapan
     'RH_AVG_preprocessed': 'Kelembaban Rata-rata',
+    'RH_AVG': "Kelembaban Rata-rata",
 
     // Suhu BMKG
     'TN': 'Suhu Minimum',
@@ -40,6 +41,7 @@ const COLUMN_NAME_MAPPING: Record<string, string> = {
     'RR_log': 'Curah Hujan (Log)',
     'RR_sqrt': 'Curah Hujan (Akar)',
     'RR_boxcox': 'Curah Hujan (Box-Cox)',
+    'RR': 'Curah Hujan',
 
     // NASA
     'T2M': 'Suhu Udara',
@@ -51,6 +53,12 @@ const COLUMN_NAME_MAPPING: Record<string, string> = {
     'WS10M': 'Kecepatan Angin',
     'WS10M_MAX': 'Angin Maksimum',
     'WD10M': 'Arah Angin',
+
+    'SS': 'Lamanya Penyinaran Matahari (Jam)',
+    'FF_X': 'Kecepatan Angin Maksimum',
+    'DDD_X': 'Arah Angin Maksimum',
+    'FF_AVG': 'Kecepatan Angin Rata-rata',
+    'DDD_CAR': 'Arah Angin Terbanyak',
 
     // Umum
     'Date': 'Tanggal',
@@ -114,7 +122,7 @@ export function LSTMPieChart() {
 
     if (isLoading) {
         return (
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[...Array(2)].map((_, i) => (
                     <Card key={i}>
                         <CardHeader className="pb-2">
@@ -134,7 +142,7 @@ export function LSTMPieChart() {
             <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-10">
                     <PieChartIcon className="h-10 w-10 text-muted-foreground mb-3" />
-                    <p className="font-medium">Belum ada data metrik</p>
+                    <p className="font-medium text-base">Belum ada data metrik</p>
                     <p className="text-sm text-muted-foreground">
                         Jalankan peramalan untuk melihat metrik error
                     </p>
@@ -147,7 +155,7 @@ export function LSTMPieChart() {
 
     return (
         <TooltipProvider>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {errorMetricsArray.map((entry: any, index: number) => {
                     const metrics = entry.metrics_lstm || entry.metrics || {}
                     // ✅ Ambil collection dari mapping, fallback ke entry.collectionName
@@ -156,7 +164,7 @@ export function LSTMPieChart() {
                     
                     const chartData = [
                         { key: "mae", value: metrics.mae || 0, fill: COLORS.mae },
-                        { key: "mse", value: metrics.mse || 0, fill: COLORS.mse },
+                        { key: "rmse", value: metrics.rmse || 0, fill: COLORS.rmse },
                         { key: "mape", value: metrics.mape || 0, fill: COLORS.mape },
                     ]
 
@@ -168,28 +176,25 @@ export function LSTMPieChart() {
                                 <div className="flex items-center justify-between">
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <CardTitle className="text-base font-medium cursor-help">
+                                            <CardTitle className="text-base sm:text-lg font-medium cursor-help">
                                                 {displayName}
                                             </CardTitle>
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                            <p className="text-xs">
+                                            <p className="text-sm">
                                                 Kolom: <code className="bg-muted px-1 rounded">{entry.columnName}</code>
                                             </p>
                                         </TooltipContent>
                                     </Tooltip>
-                                    <Badge variant="outline" className="text-xs font-normal">
-                                        AIC: {(metrics.aic || 0).toExponential(2)}
-                                    </Badge>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
                                     {collectionLabel}
                                 </p>
                             </CardHeader>
 
                             <CardContent className="pt-0">
-                                <div className="flex items-center gap-4">
-                                    <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
+                                <div className="flex flex-col sm:flex-row items-center gap-4">
+                                    <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px] sm:h-[180px]">
                                         <PieChart>
                                             <ChartTooltip content={<ChartTooltipContent nameKey="key" hideLabel />} />
                                             <Pie 
@@ -220,10 +225,10 @@ export function LSTMPieChart() {
                                                     style={{ backgroundColor: item.fill }} 
                                                 />
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-muted-foreground uppercase w-10">
+                                                    <span className="text-sm text-muted-foreground uppercase w-10">
                                                         {item.key}
                                                     </span>
-                                                    <span className="text-xs font-medium tabular-nums">
+                                                    <span className="text-sm font-medium tabular-nums">
                                                         {item.value.toFixed(2)}
                                                     </span>
                                                 </div>

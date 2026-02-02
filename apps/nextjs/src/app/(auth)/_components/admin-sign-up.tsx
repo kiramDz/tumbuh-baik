@@ -3,11 +3,27 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Eye, EyeOff, Mail, Lock, User, ArrowRight, UserPlus } from "lucide-react";
+import {
+  Loader2,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  ArrowRight,
+  UserPlus,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -28,7 +44,13 @@ export function AdminSignUp() {
 
   const handleSignUp = async () => {
     // Validation
-    if (!firstName || !lastName || !email || !password || !passwordConfirmation) {
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !password ||
+      !passwordConfirmation
+    ) {
       setError("All fields are required");
       return;
     }
@@ -71,7 +93,6 @@ export function AdminSignUp() {
 
   return (
     <div className="relative min-h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      
       {/* Left Panel */}
       <div className="relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black" />
@@ -105,9 +126,13 @@ export function AdminSignUp() {
             <CardContent className="p-8">
               <blockquote className="space-y-4">
                 <p className="text-lg leading-relaxed font-medium text-white">
-                  &ldquo;Join us in making agriculture smarter and more sustainable through technology and data-driven solutions.&rdquo;
+                  &ldquo;Join us in making agriculture smarter and more
+                  sustainable through technology and data-driven
+                  solutions.&rdquo;
                 </p>
-                <footer className="text-sm opacity-90 font-medium text-white">— Tumbuh Baik Team</footer>
+                <footer className="text-sm opacity-90 font-medium text-white">
+                  — Tumbuh Baik Team
+                </footer>
               </blockquote>
             </CardContent>
           </Card>
@@ -117,11 +142,14 @@ export function AdminSignUp() {
       {/* Right Panel */}
       <div className="flex h-full items-center justify-center p-4 lg:p-8">
         <div className="flex w-full max-w-md flex-col items-center justify-center space-y-6">
-          
           {/* Mobile Header */}
           <div className="text-center space-y-2 lg:hidden">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Tumbuh Baik</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Create Your Account</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
+              Tumbuh Baik
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Create Your Account
+            </p>
           </div>
 
           {/* Sign Up Card */}
@@ -145,7 +173,6 @@ export function AdminSignUp() {
             <Separator />
 
             <CardContent className="pt-6 space-y-4">
-              
               {/* Error Alert */}
               {error && (
                 <Alert variant="destructive">
@@ -280,7 +307,14 @@ export function AdminSignUp() {
               {/* Sign Up Button */}
               <Button
                 type="submit"
-                disabled={loading || !firstName || !lastName || !email || !password || !passwordConfirmation}
+                disabled={
+                  loading ||
+                  !firstName ||
+                  !lastName ||
+                  !email ||
+                  !password ||
+                  !passwordConfirmation
+                }
                 className="w-full"
                 size="lg"
                 onClick={handleSignUp}
@@ -297,7 +331,6 @@ export function AdminSignUp() {
                   </>
                 )}
               </Button>
-
             </CardContent>
 
             <Separator />
@@ -305,7 +338,10 @@ export function AdminSignUp() {
             <CardFooter className="flex flex-col space-y-4 pt-6">
               <div className="text-sm text-center text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/sign-in" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors">
+                <Link
+                  href="/sign-in"
+                  className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                >
                   Sign in
                 </Link>
               </div>
@@ -315,11 +351,17 @@ export function AdminSignUp() {
           {/* Footer Text */}
           <p className="text-xs text-center text-muted-foreground max-w-sm px-4">
             By creating an account, you agree to our{" "}
-            <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
+            <Link
+              href="/terms"
+              className="underline underline-offset-4 hover:text-primary"
+            >
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
+            <Link
+              href="/privacy"
+              className="underline underline-offset-4 hover:text-primary"
+            >
               Privacy Policy
             </Link>
           </p>

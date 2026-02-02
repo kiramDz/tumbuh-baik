@@ -100,5 +100,4 @@ const DashboardCardSkeleton: React.FC = () => {
     </Card>
   );
 };
-
 export { DashboardCard, DashboardCardSkeleton };

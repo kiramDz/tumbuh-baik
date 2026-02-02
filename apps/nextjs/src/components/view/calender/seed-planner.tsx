@@ -1,28 +1,46 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSeeds, createSeed, getHoltWinterDaily, getLSTMDaily } from "@/lib/fetch/files.fetch";
+import {
+  getSeeds,
+  createSeed,
+  getHoltWinterDaily,
+  getLSTMDaily,
+} from "@/lib/fetch/files.fetch";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/combobox";
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Cloud, 
-  Calendar, 
-  Clock, 
-  Sprout, 
-  Droplets, 
-  Thermometer, 
+import {
+  Cloud,
+  Calendar,
+  Clock,
+  Sprout,
+  Droplets,
+  Thermometer,
   Wind,
   Info,
   CheckCircle,
   AlertCircle,
-  XCircle
+  XCircle,
+  AlertTriangle,
+  Sun,
 } from "lucide-react";
 
 interface SeedItem {
@@ -38,6 +56,8 @@ const TEMP_MIN = 24;
 const TEMP_MAX = 29;
 const HUM_MIN = 33;
 const HUM_MAX = 90;
+const RADIATION_MIN = 15;
+const RADIATION_MAX = 25;
 
 const GARAP_DURATION = 5;
 const SEMAI_DURATION = 20;
@@ -57,7 +77,6 @@ export default function CalendarSeedPlanner() {
     refetchOnWindowFocus: false,
   });
 
-  // Query data berdasarkan model yang dipilih
   const { data: forecastData, isLoading: isForecastLoading } = useQuery({
     queryKey: ["forecast-seed-planner", currentModel],
     queryFn: async () => {
@@ -72,44 +91,54 @@ export default function CalendarSeedPlanner() {
     refetchOnWindowFocus: false,
   });
 
-  // Listen untuk perubahan model dari monthly calendar
   useEffect(() => {
     const handleModelChange = (event: CustomEvent) => {
       const newModel = event.detail.model as ModelType;
       setCurrentModel(newModel);
-      
-      // Jika sedang menampilkan grid, refresh data dengan model baru
+
       if (showGrid) {
         setShowGrid(false);
         setTimeout(() => setShowGrid(true), 100);
       }
     };
 
-    window.addEventListener('modelChanged', handleModelChange as EventListener);
+    window.addEventListener("modelChanged", handleModelChange as EventListener);
 
-    // Cleanup
     return () => {
-      window.removeEventListener('modelChanged', handleModelChange as EventListener);
+      window.removeEventListener(
+        "modelChanged",
+        handleModelChange as EventListener,
+      );
     };
   }, [showGrid]);
 
   const createSeedMutation = useMutation({
     mutationFn: createSeed,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["get-seeds-planner"] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["get-seeds-planner"] }),
   });
 
   const handleSeedChange = (name: string) => {
     setSelectedSeedName(name);
-    const match = seedsData?.items.find((s: SeedItem) => s.name.toLowerCase() === name.toLowerCase());
+    const match = seedsData?.items.find(
+      (s: SeedItem) => s.name.toLowerCase() === name.toLowerCase(),
+    );
     if (match) setDuration(match.duration);
   };
 
   const handleSubmit = async () => {
     if (!selectedSeedName || !duration || !startDate) return;
 
-    const exists = seedsData?.items.find((s: SeedItem) => s.name.toLowerCase() === selectedSeedName.toLowerCase() && s.duration === duration);
+    const exists = seedsData?.items.find(
+      (s: SeedItem) =>
+        s.name.toLowerCase() === selectedSeedName.toLowerCase() &&
+        s.duration === duration,
+    );
     if (!exists) {
-      await createSeedMutation.mutateAsync({ name: selectedSeedName, duration });
+      await createSeedMutation.mutateAsync({
+        name: selectedSeedName,
+        duration,
+      });
     }
     setShowGrid(true);
   };
@@ -117,55 +146,154 @@ export default function CalendarSeedPlanner() {
   const calculateActualStartDate = () => {
     if (!startDate) return null;
     const targetPlantDate = new Date(startDate);
-    const daysToSubtract = semaiStatus === "belum" ? GARAP_DURATION + SEMAI_DURATION : GARAP_DURATION;
+    const daysToSubtract =
+      semaiStatus === "belum"
+        ? GARAP_DURATION + SEMAI_DURATION
+        : GARAP_DURATION;
     const actualStartDate = new Date(targetPlantDate);
     actualStartDate.setDate(actualStartDate.getDate() - daysToSubtract);
     return actualStartDate;
   };
 
-  const getWeatherColor = (rain: number, temp: number, hum: number) => {
-    const isRainExtreme = rain < RAIN_MIN || rain > RAIN_MAX;
-    const isTempExtreme = temp < TEMP_MIN || temp > TEMP_MAX;
-    const isHumExtreme = hum < HUM_MIN || hum > HUM_MAX;
+  // ✅ FUNGSI BARU: LOGIKA SAMA DENGAN getSuitability
+  const getSuitability = (
+    rain: number,
+    temp: number,
+    hum: number,
+    radiation: number,
+  ) => {
+    const criteria = {
+      isRainSesuai: rain >= RAIN_MIN && rain <= RAIN_MAX,
+      isTempSesuai: temp >= TEMP_MIN && temp <= TEMP_MAX,
+      isHumiditySesuai: hum >= HUM_MIN && hum <= HUM_MAX,
+      isRadiationSesuai:
+        radiation >= RADIATION_MIN && radiation <= RADIATION_MAX,
+    };
 
-    const extremeCount = [isRainExtreme, isTempExtreme, isHumExtreme].filter(Boolean).length;
+    // 1. SYARAT MUTLAK: HUJAN
+    if (!criteria.isRainSesuai) {
+      return {
+        color: "bg-red-100 border-red-200 text-red-800",
+        label: "Masa Bera (Air Tidak Sesuai)",
+        icon: <XCircle className="w-3 h-3" />,
+        criteria,
+        type: "tidakCocok" as const,
+      };
+    }
 
-    if (extremeCount === 0) return "bg-emerald-100 border-emerald-200 text-emerald-800"; // semua sesuai
-    if (extremeCount >= 2) return "bg-red-100 border-red-200 text-red-800"; // ada 2+ ekstrem → bahaya
-    return "bg-amber-100 border-amber-200 text-amber-800"; // ada 1 ekstrem → bisa tanam tapi hati-hati
+    // 2. HITUNG SKOR (Hujan sudah pasti sesuai)
+    const sesuaiCount = Object.values(criteria).filter(Boolean).length;
+
+    // Skor 4/4: Sempurna
+    if (sesuaiCount === 4) {
+      return {
+        color: "bg-emerald-100 border-emerald-200 text-emerald-800",
+        label: "Sangat Cocok (Optimal)",
+        icon: <CheckCircle className="w-3 h-3" />,
+        criteria,
+        type: "sangatCocok" as const,
+      };
+    }
+
+    // Skor 3/4: Cukup Cocok
+    if (sesuaiCount === 3) {
+      return {
+        color: "bg-amber-100 border-amber-200 text-amber-800",
+        label: "Cukup Cocok (Kondisi Baik)",
+        icon: <AlertCircle className="w-3 h-3" />,
+        criteria,
+        type: "cukupCocok" as const,
+      };
+    }
+
+    // Skor < 3: Tidak Cocok
+    return {
+      color: "bg-red-100 border-red-200 text-red-800",
+      label: "Tidak Cocok (Parameter Lingkungan)",
+      icon: <XCircle className="w-3 h-3" />,
+      criteria,
+      type: "tidakCocok" as const,
+    };
   };
 
-  const getWeatherIcon = (rain: number, temp: number, hum: number) => {
-    const isRainExtreme = rain < RAIN_MIN || rain > RAIN_MAX;
-    const isTempExtreme = temp < TEMP_MIN || temp > TEMP_MAX;
-    const isHumExtreme = hum < HUM_MIN || hum > HUM_MAX;
-
-    const extremeCount = [isRainExtreme, isTempExtreme, isHumExtreme].filter(Boolean).length;
-
-    if (extremeCount === 0) return <CheckCircle className="w-3 h-3" />;
-    if (extremeCount >= 2) return <XCircle className="w-3 h-3" />;
-    return <AlertCircle className="w-3 h-3" />;
+  const getWeatherIssues = (
+    rain: number,
+    temp: number,
+    hum: number,
+    radiation: number,
+  ) => {
+    const issues = [];
+    if (rain < RAIN_MIN)
+      issues.push({
+        type: "warning",
+        text: `Curah hujan rendah: ${rain.toFixed(1)}mm (min: ${RAIN_MIN}mm)`,
+      });
+    if (rain > RAIN_MAX)
+      issues.push({
+        type: "danger",
+        text: `Curah hujan tinggi: ${rain.toFixed(1)}mm (max: ${RAIN_MAX}mm)`,
+      });
+    if (temp < TEMP_MIN)
+      issues.push({
+        type: "warning",
+        text: `Suhu rendah: ${temp.toFixed(1)}°C (min: ${TEMP_MIN}°C)`,
+      });
+    if (temp > TEMP_MAX)
+      issues.push({
+        type: "danger",
+        text: `Suhu tinggi: ${temp.toFixed(1)}°C (max: ${TEMP_MAX}°C)`,
+      });
+    if (hum < HUM_MIN)
+      issues.push({
+        type: "warning",
+        text: `Kelembaban rendah: ${hum.toFixed(1)}% (min: ${HUM_MIN}%)`,
+      });
+    if (hum > HUM_MAX)
+      issues.push({
+        type: "danger",
+        text: `Kelembaban tinggi: ${hum.toFixed(1)}% (max: ${HUM_MAX}%)`,
+      });
+    if (radiation < RADIATION_MIN)
+      issues.push({
+        type: "warning",
+        text: `Radiasi matahari rendah: ${radiation.toFixed(1)} (min: ${RADIATION_MIN})`,
+      });
+    if (radiation > RADIATION_MAX)
+      issues.push({
+        type: "danger",
+        text: `Radiasi matahari tinggi: ${radiation.toFixed(1)} (max: ${RADIATION_MAX})`,
+      });
+    return issues;
   };
 
   const renderGrid = () => {
-    if (!selectedSeedName || !duration || !startDate || !forecastData) return null;
-    
+    if (!selectedSeedName || !duration || !startDate || !forecastData)
+      return null;
+
     const actualStartDate = calculateActualStartDate();
     if (!actualStartDate) return null;
 
-    const preparationDays = semaiStatus === "belum" ? GARAP_DURATION + SEMAI_DURATION : GARAP_DURATION;
+    const preparationDays =
+      semaiStatus === "belum"
+        ? GARAP_DURATION + SEMAI_DURATION
+        : GARAP_DURATION;
     const totalGridDays = preparationDays + duration;
 
     const gridDays = Array.from({ length: totalGridDays }, (_, i) => {
       const date = new Date(actualStartDate);
       date.setDate(date.getDate() + i);
-                              
+
       let type = "";
       let bgColor = "";
       let icon = null;
       let rain = 0,
         temp = 0,
-        hum = 0;
+        hum = 0,
+        radiation = 0;
+      let hasData = false;
+      let issues: any[] = [];
+      let suitabilityType: "sangatCocok" | "cukupCocok" | "tidakCocok" | null =
+        null;
 
       if (i < preparationDays) {
         if (semaiStatus === "belum") {
@@ -185,41 +313,70 @@ export default function CalendarSeedPlanner() {
         }
       } else {
         type = "Masa Tanam";
-        const forecastDay = forecastData.items.find((f: any) => 
-          format(new Date(f.forecast_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+        const forecastDay = forecastData.items.find(
+          (f: any) =>
+            format(new Date(f.forecast_date), "yyyy-MM-dd") ===
+            format(date, "yyyy-MM-dd"),
         );
 
         if (forecastDay) {
-          rain = forecastDay.parameters?.RR_imputed?.forecast_value ?? 0;
+          hasData = true;
+          rain = forecastDay.parameters?.RR?.forecast_value ?? 0;
           temp = forecastDay.parameters?.TAVG?.forecast_value ?? 0;
-          hum = forecastDay.parameters?.RH_AVG_preprocessed?.forecast_value ?? 0;
-          bgColor = getWeatherColor(rain, temp, hum);
-          icon = getWeatherIcon(rain, temp, hum);
+          hum = forecastDay.parameters?.RH_AVG?.forecast_value ?? 0;
+          radiation =
+            forecastDay.parameters?.ALLSKY_SFC_SW_DWN?.forecast_value ?? 0;
+
+          // ✅ GUNAKAN LOGIKA BARU
+          const suitability = getSuitability(rain, temp, hum, radiation);
+          bgColor = suitability.color;
+          icon = suitability.icon;
+          suitabilityType = suitability.type;
+          issues = getWeatherIssues(rain, temp, hum, radiation);
         } else {
           bgColor = "bg-gray-50 border-gray-200 text-gray-800";
           icon = <Info className="w-3 h-3" />;
         }
 
-        // Panen warna kuning
         const dayInCycle = i - preparationDays;
         if (dayInCycle >= duration - 20) {
           type = "Panen";
-          bgColor = "bg-yellow-50 border-yellow-200 text-yellow-800";
-          icon = <Calendar className="w-3 h-3" />;
+          // ⚠️ OPTIONAL: Pertahankan warna cuaca atau override dengan kuning
+          // bgColor = "bg-yellow-50 border-yellow-200 text-yellow-800";
+          // icon = <Calendar className="w-3 h-3" />;
         }
       }
 
       return {
         day: i + 1,
         date: format(date, "MMM d"),
+        fullDate: format(date, "d MMMM yyyy"),
         type,
         bgColor,
         icon,
         rain,
         temp,
         hum,
+        radiation,
+        hasData,
+        issues,
+        suitabilityType,
       };
     });
+
+    // ✅ STATISTIK BARU: BERDASARKAN SUITABILITY TYPE
+    const plantingDays = gridDays.filter(
+      (d) => d.type === "Masa Tanam" && d.hasData,
+    );
+    const goodDays = plantingDays.filter(
+      (d) => d.suitabilityType === "sangatCocok",
+    ).length;
+    const warningDays = plantingDays.filter(
+      (d) => d.suitabilityType === "cukupCocok",
+    ).length;
+    const badDays = plantingDays.filter(
+      (d) => d.suitabilityType === "tidakCocok",
+    ).length;
 
     return (
       <Card className="mt-6">
@@ -233,12 +390,16 @@ export default function CalendarSeedPlanner() {
           <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
             <Cloud className="w-5 h-5 text-blue-600" />
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="text-sm font-medium text-blue-800">Model Prediksi:</span>
-              <Badge 
+              <span className="text-sm font-medium text-blue-800">
+                Model Prediksi:
+              </span>
+              <Badge
                 variant={currentModel === "lstm" ? "default" : "secondary"}
                 className="w-fit"
               >
-                {currentModel === "lstm" ? "LSTM Neural Network" : "Holt Winters"}
+                {currentModel === "lstm"
+                  ? "LSTM Neural Network"
+                  : "Holt Winters"}
               </Badge>
               {isForecastLoading && (
                 <span className="text-xs text-blue-600 animate-pulse flex items-center gap-1">
@@ -249,15 +410,62 @@ export default function CalendarSeedPlanner() {
             </div>
           </div>
 
+          {/* Weather Statistics */}
+          {plantingDays.length > 0 && (
+            <Card className="bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-emerald-700" />
+                  <span className="text-sm font-semibold text-emerald-900">
+                    Analisis Kondisi Cuaca
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex flex-col items-center p-3 bg-emerald-100 rounded-lg border border-emerald-200">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mb-1" />
+                    <span className="text-2xl font-bold text-emerald-800">
+                      {goodDays}
+                    </span>
+                    <span className="text-xs text-emerald-600">Hari Ideal</span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-amber-100 rounded-lg border border-amber-200">
+                    <AlertCircle className="w-5 h-5 text-amber-600 mb-1" />
+                    <span className="text-2xl font-bold text-amber-800">
+                      {warningDays}
+                    </span>
+                    <span className="text-xs text-amber-600">
+                      Hari Hati-hati
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-red-100 rounded-lg border border-red-200">
+                    <XCircle className="w-5 h-5 text-red-600 mb-1" />
+                    <span className="text-2xl font-bold text-red-800">
+                      {badDays}
+                    </span>
+                    <span className="text-xs text-red-600">Hari Berisiko</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 mt-3 text-center">
+                  Total {plantingDays.length} hari masa tanam dengan data
+                  prediksi
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Legend */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-2 text-sm">
               <div className="w-4 h-4 bg-orange-200 rounded border border-orange-300"></div>
-              <span className="text-gray-700">Garap ({GARAP_DURATION} hari)</span>
+              <span className="text-gray-700">
+                Garap ({GARAP_DURATION} hari)
+              </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <div className="w-4 h-4 bg-blue-200 rounded border border-blue-300"></div>
-              <span className="text-gray-700">Semai ({SEMAI_DURATION} hari)</span>
+              <span className="text-gray-700">
+                Semai ({SEMAI_DURATION} hari)
+              </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <div className="w-4 h-4 bg-emerald-200 rounded border border-emerald-300"></div>
@@ -276,11 +484,13 @@ export default function CalendarSeedPlanner() {
               {gridDays.map((item, idx) => (
                 <Tooltip key={idx}>
                   <TooltipTrigger asChild>
-                    <div className={`
+                    <div
+                      className={`
                       p-3 rounded-lg border-2 text-center transition-all duration-200
                       hover:scale-105 hover:shadow-md cursor-pointer
                       ${item.bgColor}
-                    `}>
+                    `}
+                    >
                       <div className="flex items-center justify-center mb-1">
                         {item.icon}
                       </div>
@@ -288,29 +498,88 @@ export default function CalendarSeedPlanner() {
                       <div className="text-xs font-medium">{item.type}</div>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
+                  <TooltipContent side="top" className="max-w-sm">
                     <div className="space-y-2">
                       <p className="text-sm font-semibold border-b pb-1">
-                        {item.date} - {item.type}
+                        {item.fullDate} - {item.type}
                       </p>
-                      {item.type === "Masa Tanam" && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-xs">
-                            <Droplets className="w-3 h-3 text-blue-500" />
-                            <span>Curah hujan: {item.rain.toFixed(1)} mm</span>
+                      {item.type === "Masa Tanam" && item.hasData && (
+                        <div className="space-y-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-xs">
+                              <Droplets className="w-3 h-3 text-blue-500" />
+                              <span>
+                                Curah hujan: {item.rain.toFixed(1)} mm
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Thermometer className="w-3 h-3 text-red-500" />
+                              <span>Suhu: {item.temp.toFixed(1)} °C</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Wind className="w-3 h-3 text-green-500" />
+                              <span>Kelembaban: {item.hum.toFixed(1)} %</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <Sun className="w-3 h-3 text-yellow-500" />
+                              <span>
+                                Radiasi Matahari: {item.radiation.toFixed(1)}{" "}
+                                W/m²
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Thermometer className="w-3 h-3 text-red-500" />
-                            <span>Suhu: {item.temp.toFixed(1)} °C</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Wind className="w-3 h-3 text-green-500" />
-                            <span>Kelembaban: {item.hum.toFixed(1)} %</span>
-                          </div>
+
+                          {item.issues.length > 0 && (
+                            <div className="pt-2 border-t">
+                              <div className="flex items-center gap-1 mb-1">
+                                <AlertTriangle className="w-3 h-3 text-red-500" />
+                                <span className="text-xs font-semibold text-red-600">
+                                  Peringatan Cuaca:
+                                </span>
+                              </div>
+                              <ul className="space-y-1">
+                                {item.issues.map((issue: any, i: number) => (
+                                  <li
+                                    key={i}
+                                    className={`text-xs ${issue.type === "danger" ? "text-red-600" : "text-amber-600"}`}
+                                  >
+                                    • {issue.text}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {item.issues.length === 0 && (
+                            <div className="pt-2 border-t">
+                              <div className="flex items-center gap-1 text-emerald-600">
+                                <CheckCircle className="w-3 h-3" />
+                                <span className="text-xs font-semibold">
+                                  Kondisi ideal untuk penanaman
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2 text-xs text-gray-500 pt-1 border-t">
                             <Cloud className="w-3 h-3" />
                             <span>Model: {currentModel.toUpperCase()}</span>
                           </div>
+                        </div>
+                      )}
+                      {item.type === "Masa Tanam" && !item.hasData && (
+                        <div className="text-xs text-gray-500">
+                          <Info className="w-3 h-3 inline mr-1" />
+                          Data prediksi tidak tersedia untuk tanggal ini
+                        </div>
+                      )}
+                      {(item.type === "Garap" ||
+                        item.type === "Semai" ||
+                        item.type === "Panen") && (
+                        <div className="text-xs text-gray-600">
+                          {item.type === "Panen"
+                            ? "Periode panen (20 hari terakhir masa tanam)"
+                            : "Periode persiapan lahan dan bibit sebelum penanaman"}
                         </div>
                       )}
                     </div>
@@ -333,31 +602,45 @@ export default function CalendarSeedPlanner() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Mulai Persiapan</span>
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">
+                    Mulai Persiapan
+                  </span>
                   <span className="text-sm font-semibold text-gray-800">
                     {format(actualStartDate, "d MMM yyyy")}
                   </span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Mulai Tanam</span>
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">
+                    Mulai Tanam
+                  </span>
                   <span className="text-sm font-semibold text-gray-800">
                     {format(new Date(startDate), "d MMM yyyy")}
                   </span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Estimasi Panen</span>
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">
+                    Estimasi Panen
+                  </span>
                   <span className="text-sm font-semibold text-gray-800">
-                    {format(new Date(new Date(startDate).getTime() + (duration - 20) * 24 * 60 * 60 * 1000), "d MMM yyyy")}
+                    {format(
+                      new Date(
+                        new Date(startDate).getTime() +
+                          (duration - 20) * 24 * 60 * 60 * 1000,
+                      ),
+                      "d MMM yyyy",
+                    )}
                   </span>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
                 <Cloud className="w-4 h-4 text-blue-600" />
                 <span className="text-sm text-blue-700">
-                  Prediksi menggunakan model: 
+                  Prediksi menggunakan model:
                   <span className="font-semibold ml-1">
-                    {currentModel === "lstm" ? "LSTM Neural Network" : "Holt Winters"}
+                    {currentModel === "lstm"
+                      ? "LSTM Neural Network"
+                      : "Holt Winters"}
                   </span>
                 </span>
               </div>
@@ -380,48 +663,60 @@ export default function CalendarSeedPlanner() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="seed-select" className="flex items-center gap-2 text-sm font-medium">
+              <Label
+                htmlFor="seed-select"
+                className="flex items-center gap-2 text-sm font-medium"
+              >
                 <Sprout className="w-4 h-4" />
                 Pilih Benih
               </Label>
-              <Combobox 
-                options={seedsData?.items.map((s: SeedItem) => s.name) || []} 
-                value={selectedSeedName} 
+              <Combobox
+                options={seedsData?.items.map((s: SeedItem) => s.name) || []}
+                value={selectedSeedName}
                 onValueChange={handleSeedChange}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="duration-input" className="flex items-center gap-2 text-sm font-medium">
+              <Label
+                htmlFor="duration-input"
+                className="flex items-center gap-2 text-sm font-medium"
+              >
                 <Clock className="w-4 h-4" />
                 Durasi (Hari)
               </Label>
-              <Input 
+              <Input
                 id="duration-input"
-                type="number" 
-                placeholder="Durasi tanam" 
-                value={duration} 
+                type="number"
+                placeholder="Durasi tanam"
+                value={duration}
                 onChange={(e) => setDuration(Number(e.target.value))}
                 className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="start-date" className="flex items-center gap-2 text-sm font-medium">
+              <Label
+                htmlFor="start-date"
+                className="flex items-center gap-2 text-sm font-medium"
+              >
                 <Calendar className="w-4 h-4" />
                 Tanggal Mulai Tanam
               </Label>
-              <Input 
+              <Input
                 id="start-date"
-                type="date" 
-                value={startDate} 
+                type="date"
+                value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="semai-status" className="flex items-center gap-2 text-sm font-medium">
+              <Label
+                htmlFor="semai-status"
+                className="flex items-center gap-2 text-sm font-medium"
+              >
                 <Info className="w-4 h-4" />
                 Status Semai
               </Label>
@@ -437,11 +732,13 @@ export default function CalendarSeedPlanner() {
             </div>
           </div>
 
-          <Button 
-            className="mt-6 w-full sm:w-auto px-8 py-2" 
+          <Button
+            className="mt-6 w-full sm:w-auto px-8 py-2"
             size="lg"
-            onClick={handleSubmit} 
-            disabled={!selectedSeedName || !duration || !startDate || isForecastLoading}
+            onClick={handleSubmit}
+            disabled={
+              !selectedSeedName || !duration || !startDate || isForecastLoading
+            }
           >
             {isForecastLoading ? (
               <>

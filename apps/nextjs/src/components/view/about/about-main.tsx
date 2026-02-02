@@ -14,7 +14,8 @@ function AboutContent() {
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">Tentang Tumbuh Baik</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Platform digitalisasi pertanian yang menggabungkan teknologi modern dengan kearifan lokal
+          Platform digitalisasi pertanian yang menggabungkan teknologi modern
+          dengan kearifan lokal
         </p>
       </div>
 
@@ -28,14 +29,14 @@ function AboutContent() {
             <Heart className="h-4 w-4" />
             <span className="hidden sm:inline">Kearifan Lokal</span>
           </TabsTrigger>
-          {/* <TabsTrigger value="video" className="gap-2">
+          <TabsTrigger value="video" className="gap-2">
             <Video className="h-4 w-4" />
             <span className="hidden sm:inline">Video</span>
-          </TabsTrigger> */}
-          {/* <TabsTrigger value="team" className="gap-2">
+          </TabsTrigger>
+          <TabsTrigger value="team" className="gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Tim</span>
-          </TabsTrigger> */}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -46,13 +47,13 @@ function AboutContent() {
           <LocalWisdomSection />
         </TabsContent>
 
-        {/* <TabsContent value="video">
+        <TabsContent value="video">
           <VideoSection />
-        </TabsContent> */}
+        </TabsContent>
 
-        {/* <TabsContent value="team">
+        <TabsContent value="team">
           <TeamSection />
-        </TabsContent> */}
+        </TabsContent>
       </Tabs>
     </div>
   );

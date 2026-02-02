@@ -1,11 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUpCircleIcon, BarChartIcon, ClipboardListIcon, DatabaseIcon, FileIcon, LayoutDashboardIcon, Trash, Users, Bean } from "lucide-react";
+import {
+  ArrowUpCircleIcon,
+  BarChartIcon,
+  ClipboardListIcon,
+  DatabaseIcon,
+  FileIcon,
+  LayoutDashboardIcon,
+  Trash,
+  Users,
+  Bean,
+} from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
-import { NavUser } from "@/components/nav-user";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
 
 const data = {
   user: {
@@ -47,6 +63,7 @@ const data = {
     {
       title: "Recycle Bin",
       url: "/dashboard/recycle-bin",
+
       icon: Trash,
     },
   ],
@@ -76,10 +93,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
+            <SidebarMenuButton
+              asChild
+              className="data-[slot=sidebar-menu-button]:!p-1.5"
+            >
               <a href="#">
-                <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">ZonaPetik.</span>
+                <ArrowUpCircleIcon className="h-6 w-6" />
+                <span className="text-lg font-semibold">ZonaPetik.</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -88,9 +108,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={data.navMain} />
       </SidebarContent>
-      <SidebarFooter>
+      {/* <SidebarFooter>
         <NavUser user={data.user} />
-      </SidebarFooter>
+      </SidebarFooter> */}
     </Sidebar>
   );
 }
