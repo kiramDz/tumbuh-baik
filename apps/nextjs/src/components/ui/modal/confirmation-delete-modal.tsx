@@ -9,7 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash } from "lucide-react";
+import { Icons } from "@/app/dashboard/_components/icons";
 
 interface ConfirmationDeleteModalProps {
   isOpen: boolean;
@@ -18,6 +18,7 @@ interface ConfirmationDeleteModalProps {
   datasetName: string;
   collectionName: string;
   isDeleting: boolean;
+  type?: "soft" | "permanent";
 }
 
 export function ConfirmationDeleteModal({
@@ -27,17 +28,46 @@ export function ConfirmationDeleteModal({
   datasetName,
   collectionName,
   isDeleting,
+  type = "soft",
 }: ConfirmationDeleteModalProps) {
+  const isPermanent = type === "permanent";
+
   return (
     <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-destructive flex items-center gap-2">
-            <Trash className="h-5 w-5" />
-            Hapus Dataset
+          <AlertDialogTitle
+            className={`flex items-center gap-2 ${isPermanent ? "text-red-600" : "text-destructive"}`}
+          >
+            {isPermanent ? (
+              <Icons.alertCircle className="h-5 w-5" />
+            ) : (
+              <Icons.trash className="h-5 w-5" />
+            )}
+            {isPermanent ? "Hapus Permanen Dataset" : "Hapus Dataset"}
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            Yakin ingin menghapus dataset <strong>{datasetName}</strong>?
+          <AlertDialogDescription asChild>
+            <div className="space-y-2">
+              {isPermanent ? (
+                <>
+                  <div>
+                    Dataset <strong>{datasetName}</strong> akan dihapus secara
+                    permanen dari sistem.
+                  </div>
+                  <div className="text-sm">
+                    Collection:{" "}
+                    <code className="bg-muted px-1 py-0.5 rounded">
+                      {collectionName}
+                    </code>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  Dataset <strong>{datasetName}</strong> akan dipindahkan ke
+                  Recycle Bin.
+                </div>
+              )}
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -48,10 +78,18 @@ export function ConfirmationDeleteModal({
               e.preventDefault();
               onConfirm();
             }}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className={
+              isPermanent
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            }
             disabled={isDeleting}
           >
-            {isDeleting ? "Menghapus..." : "Hapus Dataset"}
+            {isDeleting
+              ? "Menghapus..."
+              : isPermanent
+                ? "Hapus Permanen"
+                : "Hapus"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

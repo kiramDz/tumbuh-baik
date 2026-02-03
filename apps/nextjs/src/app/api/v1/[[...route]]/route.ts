@@ -7,7 +7,7 @@ import bmkgDailyRoute from "../_routes/model/bmkg-daily.route";
 import seedRoute from "../_routes/feature/seed.route";
 import userRoute from "../_routes/user.route";
 import exportRoute from "../_routes/feature/export-csv.route";
-import datasetMetaRoute from "../_routes/feature/dataset-meta.route";
+import datasetMetaRoute from "../_routes/dataset/meta/dataset-meta.route";
 import forecastConfigRoute from "../_routes/feature/forecast-config";
 import holtWinter from "../_routes/model/holt-winter.route";
 import nasaPowerRoute from "../_routes/dataset/nasa-power.route";

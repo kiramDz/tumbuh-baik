@@ -18,11 +18,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmationDeleteModal } from "@/components/ui/modal/confirmation-delete-modal";
 
 const RecycleBinTable = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const queryClient = useQueryClient();
+
+  // Add state for permanent delete confirmation modal
+  const [isPermanentDeleteConfirmOpen, setIsPermanentDeleteConfirmOpen] =
+    useState(false);
+  const [selectedDataset, setSelectedDataset] = useState<RecycleBinType | null>(
+    null,
+  );
+  const [isPermanentDeleting, setIsPermanentDeleting] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["recycle-bin", page, pageSize],
@@ -57,16 +66,33 @@ const RecycleBinTable = () => {
     }
   };
 
-  const handlePermanentDelete = async (collectionName: string) => {
+  const handlePermanentDeleteClick = (dataset: RecycleBinType) => {
+    setSelectedDataset(dataset);
+    setIsPermanentDeleteConfirmOpen(true);
+  };
+  // Actual permanent delete function for modal confirmation
+  const handlePermanentDelete = async () => {
+    if (!selectedDataset) return;
+
+    setIsPermanentDeleting(true);
     try {
-      await PermanentDeleteDataset(collectionName);
-      toast.success("Dataset permanently deleted!");
+      await PermanentDeleteDataset(selectedDataset.collectionName);
+      toast.success(
+        `Dataset ${selectedDataset.name} berhasil dihapus permanen!`,
+      );
       queryClient.invalidateQueries({ queryKey: ["recycle-bin"] });
-    } catch (error) {
+      setIsPermanentDeleteConfirmOpen(false);
+      setSelectedDataset(null);
+    } catch (error: any) {
       console.error("Failed to permanently delete dataset:", error);
-      toast.error("Failed to permanently delete dataset");
+      toast.error(
+        `Gagal menghapus dataset: ${error?.response?.data?.message || error.message}`,
+      );
+    } finally {
+      setIsPermanentDeleting(false);
     }
   };
+
   const recycleBinColumns: ColumnDef<RecycleBinType>[] = [
     {
       accessorKey: "name",
@@ -95,7 +121,7 @@ const RecycleBinTable = () => {
               Restore
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => handlePermanentDelete(row.original.collectionName)}
+              onClick={() => handlePermanentDeleteClick(row.original)}
               className="text-red-600"
             >
               Delete Permanently
@@ -106,18 +132,30 @@ const RecycleBinTable = () => {
     },
   ];
   return (
-    <RecycleBinUI
-      data={data?.items || []}
-      columns={recycleBinColumns}
-      pagination={{
-        currentPage: data?.currentPage || 1,
-        totalPages: data?.totalPages || 1,
-        total: data?.total || 0,
-        pageSize,
-        onPageChange: setPage,
-        onPageSizeChange: setPageSize,
-      }}
-    />
+    <>
+      <RecycleBinUI
+        data={data?.items || []}
+        columns={recycleBinColumns}
+        pagination={{
+          currentPage: data?.currentPage || 1,
+          totalPages: data?.totalPages || 1,
+          total: data?.total || 0,
+          pageSize,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+      />
+      {/* Permanent Delete Confirmation Modal */}
+      <ConfirmationDeleteModal
+        isOpen={isPermanentDeleteConfirmOpen}
+        setIsOpen={setIsPermanentDeleteConfirmOpen}
+        onConfirm={handlePermanentDelete}
+        datasetName={selectedDataset?.name || ""}
+        collectionName={selectedDataset?.collectionName || ""}
+        isDeleting={isPermanentDeleting}
+        type="permanent"
+      />
+    </>
   );
 };
 

@@ -274,6 +274,31 @@ datasetMetaRoute.post("/:collectionName/refresh", async (c) => {
   }
 });
 
+// PATCH - Restore soft deleted dataset from recycle bin
+datasetMetaRoute.patch("/:collectionName/restore", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    const dataset = await DatasetMeta.findOneAndUpdate(
+      { collectionName },
+      { deletedAt: null },
+      { new: true },
+    );
+
+    if (!dataset) return c.json({ message: "Dataset not found" }, 404);
+
+    return c.json(
+      { message: "Dataset restored successfully", data: dataset },
+      200,
+    );
+  } catch (error) {
+    console.error("Restore dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
 // GET - Display soft deleted datasets in recycle bin
 datasetMetaRoute.get("/recycle-bin", async (c) => {
   try {
