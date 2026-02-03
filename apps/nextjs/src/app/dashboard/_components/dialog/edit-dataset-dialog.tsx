@@ -5,7 +5,6 @@ import React, { useState } from "react";
 import { useEffect } from "react";
 import {
   UpdateDatasetMeta,
-  // DeleteDatasetMeta,
   getDatasetRefreshStatus,
   refreshNasaPowerDataset,
 } from "@/lib/fetch/files.fetch";
@@ -23,7 +22,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Icons } from "@/app/dashboard/_components/icons";
-import { ConfirmationDeleteModal } from "@/components/ui/modal/confirmation-delete-modal";
 import { ConfirmationUpdateModal } from "@/components/ui/modal/confirmation-update-modal";
 import toast from "react-hot-toast";
 
@@ -35,19 +33,22 @@ interface EditDatasetDialogProps {
     collectionName: string;
     description?: string;
     status: string;
-    isAPI?: boolean; // Add this
+    isAPI?: boolean;
     apiConfig?: {
       type: string;
       params?: any;
-    }; // Add this
+    };
     lastUpdated?: string;
   };
+  children: React.ReactNode;
 }
 
-export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
+export default function EditDatasetDialog({
+  dataset,
+  children,
+}: EditDatasetDialogProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isUpdateConfirmOpen, setIsUpdateConfirmOpen] = useState(false);
   const [refreshStatus, setRefreshStatus] = useState({
     canRefresh: false,
@@ -69,7 +70,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     if (open && dataset.isAPI && dataset.apiConfig?.type === "nasa-power") {
       setRefreshStatus((prev) => ({ ...prev, isLoading: true }));
 
-      getDatasetRefreshStatus(dataset._id)
+      getDatasetRefreshStatus(dataset._id, true) // Pass isAPI = true for NASA datasets
         .then((status) => {
           setRefreshStatus({
             canRefresh: status.canRefresh,
@@ -114,7 +115,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     },
     onSuccess: (result) => {
       toast.success("Dataset berhasil diperbarui");
-      queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+      queryClient.invalidateQueries({ queryKey: ["datasets"] });
       setOpen(false);
       setIsUpdateConfirmOpen(false);
     },
@@ -146,13 +147,13 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
       ) {
         toast(
           `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
-            data.data?.lastUpdated || dataset.lastUpdated || ""
+            data.data?.lastUpdated || dataset.lastUpdated || "",
           ).toLocaleDateString("id-ID")}`,
           {
             duration: 5000,
             icon: "ℹ️",
             position: "bottom-right",
-          }
+          },
         );
       } else {
         toast.success(
@@ -164,7 +165,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
           {
             duration: 5000,
             position: "bottom-right",
-          }
+          },
         );
       }
 
@@ -177,7 +178,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
         isLoading: false,
       });
 
-      queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+      queryClient.invalidateQueries({ queryKey: ["datasets"] });
       // Don't close dialog, let user see the result
     },
     onError: (error: any) => {
@@ -190,13 +191,13 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
       ) {
         toast(
           `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
-            refreshStatus.lastRecordDate || dataset.lastUpdated || ""
+            refreshStatus.lastRecordDate || dataset.lastUpdated || "",
           ).toLocaleDateString("id-ID")}`,
           {
             duration: 5000,
             icon: "ℹ️",
             position: "bottom-right",
-          }
+          },
         );
 
         // Update refresh status
@@ -216,33 +217,6 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     },
   });
 
-  // Mutation delete
-  // const { mutate: deleteDataset, isPending: isDeleting } = useMutation({
-  //   mutationKey: ["delete-dataset", dataset.collectionName], // Update key juga
-  //   mutationFn: () => {
-  //     if (!dataset?.collectionName) {
-  //       throw new Error("Collection name is missing");
-  //     }
-  //     return DeleteDatasetMeta(dataset.collectionName);
-  //   },
-  //   onSuccess: () => {
-  //     toast.success(`Dataset "${dataset.name}" telah dihapus.`);
-  //     queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
-  //     setOpen(false);
-  //     setIsDeleteConfirmOpen(false);
-  //   },
-  //   onError: (error: any) => {
-  //     console.error("Delete error:", error);
-  //     const errorMessage =
-  //       error?.response?.data?.message || "Gagal menghapus dataset";
-  //     toast.error(errorMessage);
-  //     setIsDeleteConfirmOpen(false);
-  //   },
-  // });
-  const handleDeleteClick = () => {
-    setIsDeleteConfirmOpen(true);
-  };
-
   // funtion handle refresh
   const handleRefreshClick = () => {
     // Prevent refresh if status check is still loading
@@ -258,23 +232,19 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
     if (!refreshStatus.canRefresh) {
       toast(
         `Dataset sudah memiliki data terbaru\nData terakhir: ${new Date(
-          refreshStatus.lastRecordDate || dataset.lastUpdated || ""
+          refreshStatus.lastRecordDate || dataset.lastUpdated || "",
         ).toLocaleDateString("id-ID")}`,
         {
           duration: 5000,
           icon: "ℹ️",
           position: "bottom-right",
-        }
+        },
       );
       return;
     }
 
     refreshDataset();
   };
-
-  // const handleConfirmDelete = () => {
-  //   deleteDataset();
-  // };
 
   const handleSubmitClick = (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,21 +259,12 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button
-            className="group/menu flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-all duration-200 hover:bg-black hover:scale-110"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Icons.menu className="h-5 w-5 text-gray-600 transition-colors duration-200 group-hover/menu:text-white" />
-          </Button>
-        </DialogTrigger>
+        <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
           {" "}
           <DialogHeader>
             <DialogTitle>Edit Dataset</DialogTitle>
-            <DialogDescription>
-              Ubah metadata dataset atau hapus dataset.
-            </DialogDescription>
+            <DialogDescription>Ubah metadata dataset.</DialogDescription>
           </DialogHeader>
           {/* Main form */}
           <form onSubmit={handleSubmitClick} className="space-y-4">
@@ -411,7 +372,7 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                           <span className="text-gray-500">
                             ✓ Up-to-date:{" "}
                             {new Date(
-                              dataset.lastUpdated || ""
+                              dataset.lastUpdated || "",
                             ).toLocaleDateString("id-ID", {
                               day: "numeric",
                               month: "short",
@@ -443,27 +404,14 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
                     {isRefreshing
                       ? "Memperbarui data..."
                       : refreshStatus.canRefresh
-                      ? `Refresh Data (${refreshStatus.daysSinceLastRecord} hari)`
-                      : "Data Terbaru"}
+                        ? `Refresh Data (${refreshStatus.daysSinceLastRecord} hari)`
+                        : "Data Terbaru"}
                   </Button>
                 </div>
               )}
 
               {/* Bottom Action Buttons */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                {/* Delete Button - Left */}
-                {/* <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={handleDeleteClick}
-                  disabled={isDeleting}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
-                  size="sm"
-                >
-                  <Icons.trash className="h-4 w-4" />
-                  {isDeleting ? "Menghapus..." : "Hapus"}
-                </Button> */}
-
                 {/* Cancel & Save Buttons - Right */}
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <DialogClose asChild>
@@ -495,15 +443,6 @@ export default function EditDatasetDialog({ dataset }: EditDatasetDialogProps) {
           </form>
         </DialogContent>
       </Dialog>
-      {/* Delete Confirmation Modal */}
-      {/* <ConfirmationDeleteModal
-        isOpen={isDeleteConfirmOpen}
-        setIsOpen={setIsDeleteConfirmOpen}
-        onConfirm={handleConfirmDelete}
-        datasetName={dataset.name}
-        collectionName={dataset.collectionName}
-        isDeleting={isDeleting}
-      /> */}
 
       {/* Update Confirmation Modal */}
       <ConfirmationUpdateModal

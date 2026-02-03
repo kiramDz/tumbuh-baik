@@ -466,15 +466,17 @@ export const GetRecycleBinDatasets = async (page = 1, pageSize = 10) => {
 };
 export const SoftDeleteDataset = async (collectionName: string) => {
   try {
+    const baseUrl = getBaseUrl();
     const res = await axios.patch(
-      `/api/v1/dataset-meta/${collectionName}/delete`,
+      `${baseUrl}/api/v1/dataset-meta/${collectionName}/delete`,
     );
     return res.data.data;
   } catch (error) {
-    console.error("Soft delete dataset error:", error);
+    console.error("Soft delete dataset error", error);
     throw error;
   }
 };
+
 export const RestoreDataset = async (collectionName: string) => {
   try {
     const res = await axios.patch(
@@ -1060,16 +1062,17 @@ export const getDatasetStatusInfo = async (collectionName: string) => {
     throw error;
   }
 };
-
-// ENHANCED: Get single dataset refresh status (works for both API and non-API)
 export const getDatasetRefreshStatus = async (
   idOrCollectionName: string,
   isAPI: boolean = false,
 ) => {
   try {
     if (isAPI) {
-      // For NASA Power API datasets, get comprehensive refresh info
-      const response = await axios.get(`/api/v1/nasa-power/refreshable`);
+      // For NASA POWER API datasets, get refresh info
+      const baseUrl = getBaseUrl();
+      const response = await axios.get(
+        `${baseUrl}/api/v1/nasa-power/refreshable`,
+      );
       const datasets = response.data.data || [];
 
       const dataset = datasets.find(
@@ -1101,8 +1104,9 @@ export const getDatasetRefreshStatus = async (
       };
     } else {
       // For non-API datasets, use dataset-meta status endpoint
+      const baseUrl = getBaseUrl();
       const response = await axios.get(
-        `/api/v1/dataset-meta/${idOrCollectionName}/status`,
+        `${baseUrl}/api/v1/dataset-meta/${idOrCollectionName}/status`,
       );
       return response.data;
     }
@@ -1115,6 +1119,7 @@ export const getDatasetRefreshStatus = async (
     };
   }
 };
+
 export const UpdateDatasetMeta = async (
   _id: string,
   data: {
@@ -1128,11 +1133,16 @@ export const UpdateDatasetMeta = async (
   },
 ) => {
   try {
-    const res = await axios.put(`/api/v1/dataset-meta/${_id}`, data, {
-      headers: {
-        "Content-Type": "application/json",
+    const baseUrl = getBaseUrl();
+    const res = await axios.patch(
+      `${baseUrl}/api/v1/dataset-meta/${_id}`,
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
 
     console.log("API response:", res.data);
     return res.data.data;

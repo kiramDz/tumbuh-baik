@@ -189,6 +189,48 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     return c.json({ message: "Server error" }, 500);
   }
 });
+
+// PATCH - Update dataset metadata by ID or CollectionName
+datasetMetaRoute.patch("/:idOrCollectionName", async (c) => {
+  try {
+    await db();
+    const { idOrCollectionName } = c.req.param();
+    const updateData = await c.req.json();
+
+    let dataset;
+
+    // Check if it's an ObjectId or collectionName
+    if (idOrCollectionName.match(/^[0-9a-fA-F]{24}$/)) {
+      // It's an ObjectId
+      dataset = await DatasetMeta.findByIdAndUpdate(
+        idOrCollectionName,
+        updateData,
+        { new: true, runValidators: true }
+      ).lean();
+    } else {
+      // It's a collectionName
+      dataset = await DatasetMeta.findOneAndUpdate(
+        { collectionName: idOrCollectionName },
+        updateData,
+        { new: true, runValidators: true }
+      ).lean();
+    }
+
+    if (!dataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
+    return c.json({
+      message: "Dataset updated successfully",
+      data: dataset,
+    });
+  } catch (error) {
+    console.error("Update dataset meta error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
 // DELETE - Soft delete dataset (move to recycle bin)
 datasetMetaRoute.patch("/:collectionName/delete", async (c) => {
   try {
@@ -265,6 +307,71 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
     return c.json({ message: "Dataset deleted successfully" }, 200);
   } catch (error) {
     console.error("Delete dataset error:", error);
+    const { message, status } = parseError(error);
+    return c.json({ message }, status);
+  }
+});
+
+// GET - Status dataset with endpoint
+datasetMetaRoute.get("/:collectionName/status", async (c) => {
+  try {
+    await db();
+    const { collectionName } = c.req.param();
+
+    const dataset = await DatasetMeta.findOne({ collectionName }).lean();
+
+    if (!dataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
+    const status = (dataset as any).status as string;
+
+    // Determine what operations are allowed to preprocess
+    const canPreprocess = ["raw", "latest"].includes(status);
+
+    const canRefresh = (dataset as any).isAPI
+      ? status !== "archived" // API datasets can refresh unless archived
+      : ["raw", "latest", "preprocessed", "validated"].includes(status); // Non-API datasets (manual refresh)
+
+    let hasCleanedCollection = false;
+    if (status === "preprocessed" || status === "validated") {
+      try {
+        const cleanedCollectionName = `${collectionName}_cleaned`;
+        const CleanedModel =
+          mongoose.models[cleanedCollectionName] ||
+          mongoose.model(
+            cleanedCollectionName,
+            new mongoose.Schema({}, { strict: false }),
+            cleanedCollectionName,
+          );
+
+        const count = await CleanedModel.countDocuments().limit(1);
+        hasCleanedCollection = count > 0;
+      } catch {
+        hasCleanedCollection = false;
+      }
+    }
+    return c.json({
+      collectionName,
+      status,
+      isAPI: (dataset as any).IsAPI,
+      canPreprocess,
+      hasCleanedCollection,
+      operations: {
+        preprocessing: canPreprocess
+          ? "allowed"
+          : `not allowed - status is ${status}`,
+        refresh: canRefresh
+          ? (dataset as any).isAPI
+            ? "allowed via NASA Power refresh"
+            : "manual refresh (to be implemented)"
+          : (dataset as any).isAPI
+            ? `not allowed - status is ${status}`
+            : `not allowed - status is ${status}`,
+      },
+    });
+  } catch (error) {
+    console.error("Get dataset status error:", error);
     const { message, status } = parseError(error);
     return c.json({ message }, status);
   }

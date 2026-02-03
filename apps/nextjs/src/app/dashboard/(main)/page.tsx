@@ -72,6 +72,7 @@ export default function Page() {
                 <DashboardCard
                   key={dataset.collectionName}
                   collectionName={dataset.collectionName}
+                  dataset={dataset}
                   href={`/dashboard/data/${dataset.collectionName}`}
                   title={dataset.name}
                   description={

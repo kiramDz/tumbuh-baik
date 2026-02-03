@@ -9,8 +9,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SoftDeleteDataset } from "@/lib/fetch/files.fetch";
 import { useQueryClient } from "@tanstack/react-query";
+import EditDatasetDialog from "./dialog/edit-dataset-dialog";
+import { SoftDeleteDataset } from "@/lib/fetch/files.fetch";
 
 interface DashboardCardProps {
   href: string;
@@ -18,6 +19,7 @@ interface DashboardCardProps {
   title: string;
   description: string;
   collectionName: string;
+  dataset: any; // add dataset prop for edit dialog
 }
 
 const DashboardCard: React.FC<DashboardCardProps> = ({
@@ -26,6 +28,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
   title,
   description,
   collectionName,
+  dataset,
 }) => {
   const queryClient = useQueryClient();
   return (
@@ -44,12 +47,17 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <EditDatasetDialog dataset={dataset}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    Edit
+                  </DropdownMenuItem>
+                </EditDatasetDialog>
                 <DropdownMenuItem
                   onClick={async () => {
                     try {
                       await SoftDeleteDataset(collectionName);
                       console.log("Soft deleted:", collectionName);
-                      queryClient.invalidateQueries({ queryKey: ["datasets"] }); // ✅ refresh data
+                      queryClient.invalidateQueries({ queryKey: ["datasets"] });
                     } catch (err) {
                       console.error("Failed to soft delete:", err);
                     }

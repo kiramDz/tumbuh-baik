@@ -214,7 +214,7 @@ export default function AddDatasetDialog() {
     },
     onSuccess: () => {
       toast.success(`Dataset ${uploadForm.name} berhasil ditambahkan!`);
-      queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+      queryClient.invalidateQueries({ queryKey: ["datasets"] });
       resetForm();
     },
     onError: (error: Error & { response?: { data?: { message?: string } } }) => {
@@ -280,7 +280,7 @@ export default function AddDatasetDialog() {
             },
             {
               onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+                queryClient.invalidateQueries({ queryKey: ["datasets"] });
                 resetForm();
                 resolve("success");
               },
@@ -318,7 +318,7 @@ export default function AddDatasetDialog() {
           },
           {
             onSuccess: () => {
-              queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+              queryClient.invalidateQueries({ queryKey: ["datasets"] });
               resetForm();
               resolve("success");
             },
@@ -428,7 +428,7 @@ export default function AddDatasetDialog() {
               parameters: values.parameters,
             },
           });
-          queryClient.invalidateQueries({ queryKey: ["dataset-meta"] });
+          queryClient.invalidateQueries({ queryKey: ["datasets"] });
           resetForm();
           setSaveLoading(false);
           resolve("success");
