@@ -8,7 +8,6 @@ from jobs.run_lstm import run_lstm_from_config
 from bson import ObjectId
 import json
 from bson.json_util import dumps
-import os
 import requests
 from dotenv import load_dotenv
 from datetime import datetime
@@ -22,8 +21,6 @@ import time
 from typing import Dict, Any
 from preprocessing.buoys.preprocessing_buoys import (
     DataValidator,
-    MongoDataLoader,
-    QualityFilter,
     BuoyPreprocessor,
     MongoDataSaver,
     PreprocessingError
@@ -31,15 +28,12 @@ from preprocessing.buoys.preprocessing_buoys import (
 from preprocessing.nasa.preprocessing_nasa import (
     NasaPreprocessor,
     NasaDataValidator,
-    NasaDataLoader,
-    NasaDataSaver,
     NasaPreprocessingError,
 )
-from preprocessing.bmkg.preprocessing_bmkg import (
+
+from preprocessing.bmkg.preprocessing_bmkg_new import ( 
     BmkgPreprocessor,
     BmkgDataValidator,
-    BmkgDataSaver,
-    BmkgDataLoader, 
     BmkgPreprocessingError,
 )
 

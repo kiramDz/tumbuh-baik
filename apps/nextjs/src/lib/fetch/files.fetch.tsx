@@ -479,8 +479,9 @@ export const SoftDeleteDataset = async (collectionName: string) => {
 
 export const RestoreDataset = async (collectionName: string) => {
   try {
+    const baseUrl = getBaseUrl();
     const res = await axios.patch(
-      `/api/v1/dataset-meta/${collectionName}/restore`,
+      `${baseUrl}/api/v1/dataset-meta/${collectionName}/restore`,
     );
     return res.data.data;
   } catch (error) {
@@ -490,7 +491,10 @@ export const RestoreDataset = async (collectionName: string) => {
 };
 export const PermanentDeleteDataset = async (collectionName: string) => {
   try {
-    const res = await axios.delete(`/api/v1/dataset-meta/${collectionName}`);
+    const baseUrl = getBaseUrl();
+    const res = await axios.delete(
+      `${baseUrl}/api/v1/dataset-meta/${collectionName}`,
+    );
     return res.data;
   } catch (error) {
     console.error("Permanent delete dataset error:", error);

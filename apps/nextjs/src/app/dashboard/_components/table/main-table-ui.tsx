@@ -74,14 +74,16 @@ export function MainTableUI<TData, TValue>({
   isLoading,
 }: DataTableProps<TData, TValue>) {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    [],
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
-  const [isPreprocessingModalOpen, setIsPreprocessingModalOpen] = useState(false);
+  const [isPreprocessingModalOpen, setIsPreprocessingModalOpen] =
+    useState(false);
 
-  const canPreprocess = preprocessing?.isNasaDataset || preprocessing?.isBmkgDataset;
+  const canPreprocess =
+    preprocessing?.isNasaDataset || preprocessing?.isBmkgDataset;
 
   const getPreprocessingButtonText = () => {
     if (preprocessing?.isNasaDataset) return "Preprocess NASA";
@@ -159,7 +161,8 @@ export function MainTableUI<TData, TValue>({
   const handlePreprocessingSuccess = (result: any) => {
     toast.success(
       `🎉 Preprocessing Completed! Successfully processed ${result.recordCount?.toLocaleString()} records. Quality: ${
-        result.preprocessing_report?.quality_metrics?.completeness_percentage || 100
+        result.preprocessing_report?.quality_metrics?.completeness_percentage ||
+        100
       }%`,
       {
         duration: 5000,
@@ -168,7 +171,7 @@ export function MainTableUI<TData, TValue>({
           background: "#10B981",
           color: "#fff",
         },
-      }
+      },
     );
 
     setTimeout(() => {
@@ -261,7 +264,10 @@ export function MainTableUI<TData, TValue>({
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id} className="bg-muted/50 hover:bg-muted/50">
+                  <TableRow
+                    key={headerGroup.id}
+                    className="bg-muted/50 hover:bg-muted/50"
+                  >
                     {headerGroup.headers.map((header) => (
                       <TableHead
                         key={header.id}
@@ -271,7 +277,7 @@ export function MainTableUI<TData, TValue>({
                           ? null
                           : flexRender(
                               header.column.columnDef.header,
-                              header.getContext()
+                              header.getContext(),
                             )}
                       </TableHead>
                     ))}
@@ -284,7 +290,9 @@ export function MainTableUI<TData, TValue>({
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
-                      className={index % 2 === 0 ? "bg-background" : "bg-muted/20"}
+                      className={
+                        index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                      }
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell
@@ -293,7 +301,7 @@ export function MainTableUI<TData, TValue>({
                         >
                           {flexRender(
                             cell.column.columnDef.cell,
-                            cell.getContext()
+                            cell.getContext(),
                           )}
                         </TableCell>
                       ))}
@@ -301,18 +309,12 @@ export function MainTableUI<TData, TValue>({
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-48"
-                    >
+                    <TableCell colSpan={columns.length} className="h-48">
                       <div className="flex flex-col items-center justify-center text-center">
                         <div className="p-3 rounded-full bg-muted mb-3">
                           <Database className="w-5 h-5 text-muted-foreground" />
                         </div>
                         <p className="font-medium">Tidak ada data</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Data yang dicari tidak ditemukan
-                        </p>
                       </div>
                     </TableCell>
                   </TableRow>
