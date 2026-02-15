@@ -468,7 +468,7 @@ class BmkgDataSaver:
                 logger.info("Dropped '__v' column")
             
             # Drop temporary preprocessing columns
-            temp_columns = ['Season', 'is_RR_missing', 'month', 
+            temp_columns = ['Season', 'is_RR_missing', 
                            'Month', 'day_of_year', 'max_daylight']
             columns_to_drop = [
                 col for col in temp_columns 
@@ -2217,19 +2217,25 @@ class BmkgPreprocessor:
         # generate summary statistics
         self._generate_quality_summary(validation_results)
         logger.info(f"Quality validation completed for {len(validation_results)}")
-        
+    
     def _align_time_series(
         self,
         original_df: pd.DataFrame,
         processed_df: pd.DataFrame,
         param: str
-    ) -> tuple:
+    )-> tuple:
         """
-        Align time series on common dates for GCV evaluation
+        Align time series on common dates for gcv evaluation
+        
+        Conditional reference based on imputed classification
+        - Edge case handling for sparse rain months
+        - Outlier-resistant median calculation
         
         Strategy:
         - For originally valid values: Compare original vs processed
-        - For originally missing values: Use processed value vs seasonal reference
+        - For originally missing values (imputed):
+            * IF processed = 0 (dry) → reference = 0
+            * IF processed > 0 (rain) → reference = conditional median (rain days only)
         
         This evaluates BOTH preservation and imputation quality.
         """
@@ -2237,7 +2243,7 @@ class BmkgPreprocessor:
             # Ensure both DataFrames have Date as index
             if 'Date' in original_df.columns:
                 original_df = original_df.set_index('Date')
-            
+
             if 'Date' in processed_df.columns:
                 processed_df = processed_df.set_index('Date')
             
@@ -2251,14 +2257,11 @@ class BmkgPreprocessor:
             if len(common_idx) == 0:
                 logger.warning(f"No common dates for {param}")
                 return None, None
-            
-            # Extract aligned values
+
+            # Extract aligned series
             original_aligned = original.loc[common_idx]
             processed_aligned = processed.loc[common_idx]
             
-            # ==========================================
-            # KEY CHANGE: Build comparison arrays
-            # ==========================================
             comparison_original = []
             comparison_processed = []
             
@@ -2271,26 +2274,32 @@ class BmkgPreprocessor:
                     continue
                 
                 if pd.notna(orig_val):
-                    # Case 1: Original value exists → direct comparison
+                    # CASE 1: Original value exists
+                    # Direct comparison - preserve original vs processed
                     comparison_original.append(orig_val)
                     comparison_processed.append(proc_val)
                 else:
-                    # Case 2: Original missing (imputed) → use seasonal reference
+                    # CASE 2: Original missing (imputed value)
                     if param == 'RR':
-                        # Special rainfall handling - probability-weighted expected value
-                        expected_ref = self._get_rainfall_expected_reference(original_df, idx)
+                        # RAINFALL: Conditional reference based on classification
+                        if proc_val == 0:
+                            # Classified as dry day → reference = 0
+                            reference = 0.0
+                        else:
+                            # Classified as rain day → conditional median
+                            reference = self._get_rainfall_conditional_median(
+                                original_df, idx
+                            )
                     else:
-                        # Standard seasonal median for other parameters
-                        month = idx.month
-                        expected_ref = original[
-                            (original.index.month == month) & 
-                            original.notna()
-                        ].median()
+                        # OTHER PARAMETERS: Standard seasonal median
+                        reference = self._get_seasonal_median_reference(
+                            original_df, idx, param
+                        )
                     
-                    if pd.notna(expected_ref):
-                        comparison_original.append(expected_ref)
+                    # Only add to comparison if reference is valid
+                    if pd.notna(reference):
+                        comparison_original.append(reference)
                         comparison_processed.append(proc_val)
-                    # If no seasonal reference, skip this point
             
             if len(comparison_original) == 0:
                 logger.warning(f"No valid comparison points for {param}")
@@ -2299,90 +2308,215 @@ class BmkgPreprocessor:
             original_final = np.array(comparison_original)
             processed_final = np.array(comparison_processed)
             
-            # Count how many were imputed
+            # Count preserved vs imputed
             valid_count = (original_aligned.notna() & processed_aligned.notna()).sum()
             imputed_count = len(comparison_original) - valid_count
             
             logger.debug(
                 f"{param}: {len(original_final)} comparison points "
-                f"({valid_count} preserved, {imputed_count} imputed vs seasonal ref)"
+                f"({valid_count} preserved, {imputed_count} imputed vs reference)"
             )
             
             return original_final, processed_final
-            
         except Exception as e:
             logger.error(f"Error aligning time series for {param}: {str(e)}")
+            logger.error(traceback.format_exc())
             return None, None
     
-    def _get_rainfall_expected_reference(
-        self, 
-        original_df: pd.DataFrame, 
-        idx) -> float:
+    def _get_rainfall_conditional_median(
+        self,
+        original_df: pd.DataFrame,
+        idx
+    )-> float:
         """
-        Calculate probability-weighted expected value for rainfall reference
+        Get conditional median rainfall reference (rain days only):
+        - IQR-filtered median (outlier-resistant)
+        - Priority cascade: Monthly → Seasonal → Overall
+        - Edge case handling for sparse data
         
-        Expected Value = P(rain) × E[amount | rain] + P(dry) × 0
-                    = P(rain) × E[amount | rain]
+        Args:
+            original_df: Original dataset
+            idx: Date index for reference calculation
+        
+        Returns:
+            Conditional median rainfall amount (mm)
         """
         
         try:
             month = idx.month
             season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
-            # Get monthly rain statistics from valid data
-            monthly_valid = original_df[
+            # PRIORITY 1: Monthly conditional median
+            monthly_rain = original_df[
                 (original_df.index.month == month) & 
-                original_df['RR'].notna()
+                (original_df['RR'] > 0) &
+                (original_df['RR'].notna())
             ]['RR']
             
-            if len(monthly_valid) >= 5:
-                # Calculate rain probability
-                rain_days = (monthly_valid > 0).sum()
-                total_days = len(monthly_valid)
-                rain_prob = rain_days / total_days
+            if len(monthly_rain) >= 5:
+                # Enough data - use IQR-filtered median
+                reference = self._calculate_robust_median(monthly_rain)
                 
-                # Calculate expected amount given rain
-                rain_amounts = monthly_valid[monthly_valid > 0]
-                expected_amount_given_rain = rain_amounts.median() if len(rain_amounts) > 0 else 0
+                if pd.notna(reference):
+                    logger.debug(f"RR reference for {idx}: Monthly median = {reference:.2f}mm")
+                    return reference
+            
+            # PRIORITY 2: Seasonal conditional median
+            seasonal_months = (
+                self.season_config['wet_months'] if season == 'Wet' 
+                else self.season_config['dry_months']
+            )
+            
+            seasonal_rain = original_df[
+                (original_df.index.month.isin(seasonal_months)) &
+                (original_df['RR'] > 0) &
+                (original_df['RR'].notna())
+            ]['RR']
+            
+            if len(seasonal_rain) >= 10:
+                reference = self._calculate_robust_median(seasonal_rain)
                 
-                # Expected value = P(rain) × E[amount|rain]
-                expected_reference = rain_prob * expected_amount_given_rain
+                if pd.notna(reference):
+                    logger.debug(f"RR reference for {idx}: Seasonal median = {reference:.2f}mm")
+                    return reference
+            
+            # PRIORITY 3: Overall conditional median
+            overall_rain = original_df[
+                (original_df['RR'] > 0) &
+                (original_df['RR'].notna())
+            ]['RR']
+            
+            if len(overall_rain) >= 20:
+                reference = self._calculate_robust_median(overall_rain)
+                
+                if pd.notna(reference):
+                    logger.debug(f"RR reference for {idx}: Overall median = {reference:.2f}mm")
+                    return reference
+            
+            # PRIORITY 4: Hardcoded fallback
+            if season == 'Wet':
+                fallback = 8.0  # Wet season typical rain day
             else:
-                # Fallback to seasonal probability
-                if season == 'Wet':
-                    rain_prob = 0.65
-                else:
-                    rain_prob = 0.15
-                
-                # Use overall median for amounts
-                seasonal_amounts = original_df[
-                    (original_df.index.month.isin(
-                        self.season_config['wet_months'] if season == 'Wet' 
-                        else self.season_config['dry_months']
-                    )) &
-                    (original_df['RR'] > 0)
-                ]['RR']
-                
-                expected_amount = seasonal_amounts.median() if len(seasonal_amounts) > 0 else 5.0
-                expected_reference = rain_prob * expected_amount
+                fallback = 2.0  # Dry season typical rain day
             
-            return expected_reference
-            
+            logger.debug(f"RR reference for {idx}: Fallback = {fallback}mm (insufficient data)")
+            return fallback
+
         except Exception as e:
             logger.debug(f"Error calculating rainfall reference for {idx}: {str(e)}")
-            return 1.2
+            # Emergency fallback
+            return 5.0
+    
+    def _calculate_robust_median(
+        self,
+        data: pd.Series
+    )-> float:
+        """
+        Calculate outlier-resistant median using IQR filtering
+        - Removes extreme outliers (>Q3 + 1.5*IQR)
+        - Falls back to standard median if insufficient data
         
+        Args:
+            data: Pandas Series of values
+        
+        Returns:
+            Robust median value
+        """
+        try:
+            if len(data) < 3:
+                return data.median()
+            
+            # Calculate IQR
+            Q1 = data.quantile(0.25)
+            Q3 = data.quantile(0.75)
+            IQR = Q3 - Q1
+            
+            # Filter outliers
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            filtered_data = data[
+                (data >= lower_bound) & 
+                (data <= upper_bound)
+            ]
+            
+            if len(filtered_data) >= 3:
+                return filtered_data.median()
+            else:
+                # Fallback to standard median
+                return data.median()
+            
+        except Exception as e:
+            logger.debug(f"Error calculating robust median: {str(e)}")
+            return data.median()
+    
+    def _get_seasonal_median_reference(
+        self,
+        original_df: pd.DataFrame,
+        idx,
+        param: str
+    ) -> float:
+        """
+        Get seasonal median reference for non-rainfall parameters
+        
+        Args:
+            original_df: Original dataset
+            idx: Date index
+            param: Parameter name
+        
+        Returns:
+            Seasonal median value
+        """
+        try:
+            month = idx.month
+            
+            # Monthly median
+            monthly_data = original_df[
+                (original_df.index.month == month) &
+                original_df[param].notna()
+            ][param]
+            
+            if len(monthly_data) >= 5:
+                return monthly_data.median()
+            
+            # Seasonal fallback
+            season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
+            seasonal_months = (
+                self.season_config['wet_months'] if season == 'Wet'
+                else self.season_config['dry_months']
+            )
+            
+            seasonal_data = original_df[
+                (original_df.index.month.isin(seasonal_months)) &
+                original_df[param].notna()
+            ][param]
+            
+            if len(seasonal_data) >= 10:
+                return seasonal_data.median()
+            
+            # Overall median
+            return original_df[param].median()
+            
+        except Exception as e:
+            logger.debug(f"Error getting seasonal reference for {param}: {str(e)}")
+            return np.nan
+    
     def _calculate_gcv_score(
         self,
         original: np.ndarray,
         processed: np.ndarray,
         param: str
-    )-> float:
+    ) -> float:
         """ 
-        Calculate Generalized Cross-Validation score
+        Calculate Generalized Cross-Validation score with variance normalization
         
-        GCV Formula: MSE / (1 - EDF/n)²
-
+        - Variance normalization for scale-independent comparison
+        - Zero variance handling
+        - EDF bounds checking
+        
+        GCV Formula: normalized_MSE / (1 - EDF/n)²
+        
         Where:
+        - normalized_MSE = MSE / param_variance
         - MSE = Mean Squared Error between original and processed
         - EDF = Effective Degrees of Freedom (depends on method)
         - n = Number of data points
@@ -2392,54 +2526,136 @@ class BmkgPreprocessor:
         
         n = len(original)
         
-        # calculate MSE (mean squared error)
+        
+        # STEP 1: Calculate MSE
         mse = np.mean((original - processed) ** 2)
         
-        # Estimate Effective Degrees of Freedom
-        # Check what preprocessing was applied
+        # STEP 2: PHASE 1 - Variance Normalization
+        param_variance = np.var(original)
+        
+        # Edge case: Zero or very small variance
+        if param_variance < 0.01:
+            logger.warning(
+                f"{param}: Variance={param_variance:.6f} too small, "
+                f"using non-normalized MSE"
+            )
+            normalized_mse = mse
+        else:
+            # Normalize MSE by parameter variance
+            normalized_mse = mse / param_variance
+            logger.debug(
+                f"{param}: MSE={mse:.4f}, Variance={param_variance:.4f}, "
+                f"Normalized MSE={normalized_mse:.4f}"
+            )
+    
+        # STEP 3: Estimate EDF
         imputation_stats = self.preprocessing_report.get("imputation", {})
         param_method = imputation_stats.get(param, {}).get("method", "unknown")
         
         # Estimate EDF based on method used
         if "stl" in param_method.lower():
-            # STL decomposition has higher complexity
-            edf = max(7, n / 50)  # Adaptive based on data size
-        
+            edf = max(7, n / 50)
         elif "spline" in param_method.lower() or "cubic" in param_method.lower():
-            # Cubic spline interpolation
-            edf = 4  # 4th order polynomial
-        
+            edf = 4
         elif "linear" in param_method.lower():
-            # Linear interpolation
             edf = 2
-        
-        elif "context_aware" in param_method.lower():
-            # Context-aware (average of neighbors)
+        elif "context_aware" in param_method.lower() or "two_stage" in param_method.lower():
             edf = 2
-        
         elif "circular" in param_method.lower():
-            # Circular mean
             edf = 1
-        
         elif "mode" in param_method.lower() or "ffill" in param_method.lower():
-            # Mode or forward fill
             edf = 1
-        
         else:
-            # Conservative estimate
             edf = 3
             logger.debug(f"Unknown method '{param_method}' for {param}, using EDF=3")
         
         # Ensure EDF is reasonable
         edf = max(1.0, min(edf, n / 3.0))
         
-        # Calculate GCV
+        
+        # STEP 4: Calculate GCV with safety checks
         denominator = (1.0 - edf / n) ** 2
         denominator = max(denominator, 0.01)  # Prevent division issues
         
-        gcv = mse / denominator
+        gcv = normalized_mse / denominator
+        
+        logger.debug(
+            f"{param}: n={n}, EDF={edf:.1f}, "
+            f"normalized_MSE={normalized_mse:.4f}, GCV={gcv:.4f}"
+        )
         
         return gcv
+        
+
+    # def _calculate_gcv_score(
+    #     self,
+    #     original: np.ndarray,
+    #     processed: np.ndarray,
+    #     param: str
+    # )-> float:
+    #     """ 
+    #     Calculate Generalized Cross-Validation score
+        
+    #     GCV Formula: MSE / (1 - EDF/n)²
+
+    #     Where:
+    #     - MSE = Mean Squared Error between original and processed
+    #     - EDF = Effective Degrees of Freedom (depends on method)
+    #     - n = Number of data points
+        
+    #     Lower GCV = Better preprocessing quality
+    #     """
+        
+    #     n = len(original)
+        
+    #     # calculate MSE (mean squared error)
+    #     mse = np.mean((original - processed) ** 2)
+        
+    #     # Estimate Effective Degrees of Freedom
+    #     # Check what preprocessing was applied
+    #     imputation_stats = self.preprocessing_report.get("imputation", {})
+    #     param_method = imputation_stats.get(param, {}).get("method", "unknown")
+        
+    #     # Estimate EDF based on method used
+    #     if "stl" in param_method.lower():
+    #         # STL decomposition has higher complexity
+    #         edf = max(7, n / 50)  # Adaptive based on data size
+        
+    #     elif "spline" in param_method.lower() or "cubic" in param_method.lower():
+    #         # Cubic spline interpolation
+    #         edf = 4  # 4th order polynomial
+        
+    #     elif "linear" in param_method.lower():
+    #         # Linear interpolation
+    #         edf = 2
+        
+    #     elif "context_aware" in param_method.lower():
+    #         # Context-aware (average of neighbors)
+    #         edf = 2
+        
+    #     elif "circular" in param_method.lower():
+    #         # Circular mean
+    #         edf = 1
+        
+    #     elif "mode" in param_method.lower() or "ffill" in param_method.lower():
+    #         # Mode or forward fill
+    #         edf = 1
+        
+    #     else:
+    #         # Conservative estimate
+    #         edf = 3
+    #         logger.debug(f"Unknown method '{param_method}' for {param}, using EDF=3")
+        
+    #     # Ensure EDF is reasonable
+    #     edf = max(1.0, min(edf, n / 3.0))
+        
+    #     # Calculate GCV
+    #     denominator = (1.0 - edf / n) ** 2
+    #     denominator = max(denominator, 0.01)  # Prevent division issues
+        
+    #     gcv = mse / denominator
+        
+    #     return gcv
     
     def _calculate_trend_preservation_pct(
         self,
