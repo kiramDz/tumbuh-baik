@@ -460,9 +460,15 @@ class BmkgDataSaver:
             # Prepare DataFrame for insertion
             df_to_save = preprocessed_data.copy()
             
+
+            # KEEP Date as column (reset index)
+            if df_to_save.index.name == 'Date' or 'Date' not in df_to_save.columns:
+                df_to_save = df_to_save.reset_index()  # Convert Date index to column
+
             # Remove MongoDB internal fields
             if '_id' in df_to_save.columns:
                 df_to_save = df_to_save.drop('_id', axis=1)
+
             if '__v' in df_to_save.columns:
                 df_to_save = df_to_save.drop('__v', axis=1)
                 logger.info("Dropped '__v' column")
