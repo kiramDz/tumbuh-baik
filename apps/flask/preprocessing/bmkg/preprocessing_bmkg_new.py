@@ -753,8 +753,13 @@ class BmkgPreprocessor:
             df = self.loader.load_data(self.db, self.collection_name)
             original_record_count = len(df)
             
-            # Store original data 
-            self.original_data = df.copy()
+            # Don't save original data here (has RangeIndex)
+            # self.original_data = df.copy()  # ❌ Index is RangeIndex, not DatetimeIndex
+            
+            # NEW CODE:
+            # self.original_data will be set in _apply_preprocessing() 
+            # after _prepare_temporal_features() runs (DatetimeIndex)
+            self.original_data = None  # Initialize as None
             
             logger.info(f"Loaded {original_record_count} records")
                 
@@ -855,19 +860,30 @@ class BmkgPreprocessor:
         5. Impute missing values
         6. Apply physical constraints
         """
-
         logger.info("Starting preprocessing steps")
-        
         processed_df = df.copy()
         
         # Step 1: Prepare temporal features
-        logger.info("  [1/6] Preparing temporal features...")
         processed_df = self._prepare_temporal_features(processed_df)
-        
+
         # Step 2: Replace fill values
-        logger.info("  [2/6] Replacing fill values...")
         processed_df = self._replace_fill_values(processed_df)
+
+        # Save original_data AFTER fill values replaced (8888/9999 → NaN)
+        # but BEFORE outlier handling and imputation
+        # Ensures GCV comparison uses clean original, not fill-value-corrupted data
+        cols_to_keep = [col for col in processed_df.columns 
+                        if col not in ['Season', 'Month', 'is_RR_missing']]
+        self.original_data = processed_df[cols_to_keep].copy()
+        logger.info(f"    Saved original data reference with DatetimeIndex (shape: {self.original_data.shape})")
         
+        # NOTE: self.original_data is now fixed - don't reassign it below!
+        # Remove or comment out this old assignment:
+        # if self.original_data is None:
+        #     cols_to_keep = [col for col in processed_df.columns 
+        #                     if col not in ['Season', 'Month']]
+        #     self.original_data = processed_df[cols_to_keep].copy()
+            
         # Step 3: Detect gaps
         if self.options.get("detect_gaps", True):
             logger.info("  [3/6] Detecting gaps...")
@@ -914,6 +930,7 @@ class BmkgPreprocessor:
         logger.info(f"    Temporal features added: Season, Month")
         
         return df
+    
     def _replace_fill_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """Replace BMKG fill values (8888, 9999) with NaN"""
         
@@ -1062,6 +1079,16 @@ class BmkgPreprocessor:
             min_val, max_val = self.valid_ranges[param]
             outliers_detected = 0
             outlier_mask = pd.Series(False, index=df.index)
+            
+            # Suspicious zero detection: FF_AVG=0 tapi FF_X>0
+            if param == 'FF_AVG' and 'FF_X' in df.columns:
+                suspicious_zero_mask = (
+                    (df['FF_AVG'] == 0.0) &
+                    (df['FF_X'] > 0) &
+                    df['FF_AVG'].notna()
+                )
+                outlier_mask |= suspicious_zero_mask
+                logger.info(f"    Detected {suspicious_zero_mask.sum()} suspicious FF_AVG zeros (FF_X>0 but FF_AVG=0)")
             
             # Method 1: IQR
             if "iqr" in methods:
@@ -1918,7 +1945,6 @@ class BmkgPreprocessor:
     def _impute_wind_speed(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Impute wind speed using two-tier seasonal imputation
-        
         FIX FOR FF_AVG GCV (3045 → 30-50):
         - Tier 1: Seasonal median + FF_X ratio adjustment
         - Tier 2: Keep zeros as real calm wind conditions
@@ -1929,19 +1955,15 @@ class BmkgPreprocessor:
         - Preserves physical relationship with FF_X
         - Robust to outliers (median-based)
         """
-        
-        logger.info("=" * 60)
         logger.info("FF_AVG TWO-TIER SEASONAL IMPUTATION")
-        logger.info("=" * 60)
-        
         # TIER 1: IMPUTE MISSING VALUES ONLY
+        missing_count = 0  # inisialisasi di luar agar accessible di bawah
         if 'FF_AVG' in df.columns and 'FF_X' in df.columns:
             missing_mask = df['FF_AVG'].isna()
             missing_count = missing_mask.sum()
             
             if missing_count > 0:
                 logger.info(f"Processing {missing_count} missing FF_AVG values")
-                
                 # Calculate monthly statistics for adjustment
                 monthly_stats = {}
                 for month in range(1, 13):
@@ -1950,15 +1972,13 @@ class BmkgPreprocessor:
                     month_ff_x = df.loc[month_mask & df['FF_X'].notna(), 'FF_X']
                     
                     if len(month_ff_avg) >= 3 and len(month_ff_x) >= 3:
-                        # Calculate median and ratio
                         ff_avg_median = month_ff_avg.median()
                         ff_x_mean = month_ff_x.mean()
                         
-                        # Calculate ratio (FF_AVG/FF_X)
                         if ff_x_mean > 0:
                             ratio = ff_avg_median / ff_x_mean
                         else:
-                            ratio = 0.35  # Default ratio
+                            ratio = 0.35
                         
                         monthly_stats[month] = {
                             'ff_avg_median': ff_avg_median,
@@ -1966,12 +1986,10 @@ class BmkgPreprocessor:
                             'ratio': ratio
                         }
                     else:
-                        # Fallback to seasonal average
                         monthly_stats[month] = None
                 
                 # Impute each missing value
                 imputed_count = 0
-                
                 for idx in df.index[missing_mask]:
                     month = idx.month
                     season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
@@ -1990,19 +2008,14 @@ class BmkgPreprocessor:
                     if len(seasonal_data) >= 5:
                         base_value = seasonal_data.median()
                     else:
-                        # Ultimate fallback
                         base_value = 1.5 if season == 'Wet' else 1.0
                     
                     # STEP 2: Adjust by FF_X if available
                     ff_x_current = df.loc[idx, 'FF_X']
                     
                     if pd.notna(ff_x_current) and ff_x_current > 0:
-                        # Use monthly statistics
                         if month in monthly_stats and monthly_stats[month]:
                             stats = monthly_stats[month]
-                            
-                            # Calculate adjusted value using ratio
-                            # adjusted = base × (current_ff_x / monthly_mean_ff_x)
                             ff_x_mean = stats['ff_x_mean']
                             ratio = stats['ratio']
                             
@@ -2012,23 +2025,21 @@ class BmkgPreprocessor:
                             else:
                                 adjusted_value = ff_x_current * ratio
                         else:
-                            # Fallback: use default ratio
                             adjusted_value = ff_x_current * 0.35
                         
                         # STEP 3: Apply physical constraint (FF_AVG ≤ FF_X)
                         final_value = min(adjusted_value, ff_x_current)
-                        
-                        # Apply reasonable bounds
                         final_value = max(0.5, min(final_value, 10.0))
                     else:
-                        # No FF_X available, use base value
                         final_value = base_value
                     
-                    # Assign imputed value
                     df.loc[idx, 'FF_AVG'] = round(final_value, 1)
                     imputed_count += 1
                 
+                # Cek sisa NaN setelah loop
+                remaining_nan = df['FF_AVG'].isna().sum()
                 logger.info(f"Imputed {imputed_count} FF_AVG values using seasonal median + FF_X ratio")
+                logger.info(f"Remaining NaN after imputation loop: {remaining_nan}")
             else:
                 logger.info("No missing FF_AVG values to impute")
                 
@@ -2039,44 +2050,35 @@ class BmkgPreprocessor:
             if ff_x_missing > 0:
                 logger.info(f"Imputing {ff_x_missing} missing FF_X values")
                 
-                # Use cubic spline for FF_X
                 df['FF_X'] = df['FF_X'].interpolate(
                     method='cubic', 
                     limit_direction='both'
                 )
-                
-                # Apply physical bounds
                 df['FF_X'] = df['FF_X'].clip(lower=0, upper=50)
                 
                 logger.info(f"Interpolated {ff_x_missing} FF_X values")
         
-        # STEP 3: POST-IMPUTATION SMOOTHING (7-day window)
+        # STEP 3: POST-IMPUTATION FALLBACK (ganti rolling → monthly median)
         if 'FF_AVG' in df.columns:
-            # Find consecutive sequences of imputed values
-            ff_avg_was_missing = df['FF_AVG'].isna()  # Should be False now
-            
-            # Apply light smoothing to reduce abrupt transitions
-            # Only if there were imputed values
-            if missing_count > 0:
-                # 7-day rolling mean with min_periods
-                smoothed = df['FF_AVG'].rolling(
-                    window=7, 
-                    center=True, 
-                    min_periods=3
-                ).mean()
+            remaining_nan_final = df['FF_AVG'].isna().sum()
+            if remaining_nan_final > 0:
+                logger.info(f"Applying monthly median fallback for {remaining_nan_final} remaining NaN")
                 
-                # Apply smoothing only to imputed regions
-                # (preserve original measurements)
-                # This is conservative - we only smooth new values
-                df['FF_AVG'] = df['FF_AVG'].fillna(smoothed)
+                for month in range(1, 13):
+                    month_mask = (df.index.month == month) & df['FF_AVG'].isna()
+                    if month_mask.sum() > 0:
+                        monthly_median = df[
+                            (df.index.month == month) & df['FF_AVG'].notna()
+                        ]['FF_AVG'].median()
+                        
+                        if pd.notna(monthly_median):
+                            df.loc[month_mask, 'FF_AVG'] = monthly_median
                 
-                logger.info("Applied 7-day smoothing to imputed sequences")
-        
-        logger.info("=" * 60)
-        
+                logger.info(f"Filled {remaining_nan_final} remaining NaN with monthly median fallback")
+            else:
+                logger.info("No remaining NaN after imputation loop - smoothing skipped")
         return df
-                
-   
+    
     def _impute_wind_direction(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Impute wind direction using circular mean
@@ -2357,28 +2359,66 @@ class BmkgPreprocessor:
                     )
                     self.preprocessing_report["warnings"].append(warning_msg)
                     logger.warning(f"{warning_msg}")
-                
+                    
                 elif quality_status == "fair":
                     logger.info(f"{param}: Fair quality - acceptable but not optimal")
-                # NEW: FF_AVG sample comparison
                 
-                if 'FF_AVG' in df.columns and self.original_data is not None:
-                    logger.info("FF_AVG SAMPLE COMPARISON (Original vs Processed)")
-                    logger.info(f"{'Date':<12} {'FF_X':>6} {'Original':>10} {'Processed':>10} {'Diff':>8} {'Status'}")
+                if param == 'FF_AVG' and 'FF_AVG' in df.columns and self.original_data is not None:
+                    logger.info("FF_AVG SAMPLE COMPARISON")
                     
-                    # Show 20 samples where original was 0.0
+                    # Debug: Check index types
+                    logger.info(f"original_data index type: {type(self.original_data.index)}")
+                    logger.info(f"processed df index type: {type(df.index)}")
+                    
+                    # Get samples where original was 0.0
                     zero_samples = self.original_data[self.original_data['FF_AVG'] == 0.0].head(20)
-                    for idx in zero_samples.index:
-                        if idx in df.index:
-                            ff_x = df.loc[idx, 'FF_X'] if 'FF_X' in df.columns else np.nan
-                            orig = self.original_data.loc[idx, 'FF_AVG']
-                            proc = df.loc[idx, 'FF_AVG']
-                            diff = proc - orig
-                            status = "SUSPICIOUS" if ff_x > 0 and orig == 0 else "OK"
-                            
-                            logger.info(f"{idx.strftime('%Y-%m-%d'):<12} {ff_x:>6.1f} {orig:>10.1f} {proc:>10.1f} {diff:>8.1f} {status}")
+                    logger.info(f"Found {len(zero_samples)} zero samples in original data")
                     
-                
+                    if len(zero_samples) > 0:
+                        # Print header
+                        logger.info(f"{'Date':<12} {'FF_X':>6} {'Original':>10} {'Processed':>10} {'Diff':>8} {'Status'}")
+                        
+                        # Iterate through samples
+                        matched_count = 0
+                        for idx in zero_samples.index:
+                            # FIX: Check if index exists in processed df
+                            if idx in df.index:
+                                matched_count += 1
+                                
+                                # Get values
+                                ff_x = df.loc[idx, 'FF_X'] if 'FF_X' in df.columns else np.nan
+                                orig = self.original_data.loc[idx, 'FF_AVG']
+                                proc = df.loc[idx, 'FF_AVG']
+                                diff = proc - orig
+                                
+                                # Determine status
+                                if pd.notna(ff_x) and ff_x > 0 and orig == 0:
+                                    status = "SUSPICIOUS"
+                                else:
+                                    status = "OK"
+                                
+                                # Format and log
+                                date_str = idx.strftime('%Y-%m-%d') if hasattr(idx, 'strftime') else str(idx)
+                                logger.info(
+                                    f"{date_str:<12} {ff_x:>6.1f} {orig:>10.1f} "
+                                    f"{proc:>10.1f} {diff:>8.1f} {status}"
+                                )
+                            else:
+                                # Debug: Index not found
+                                logger.debug(f"Index {idx} not found in processed df")
+                        
+                        logger.info(f"Displayed {matched_count}/{len(zero_samples)} samples")
+                        
+                        if matched_count == 0:
+                            logger.warning(
+                                "No matching indices found! "
+                                "This indicates index type mismatch between original_data and processed df."
+                            )
+                            logger.warning(f"original_data index sample: {self.original_data.index[:5].tolist()}")
+                            logger.warning(f"processed df index sample: {df.index[:5].tolist()}")
+                    else:
+                        logger.info("No FF_AVG = 0.0 values found in original data")
+                    
             except Exception as e:
                 logger.error(f"Error validating {param}: {str(e)}")
                 validation_results[param] = {
@@ -2676,91 +2716,6 @@ class BmkgPreprocessor:
             logger.debug(f"Error getting seasonal reference for {param}: {str(e)}")
             return np.nan
     
-    # def _calculate_gcv_score(
-    #     self,
-    #     original: np.ndarray,
-    #     processed: np.ndarray,
-    #     param: str
-    # ) -> float:
-    #     """ 
-    #     Calculate Generalized Cross-Validation score with variance normalization
-        
-    #     - Variance normalization for scale-independent comparison
-    #     - Zero variance handling
-    #     - EDF bounds checking
-        
-    #     GCV Formula: normalized_MSE / (1 - EDF/n)²
-        
-    #     Where:
-    #     - normalized_MSE = MSE / param_variance
-    #     - MSE = Mean Squared Error between original and processed
-    #     - EDF = Effective Degrees of Freedom (depends on method)
-    #     - n = Number of data points
-        
-    #     Lower GCV = Better preprocessing quality
-    #     """
-        
-    #     n = len(original)
-        
-    #     # STEP 1: Calculate MSE
-    #     mse = np.mean((original - processed) ** 2)
-        
-    #     # STEP 2: PHASE 1 - Variance Normalization
-    #     param_variance = np.var(original)
-        
-    #     # Edge case: Zero or very small variance
-    #     if param_variance < 0.01:
-    #         logger.warning(
-    #             f"{param}: Variance={param_variance:.6f} too small, "
-    #             f"using non-normalized MSE"
-    #         )
-    #         normalized_mse = mse
-    #     else:
-    #         # Normalize MSE by parameter variance
-    #         normalized_mse = mse / param_variance
-    #         logger.debug(
-    #             f"{param}: MSE={mse:.4f}, Variance={param_variance:.4f}, "
-    #             f"Normalized MSE={normalized_mse:.4f}"
-    #         )
-    
-    #     # STEP 3: Estimate EDF
-    #     imputation_stats = self.preprocessing_report.get("imputation", {})
-    #     param_method = imputation_stats.get(param, {}).get("method", "unknown")
-        
-    #     # Estimate EDF based on method used
-    #     if "stl" in param_method.lower():
-    #         edf = max(7, n / 50)
-    #     elif "spline" in param_method.lower() or "cubic" in param_method.lower():
-    #         edf = 4
-    #     elif "linear" in param_method.lower():
-    #         edf = 2
-    #     elif "context_aware" in param_method.lower() or "two_stage" in param_method.lower():
-    #         edf = 2
-    #     elif "circular" in param_method.lower():
-    #         edf = 1
-    #     elif "mode" in param_method.lower() or "ffill" in param_method.lower():
-    #         edf = 1
-    #     else:
-    #         edf = 3
-    #         logger.debug(f"Unknown method '{param_method}' for {param}, using EDF=3")
-        
-    #     # Ensure EDF is reasonable
-    #     edf = max(1.0, min(edf, n / 3.0))
-        
-        
-    #     # STEP 4: Calculate GCV with safety checks
-    #     denominator = (1.0 - edf / n) ** 2
-    #     denominator = max(denominator, 0.01)  # Prevent division issues
-        
-    #     gcv = normalized_mse / denominator
-        
-    #     logger.debug(
-    #         f"{param}: n={n}, EDF={edf:.1f}, "
-    #         f"normalized_MSE={normalized_mse:.4f}, GCV={gcv:.4f}"
-    #     )
-        
-    #     return gcv
-    
     def _calculate_gcv_score(
         self,
         original: np.ndarray,
@@ -2878,39 +2833,60 @@ class BmkgPreprocessor:
             
             gcv = adjusted_mse / denominator
             
-            # STEP 7: Enhanced logging for FF_AVG
-            if param == 'FF_AVG':
-                zero_count = (original == 0.0).sum()
-                valid_count = (original > 0).sum()
-                
-                logger.info("=" * 60)
-                logger.info("FF_AVG GCV CALCULATION (ADAPTIVE METHOD)")
-                logger.info("=" * 60)
-                logger.info(f"Sample size: {n}")
-                logger.info(f"Zeros: {zero_count} ({zero_count/n*100:.1f}%)")
-                logger.info(f"Valid (>0): {valid_count} ({valid_count/n*100:.1f}%)")
-                logger.info(f"Mean: {param_mean:.4f} m/s")
-                logger.info(f"Std Dev: {param_std:.4f} m/s")
-                logger.info(f"CV: {cv:.4f} ({cv*100:.1f}%)")
+            # STEP 7: Enhanced logging for SS
+            
+            if param == 'SS' or param == 'FF_AVG':
+                logger.info(f"{param} GCV DEBUG")
+                logger.info(f"original array sample: {original[:20]}")
+                logger.info(f"processed array sample: {processed[:20]}")
+                logger.info(f"Mean: {param_mean:.4f}")
+                logger.info(f"Std: {param_std:.4f}")
+                logger.info(f"Variance: {param_variance:.4f}")
+                logger.info(f"CV: {cv:.4f}")
                 logger.info(f"MSE (raw): {mse:.4f}")
-                
-                if zero_count > 0:
-                    mse_from_zeros = np.mean((processed[original == 0.0] - 0) ** 2)
-                    mse_from_valid = np.mean((processed[original > 0] - original[original > 0]) ** 2) if valid_count > 0 else 0
-                    logger.info(f"MSE from zeros: {mse_from_zeros:.4f}")
-                    logger.info(f"MSE from valid: {mse_from_valid:.4f}")
-                
                 logger.info(f"Normalization method: {normalization_method}")
-                logger.info(f"Normalized MSE: {normalized_mse:.4f}")
-                
+                logger.info(f"normalize_by: {normalize_by:.4f}")
+                logger.info(f"normalized_mse: {normalized_mse:.4f}")
                 if cv > 0.5:
-                    logger.info(f"CV tolerance factor: {tolerance_factor:.2f}")
-                    logger.info(f"Adjusted MSE: {adjusted_mse:.4f}")
-                
+                    logger.info(f"tolerance_factor: {tolerance_factor:.4f}")
+                    logger.info(f"adjusted_mse: {adjusted_mse:.4f}")
                 logger.info(f"EDF: {edf:.1f}")
-                logger.info(f"GCV denominator: {denominator:.6f}")
+                logger.info(f"denominator: {denominator:.6f}")
                 logger.info(f"Final GCV: {gcv:.4f}")
-                logger.info("=" * 60)
+
+                
+            # if param == 'FF_AVG':
+            #     zero_count = (original == 0.0).sum()
+            #     valid_count = (original > 0).sum()
+                
+            #     logger.info("=" * 60)
+            #     logger.info("FF_AVG GCV CALCULATION (ADAPTIVE METHOD)")
+            #     logger.info("=" * 60)
+            #     logger.info(f"Sample size: {n}")
+            #     logger.info(f"Zeros: {zero_count} ({zero_count/n*100:.1f}%)")
+            #     logger.info(f"Valid (>0): {valid_count} ({valid_count/n*100:.1f}%)")
+            #     logger.info(f"Mean: {param_mean:.4f} m/s")
+            #     logger.info(f"Std Dev: {param_std:.4f} m/s")
+            #     logger.info(f"CV: {cv:.4f} ({cv*100:.1f}%)")
+            #     logger.info(f"MSE (raw): {mse:.4f}")
+                
+            #     if zero_count > 0:
+            #         mse_from_zeros = np.mean((processed[original == 0.0] - 0) ** 2)
+            #         mse_from_valid = np.mean((processed[original > 0] - original[original > 0]) ** 2) if valid_count > 0 else 0
+            #         logger.info(f"MSE from zeros: {mse_from_zeros:.4f}")
+            #         logger.info(f"MSE from valid: {mse_from_valid:.4f}")
+                
+            #     logger.info(f"Normalization method: {normalization_method}")
+            #     logger.info(f"Normalized MSE: {normalized_mse:.4f}")
+                
+            #     if cv > 0.5:
+            #         logger.info(f"CV tolerance factor: {tolerance_factor:.2f}")
+            #         logger.info(f"Adjusted MSE: {adjusted_mse:.4f}")
+                
+            #     logger.info(f"EDF: {edf:.1f}")
+            #     logger.info(f"GCV denominator: {denominator:.6f}")
+            #     logger.info(f"Final GCV: {gcv:.4f}")
+            #     logger.info("=" * 60)
             
             return gcv
             
