@@ -3,15 +3,95 @@
 import { GetChartDataBySlug } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, TrendingUp, Loader2 } from "lucide-react";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis, Scatter, ScatterChart} from "recharts";
+import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Icons } from "@/app/dashboard/_components/icons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ChartSectionProps {
   collectionName: string;
+}
+
+const paramLabels: Record<string, string> = {
+  // NASA Variable
+  T2M: "Suhu Udara (2m)",
+  T2M_MAX: "Suhu Maksimum (2m)",
+  T2M_MIN: "Suhu Minimum (2m)",
+  RH2M: "Kelembaban Relatif (2m)",
+  PRECTOTCORR: "Curah Hujan",
+  ALLSKY_SFC_SW_DWN: "Radiasi Matahari",
+  WS10M: "Kecepatan Angin (10m)",
+  WS10M_MAX: "Kecepatan Angin Maksimum (10m)",
+  WD10M: "Arah Angin (10m)",
+
+  // BMKG Variable
+  TN: "Temperatur Minimum",
+  TX: "Temperatur Maksimum",
+  TAVG: "Temperatur Rata-rata",
+  RH_AVG: "Kelembapan Rata-rata",
+  RR: "Curah Hujan",
+  SS: "Lamanya Penyinaran Matahari",
+  FF_X: "Kecepatan Angin Maksimum",
+  DDD_X: "Arah Angin saat Kecepatan Maksimum",
+  FF_AVG: "Kecepatan Angin Rata-rata",
+  DDD_CAR: "Arah Angin Terbanyak",
+};
+
+const paramUnits: Record<string, string> = {
+  // NASA
+  T2M: "°C",
+  T2M_MAX: "°C",
+  T2M_MIN: "°C",
+  RH2M: "%",
+  PRECTOTCORR: "mm/hari",
+  ALLSKY_SFC_SW_DWN: "MJ/m²/hari",
+  WS10M: "m/s",
+  WS10M_MAX: "m/s",
+  WD10M: "degrees",
+
+  // BMKG
+  TN: "°C",
+  TX: "°C",
+  TAVG: "°C",
+  RH_AVG: "%",
+  RR: "mm",
+  SS: "jam",
+  FF_X: "m/s",
+  DDD_X: "°",
+  FF_AVG: "m/s",
+  DDD_CAR: "°",
+};
+function getParamLabel(param: string): string {
+  return paramLabels[param] || param;
+}
+
+function getParamUnit(param: string): string {
+  return paramUnits[param] || "";
+}
+
+// Helper function to check if value is invalid
+function isInvalidValue(value: number): boolean {
+  return value === 8888 || value === 9999;
 }
 
 export default function ChartSection({ collectionName }: ChartSectionProps) {
@@ -31,13 +111,15 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Icons.spinner className="h-5 w-5 animate-spin" />
             Memuat Chart...
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-[400px] flex items-center justify-center">
-            <div className="text-muted-foreground">Sedang memuat data chart...</div>
+            <div className="text-muted-foreground">
+              Sedang memuat data chart...
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -47,9 +129,11 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
   if (error) {
     return (
       <Alert variant="destructive" className="mt-6">
-        <AlertCircle className="h-4 w-4" />
+        <Icons.alert className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
-        <AlertDescription>Gagal memuat data chart. Silakan coba lagi.</AlertDescription>
+        <AlertDescription>
+          Gagal memuat data chart. Silakan coba lagi.
+        </AlertDescription>
       </Alert>
     );
   }
@@ -57,10 +141,13 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
   if (!data || !data.items?.length || !data.dateColumn) {
     return (
       <Alert className="mt-6 border-yellow-500">
-        <AlertCircle className="h-4 w-4 text-yellow-600" />
-        <AlertTitle className="text-yellow-600">Data Tidak Dapat Ditampilkan</AlertTitle>
+        <Icons.alert className="h-4 w-4 text-yellow-600" />
+        <AlertTitle className="text-yellow-600">
+          Data Tidak Dapat Ditampilkan
+        </AlertTitle>
         <AlertDescription>
-          Dataset ini tidak memiliki kolom <strong>Date</strong> atau tidak ada data yang bisa ditampilkan.
+          Dataset ini tidak memiliki kolom <strong>Date</strong> atau tidak ada
+          data yang bisa ditampilkan.
         </AlertDescription>
       </Alert>
     );
@@ -69,35 +156,75 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
   if (!data.numericColumns?.length) {
     return (
       <Alert className="mt-6 border-yellow-500">
-        <AlertCircle className="h-4 w-4 text-yellow-600" />
-        <AlertTitle className="text-yellow-600">Data Tidak Dapat Ditampilkan</AlertTitle>
-        <AlertDescription>Dataset ini tidak memiliki kolom numerik yang bisa ditampilkan.</AlertDescription>
+        <Icons.alert className="h-4 w-4 text-yellow-600" />
+        <AlertTitle className="text-yellow-600">
+          Data Tidak Dapat Ditampilkan
+        </AlertTitle>
+        <AlertDescription>
+          Dataset ini tidak memiliki kolom numerik yang bisa ditampilkan.
+        </AlertDescription>
       </Alert>
     );
   }
 
-  const chartData = data.items.map((item: any) => ({
-    date: item[data.dateColumn],
-    value: Number(item[selectedColumn]) || 0,
-  }));
+  // Separate valid and invalid data
+  const allData = data.items.map((item: any) => {
+    const value = Number(item[selectedColumn]) || 0;
+    return {
+      date: item[data.dateColumn],
+      value: value,
+      isInvalid: isInvalidValue(value),
+    };
+  });
+
+  // Valid data for line chart
+  const validData = allData.filter((item) => !item.isInvalid);
+  
+  // Invalid data for scatter plot
+  const invalidData = allData.filter((item) => item.isInvalid);
+
+  // Count statistics
+  const validCount = validData.length;
+  const invalidCount = invalidData.length;
 
   const chartConfig = {
     value: {
-      label: selectedColumn,
+      label: getParamLabel(selectedColumn),
       color: "hsl(var(--chart-1))",
     },
+    invalid: {
+      label: "Data Invalid",
+      color: "hsl(var(--destructive))",
+    },
   } satisfies ChartConfig;
-
+  
   return (
     <Card className="mt-6">
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Visualisasi Data
+              <Icons.trendingUp className="h-5 w-5" />
+              {getParamLabel(selectedColumn)}
             </CardTitle>
-            <CardDescription className="mt-1">Menampilkan {chartData.length} data point</CardDescription>
+            <div className="flex gap-2 pt-2 flex-wrap">
+              <Badge variant="outline" className="text-xs">
+                Parameter: {selectedColumn}
+              </Badge>
+              {getParamUnit(selectedColumn) && (
+                <Badge variant="outline" className="text-xs">
+                  Unit: {getParamUnit(selectedColumn)}
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-xs bg-blue-50">
+                {validCount} data valid
+              </Badge>
+              {invalidCount > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {invalidCount} data invalid
+                </Badge>
+              )}
+            </div>
           </div>
           <Select value={selectedColumn} onValueChange={setSelectedColumn}>
             <SelectTrigger className="w-full sm:w-[250px]">
@@ -106,17 +233,40 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
             <SelectContent>
               {data.numericColumns.map((column: string) => (
                 <SelectItem key={column} value={column}>
-                  {column}
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{getParamLabel(column)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({column})
+                    </span>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+        
+        {/* Legend for invalid data */}
+        {invalidCount > 0 && (
+          <div className="flex items-center gap-4 pt-2 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span className="text-muted-foreground">Data Valid</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span className="text-muted-foreground">Data Invalid (8888/9999)</span>
+            </div>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent>
         <ChartContainer config={chartConfig}>
-          <LineChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>
+          <LineChart
+            accessibilityLayer
+            data={validData}
+            margin={{ left: 12, right: 12 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="date"
@@ -135,11 +285,65 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
                 return value;
               }}
             />
-            <YAxis domain={["dataMin - 3", "dataMax + 3"]} />
+            <YAxis 
+              domain={["dataMin - 3", "dataMax + 3"]}
+              tickFormatter={(value) => {
+                const unit = getParamUnit(selectedColumn);
+                return unit ? `${value.toFixed(1)}${unit}` : value.toFixed(1);
+              }}
+            />
 
-            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-
-            <Line dataKey="value" type="linear" stroke="#2563eb" dot={false} strokeWidth={2} isAnimationActive={false} connectNulls />
+            <ChartTooltip 
+              cursor={false} 
+              content={
+                <ChartTooltipContent 
+                  hideLabel={false}
+                  formatter={(value, name, props) => {
+                    // Check if this is an invalid data point
+                    const isInvalid = props.payload?.isInvalid;
+                    const displayValue = isInvalid 
+                      ? `${Number(value)} (INVALID)` 
+                      : `${Number(value).toFixed(2)} ${getParamUnit(selectedColumn)}`;
+                    
+                    return [
+                      displayValue,
+                      isInvalid ? "⚠️ Data Invalid" : getParamLabel(selectedColumn)
+                    ];
+                  }}
+                  labelFormatter={(label) => {
+                    if (typeof label === "string" && label.includes("-")) {
+                      const date = new Date(label);
+                      return date.toLocaleDateString("id-ID", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      });
+                    }
+                    return label;
+                  }}
+                />
+              } 
+            />
+            
+            {/* Valid data line */}
+            <Line
+              dataKey="value"
+              type="linear"
+              stroke="#2563eb"
+              dot={false}
+              strokeWidth={2}
+              isAnimationActive={false}
+              connectNulls
+            />
+            
+            {/* Invalid data points as scatter */}
+            <Scatter
+              data={invalidData}
+              dataKey="value"
+              fill="#ef4444"
+              shape="circle"
+            />
           </LineChart>
         </ChartContainer>
       </CardContent>
