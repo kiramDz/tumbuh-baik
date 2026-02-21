@@ -3,7 +3,7 @@
 import { GetChartDataBySlug } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { CartesianGrid, Line, LineChart, XAxis, YAxis, Scatter, ScatterChart} from "recharts";
+import { CartesianGrid, Line, ComposedChart, XAxis, YAxis, Scatter } from "recharts";
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -81,6 +81,7 @@ const paramUnits: Record<string, string> = {
   FF_AVG: "m/s",
   DDD_CAR: "°",
 };
+
 function getParamLabel(param: string): string {
   return paramLabels[param] || param;
 }
@@ -167,25 +168,21 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
     );
   }
 
-  // Separate valid and invalid data
-  const allData = data.items.map((item: any) => {
-    const value = Number(item[selectedColumn]) || 0;
+  const chartData = data.items.map((item: any) => {
+    const raw = Number(item[selectedColumn]);
+
     return {
       date: item[data.dateColumn],
-      value: value,
-      isInvalid: isInvalidValue(value),
+      value: isInvalidValue(raw) ? null : raw,   // line pakai null → break
+      invalidValue: isInvalidValue(raw) ? raw : null, // scatter marker
     };
   });
 
-  // Valid data for line chart
-  const validData = allData.filter((item) => !item.isInvalid);
-  
-  // Invalid data for scatter plot
-  const invalidData = allData.filter((item) => item.isInvalid);
-
   // Count statistics
-  const validCount = validData.length;
-  const invalidCount = invalidData.length;
+  const totalCount = chartData.length;
+  const validCount = chartData.filter(d => d.value !== null).length;
+  const invalidCount = chartData.filter(d => d.invalidValue !== null).length;
+
 
   const chartConfig = {
     value: {
@@ -244,27 +241,13 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
             </SelectContent>
           </Select>
         </div>
-        
-        {/* Legend for invalid data */}
-        {invalidCount > 0 && (
-          <div className="flex items-center gap-4 pt-2 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span className="text-muted-foreground">Data Valid</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span className="text-muted-foreground">Data Invalid (8888/9999)</span>
-            </div>
-          </div>
-        )}
       </CardHeader>
 
       <CardContent>
         <ChartContainer config={chartConfig}>
-          <LineChart
+          <ComposedChart
             accessibilityLayer
-            data={validData}
+            data={chartData}
             margin={{ left: 12, right: 12 }}
           >
             <CartesianGrid vertical={false} />
@@ -298,18 +281,10 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
               content={
                 <ChartTooltipContent 
                   hideLabel={false}
-                  formatter={(value, name, props) => {
-                    // Check if this is an invalid data point
-                    const isInvalid = props.payload?.isInvalid;
-                    const displayValue = isInvalid 
-                      ? `${Number(value)} (INVALID)` 
-                      : `${Number(value).toFixed(2)} ${getParamUnit(selectedColumn)}`;
-                    
-                    return [
-                      displayValue,
-                      isInvalid ? "⚠️ Data Invalid" : getParamLabel(selectedColumn)
-                    ];
-                  }}
+                  formatter={(value) => [
+                    `${Number(value).toFixed(2)} ${getParamUnit(selectedColumn)}`,
+                    getParamLabel(selectedColumn)
+                  ]}
                   labelFormatter={(label) => {
                     if (typeof label === "string" && label.includes("-")) {
                       const date = new Date(label);
@@ -326,25 +301,22 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
               } 
             />
             
-            {/* Valid data line */}
+            {/* Time series line */}
             <Line
               dataKey="value"
               type="linear"
               stroke="#2563eb"
               dot={false}
               strokeWidth={2}
-              isAnimationActive={false}
               connectNulls
             />
-            
-            {/* Invalid data points as scatter */}
+            {/* invalid marker */}
             <Scatter
-              data={invalidData}
-              dataKey="value"
+              dataKey="invalidValue"
               fill="#ef4444"
               shape="circle"
             />
-          </LineChart>
+          </ComposedChart>
         </ChartContainer>
       </CardContent>
     </Card>

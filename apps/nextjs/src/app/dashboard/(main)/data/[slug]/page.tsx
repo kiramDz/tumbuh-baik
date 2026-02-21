@@ -1,7 +1,7 @@
 import { GetDatasetBySlug } from "@/lib/fetch/files.fetch";
 import { notFound } from "next/navigation";
 // import { Metadata } from "next";
-import ChartSection from "@/app/dashboard/_components/chart/datataset-chart";
+import ChartSection from "@/app/dashboard/_components/chart/dataset-chart";
 import DynamicMainTable from "../_components/dynamic-table";
 import { DecompositionChart } from "@/app/dashboard/_components/chart/decomposition-chart";
 
