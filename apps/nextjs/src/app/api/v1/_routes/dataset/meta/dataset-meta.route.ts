@@ -730,54 +730,63 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
     await db();
     const { collectionName } = c.req.param();
 
+    // Decode the collection name (handle URL encoding)
+    const decodedCollectionName = decodeURIComponent(collectionName);
+
     // 1. Get metadata
-    const metadata = await DatasetMeta.findOne({ collectionName }).lean();
+    const metadata = await DatasetMeta.findOne({
+      collectionName: decodedCollectionName,
+    }).lean();
 
     if (!metadata) {
       return c.json({ message: "Dataset not found" }, 404);
     }
 
-    // 2. FIXED: Determine collections to delete based on proper architecture
+    // 2. Determine collections to delete
     const collectionsToDelete: string[] = [];
     const metaStatus = (metadata as any).status as string;
 
-    // Always delete the original collection (metadata always points to original)
-    collectionsToDelete.push(collectionName);
+    // Always delete the original collection
+    collectionsToDelete.push(decodedCollectionName);
 
-    // If dataset is preprocessed/validated, also delete the _cleaned collection
-    if (metaStatus === "preprocessed" || metaStatus === "validated") {
-      const cleanedCollectionName = `${collectionName}_cleaned`;
+    // If dataset is preprocessed/validated, also delete cleaned collection
+    if (
+      (metaStatus === "preprocessed" || metaStatus === "validated") &&
+      !decodedCollectionName.endsWith("_cleaned")
+    ) {
+      const cleanedCollectionName = `${decodedCollectionName}_cleaned`;
       collectionsToDelete.push(cleanedCollectionName);
-      console.log(`Dataset is ${metaStatus}, will also delete cleaned collection: ${cleanedCollectionName}`);
+      console.log(
+        `Dataset is ${metaStatus}, will also delete cleaned collection: ${cleanedCollectionName}`
+      );
     }
 
     // 3. Delete metadata first
-    await DatasetMeta.deleteOne({ collectionName });
+    await DatasetMeta.deleteOne({ collectionName: decodedCollectionName });
 
     // 4. Drop all identified collections
     const deletedCollections: string[] = [];
     const failedDeletions: string[] = [];
 
+    const mongoDb = mongoose.connection.db;
+    if (!mongoDb) throw new Error("MongoDB connection not ready");
+
     for (const colName of collectionsToDelete) {
       try {
-        let Model;
-        if (mongoose.models[colName]) {
-          Model = mongoose.models[colName];
-        } else {
-          Model = mongoose.model(colName, new mongoose.Schema({}, { strict: false }), colName);
-        }
+        const collections = await mongoDb
+          .listCollections({ name: colName })
+          .toArray();
 
-        await Model.collection.drop();
-        deletedCollections.push(colName);
-        console.log(`✅ Dropped collection: ${colName}`);
-      } catch (dropError: any) {
-        if (dropError.code !== 26) {
-          // 26 = NamespaceNotFound
-          console.error(`⚠️ Error dropping collection ${colName}:`, dropError);
-          failedDeletions.push(colName);
+        if (collections.length > 0) {
+          await mongoDb.dropCollection(colName);
+          deletedCollections.push(colName);
+          console.log(`✅ Dropped collection: ${colName}`);
         } else {
           console.log(`ℹ️ Collection ${colName} not found, skipping`);
         }
+      } catch (dropError: any) {
+        console.error(`⚠️ Error dropping collection ${colName}:`, dropError);
+        failedDeletions.push(colName);
       }
     }
 
@@ -797,7 +806,7 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
   }
 });
 
-export default datasetMetaRoute;
+
 
 async function handleXlsxUpload(c: any) {
   try {
@@ -1151,3 +1160,4 @@ async function handleXlsxUpload(c: any) {
     return c.json({ message }, status);
   }
 }
+export default datasetMetaRoute;
