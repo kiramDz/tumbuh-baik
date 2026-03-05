@@ -821,7 +821,7 @@ class BmkgPreprocessor:
             raise BmkgPreprocessingError(error_msg)
     
     def _get_default_options(self)-> Dict[str, Any]:
-        """Get default preprocessing options"""
+        """Get default preprocessing options with gap-aware wind parameter configs"""
         return {
             # Imputation settings
             "fill_missing": True,
@@ -842,7 +842,70 @@ class BmkgPreprocessor:
             "calculate_coverage": True,
             
             # Parameters to process
-            "columns_to_process": self.params_to_process
+            "columns_to_process": self.params_to_process,
+            
+            # NEW: Parameter-specific configurations
+            "parameter_configs": {
+                # FORECASTING CRITICAL - Full imputation effort
+                "TAVG": {
+                    "forecasting_critical": True,
+                    "max_gap_interpolate": 7,
+                    "reason": "Temperature is critical for forecasting"
+                },
+                "RR": {
+                    "forecasting_critical": True,
+                    "max_gap_interpolate": 7,
+                    "reason": "Rainfall is critical for forecasting"
+                },
+                "RH_AVG": {
+                    "forecasting_critical": True,
+                    "max_gap_interpolate": 7,
+                    "reason": "Humidity is critical for forecasting"
+                },
+                
+                # SUPPORTING - Standard imputation
+                "TX": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 14,
+                    "reason": "Supporting parameter for forecasting"
+                },
+                "TN": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 14,
+                    "reason": "Supporting parameter for forecasting"
+                },
+                "SS": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 14,
+                    "reason": "Supporting parameter for forecasting"
+                },
+                
+                # METADATA - Minimal/No forced imputation
+                "FF_X": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind data - metadata only, don't force completion"
+                },
+                "FF_AVG": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind data - metadata only, don't force completion"
+                },
+                "DDD_X": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind direction - metadata only"
+                },
+                "DDD_CAR": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind direction cardinal - metadata only"
+                }
+            }
         }
         
     def _apply_preprocessing(
@@ -850,7 +913,7 @@ class BmkgPreprocessor:
         df: pd.DataFrame
     )-> pd.DataFrame:
         """
-        Apply preprocessing pipeline
+        Apply preprocessing pipeline with gap aware wind parameter handling
         
         Pipeline steps:
         1. Prepare temporal features
@@ -869,21 +932,16 @@ class BmkgPreprocessor:
         # Step 2: Replace fill values
         processed_df = self._replace_fill_values(processed_df)
 
-        # Save original_data AFTER fill values replaced (8888/9999 → NaN)
-        # but BEFORE outlier handling and imputation
-        # Ensures GCV comparison uses clean original, not fill-value-corrupted data
+        # Step 2.5: Detect and fix suspicious zeros in wind data (NEW)
+        logger.info("  [2.5/6] Detecting suspicious zeros...")
+        processed_df = self._detect_and_fix_suspicious_zeros(processed_df)
+
+        # Save original_data AFTER fill values replaced and suspicious zeros fixed
         cols_to_keep = [col for col in processed_df.columns 
                         if col not in ['Season', 'Month', 'is_RR_missing']]
         self.original_data = processed_df[cols_to_keep].copy()
         logger.info(f"    Saved original data reference with DatetimeIndex (shape: {self.original_data.shape})")
         
-        # NOTE: self.original_data is now fixed - don't reassign it below!
-        # Remove or comment out this old assignment:
-        # if self.original_data is None:
-        #     cols_to_keep = [col for col in processed_df.columns 
-        #                     if col not in ['Season', 'Month']]
-        #     self.original_data = processed_df[cols_to_keep].copy()
-            
         # Step 3: Detect gaps
         if self.options.get("detect_gaps", True):
             logger.info("  [3/6] Detecting gaps...")
@@ -894,9 +952,9 @@ class BmkgPreprocessor:
             logger.info("  [4/6] Detecting and handling outliers...")
             processed_df = self._handle_outliers(processed_df)
         
-        # Step 5: Impute missing values
+        # Step 5: Impute missing values with gap-aware wind handling (MODIFIED)
         if self.options.get("fill_missing", True):
-            logger.info("  [5/6] Imputing missing values")
+            logger.info("  [5/6] Imputing missing values with gap-aware logic")
             processed_df = self._impute_missing_values(processed_df)
         
         # Step 6: Apply physical constraints
@@ -905,6 +963,8 @@ class BmkgPreprocessor:
         
         logger.info("preprocessing pipeline completed")
         return processed_df
+    
+    
     def _prepare_temporal_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Prepare temporal features (Date index, Season, Month)"""
         
@@ -1044,6 +1104,33 @@ class BmkgPreprocessor:
             else:
                 logger.info("No suspicious FF_AVG zeros detected (all zeros are legitimate)")
         return df
+    
+    def _detect_and_fix_suspicious_zeros(
+        self,
+        df: pd.DataFrame
+    )-> pd.DataFrame:
+        """ Detect and fix suspicious FF_AVG=0 where FF_X>0"""
+        suspicious_count = 0
+        
+        if 'FF_AVG' in df.columns and 'FF_X' in df.columns:
+            # Find suspicious cases: FF_X > 0 but FF_AVG = 0
+            suspicious_mask = (df['FF_X'] > 0) & (df['FF_AVG'] == 0.0)
+            suspicious_count = suspicious_mask.sum()
+            
+            if suspicious_count > 0:
+                logger.info(f"Detected {suspicious_count} suspicious FF_AVG zeros ({suspicious_count/len(df)*100:.1f}%)")
+                
+                # Replace suspicious zeros with NaN
+                df.loc[suspicious_mask, 'FF_AVG'] = np.nan
+                
+                # Store in report
+                self.preprocessing_report["suspicious_zeros"] = {
+                    "ff_avg_zeros_detected": int(suspicious_count),
+                    "percentage": round((suspicious_count/len(df))*100, 1),
+                    "action": "replaced_with_nan"
+                }
+        return df
+        
     
     def _detect_gaps(self, df: pd.DataFrame) -> None:
         """Detect and classify gaps in time series uses same logic as preprocessing_bmkg.py"""
@@ -1213,22 +1300,11 @@ class BmkgPreprocessor:
             logger.info("    No outliers detected")
         
         return df
-
-    def _impute_missing_values(
-        self,
-        df : pd.DataFrame
-    )-> pd.DataFrame:
+    
+    def _impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Impute missing values using smoothing-based methods (NO ML)
-        
-        Strategy by parameter:
-        - RR: Season-aware zero + adaptive MA + STL + cubic spline
-        - TX/TN/TAVG: Mathematical relationships + cubic spline + seasonal median
-        - RH_AVG: Dewpoint method + cubic spline + seasonal median
-        - FF_X/FF_AVG: Linear relationship + cubic spline
-        - DDD_X: Circular mean (monthly/seasonal)
-        - SS: Interpolation with daylight constraints
-        - DDD_CAR: Mode-based (monthly/seasonal)
+        Uses gap-aware logic for wind parameters only
         """
         
         imputation_stats = {}
@@ -1255,10 +1331,10 @@ class BmkgPreprocessor:
             logger.info("Imputing RH_AVG (Humidity)...")
             df = self._impute_humidity(df)
         
-        # 4. WIND SPEED (FF_X, FF_AVG)
+        # 4. WIND SPEED (FF_X, FF_AVG) - GAP-AWARE
         if 'FF_X' in df.columns or 'FF_AVG' in df.columns:
-            logger.info("Imputing FF_X/FF_AVG (Wind Speed)...")
-            df = self._impute_wind_speed(df)
+            logger.info("Imputing FF_X/FF_AVG (Wind Speed - Gap Aware)...")
+            df = self._impute_wind_speed_gap_aware(df)
         
         # 5. WIND DIRECTION (DDD_X)
         if 'DDD_X' in df.columns:
@@ -1289,7 +1365,7 @@ class BmkgPreprocessor:
                             "after": missing_after[param],
                             "imputed": imputed_count,
                             "success_rate": round((imputed_count / missing_before[param]) * 100, 2) 
-                                           if missing_before[param] > 0 else 0,
+                                        if missing_before[param] > 0 else 0,
                             "method": self._get_imputation_method(param)
                         }
         
@@ -2007,207 +2083,100 @@ class BmkgPreprocessor:
         df['RH_AVG'] = df['RH_AVG'].clip(0, 100)
         
         return df
+
     
-    def _impute_wind_speed(
-        self,
-        df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def _impute_wind_speed_gap_aware(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Impute wind speed using two-tier seasonal imputation
-
-        FIX FOR FF_AVG GCV (3045 → 30-50):
-        - Tier 1: FF_X interpolation (ensures availability)
-        - Tier 2: FF_AVG seasonal median + FF_X ratio
+        Gap-aware wind speed imputation - DON'T force completion for long gaps
         """
-
-        logger.info("FF_AVG TWO-TIER SEASONAL IMPUTATION")
-
-        # TIER 1 — FF_X interpolation with monthly median, because january has no data
+        
+        # TIER 1: FF_X imputation with gap limits
         if 'FF_X' in df.columns:
+            param_config = self.options.get("parameter_configs", {}).get("FF_X", {})
+            max_gap = param_config.get("max_gap_interpolate", 3)
+            skip_long_gaps = param_config.get("skip_long_gaps", False)
+            
             ff_x_missing = df['FF_X'].isna().sum()
             
             if ff_x_missing > 0:
-                logger.info(f"TIER 1: Imputing {ff_x_missing} missing FF_X values FIRST")
+                logger.info(f"  • FF_X: Processing {ff_x_missing} missing values (gap-aware)...")
                 
-                # Step 1: cubic interpolation for interior gaps
+                # Only interpolate SHORT gaps
                 df['FF_X'] = df['FF_X'].interpolate(
-                    method='cubic',
+                    method='linear', 
+                    limit=max_gap,  # 3 days only
                     limit_direction='both'
                 )
-                df['FF_X'] = df['FF_X'].clip(lower=0, upper=50)
-
-                # Step 2: Fallback monthly median untuk leading/trailing NaN
-                # yang tidak bisa diisi cubic karena tidak ada anchor point
-                remaining_ff_x_nan = df['FF_X'].isna().sum()
-                if remaining_ff_x_nan > 0:
+                
+                final_missing = df['FF_X'].isna().sum()
+                imputed_count = ff_x_missing - final_missing
+                
+                if skip_long_gaps and final_missing > 0:
                     logger.info(
-                        f"FF_X: {remaining_ff_x_nan} leading/trailing NaN remaining, "
-                        f"applying monthly median fallback"
+                        f"    ✓ FF_X: Imputed {imputed_count}/{ff_x_missing} values "
+                        f"({final_missing} remain due to long gaps - NOT imputed by design)"
                     )
-                    for month in range(1, 13):
-                        month_mask = (df.index.month == month) & df['FF_X'].isna()
-                        if month_mask.sum() > 0:
-                            monthly_median = df[
-                                (df.index.month == month) & df['FF_X'].notna()
-                            ]['FF_X'].median()
-
-                            if pd.notna(monthly_median):
-                                df.loc[month_mask, 'FF_X'] = monthly_median
-                                logger.info(
-                                    f"  FF_X month={month}: filled {month_mask.sum()} "
-                                    f"NaN with median={monthly_median:.1f}"
-                                )
-
-                logger.info(f"FF_X interpolated: {ff_x_missing} values, "
-                        f"remaining NaN: {df['FF_X'].isna().sum()}")
-        # TIER 2 — FF_AVG imputation
+                else:
+                    logger.info(f"    ✓ Imputed {imputed_count}/{ff_x_missing} FF_X values")
+        
+        # TIER 2: FF_AVG imputation with calculation + gap limits
         if 'FF_AVG' in df.columns and 'FF_X' in df.columns:
-
-            missing_mask = df['FF_AVG'].isna()
-            missing_count = missing_mask.sum()
-
+            param_config = self.options.get("parameter_configs", {}).get("FF_AVG", {})
+            max_gap = param_config.get("max_gap_interpolate", 3)
+            skip_long_gaps = param_config.get("skip_long_gaps", False)
+            
+            missing_count = df['FF_AVG'].isna().sum()
+            
             if missing_count > 0:
-                logger.info(f"TIER 2: Processing {missing_count} missing FF_AVG values")
-
-                # -------- monthly stats --------
-                monthly_stats = {}
-                for month in range(1, 13):
-
-                    month_mask = df.index.month == month
-
-                    month_ff_avg = df.loc[
-                        month_mask & df['FF_AVG'].notna(),
-                        'FF_AVG'
-                    ]
-
-                    month_ff_x = df.loc[
-                        month_mask & df['FF_X'].notna(),
-                        'FF_X'
-                    ]
-
-                    if len(month_ff_avg) >= 3 and len(month_ff_x) >= 3:
-                        ff_avg_median = month_ff_avg.median()
-                        ff_x_median = month_ff_x.median()
-
-                        ratio = ff_avg_median / ff_x_median if ff_x_median > 0 else 0.35
-
-                        monthly_stats[month] = {
-                            'ff_avg_median': ff_avg_median,
-                            'ff_x_median': ff_x_median,
-                            'ratio': ratio
-                        }
-                    else:
-                        monthly_stats[month] = None
-
-                # -------- impute loop --------
-                imputed_count = 0
-                ratio_adjusted = 0
-                fallback_only = 0
-
-                for idx in df.index[missing_mask]:
-
-                    month = idx.month
-                    season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
-
-                    # STEP 1 — seasonal baseline
-                    seasonal_months = (
-                        self.season_config['wet_months']
-                        if season == 'Wet'
-                        else self.season_config['dry_months']
+                logger.info(f"  • FF_AVG: Processing {missing_count} missing values (gap-aware)...")
+                
+                # Strategy 1: Calculate from FF_X where possible
+                calculated = 0
+                can_calculate = df['FF_AVG'].isna() & df['FF_X'].notna()
+                
+                if can_calculate.sum() > 0:
+                    # Use typical ratio FF_AVG ≈ 0.6 * FF_X
+                    df.loc[can_calculate, 'FF_AVG'] = df.loc[can_calculate, 'FF_X'] * 0.6
+                    calculated = can_calculate.sum()
+                    logger.info(f"    Calculated {calculated} FF_AVG from FF_X ratio")
+                
+                # Strategy 2: Interpolate SHORT gaps only
+                df['FF_AVG'] = df['FF_AVG'].interpolate(
+                    method='linear',
+                    limit=max_gap,
+                    limit_direction='both'
+                )
+                
+                final_missing = df['FF_AVG'].isna().sum()
+                total_imputed = missing_count - final_missing
+                interpolated = total_imputed - calculated
+                
+                if skip_long_gaps and final_missing > 0:
+                    logger.info(
+                        f"    ✓ FF_AVG: Calculated {calculated}, Interpolated {interpolated} "
+                        f"({final_missing} remain due to long gaps - NOT imputed by design)"
                     )
-
-                    seasonal_data = df[
-                        (df.index.month.isin(seasonal_months)) &
-                        df['FF_AVG'].notna()
-                    ]['FF_AVG']
-
-                    if len(seasonal_data) >= 5:
-                        base_value = seasonal_data.median()
-                    else:
-                        base_value = 1.5 if season == 'Wet' else 1.0
-
-                    # STEP 2 — FF_X adjustment
-                    ff_x_current = df.loc[idx, 'FF_X']
-
-                    if pd.notna(ff_x_current) and ff_x_current > 0:
-
-                        if monthly_stats.get(month):
-
-                            stats = monthly_stats[month]
-                            ff_x_median = stats['ff_x_median']
-                            ratio = stats['ratio']
-
-                            if ff_x_median > 0:
-                                adjustment_factor = ff_x_current / ff_x_median
-                                adjusted_value = base_value * adjustment_factor
-                            else:
-                                adjusted_value = ff_x_current * ratio
-                        else:
-                            adjusted_value = ff_x_current * 0.35
-
-                        final_value = min(adjusted_value, ff_x_current)
-                        final_value = max(0.5, min(final_value, 10.0))
-
-                        ratio_adjusted += 1
-
-                    else:
-                        final_value = base_value
-                        fallback_only += 1
-
-                        logger.warning(
-                            f"Unexpected: FF_X still NaN at {idx} after interpolation"
-                        )
-
-                    # ⭐ FIX — inside loop
-                    df.loc[idx, 'FF_AVG'] = round(final_value, 1)
-                    imputed_count += 1
-
-                remaining_nan = df['FF_AVG'].isna().sum()
-
-                logger.info(
-                    f"Imputed {imputed_count} FF_AVG values: "
-                    f"{ratio_adjusted} with ratio, {fallback_only} fallback"
-                )
-                logger.info(f"Remaining FF_AVG NaN:{remaining_nan}")
-
-                if fallback_only > 0:
-                    logger.warning(
-                        f"{fallback_only} values used fallback "
-                        f"(investigate FF_X interpolation gaps)"
-                    )
-
-            else:
-                logger.info("TIER 2: No missing FF_AVG values to impute")
-
-            # FINAL fallback monthly median
-            remaining_nan_final = df['FF_AVG'].isna().sum()
-
-            if remaining_nan_final > 0:
-                logger.info(
-                    f"FALLBACK: Applying monthly median for {remaining_nan_final} remaining NaN"
-                )
-
-                for month in range(1, 13):
-                    month_mask = (df.index.month == month) & df['FF_AVG'].isna()
-
-                    if month_mask.sum() > 0:
-                        monthly_median = df[
-                            (df.index.month == month) & df['FF_AVG'].notna()
-                        ]['FF_AVG'].median()
-
-                        if pd.notna(monthly_median):
-                            df.loc[month_mask, 'FF_AVG'] = monthly_median
-
-                logger.info(
-                    f"  Filled {remaining_nan_final} remaining NaN with monthly median"
-                )
-            else:
-                logger.info("No remaining NaN - smoothing skipped")
-
-        else:
-            logger.info("TIER 2 skipped: FF_AVG or FF_X column missing")
-
+                else:
+                    logger.info(f"    ✓ Imputed {total_imputed}/{missing_count} FF_AVG values")
+                
+                # Store detailed results
+                if "imputation" not in self.preprocessing_report:
+                    self.preprocessing_report["imputation"] = {}
+                
+                self.preprocessing_report["imputation"]["FF_AVG"] = {
+                    "missing_count": int(missing_count),
+                    "calculated_from_ff_x": int(calculated),
+                    "interpolated": int(interpolated),
+                    "remaining_missing": int(final_missing),
+                    "method": "ratio_calculation + linear_gap_aware",
+                    "max_gap_days": max_gap,
+                    "note": "Long gaps not imputed by design" if final_missing > 0 else None
+                }
+        
         return df
+        
+
+       
     
     def _impute_wind_direction(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -3918,18 +3887,60 @@ class BmkgPreprocessor:
             return "lstm_with_caution"
         else:
             return "none"  # Data quality too poor
+        
     def _generate_quality_metrics(self, original_df: pd.DataFrame, processed_df: pd.DataFrame) -> None:
-        """
-        Generate final quality metrics comparing original vs processed data
-        """
+        """Generate quality metrics with forecasting readiness assessment"""
+        logger.info("Generating quality metrics...")
         
         quality_metrics = {}
         
+        # FORECASTING READINESS - New section
+        forecasting_params = ['TAVG', 'RR', 'RH_AVG']
+        forecasting_readiness = {}
+        
+        for param in forecasting_params:
+            if param in processed_df.columns:
+                coverage = (1 - processed_df[param].isna().sum() / len(processed_df)) * 100
+                forecasting_readiness[param] = {
+                    "coverage_pct": round(coverage, 2),
+                    "status": "READY" if coverage >= 95 else "NEEDS_REVIEW"
+                }
+        
+        # Supporting parameters status
+        supporting_params = ['TX', 'TN', 'SS']
+        supporting_status = {}
+        
+        for param in supporting_params:
+            if param in processed_df.columns:
+                coverage = (1 - processed_df[param].isna().sum() / len(processed_df)) * 100
+                supporting_status[param] = {
+                    "coverage_pct": round(coverage, 2),
+                    "status": "GOOD" if coverage >= 85 else "ACCEPTABLE" if coverage >= 70 else "POOR"
+                }
+        
+        # Metadata parameters status
+        metadata_params = ['FF_X', 'FF_AVG', 'DDD_X', 'DDD_CAR']
+        metadata_status = {}
+        
+        for param in metadata_params:
+            if param in processed_df.columns:
+                coverage = (1 - processed_df[param].isna().sum() / len(processed_df)) * 100
+                metadata_status[param] = {
+                    "coverage_pct": round(coverage, 2),
+                    "note": "Metadata only - gaps expected" if coverage < 50 else "Better than expected coverage"
+                }
+        
+        # Overall forecasting suitability
+        forecasting_avg = sum(r["coverage_pct"] for r in forecasting_readiness.values()) / len(forecasting_readiness) if forecasting_readiness else 0
+        supporting_avg = sum(r["coverage_pct"] for r in supporting_status.values()) / len(supporting_status) if supporting_status else 0
+        
+        overall_forecasting_score = (forecasting_avg * 0.7) + (supporting_avg * 0.3)
+        
+        # Calculate traditional metrics per parameter
         for param in self.params_to_process:
             if param not in processed_df.columns:
                 continue
             
-            # Skip non-numeric
             if param == 'DDD_CAR':
                 continue
             
@@ -3942,4 +3953,22 @@ class BmkgPreprocessor:
                 "completeness": round(((len(processed_df) - processed_missing) / len(processed_df)) * 100, 2)
             }
         
-        self.preprocessing_report["quality_metrics"] = quality_metrics
+        # Store comprehensive results
+        self.preprocessing_report["quality_metrics"] = {
+            "parameter_details": quality_metrics,
+            
+            # NEW: Forecasting readiness sections
+            "forecasting_readiness": {
+                "critical_parameters": forecasting_readiness,
+                "supporting_parameters": supporting_status,
+                "metadata_parameters": metadata_status,
+                "overall_forecasting_score": round(overall_forecasting_score, 1),
+                "forecasting_suitable": overall_forecasting_score >= 90
+            }
+        }
+        
+        logger.info(f"Quality metrics: {overall_forecasting_score:.1f}% forecasting readiness")
+        critical_params_str = [f'{k}={v["coverage_pct"]:.1f}%' for k, v in forecasting_readiness.items()]
+        logger.info(f"Critical parameters: {critical_params_str}")
+        metadata_params_str = [f'{k}={v["coverage_pct"]:.1f}%' for k, v in metadata_status.items()]
+        logger.info(f"Metadata parameters: {metadata_params_str}")
