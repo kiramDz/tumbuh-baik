@@ -323,35 +323,41 @@ class NasaPreprocessor:
                "parameter_configs": {
                     "T2M": {
                         "smoothing_method": "exponential",
-                        "exponential_alpha": 0.30,  #KEEP (already good: Trend=77.6%, Quality=FAIR)
+                        "exponential_alpha": 0.30,  # Keep existing - working well
                         "reason": "Temperature stable - smoothing ringan preserves daily patterns"
                     },
                     
                     "RH2M": {
-                        "smoothing_method": "exponential",
-                        "exponential_alpha": 0.35,  #CHANGED: 0.25 → 0.35 (+40%)
-                        "reason": "Humidity high variability - lighter smoothing to preserve trend (IMPROVED from 0.25)"
+                        "smoothing_method": "adaptive_exponential",  # CHANGED to adaptive
+                        "alpha_range": [0.25, 0.65],  # Wider range for volatile humidity
+                        "volatility_window": 30,
+                        "reason": "Humidity high variability - adaptive smoothing preserves trends"
                     },
                     
                     "ALLSKY_SFC_SW_DWN": {
-                        "smoothing_method": "exponential",
-                        "exponential_alpha": 0.30,  #KEEP (working well: Trend=76.4%, GCV=6.95, Quality=FAIR)
-                        "reason": "Solar radiation - balanced smoothing preserves seasonal patterns (VERIFIED)"
+                        "smoothing_method": "adaptive_exponential",  # CHANGED to adaptive
+                        "alpha_range": [0.20, 0.55],  # Adaptive for solar radiation seasonality
+                        "volatility_window": 30,
+                        "reason": "Solar radiation - adaptive smoothing for seasonal variations"
                     },
                     
                     "PRECTOTCORR": {
-                        "smoothing_method": None,  #NO CHANGE
+                        "smoothing_method": None,  # NO CHANGE
                         "reason": "Precipitation events are signal"
                     },
                     
                     "T2M_MAX": {
-                        "smoothing_method": "exponential",
-                        "exponential_alpha": 0.30  #CHANGED: 0.25 → 0.30 (+20%)
+                        "smoothing_method": "adaptive_exponential",  # CHANGED to adaptive
+                        "alpha_range": [0.20, 0.50],
+                        "volatility_window": 30,
+                        "reason": "Max temperature - adaptive for weather pattern changes"
                     },
                     
                     "T2M_MIN": {
-                        "smoothing_method": "exponential",
-                        "exponential_alpha": 0.30  #CHANGED: 0.25 → 0.30 (+20%)
+                        "smoothing_method": "adaptive_exponential",  # CHANGED to adaptive
+                        "alpha_range": [0.20, 0.50],
+                        "volatility_window": 30,
+                        "reason": "Min temperature - adaptive for weather pattern changes"
                     },
                     
                     # Wind variables - no smoothing
@@ -453,10 +459,14 @@ class NasaPreprocessor:
         if self.options.get("drop_outliers", True):
             processed_df = self._handle_outliers(processed_df)
         
-        # Adaptive alpha optimization before smoothing
+        # STEP 6: Alpha optimization for regular exponential parameters
         if self.options.get("adaptive_alpha_selection", False):
             log_progress("alpha_optimization", "Optimizing alpha parameters for better trend preservation...")
             self._optimize_parameter_alphas(processed_df)
+        
+        # STEP 7: Volatility optimization for adaptive parameters (INDEPENDENT)
+        log_progress("volatility_optimization", "Optimizing volatility parameters for adaptive smoothing...")
+        self._optimize_volatility_parameters(processed_df)
         
         # Save data state BEFORE smoothing
         logger.info("SAVING PRE-SMOOTHING DATA STATE for correct trend validation...")
@@ -477,6 +487,11 @@ class NasaPreprocessor:
                 stats = processed_df[param].describe()
                 logger.info(f"POST-SMOOTHING {param}: mean={stats['mean']:.3f}, std={stats['std']:.3f}")
         
+        # STEP 8: Smoothing validation
+        log_progress("smoothing_validation", "Validating smoothing quality (GCV + Trend Preservation)...")
+        self._validate_smoothing_method(processed_df)
+        
+        # STEP 9: Forecasting variable validation (SINGLE INSTANCE)
         logger.info("Validating forecasting variable smoothing configuration...")
         forecasting_vars = ["T2M", "RH2M", "ALLSKY_SFC_SW_DWN", "PRECTOTCORR"]
         smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
@@ -495,35 +510,11 @@ class NasaPreprocessor:
                     else:
                         logger.warning(f"{var}: Unexpected method: {status}")
         
-        log_progress("smoothing_validation", "Validating smoothing quality (GCV + Trend Preservation)...")
-        self._validate_smoothing_method(processed_df)
-        
-        logger.info("Validating forecasting variable smoothing configuration...")
-        forecasting_vars = ["T2M", "RH2M", "ALLSKY_SFC_SW_DWN", "PRECTOTCORR"]
-        smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
-
-        for var in forecasting_vars:
-            if var in smoothing_summary:
-                status = smoothing_summary[var]
-                if var == "PRECTOTCORR":
-                    if status == "none":
-                        logger.info(f"{var}: Correctly SKIPPED (preserving rain events)")
-                    else:
-                        logger.warning(f"{var}: UNEXPECTED smoothing applied: {status}")
-                else:
-                    if "exponential" in status:
-                        logger.info(f"{var}: {status}")
-                    else:
-                        logger.warning(f"{var}: Unexpected method: {status}")
-        
-        log_progress("smoothing_validation", "Validating smoothing quality (GCV + Trend Preservation)...")
-        self._validate_smoothing_method(processed_df)
-        
-        # STEP 8: Calculate and EMBED seasonal decomposition
+        # STEP 10: Decomposition
         log_progress("decomposition", "Calculating seasonal decomposition...")
         self._calculate_and_embed_decomposition(processed_df)
         
-        # STEP 9-10: Coverage and quality metrics
+        # STEP 11-12: Coverage and quality metrics
         log_progress("model_coverage", "Calculating model coverage analysis...")
         if self.options.get("calculate_coverage", True):
             self._calculate_model_coverage(processed_df)
@@ -1375,7 +1366,151 @@ class NasaPreprocessor:
             for i, warning in enumerate(warnings, 1):
                 logger.info(f"  {i}. {warning}")
         logger.info("END OF DETAILED COVERAGE ANALYSIS")
+    
+    def _optimize_volatility_parameters(
+        self,
+        df: pd.DataFrame,
+    ) -> None:
+        """
+        Optimize volatility window and alpha ranges for adaptive exponential smoothing
+    
+        Tests different configurations to find optimal settings for each parameter
+        """
         
+        logger.info("Optimizing volatility parameters for adaptive smoothing...")
+        
+        # Parameters that use adaptive smoothing
+        adaptive_params = []
+        for param in self.options.get("columns_to_process", []):
+            param_config = self.options.get("parameter_configs", {}).get(param, {})
+            if param_config.get("smoothing_method") == "adaptive_exponential":
+                adaptive_params.append(param)
+        
+        if not adaptive_params:
+            logger.info("No parameters configured for adaptive smoothing - skipping optimization")
+            return
+        
+        # Test configurations
+        test_windows = [15, 30, 45]  # Volatility window sizes to test
+        test_ranges = {
+            "conservative": [0.15, 0.35],  # Low volatility parameters
+            "moderate": [0.20, 0.50],      # Medium volatility parameters  
+            "aggressive": [0.25, 0.65]     # High volatility parameters
+        }
+        
+        optimization_results = {}
+        
+        for param in adaptive_params:
+            if param not in df.columns:
+                continue
+            
+            logger.info(f"Optimizing {param}...")
+            
+            series = df[param].dropna()
+            if len(series) < 100:
+                logger.warning(f"{param}: Insufficient data for optimization ({len(series)} < 100)")
+                continue
+            
+            best_config = None
+            best_score = -np.inf
+            
+            # Test all combinations
+            for window in test_windows:
+                for range_name, alpha_range in test_ranges.items():
+                    try:
+                        # Temporarily set config for testing
+                        test_config = {
+                            "volatility_window": window,
+                            "alpha_range": alpha_range
+                        }
+                        
+                        # Test this configuration
+                        score = self._test_adaptive_config(series, param, test_config)
+                        
+                        logger.info(f"  {param}: window={window}, range={alpha_range} → score={score:.3f}")
+                        
+                        if score > best_score:
+                            best_score = score
+                            best_config = test_config
+                            
+                    except Exception as e:
+                        logger.warning(f"Error testing {param} config window={window}, range={alpha_range}: {str(e)}")
+                        continue
+            
+            # Update parameter config with best settings
+            if best_config:
+                param_configs = self.options.setdefault("parameter_configs", {})
+                param_configs.setdefault(param, {}).update(best_config)
+                
+                optimization_results[param] = {
+                    "optimal_window": best_config["volatility_window"],
+                    "optimal_range": best_config["alpha_range"],
+                    "score": best_score
+                }
+                
+                logger.info(f"{param}: Optimal config → window={best_config['volatility_window']}, "
+                        f"range={best_config['alpha_range']}, score={best_score:.3f}")
+            else:
+                logger.warning(f"{param}: No valid configuration found, keeping defaults")
+        
+        # Store results in preprocessing report
+        self.preprocessing_report["adaptive_optimization"] = optimization_results
+        
+        logger.info(f"Volatility optimization completed for {len(optimization_results)} parameters")
+    
+    def _test_adaptive_config(self, series: pd.Series, param: str, test_config: dict) -> float:
+        """
+        Test a specific adaptive configuration and return quality score
+        
+        Args:
+            series: Parameter data
+            param: Parameter name
+            test_config: Dictionary with 'volatility_window' and 'alpha_range'
+            
+        Returns:
+            Combined score (higher = better)
+        """
+        try:
+            # Temporarily update config for testing
+            original_config = self.options.get("parameter_configs", {}).get(param, {}).copy()
+            
+            # Apply test config
+            if "parameter_configs" not in self.options:
+                self.options["parameter_configs"] = {}
+            if param not in self.options["parameter_configs"]:
+                self.options["parameter_configs"][param] = {}
+                
+            self.options["parameter_configs"][param].update(test_config)
+            
+            # Apply adaptive smoothing with test config
+            smoothed_series = self._smooth_exponential_adaptive(series, param)
+            
+            # Calculate quality metrics
+            original_values = series.values
+            smoothed_values = smoothed_series.values
+            
+            # Align arrays (in case of length mismatch)
+            min_len = min(len(original_values), len(smoothed_values))
+            original_values = original_values[:min_len]
+            smoothed_values = smoothed_values[:min_len]
+            
+            # Calculate GCV (will use adaptive EDF calculation)
+            gcv_score = self._calculate_gcv(original_values, smoothed_values, param)
+            
+            # Calculate trend preservation
+            trend_preservation = self._calculate_trend_preservation(original_values, smoothed_values)
+            
+            # Combined score (prioritize trend preservation for NASA data)
+            combined_score = (trend_preservation * 100 * 1.5) - (gcv_score * 0.3)
+            
+            # Restore original config
+            self.options["parameter_configs"][param] = original_config
+            
+            return combined_score
+            
+        except Exception as e:
+            logger.warning(f"Error testing adaptive config for {param}: {str(e)}")
+            return -1000.0  # Very low score for failed tests
     
     def _calculate_trend_penalty(self, trend_preservation: float) -> float:
         """
@@ -1462,28 +1597,23 @@ class NasaPreprocessor:
 
         # Logging overview
         logger.info(f"Alpha range for testing: {alpha_range}")
-        logger.info("Focus parameters: RH2M, ALLSKY_SFC_SW_DWN (target trend preservation >85%)")
+        logger.info("Focus parameters: T2M (target trend preservation >75%)")
 
         for param in params:
-
             if param not in df.columns:
                 continue
 
             param_config = self.options.get("parameter_configs", {}).get(param, {})
+            smoothing_method = param_config.get("smoothing_method", self.options.get("smoothing_method", "exponential"))
 
-            # Determine smoothing method with fallback chain
-            smoothing_method = param_config.get(
-                "smoothing_method",
-                self.options.get("smoothing_method", "exponential")
-            )
-
-            # Skip parameters without exponential smoothing
-            if smoothing_method is None:
-                logger.info(f"{param}: Skipping (no smoothing configured)")
+            # SKIP parameters that use adaptive_exponential (they use volatility optimization instead)
+            if smoothing_method == "adaptive_exponential":
+                logger.info(f"{param}: Skipping (uses adaptive optimization)")
                 continue
-
-            if smoothing_method != "exponential":
-                logger.info(f"{param}: Skipping (using {smoothing_method} method)")
+                
+            # Skip parameters without exponential smoothing
+            if smoothing_method is None or smoothing_method != "exponential":
+                logger.info(f"{param}: Skipping (no exponential smoothing)")
                 continue
 
             # Current alpha
@@ -1939,6 +2069,102 @@ class NasaPreprocessor:
         else:
             return "poor"
     
+    def _calculate_adaptive_alpha(
+        self,
+        series: pd.Series,
+        param: str
+    )-> np.ndarray:
+        """
+        Calculate adaptive alpha values based on local volatility
+        
+        Args:
+            series: Time series data
+            param: Parameter name for configuration
+            
+        Returns:
+            Array of alpha values (one per data point)
+        """
+        try:
+            # Get parameter specific config
+            param_config = self.options.get("parameter_configs", {}).get(param, {})
+            alpha_range = param_config.get("alpha_range", [0.15, 0.45])  # Default range
+            volatility_window = param_config.get("volatility_window", 30)  # Default 30 days
+            alpha_min, alpha_max = alpha_range
+            
+            # Calculate rolling volatility (standard deviation)
+            volatility = series.rolling(window=volatility_window, min_periods=1).std()
+            
+            # Fill initial NaN values with backward fill
+            volatility = volatility.fillna(method='bfill')
+            
+            # Normalize volatility to [0, 1] using percentiles to handle outliers
+            v_10th = volatility.quantile(0.1)
+            v_90th = volatility.quantile(0.9)
+            
+            # Avoid division by zero
+            if v_90th == v_10th:
+                volatility_norm = pd.Series([0.5] * len(volatility), index=volatility.index)
+            else:
+                volatility_norm = (volatility - v_10th) / (v_90th - v_10th)
+                volatility_norm = volatility_norm.clip(0, 1)
+            
+            # Map to alpha range: low volatility = low alpha, high volatility = high alpha
+            alphas = alpha_min + volatility_norm * (alpha_max - alpha_min)
+            
+            # Ensure alphas are within valid range [0.01, 0.99]
+            alphas = alphas.clip(0.01, 0.99)
+            
+            logger.info(f"{param}: Adaptive alpha range [{alpha_min:.2f}, {alpha_max:.2f}], "
+                    f"actual range [{alphas.min():.3f}, {alphas.max():.3f}]")
+            
+            return alphas.values
+        except Exception as e:
+            logger.warning(f"Error calculating adaptive alpha for {param}: {str(e)}")
+            # Fallback to fixed alpha
+            fallback_alpha = param_config.get("exponential_alpha", 0.25)
+            return np.full(len(series), fallback_alpha)
+        
+    def _smooth_exponential_adaptive(self, series: pd.Series, param: str) -> pd.Series:
+        """
+        Apply exponential smoothing with time-varying alpha values
+        
+        Args:
+            series: Time series data
+            param: Parameter name
+            
+        Returns:
+            Adaptively smoothed time series
+        """
+        try:
+            # Get adaptive alpha array
+            alphas = self._calculate_adaptive_alpha(series, param)
+            
+            # Initialize result array
+            smoothed = np.zeros(len(series))
+            smoothed[0] = series.iloc[0]  # First value unchanged
+            
+            # Apply time-varying EWMA: s_t = alpha_t * x_t + (1-alpha_t) * s_{t-1}
+            for i in range(1, len(series)):
+                if pd.notna(series.iloc[i]):  # Only smooth non-NaN values
+                    smoothed[i] = alphas[i] * series.iloc[i] + (1 - alphas[i]) * smoothed[i-1]
+                else:
+                    smoothed[i] = smoothed[i-1]  # Carry forward for NaN
+            
+            # Log adaptive smoothing stats
+            avg_alpha = alphas.mean()
+            alpha_std = alphas.std()
+            
+            logger.info(f"{param}: Adaptive smoothing applied - "
+                    f"avg_alpha={avg_alpha:.3f}, alpha_std={alpha_std:.3f}")
+            
+            return pd.Series(smoothed, index=series.index)
+            
+        except Exception as e:
+            logger.error(f"Error in adaptive smoothing for {param}: {str(e)}")
+            # Fallback to regular exponential smoothing
+            logger.info(f"{param}: Falling back to regular exponential smoothing")
+            return self._smooth_exponential(series, param)
+
     def _apply_smoothing(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply smoothing to appropriate parameters"""
         logger.info("Applying conditional smoothing methods...")
@@ -1972,7 +2198,7 @@ class NasaPreprocessor:
                 smoothing_decisions["reasons"][param] = reason
                 continue
             
-            # Get alpha for logging
+            # Apply smoothing based on method
             if param_smoothing == "exponential":
                 alpha = param_config.get("exponential_alpha", self.options.get("exponential_alpha", 0.15))
                 logger.info(f"  {param}: Smoothing (α={alpha:.3f}) - {reason}")
@@ -1981,6 +2207,18 @@ class NasaPreprocessor:
                 smoothing_summary[param] = f"exponential (α={alpha:.3f})"
                 smoothing_decisions["smoothed"].append(param)
                 smoothing_decisions["reasons"][param] = f"α={alpha:.3f}, {reason}"
+                
+            elif param_smoothing == "adaptive_exponential":
+                # NEW: Adaptive exponential smoothing
+                alpha_range = param_config.get("alpha_range", [0.15, 0.45])
+                volatility_window = param_config.get("volatility_window", 30)
+                
+                logger.info(f"  {param}: Adaptive smoothing (α_range={alpha_range}, window={volatility_window}) - {reason}")
+                
+                df[param] = self._smooth_exponential_adaptive(df[param], param)
+                smoothing_summary[param] = f"adaptive_exponential (α={alpha_range[0]:.2f}-{alpha_range[1]:.2f})"
+                smoothing_decisions["smoothed"].append(param)
+                smoothing_decisions["reasons"][param] = f"adaptive α={alpha_range}, {reason}"
                 
             elif param_smoothing == "moving_average":
                 window = self.options.get("window_size", 5)
@@ -2183,9 +2421,11 @@ class NasaPreprocessor:
         GCV penalizes both:
         - Poor fit (high MSE)
         - Over-smoothing (high effective degrees of freedom)
+        
+        Update for support adaptive exponential smoothing EDF calculation
         """
         n = len(original)
-        
+            
         # Calculate Mean Squared Error
         mse = np.mean((original - smoothed) ** 2)
         
@@ -2195,13 +2435,13 @@ class NasaPreprocessor:
             "smoothing_method", 
             self.options.get("smoothing_method", "exponential")  # Fallback to global
         )
-        
+    
         # Handle case where smoothing_method is None (defensive programming)
         if smoothing_method is None:
             logger.warning(f"GCV called for parameter {param} with no smoothing method")
             return 0.0  # Return 0 to indicate no smoothing was applied
         
-                # Estimate effective degrees of freedom based on smoothing method
+        # Estimate effective degrees of freedom based on smoothing method
         if smoothing_method == "moving_average":
             window_size = self.options.get("window_size", 5)
             edf = window_size
@@ -2215,26 +2455,34 @@ class NasaPreprocessor:
                 alpha = self.options.get("exponential_alpha", 0.15)
             
             # Validate alpha range
-            if alpha <= 0:
-                alpha = 0.01  # Minimum alpha
-                logger.warning(f"Alpha too low, using minimum: {alpha}")
-            elif alpha >= 1:
-                alpha = 0.99  # Maximum alpha
-                logger.warning(f"Alpha too high, using maximum: {alpha}")
+            alpha = max(0.01, min(0.99, alpha))  # Clamp to valid range
             
             # CORRECTED FORMULA for Exponential Weighted Moving Average (EWMA)
-            # Reference: Hyndman & Athanasopoulos "Forecasting: Principles and Practice"
-            # For EWMA, effective degrees of freedom: edf ≈ 1 / (2 - alpha)
-            # Alternative simple approximation: edf ≈ 1/alpha (for small alpha)
-            
-            # Using the more accurate formula:
             edf = 1.0 / (2.0 - alpha)
             
             # Ensure reasonable bounds
             edf = max(1.0, min(edf, n / 3.0))  # EDF should be between 1 and n/3
             
-            # Debug logging for verification
-            # logger.debug(f"GCV calculation: alpha={alpha:.3f}, edf={edf:.2f}, n={n}")
+        elif smoothing_method == "adaptive_exponential":
+            # NEW: Calculate EDF for adaptive exponential smoothing
+            alpha_range = param_config.get("alpha_range", [0.15, 0.45])
+            alpha_min, alpha_max = alpha_range
+            
+            # Use average alpha for EDF estimation
+            alpha_avg = (alpha_min + alpha_max) / 2.0
+            
+            # Apply same formula as regular exponential
+            edf_min = 1.0 / (2.0 - alpha_max)  # Min EDF (high alpha)
+            edf_max = 1.0 / (2.0 - alpha_min)  # Max EDF (low alpha) 
+            edf = (edf_min + edf_max) / 2.0    # Average EDF
+            
+            # Alternative: Could use actual alpha values if stored during smoothing
+            # For now, using range average is simpler and sufficient
+            
+            # Ensure reasonable bounds
+            edf = max(1.0, min(edf, n / 3.0))
+            
+            logger.debug(f"Adaptive GCV: α_range={alpha_range}, α_avg={alpha_avg:.3f}, edf={edf:.2f}")
             
         else:
             edf = 5  # Default conservative estimate
@@ -2242,7 +2490,6 @@ class NasaPreprocessor:
                 logger.warning(f"Unknown smoothing method '{smoothing_method}' for parameter {param}, using default EDF=5")
 
         # GCV formula: MSE / (1 - edf/n)²
-        # Protection against numerical issues
         denominator = (1.0 - edf / n) ** 2
 
         # Ensure denominator is not too small (prevents division explosion)
