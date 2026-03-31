@@ -475,13 +475,16 @@ class BmkgDataSaver:
                 logger.info("Dropped '__v' column")
             
             # Drop temporary preprocessing columns
-            temp_columns = ['Season', 'is_RR_missing', 
-                           'Month', 'day_of_year', 'max_daylight']
+            temp_columns = [
+                'Season', 'is_RR_missing', 
+                'Month', 'day_of_year', 'max_daylight',
+                'TAVG_imputed', 'RH_AVG_imputed', '_RR_long_gap'  # NEW: added flags
+            ]
             columns_to_drop = [
                 col for col in temp_columns 
                 if col in df_to_save.columns
             ]
-            
+
             if columns_to_drop:
                 df_to_save = df_to_save.drop(columns_to_drop, axis=1)
                 logger.info(f"Dropped temporary columns: {columns_to_drop}")
@@ -686,7 +689,7 @@ class BmkgPreprocessor:
             "outliers": {},
             "imputation": {},
             "physical_constraints": {},
-            "smoothing_validation": {},
+            "imputation_validation": {},
             "model_coverage": {},
             "quality_metrics": {},
             "warnings": []
@@ -764,7 +767,7 @@ class BmkgPreprocessor:
             
             # Step 4: Validate smoothing quality (GCV + Trend)
             logger.info("\n[4/7] Validating preprocessing quality...")
-            self._validate_preprocessing_quality(processed_df)
+            self._validate_imputation_quality(processed_df)
             logger.info("Quality validation completed")
             
             # Step 5: Calculate model coverage
@@ -865,19 +868,22 @@ class BmkgPreprocessor:
                 "TAVG": {
                     "forecasting_critical": True,
                     "max_gap_interpolate": 7,
-                    "reason": "Temperature is critical for forecasting"
+                    "apply_smoothing_on_imputed": True,
+                    "smoothing_alpha": 0.15,
+                    "reason": "Temperature is critical for forecasting (smooth only imputed points)"
                 },
                 "RR": {
                     "forecasting_critical": True,
                     "max_gap_interpolate": 7,
-                    "reason": "Rainfall is critical for forecasting"
+                    "reason": "Rainfall - impute only short gaps (gap-aware)"
                 },
                 "RH_AVG": {
                     "forecasting_critical": True,
                     "max_gap_interpolate": 7,
-                    "reason": "Humidity is critical for forecasting"
+                    "apply_smoothing_on_imputed": True,
+                    "smoothing_alpha": 0.15,
+                    "reason": "Humidity is critical for forecasting (smooth only imputed points)"
                 },
-                
                 # SUPPORTING - Standard imputation
                 "TX": {
                     "forecasting_critical": False,
@@ -974,12 +980,29 @@ class BmkgPreprocessor:
         if self.options.get("fill_missing", True):
             logger.info("[5/6] Imputing missing values with gap-aware logic")
             processed_df = self._impute_missing_values(processed_df)
-        
+
+        # NEW: Step 5.5 - Light smoothing on imputed points only
+        logger.info("[5.5/6] Applying light smoothing on imputed segments (selected params)...")
+        param_cfg = self.options.get("parameter_configs", {})
+
+        for param, flag_col in [("TAVG", "TAVG_imputed"), ("RH_AVG", "RH_AVG_imputed")]:
+            if param not in processed_df.columns or flag_col not in processed_df.columns:
+                continue
+            
+            if not param_cfg.get(param, {}).get("apply_smoothing_on_imputed", False):
+                continue
+            
+            alpha = float(param_cfg.get(param, {}).get("smoothing_alpha", 0.15))
+            mask = processed_df[flag_col].fillna(False) & processed_df[param].notna()
+            
+            if mask.any():
+                smoothed = processed_df[param].ewm(alpha=alpha, adjust=True).mean()
+                processed_df.loc[mask, param] = smoothed.loc[mask]
+                logger.info(f"  {param}: smoothed {int(mask.sum())} imputed points (α={alpha})")
+
         # Step 6: Apply physical constraints
         logger.info("[6/6] Applying physical constraints...")
         processed_df = self._apply_physical_constraints(processed_df)
-        
-        # REMOVED: Step 7 decomposition call (moved to preprocess())
         
         logger.info("preprocessing pipeline completed")
         return processed_df
@@ -1410,7 +1433,6 @@ class BmkgPreprocessor:
         """
         logger.info(f"Starting Two-Stage Rainfall Imputation...")
         
-        # Track original missing pattern
         df['is_RR_missing'] = df['RR'].isna().astype(int)
         original_missing_count = df['is_RR_missing'].sum()
         
@@ -1420,10 +1442,33 @@ class BmkgPreprocessor:
         
         logger.info(f"Processing {original_missing_count} missing rainfall values")
         
-        # Keep dry peak logic (existing logic that works)
+        # NEW: gap-aware long-gap marking (consecutive NaN runs)
+        param_config = self.options.get("parameter_configs", {}).get("RR", {})
+        max_gap = int(param_config.get("max_gap_interpolate", 7))
+        
+        df["_RR_long_gap"] = False
+        rr_missing_idx = df.index[df["RR"].isna()]
+        
+        if len(rr_missing_idx) > 0:
+            current_run = [rr_missing_idx[0]]
+            for t in rr_missing_idx[1:]:
+                if (t - current_run[-1]).days == 1:
+                    current_run.append(t)
+                else:
+                    if len(current_run) > max_gap:
+                        df.loc[current_run, "_RR_long_gap"] = True
+                    current_run = [t]
+            if len(current_run) > max_gap:
+                df.loc[current_run, "_RR_long_gap"] = True
+        
+        long_gap_count = df["_RR_long_gap"].sum()
+        logger.info(f"Marked {long_gap_count} long-gap points (>{max_gap} days)")
+        
+        # Keep dry peak logic (skip long gaps)
         dry_peak_mask = (
             (df['Season'] == 'Dry') & 
             df['RR'].isna() & 
+            (~df["_RR_long_gap"]) &  # NEW: don't force long gaps
             df.index.month.isin(self.season_config['dry_season_peak'])
         )
         dry_peak_count = 0
@@ -1431,22 +1476,26 @@ class BmkgPreprocessor:
             df.loc[dry_peak_mask, 'RR'] = 0
             dry_peak_count = dry_peak_mask.sum()
             logger.info(f"Set {dry_peak_count} peak dry season values to 0")
-            
-        # Stage 1: Binary rain occurrence classification
-        remaining_missing = df['RR'].isna().sum()
+        
+        # Stage 1: Binary rain occurrence classification (skip long gaps)
+        remaining_missing = (df['RR'].isna() & (~df["_RR_long_gap"])).sum()
         if remaining_missing > 0:
             logger.info(f"Stage 1: Classifying rain occurrence for {remaining_missing} values")
             df = self._classify_rain_occurrence(df)
             
-            # Stage 2: Conditional amount imputation
-            rain_days_to_impute = (df['RR'].isna() == False) & (df['is_RR_missing'] == 1) & (df['RR'] > 0)
-            rain_days_count = rain_days_to_impute.sum()
+            # Stage 2: Conditional amount imputation (FIXED)
+            rain_days_to_impute = (
+                (df.get('rain_classified', 0) == 1) &
+                (df['is_RR_missing'] == 1) &
+                (df['RR'].isna()) &
+                (~df["_RR_long_gap"])
+            )
+            rain_days_count = int(rain_days_to_impute.sum())
             
             if rain_days_count > 0:
                 logger.info(f"Stage 2: Imputing amounts for {rain_days_count} classified rain days")
                 df = self._impute_rain_amounts(df)
                 
-        
         # Final validation and cleanup
         df = self._finalize_rainfall_imputation(df)
         final_missing = df['RR'].isna().sum()
@@ -1476,51 +1525,60 @@ class BmkgPreprocessor:
         - Combine all 3 methods with weighted scoring
         - Threshold: >0.5 = rain day, ≤0.5 = no rain
         """
-        
-        missing_mask = df['RR'].isna()
+        long_gap_mask = df["_RR_long_gap"] if "_RR_long_gap" in df.columns else pd.Series(False, index=df.index)
+        missing_mask = df["RR"].isna() & (~long_gap_mask)
+
         classified_rain = 0
         classified_dry = 0
         confidence_scores = []
         
         for idx in df.index[missing_mask]:
-            # Method 1: Seasonal probability
             month = idx.month
             season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
             
+            # NEW: seasonal threshold
+            if month in self.season_config['dry_season_peak']:
+                threshold = 0.70
+            elif month in self.season_config['dry_months']:
+                threshold = 0.60
+            else:
+                threshold = 0.50
+            
+            # Method 1: Seasonal probability
             if month in self.season_config['dry_season_peak']:
                 base_prob = self.rain_classification_config['probability_thresholds']['dry_peak_base']
             elif season == 'Wet':
                 base_prob = self.rain_classification_config['probability_thresholds']['wet_season_base']
             else:
                 base_prob = self.rain_classification_config['probability_thresholds']['dry_season_base']
-                
+            
             # Method 2: Markov chain adjustment
             markov_prob = self._calculate_markov_probability(df, idx)
             
-            # Method 3: Context awareness (meteorological)
+            # Method 3: Context awareness
             context_prob = self._calculate_context_probability(df, idx)
             
             # Weighted combination
-            # Seasonal: 40%, Markov: 35%, Context: 25%
             final_probability = (
                 0.40 * base_prob +
                 0.35 * markov_prob +
                 0.25 * context_prob
             )
             
-            # Confidence = how certain we are about the classification
-            # High probability (close to 0 or 1) = high confidence
-            # Probability around 0.5 = low confidence
-            confidence = 1 - (2 * abs(final_probability - 0.5))  # 0.5 = maximum uncertainty
+            # FIX: confidence (0.0 uncertain near 0.5, 1.0 certain near 0/1)
+            confidence = 2 * abs(final_probability - 0.5)
+            confidence = max(0.0, min(1.0, confidence))
             confidence_scores.append(confidence)
-                
+            
+            # NEW: abstain zone (leave NaN for uncertain cases)
+            if 0.45 <= final_probability <= 0.65:
+                continue
+            
             # DECISION: Rain or No Rain
-            if final_probability > 0.5:
-                # Classify as rain day - will get amount in Stage 2
+            if final_probability > threshold:
                 df.loc[idx, 'rain_classified'] = 1
                 classified_rain += 1
             else:
-                # Classify as no-rain day
                 df.loc[idx, 'RR'] = 0
                 df.loc[idx, 'rain_classified'] = 0
                 classified_dry += 1
@@ -1768,7 +1826,7 @@ class BmkgPreprocessor:
             max_neighbor = max(window_rr) if window_rr else 0
             avg_neighbor = np.mean([rr for rr in window_rr if rr > 0]) if rain_neighbors else 0
             
-            # Determine context type and multiplier
+           # Determine context type and multiplier
             if neighbor_count == 0:
                 context_type = 'isolated'
                 multiplier = 0.8
@@ -1777,18 +1835,21 @@ class BmkgPreprocessor:
                 multiplier = 1.0
             elif neighbor_count <= 4:
                 context_type = 'cluster_moderate' 
-                multiplier = 1.2
+                multiplier = 1.1  # reduced from 1.2
             else:
                 context_type = 'cluster_heavy'
-                multiplier = 1.4
-                
-            # Intensity-based adjustment
-            if max_neighbor > 50:  # Heavy rain nearby
-                multiplier *= 1.3
-            elif max_neighbor > 20:  # Moderate rain nearby
-                multiplier *= 1.1
-            elif max_neighbor < 5:  # Light rain nearby
+                multiplier = 1.2  # reduced from 1.4
+
+            # Intensity-based adjustment (reduced)
+            if max_neighbor > 50:
+                multiplier *= 1.2  # reduced from 1.3
+            elif max_neighbor > 20:
+                multiplier *= 1.05  # reduced from 1.1
+            elif max_neighbor < 5:
                 multiplier *= 0.9
+
+            # NEW: cap multiplier
+            multiplier = min(multiplier, 1.3)
             
             return {
                 'context_type': context_type,
@@ -1888,23 +1949,23 @@ class BmkgPreprocessor:
             # Humidity intensity
             if pd.notna(rh_avg):
                 if rh_avg >= 95:
-                    intensity_factor *= 1.4  # Very high humidity
+                    intensity_factor *= 1.2  # reduced from 1.4
                 elif rh_avg >= 90:
-                    intensity_factor *= 1.2  # High humidity  
+                    intensity_factor *= 1.1  # reduced from 1.2
                 elif rh_avg >= 80:
-                    intensity_factor *= 1.0  # Moderate humidity
+                    intensity_factor *= 1.0
                 else:
-                    intensity_factor *= 0.8  # Lower humidity
-            
+                    intensity_factor *= 0.85  # reduced from 0.8
+
             # Wind-humidity combination
             if pd.notna(rh_avg) and pd.notna(ff_x):
                 if rh_avg >= 90 and ff_x <= 2:
-                    intensity_factor *= 1.3  # Calm + very humid = intense
+                    intensity_factor *= 1.15  # reduced from 1.3
                 elif rh_avg >= 85 and ff_x <= 3:
-                    intensity_factor *= 1.1  # Moderate intensity
-            
-            # Keep within reasonable bounds
-            return max(0.6, min(2.0, intensity_factor))
+                    intensity_factor *= 1.05  # reduced from 1.1
+
+            # NEW: tighter bounds
+            return max(0.7, min(1.5, intensity_factor)) 
         except Exception as e:
             logger.debug(f"Intensity factor error for {current_idx}: {str(e)}")
             return 1.0
@@ -2000,9 +2061,10 @@ class BmkgPreprocessor:
                 remaining_missing = df['RR'].isna().sum()
                 logger.warning(f"{remaining_missing} values still missing after two-stage imputation")
                 
-                # Emergency fallback: seasonal median
+                long_gap_mask = df.get("_RR_long_gap", False)
+                # Only fill NON-long-gap remaining NaN (gap-aware)
                 for month in range(1, 13):
-                    month_mask = (df.index.month == month) & df['RR'].isna()
+                    month_mask = (df.index.month == month) & df['RR'].isna() & (long_gap_mask == False)
                     if month_mask.sum() > 0:
                         monthly_median = df[
                             (df.index.month == month) & 
@@ -2012,7 +2074,13 @@ class BmkgPreprocessor:
                         if pd.notna(monthly_median) and monthly_median > 0:
                             df.loc[month_mask, 'RR'] = monthly_median
                         else:
-                            df.loc[month_mask, 'RR'] = 0  # Fallback to 0
+                            df.loc[month_mask, 'RR'] = 0
+
+            # Remove temporary columns (including _RR_long_gap)
+            temp_columns = ['rain_classified', '_RR_long_gap']  # added _RR_long_gap
+            for col in temp_columns:
+                if col in df.columns:
+                    df.drop(col, axis=1, inplace=True)
             
             # Validate results
             negative_count = (df['RR'] < 0).sum()
@@ -2044,10 +2112,15 @@ class BmkgPreprocessor:
         """
         
         # Calculate TAVG from TX and TN where possible
+        if 'TAVG' in df.columns and 'TAVG_imputed' not in df.columns:
+            df['TAVG_imputed'] = False
+        
+        # Calculate TAVG from TX and TN where possible
         if 'TAVG' in df.columns and 'TX' in df.columns and 'TN' in df.columns:
             calc_mask = df['TAVG'].isna() & df['TX'].notna() & df['TN'].notna()
             if calc_mask.sum() > 0:
                 df.loc[calc_mask, 'TAVG'] = (df.loc[calc_mask, 'TX'] + df.loc[calc_mask, 'TN']) / 2
+                df.loc[calc_mask, 'TAVG_imputed'] = True  # NEW: mark as imputed
                 logger.info(f"Calculated {calc_mask.sum()} TAVG from TX/TN")
         
         # Calculate TX from TAVG and TN
@@ -2067,8 +2140,15 @@ class BmkgPreprocessor:
         # Interpolate remaining values
         for param in ['TX', 'TN', 'TAVG']:
             if param in df.columns and df[param].isna().any():
+                missing_before = df[param].isna()  # NEW: track before interpolation
+                
                 # Try cubic spline first
                 df[param] = df[param].interpolate(method='cubic', limit_direction='both')
+                
+                # NEW: mark only TAVG imputed points (from interpolation)
+                if param == 'TAVG' and 'TAVG_imputed' in df.columns:
+                    filled_now = missing_before & df[param].notna()
+                    df.loc[filled_now, 'TAVG_imputed'] = True
                 
                 # Fallback to seasonal median
                 if df[param].isna().any():
@@ -2095,10 +2175,13 @@ class BmkgPreprocessor:
         
         Dewpoint formula: Td ≈ T - ((100 - RH) / 5)
         """
+        if 'RH_AVG' in df.columns and 'RH_AVG_imputed' not in df.columns:
+            df['RH_AVG_imputed'] = False
+        
         # Calculate dewpoint where both TAVG and RH_AVG are available
         mask = df['RH_AVG'].notna() & df['TAVG'].notna()
         
-        if mask.sum() > 50:  # Need enough data
+        if mask.sum() > 50:
             df.loc[mask, 'dewpoint'] = df.loc[mask, 'TAVG'] - ((100 - df.loc[mask, 'RH_AVG']) / 5)
             
             # Interpolate dewpoint
@@ -2108,13 +2191,21 @@ class BmkgPreprocessor:
             rh_missing = df['RH_AVG'].isna() & df['TAVG'].notna() & df['dewpoint'].notna()
             if rh_missing.sum() > 0:
                 df.loc[rh_missing, 'RH_AVG'] = 100 - 5 * (df.loc[rh_missing, 'TAVG'] - df.loc[rh_missing, 'dewpoint'])
+                df.loc[rh_missing, 'RH_AVG_imputed'] = True  # NEW: mark as imputed
                 logger.info(f"      Calculated {rh_missing.sum()} RH_AVG from dewpoint")
             
             df.drop('dewpoint', axis=1, inplace=True, errors='ignore')
         
         # Interpolate remaining values
         if df['RH_AVG'].isna().any():
+            missing_before = df['RH_AVG'].isna()  # NEW: track before interpolation
+            
             df['RH_AVG'] = df['RH_AVG'].interpolate(method='cubic', limit_direction='both')
+            
+            # NEW: mark interpolated points
+            filled_now = missing_before & df['RH_AVG'].notna()
+            df.loc[filled_now, 'RH_AVG_imputed'] = True
+            
             logger.info(f"      Interpolated remaining RH_AVG values")
         
         # Apply physical constraints (0-100%)
@@ -2369,7 +2460,7 @@ class BmkgPreprocessor:
         
         return df
     
-    def _validate_preprocessing_quality(
+    def _validate_imputation_quality(
         self,
         df: pd.DataFrame
     )-> None:
@@ -2571,7 +2662,7 @@ class BmkgPreprocessor:
                     
                 }
         # store in preprocessing report
-        self.preprocessing_report["smoothing_validation"] = validation_results
+        self.preprocessing_report["imputation_validation"] = validation_results
         # generate summary statistics
         self._generate_quality_summary(validation_results)
         logger.info(f"Quality validation completed for {len(validation_results)}")
@@ -3578,7 +3669,7 @@ class BmkgPreprocessor:
         """
         
         # Get validation results from Phase 3
-        validation_results = self.preprocessing_report.get("smoothing_validation", {})
+        validation_results = self.preprocessing_report.get("imputation_validation", {})
         param_result = validation_results.get(param, {})
         
         gcv_score = param_result.get("gcv_score", 0)
@@ -4570,14 +4661,14 @@ class BmkgPreprocessor:
                 # Quality Metrics (keep full)
                 "quality_metrics": self.preprocessing_report.get("quality_metrics", {}),
                 
-                # INLINE smoothing validation simplification
-                "smoothing_validation": {
+                # INLINE imputation validation simplification
+                "imputation_validation": {
                     param: {
                         "gcv_score": data.get("gcv_score"),
                         "trend_preservation_pct": data.get("trend_preservation_pct"),
                         "quality_status": data.get("quality_status")
                         # NO data_points, NO imputation_method
-                    } for param, data in self.preprocessing_report.get("smoothing_validation", {}).items()
+                    } for param, data in self.preprocessing_report.get("imputation_validation", {}).items()
                     if isinstance(data, dict) and "gcv_score" in data
                 },
                 
