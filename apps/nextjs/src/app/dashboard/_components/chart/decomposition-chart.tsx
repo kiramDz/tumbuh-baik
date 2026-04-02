@@ -31,13 +31,97 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Activity, TrendingUp, Waves, Zap } from "lucide-react";
-import {
-  GetDecompositionDataBySlug,
-  GetAvailableDecompositionParameters,
-  DecompositionData,
-} from "@/lib/fetch/files.fetch";
-import { useMemo } from "react";
 
+// TYPE DEFINITIONS
+interface DecompositionMetadata {
+  dateRange: {
+    start: string;
+    end: string;
+  };
+  model: string;
+  period: number;
+  dataPoints: number;
+}
+
+interface DecompositionValues {
+  dates: string[];
+  original: number[];
+  trend: (number | null)[];
+  seasonal: (number | null)[];
+  residual: (number | null)[];
+}
+
+interface DecompositionData {
+  decomposition: DecompositionValues;
+  metadata: DecompositionMetadata;
+}
+
+interface ChartDataPoint {
+  date: string;
+  fullDate: string;
+  original: number;
+  trend: number | null;
+  seasonal: number | null;
+  residual: number | null;
+  year: number;
+}
+
+interface ComponentStats {
+  min: number;
+  max: number;
+}
+
+interface DecompositionStats {
+  trend: ComponentStats;
+  seasonal: ComponentStats;
+  residual: ComponentStats;
+}
+
+interface DecompositionChartProps {
+  collectionName: string;
+}
+
+interface ParameterDecompositionViewProps {
+  param: string;
+  collectionName: string;
+}
+
+// API FUNCTIONS (TODO: Implement these with your actual API)
+
+/**
+ * Fetch decomposition data for a specific parameter
+ * TODO: Replace this with your actual API call
+ */
+async function GetDecompositionDataBySlug(
+  collectionName: string,
+  param: string
+): Promise<DecompositionData> {
+  // Mock implementation - replace with actual API call
+  const response = await fetch(
+    `/api/decomposition/${collectionName}/${param}`
+  );
+  if (!response.ok) {
+    throw new Error("Failed to fetch decomposition data");
+  }
+  return response.json();
+}
+
+/**
+ * Fetch available parameters for decomposition
+ * TODO: Replace this with your actual API call
+ */
+async function GetAvailableDecompositionParameters(
+  collectionName: string
+): Promise<string[]> {
+  // Mock implementation - replace with actual API call
+  const response = await fetch(`/api/decomposition/${collectionName}/params`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch available parameters");
+  }
+  return response.json();
+}
+
+// CONFIGURATION & CONSTANTS
 const chartConfig = {
   original: {
     label: "Original",
@@ -82,6 +166,7 @@ const paramUnits: Record<string, string> = {
   WD10M: "degrees",
 };
 
+// UTILITY FUNCTIONS
 function getParamLabel(param: string): string {
   return paramLabels[param] || param;
 }
@@ -89,6 +174,76 @@ function getParamLabel(param: string): string {
 function getParamUnit(param: string): string {
   return paramUnits[param] || "";
 }
+
+/**
+ * Transform API data to chart-ready format
+ */
+function transformDecompositionData(
+  data: DecompositionData
+): ChartDataPoint[] {
+  return data.decomposition.dates.map((date: string, index: number) => {
+    const dateObj = new Date(date);
+    return {
+      date: dateObj.getFullYear().toString(),
+      fullDate: dateObj.toLocaleDateString("id-ID", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      original: data.decomposition.original[index],
+      trend: data.decomposition.trend[index],
+      seasonal: data.decomposition.seasonal[index],
+      residual: data.decomposition.residual[index],
+      year: dateObj.getFullYear(),
+    };
+  });
+}
+
+/**
+ * Calculate statistics for each component
+ */
+function calculateDecompositionStats(
+  data: DecompositionData
+): DecompositionStats {
+  const filterNulls = (arr: (number | null)[]): number[] =>
+    arr.filter((v): v is number => v !== null);
+
+  return {
+    trend: {
+      min: Math.min(...filterNulls(data.decomposition.trend)),
+      max: Math.max(...filterNulls(data.decomposition.trend)),
+    },
+    seasonal: {
+      min: Math.min(...filterNulls(data.decomposition.seasonal)),
+      max: Math.max(...filterNulls(data.decomposition.seasonal)),
+    },
+    residual: {
+      min: Math.min(...filterNulls(data.decomposition.residual)),
+      max: Math.max(...filterNulls(data.decomposition.residual)),
+    },
+  };
+}
+
+/**
+ * Calculate optimal tick interval based on year range
+ */
+function calculateTickInterval(chartData: ChartDataPoint[]): number {
+  const years = [...new Set(chartData.map((d) => d.year))].sort();
+  const yearRange = years.length;
+
+  if (yearRange > 20) {
+    return Math.ceil(chartData.length / 10);
+  } else if (yearRange > 10) {
+    return Math.ceil(chartData.length / 15);
+  } else {
+    return Math.ceil(chartData.length / 20);
+  }
+}
+
+
+// UI COMPONENTS
+
 
 function LoadingSkeleton() {
   return (
@@ -130,27 +285,14 @@ function EmptyState({ message }: { message?: string }) {
   );
 }
 
-interface DecompositionChartProps {
-  collectionName: string;
-}
 
-interface ChartDataPoint {
-  date: string;
-  fullDate: string;
-  original: number;
-  trend: number;
-  seasonal: number;
-  residual: number;
-  year: number;
-}
+// MAIN COMPONENTS
+
 
 function ParameterDecompositionView({
   param,
   collectionName,
-}: {
-  param: string;
-  collectionName: string;
-}) {
+}: ParameterDecompositionViewProps) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["decomposition", collectionName, param],
     queryFn: () => GetDecompositionDataBySlug(collectionName, param),
@@ -196,52 +338,11 @@ function ParameterDecompositionView({
     );
   }
 
-  // Transform data for charts
-  const chartData: ChartDataPoint[] = data.decomposition.dates.map(
-    (date, index) => {
-      const dateObj = new Date(date);
-      return {
-        date: dateObj.getFullYear().toString(),
-        fullDate: dateObj.toLocaleDateString("id-ID", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        }),
-        original: data.decomposition.original[index],
-        trend: data.decomposition.trend[index],
-        seasonal: data.decomposition.seasonal[index],
-        residual: data.decomposition.residual[index],
-        year: dateObj.getFullYear(),
-      };
-    }
-  );
-
-  // Calculate statistics
-  const stats = {
-    trend: {
-      min: Math.min(...data.decomposition.trend.filter((v) => v !== null)),
-      max: Math.max(...data.decomposition.trend.filter((v) => v !== null)),
-    },
-    seasonal: {
-      min: Math.min(...data.decomposition.seasonal.filter((v) => v !== null)),
-      max: Math.max(...data.decomposition.seasonal.filter((v) => v !== null)),
-    },
-    residual: {
-      min: Math.min(...data.decomposition.residual.filter((v) => v !== null)),
-      max: Math.max(...data.decomposition.residual.filter((v) => v !== null)),
-    },
-  };
-
+  // Transform data and calculate statistics
+  const chartData = transformDecompositionData(data);
+  const stats = calculateDecompositionStats(data);
+  const tickInterval = calculateTickInterval(chartData);
   const unit = getParamUnit(param);
-  const years = [...new Set(chartData.map((d) => d.year))].sort();
-  const yearRange = years.length;
-  const tickInterval =
-    yearRange > 20
-      ? Math.ceil(chartData.length / 10)
-      : yearRange > 10
-      ? Math.ceil(chartData.length / 15)
-      : Math.ceil(chartData.length / 20);
 
   return (
     <div className="space-y-4">

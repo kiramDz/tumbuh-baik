@@ -22,6 +22,7 @@ import {
 import { farmRoute } from "../_routes/farm/farm.route";
 import decomposeLstmRoute from "../_routes/feature/decompose-lstm.route";
 import historicalLstmRoute from "../_routes/feature/historical-lstm.route";
+import preprocessingRoute from "../_routes/dataset/preprocessing.route";
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api/v1");
@@ -51,6 +52,7 @@ app.route("/kuesioner-periode", kuesionerPeriodeRoute);
 app.route("/farm", farmRoute);
 app.route("/decompose-lstm", decomposeLstmRoute);
 app.route("/historical-lstm", historicalLstmRoute);
+app.route("/preprocessing-report", preprocessingRoute);
 
 export const GET = handle(app);
 export const POST = handle(app);

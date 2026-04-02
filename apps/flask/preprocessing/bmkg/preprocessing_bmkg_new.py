@@ -441,6 +441,7 @@ class BmkgDataSaver:
         db,
         preprocessed_data: pd.DataFrame,
         original_collection: str,
+        preprocessing_id: Optional[ObjectId] = None,
     ) -> Dict[str, Any]:
         """
         Save preprocessed data to new collection with '_cleaned' suffix
@@ -498,12 +499,13 @@ class BmkgDataSaver:
                     f"Inserted {len(records)} records into '{cleaned_collection}'"
                 )
 
-            # Update metadata
-            meta_info = self._update_dataset_metadata(
+            # Create new metadata for the cleaned collection
+            meta_info = self._create_cleaned_metadata(
                 db,
                 original_collection,
                 cleaned_collection,
-                len(records)
+                len(records),
+                preprocessing_id
             )
 
             return {
@@ -519,75 +521,67 @@ class BmkgDataSaver:
             error_msg = f"Error saving preprocessed data: {str(e)}"
             logger.error(error_msg)
             raise BmkgPreprocessingError(error_msg)
-    def _update_dataset_metadata(
+        
+    def _create_cleaned_metadata(
         self,
         db,
         original_collection: str,
         cleaned_collection: str,
         record_count: int,
-    )->  Dict[str, Any]:
-        """Update dataset-meta collection to point to cleaned data"""
+        preprocessing_id: Optional[ObjectId] = None,
+        
+    )-> Dict[str, Any]:
+        """Create a new metadata entry for cleaned dataset (new meta)"""
+        
         try:
-               # Find metadata collection
-            meta_collection = None
-            if "dataset_meta" in db.list_collection_names():
-                meta_collection = "dataset_meta"
-            elif "DatasetMeta" in db.list_collection_names():
-                meta_collection = "DatasetMeta"
-            else:
+            # Find metadata collection 
+            meta_collection_name = "dataset_meta" if "dataset_meta" in db.list_collection_names() else "DatasetMeta"
+            if not meta_collection_name:
                 logger.warning("No metadata collection found!")
                 return {"status": "no_meta_collection"}
             
-            # Get original metadata
-            original_meta = db[meta_collection].find_one(
+            meta_collection = db[meta_collection_name]
+
+            # Get original metadata for reference
+            original_meta = meta_collection.find_one(
                 {"collectionName": original_collection}
             )
-            
             if not original_meta:
-                logger.warning(
-                    f"No metadata found for '{original_collection}'"
-                )
-                return {"status": "no_original_metadata"}
-            
-            # Get cleaned collection columns
+                logger.warning(f"Could not find original metadata for {original_collection}. Creating cleaned metadata with default values.")
+
+            # Get columns from the new cleaned collection
             sample_doc = db[cleaned_collection].find_one()
-            if sample_doc:
-                all_columns = list(sample_doc.keys())
-                cleaned_columns = [
-                    col for col in all_columns
-                    if col not in ['_id', '__v'] and not col.startswith('_')
-                ]
-            else:
-                cleaned_columns = []
-            
-            # Update metadata to point to cleaned collection
-            update_fields = {
-                "status": "preprocessed",
+            cleaned_columns = [col for col in sample_doc.keys() if col not in ['_id', '__v']] if sample_doc else []
+
+            # Create the new metadata document
+            cleaned_meta_doc = {
+                "name": f"{original_meta.get('name', original_collection)} (Cleaned)" if original_meta else f"{original_collection} (Cleaned)",
                 "collectionName": cleaned_collection,
+                "originalCollectionName": original_collection,  # Link to the original
+                "status": "preprocessed",
                 "totalRecords": record_count,
                 "columns": cleaned_columns,
+                "source": original_meta.get("source", "Unknown") if original_meta else "Unknown",
+                "fileType": original_meta.get("fileType", "csv") if original_meta else "csv",
+                "isAPI": original_meta.get("isAPI", False) if original_meta else False,
+                "uploadDate": datetime.now(),
                 "lastUpdated": datetime.now(),
-                "name": f"{original_meta.get('name', original_collection)} (Cleaned)"
+                "preprocessingReportId": preprocessing_id,
+                "description": original_meta.get("description", "") if original_meta else "",
+                "deletedAt": None,
+                "__v": 0,
             }
+
+            result = meta_collection.insert_one(cleaned_meta_doc)
+            logger.info(f"Created new metadata for cleaned collection: {cleaned_collection} (ID: {result.inserted_id})")
             
-            result = db[meta_collection].update_one(
-                {"collectionName": original_collection},
-                {"$set": update_fields}
-            )
-            
-            if result.modified_count > 0:
-                logger.info(
-                    f"Updated metadata to point to: {cleaned_collection}"
-                )
-            else:
-                logger.warning("No metadata was updated")
-            
-            return {"status": "success"}
+            return {"status": "success", "metadata_id": result.inserted_id, "action": "created_new"}
         
         except Exception as e:
-            logger.error(f"Error updating metadata: {str(e)}")
+            logger.error(f"Error creating cleaned metadata: {str(e)}")
+            logger.error(traceback.format_exc())
             return {"status": "error", "error": str(e)}
-        
+
 class BmkgPreprocessor:
     """
     Main orchestrator class for preprocessing approach
@@ -775,21 +769,31 @@ class BmkgPreprocessor:
             self._calculate_model_coverage(processed_df)
             logger.info("Coverage analysis completed")
             
-            # Step 6: Save preprocessed data
-            logger.info("\n[6/7] Saving preprocessed data...")
+            # Step 6: Save preprocessed data and report
+            logger.info("\n[6/7] Saving preprocessed data and report...")
+            
+            # First, save the report to get an ID
+            # We need a temporary cleaned collection name for the report
+            temp_cleaned_name = f"{self.collection_name}_cleaned"
+            report_save_result = self._save_preprocessing_report(temp_cleaned_name)
+            preprocessing_id = report_save_result.get("report_id")
+
+            # Now, save the data using the preprocessing_id
             save_result = self.saver.save_preprocessed_data(
                 self.db,
                 processed_df,
-                self.collection_name
-            )            
-            cleaned_collection = save_result.get("preprocessedCollections", [])[0] if save_result.get("preprocessedCollections") else None
-            
-            # STEP 1: Save preprocessing_report FIRST (to get preprocessing_id)
-            report_save_result = self._save_preprocessing_report(
-                cleaned_collection or self.collection_name
+                self.collection_name,
+                preprocessing_id  # Pass the ID to the saver
             )
+            cleaned_collection = save_result.get("preprocessedCollections", [temp_cleaned_name])[0]
             
-            preprocessing_id = report_save_result.get("report_id")  # ObjectId
+            # If the collection name in the report was temporary, update it.
+            if cleaned_collection != temp_cleaned_name and preprocessing_id:
+                self.db["preprocessing_report"].update_one(
+                    {"_id": preprocessing_id},
+                    {"$set": {"cleaned_collection_name": cleaned_collection}}
+                )
+                logger.info(f"Updated report with final cleaned collection name: {cleaned_collection}")
             
             # STEP 2: Calculate and save decomposition (uses preprocessing_id as reference)
             logger.info("\n[7/7] Calculating and saving STL decomposition...")

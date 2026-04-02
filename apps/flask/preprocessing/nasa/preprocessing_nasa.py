@@ -117,6 +117,7 @@ class NasaDataSaver:
         db,
         preprocessed_data: pd.DataFrame,
         original_collection_name: str,
+        preprocessing_id: Optional[ObjectId] = None
     ) -> Dict[str, Any]:
         """Save preprocessed to a new collection, update dataset-meta"""
         try:
@@ -141,16 +142,18 @@ class NasaDataSaver:
             # Convert DataFrame records for MongoDB insertion
             # MongoDB will generate new _id values automatically
             records = preprocessed_data.to_dict('records')
+            
             if records:
                 db[cleaned_collection_name].insert_many(records)
                 logger.info(f"Inserted {len(records)} records into '{cleaned_collection_name}'")
             
             # Update dataset-meta collection 
-            meta_info = self._update_dataset_metadata(
+            meta_info = self._create_cleaned_metadata(
                 db,
                 original_collection_name,
                 cleaned_collection_name,
-                len(records)
+                len(records),
+                preprocessing_id
             )
             return {
                 "preprocessedCollections": [cleaned_collection_name],
@@ -164,75 +167,67 @@ class NasaDataSaver:
             error_msg = f"Error saving preprocessed data: {str(e)}"
             logger.error(error_msg)
             raise NasaPreprocessingError(error_msg)
-    
-    def _update_dataset_metadata(
+        
+    def _create_cleaned_metadata(
         self,
         db,
-        original_collection_name: str,
-        cleaned_collection_name: str,
-        record_count: int
+        original_collection: str,
+        cleaned_collection: str,
+        record_count:int,
+        preprocessing_id: Optional[ObjectId] = None
     ) -> Dict[str, Any]:
-        """Update dataset-meta after preprocessing - Point to cleaned collection"""
+        """Create a new metadata entry for cleaned dataset"""
+        
         try:
-            # Find the metadata collection
-            meta_collection = None
-            if "dataset_meta" in db.list_collection_names():
-                meta_collection = "dataset_meta"
-            elif "DatasetMeta" in db.list_collection_names():
-                meta_collection = "DatasetMeta"
-            else:
+            # Find metadata collection
+            meta_collection_name = "dataset_meta" if "dataset_meta" in db.list_collection_names() else "DatasetMeta"
+            if not meta_collection_name:
                 logger.warning("No metadata collection found!")
                 return {"status": "no_meta_collection"}
             
-            # Get original metadata to preserve other fields
-            original_meta = db[meta_collection].find_one({"collectionName": original_collection_name})
-            
-            if not original_meta:
-                logger.warning(f"No metadata found for collection '{original_collection_name}'")
-                return {"status": "no_original_metadata"}
-            
-            # Get cleaned collection columns
-            sample_doc = db[cleaned_collection_name].find_one()
-            if sample_doc:
-                all_columns = list(sample_doc.keys())
-                cleaned_columns = [
-                    col for col in all_columns
-                    if col not in ['_id', '__v'] and not col.startswith('_')
-                ]
-            else:
-                cleaned_columns = []
-            
-            # cleaned_columns = list(sample_doc.keys()) if sample_doc else []
-            
-            # Update metadata to point to cleaned collection
-            update_fields = {
-                "status": "preprocessed",
-                "collectionName": cleaned_collection_name,  
-                "totalRecords": record_count,               
-                "columns": cleaned_columns,
-                "lastUpdated": datetime.now(),
-                "name": f"{original_meta.get('name', original_collection_name)} (Cleaned)"
-            }
-            
-            # Only include apiConfig if it's an API dataset
-            if original_meta.get('isAPI', False):
-                update_fields["apiConfig"] = original_meta.get('apiConfig', {})
-            
-            result = db[meta_collection].update_one(
-                {"collectionName": original_collection_name},
-                {"$set": update_fields}
+            meta_collection = db[meta_collection_name]
+
+            # Get original metadata for reference
+            original_meta = meta_collection.find_one(
+                {"collectionName": original_collection}
             )
+            if not original_meta:
+                logger.warning(f"Could not find original metadata for {original_collection}. Creating cleaned metadata with default values.")
+
+            # Get columns from the new cleaned collection
+            sample_doc = db[cleaned_collection].find_one()
+            cleaned_columns = [col for col in sample_doc.keys() if col not in ['_id', '__v']] if sample_doc else []
+
+            # Create the new metadata document
+            cleaned_meta_doc = {
+                "name": f"{original_meta.get('name', original_collection)} (Cleaned)" if original_meta else f"{original_collection} (Cleaned)",
+                "collectionName": cleaned_collection,
+                "originalCollectionName": original_collection,  # Link to the original
+                "status": "preprocessed",
+                "totalRecords": record_count,
+                "columns": cleaned_columns,
+                "source": original_meta.get("source", "Unknown") if original_meta else "Unknown",
+                "fileType": original_meta.get("fileType", "csv") if original_meta else "csv",
+                "isAPI": original_meta.get("isAPI", False) if original_meta else False,
+                "uploadDate": datetime.now(),
+                "lastUpdated": datetime.now(),
+                "preprocessingReportId": preprocessing_id,
+                "description": original_meta.get("description", "") if original_meta else "",
+                "deletedAt": None,
+                "__v": 0,
+            }
+
+            result = meta_collection.insert_one(cleaned_meta_doc)
+            logger.info(f"Created new metadata for cleaned collection: {cleaned_collection} (ID: {result.inserted_id})")
             
-            if result.modified_count > 0:
-                logger.info(f"Updated metadata to point to cleaned collection: {cleaned_collection_name}")
-            else:
-                logger.warning("No metadata was updated")
-            
-            return {"status": "success"}
+            return {"status": "success", "metadata_id": result.inserted_id, "action": "created_new"}
             
         except Exception as e:
-            logger.error(f"Error updating metadata: {str(e)}")
+            logger.error(f"Error creating cleaned metadata: {str(e)}")
+            logger.error(traceback.format_exc())
             return {"status": "error", "error": str(e)}
+            
+    
         
 class NasaPreprocessor:
     """Main class for preprocessing NASA POWER datasets"""
@@ -379,21 +374,29 @@ class NasaPreprocessor:
             # Apply preprocessing 
             processed_df = self._apply_preprocessing(df)
             
-            # Save processed data
+            # STEP 1: Save preprocessing_report FIRST (to get preprocessing_id)
+            # We need a temporary cleaned collection name for the report
+            temp_cleaned_name = f"{self.collection_name}_cleaned"
+            report_save_result = self._save_preprocessing_report(temp_cleaned_name)
+            preprocessing_id = report_save_result.get("report_id")  # ObjectId
+
+            # Save processed data, passing the new preprocessing_id
             save_result = self.saver.save_preprocessed_data(
                 self.db, 
                 processed_df, 
-                self.collection_name
+                self.collection_name,
+                preprocessing_id  # Pass the ID to the saver
             )
             
-            cleaned_collection = save_result.get("preprocessedCollections", [])[0] if save_result.get("preprocessedCollections") else None
+            cleaned_collection = save_result.get("preprocessedCollections", [temp_cleaned_name])[0]
             
-            # STEP 1: Save preprocessing_report FIRST (to get preprocessing_id)
-            report_save_result = self._save_preprocessing_report(
-                cleaned_collection or self.collection_name
-            )
-            
-            preprocessing_id = report_save_result.get("report_id")  # ObjectId
+            # If the collection name in the report was temporary, update it.
+            if cleaned_collection != temp_cleaned_name and preprocessing_id:
+                self.db["preprocessing_report"].update_one(
+                    {"_id": preprocessing_id},
+                    {"$set": {"cleaned_collection_name": cleaned_collection}}
+                )
+                logger.info(f"Updated report with final cleaned collection name: {cleaned_collection}")
             
             # STEP 2: Calculate and save decomposition (uses preprocessing_id as reference)
             if preprocessing_id and report_save_result.get("status") == "success":

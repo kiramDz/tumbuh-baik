@@ -22,25 +22,53 @@ export interface DatasetMetaType {
   };
 }
 
-export interface DecompositionData {
-  collectionName: string;
-  parameter: string;
-  decomposition: {
-    dates: string[];
-    original: number[];
-    trend: number[];
-    seasonal: number[];
-    residual: number[];
+export interface ValidationMetric {
+  gcv_score: number | null;
+  trend_preservation_pct: number | null;
+  quality_status: string | null;
+}
+
+export interface PreprocessingReport {
+  _id: string;
+  dataset_type: "nasa" | "bmkg";
+  original_collection_name: string;
+  cleaned_collection_name: string;
+  preprocessing_timestamp: string;
+  preprocessing_summary: Record<string, any>;
+  quality_metrics: Record<string, any>;
+  imputation_validation?: Record<string, ValidationMetric>; // for BMKG
+  smoothing_validation?: Record<string, ValidationMetric>; // for NASA
+  model_coverage: Record<string, any>;
+  warnings: string[];
+  status: string;
+  record_count: {
+    original: number;
+    processed: number;
   };
-  metadata: {
-    model: "additive";
-    period: number;
-    dataPoints: number;
-    dateRange: {
-      start: string;
-      end: string;
-    };
-  };
+}
+
+export interface DecompositionDataPoint {
+  Date: string | { $date: string };
+  original: number;
+  trend: number;
+  seasonal: number;
+  residual: number;
+}
+
+export interface ParameterDecomposition {
+  seasonal_strength: number | null;
+  metadata?: Record<string, any>; // Handled for NASA specific metadata
+  data: DecompositionDataPoint[];
+}
+
+export interface DecompositionReport {
+  _id: string;
+  preprocessing_id: string;
+  dataset_name: string;
+  dataset_type: "nasa" | "bmkg";
+  decomposition_method: string;
+  timestamp: string;
+  parameters: Record<string, ParameterDecomposition>;
 }
 
 export interface NasaPowerParams {
@@ -1156,92 +1184,6 @@ export const UpdateDatasetMeta = async (
   }
 };
 
-/**
- * Get seasonal decomposition data for a specific parameter from a preprocessed dataset
- *
- * @param slug - Collection name (must be a _cleaned collection)
- * @param parameter - Parameter name (e.g., T2M, RH2M, ALLSKY_SFC_SW_DWN, PRECTOTCORR)
- * @returns Decomposition data with trend, seasonal, and residual components
- */
-export const GetDecompositionDataBySlug = async (
-  slug: string,
-  parameter: string,
-): Promise<DecompositionData> => {
-  try {
-    const baseUrl = getBaseUrl();
-    const response = await axios.get(
-      `${baseUrl === "" ? "http://localhost:5001" : baseUrl}/api/v1/dataset-meta/${encodeURIComponent(
-        slug,
-      )}/decomposition`,
-      {
-        params: { parameter },
-      },
-    );
-
-    if (response.status === 200) {
-      return response.data;
-    }
-
-    throw new Error("Failed to fetch decomposition data");
-  } catch (error: any) {
-    console.error("❌ Get decomposition data error:", error);
-
-    if (error.response?.status === 404) {
-      if (error.response.data?.available_parameters) {
-        throw new Error(
-          `No decomposition data found for parameter '${parameter}'. Available parameters: ${error.response.data.available_parameters.join(
-            ", ",
-          )}`,
-        );
-      }
-      throw new Error(
-        error.response.data?.message || "Decomposition data not found",
-      );
-    }
-
-    if (error.response?.status === 400) {
-      throw new Error(
-        error.response.data?.message || "Dataset must be preprocessed first",
-      );
-    }
-
-    throw error;
-  }
-};
-
-/**
- * Get available parameters for decomposition from a preprocessed dataset
- *
- * @param slug - Collection name (must be a _cleaned collection)
- * @returns List of available parameters that have decomposition data
- */
-export const GetAvailableDecompositionParameters = async (
-  slug: string,
-): Promise<string[]> => {
-  try {
-    const baseUrl = getBaseUrl();
-    // Try to fetch decomposition for a dummy parameter to get available parameters list
-    const response = await axios.get(
-      `${baseUrl === "" ? "http://localhost:5001" : baseUrl}/api/v1/dataset-meta/${encodeURIComponent(
-        slug,
-      )}/decomposition`,
-      {
-        params: { parameter: "__check_available__" },
-        validateStatus: (status) => status === 404 || status === 200,
-      },
-    );
-
-    if (response.status === 404 && response.data?.available_parameters) {
-      return response.data.available_parameters;
-    }
-
-    return [];
-  } catch (error) {
-    console.error("Error getting available decomposition parameters:", error);
-    return [];
-  }
-};
-
 export const fetchNasaPowerData = async (params: NasaPowerParams) => {
   try {
     const baseUrl = getBaseUrl();
@@ -1891,6 +1833,36 @@ export const AddXlsxDatasetMeta = async (data: {
     return res.data.data;
   } catch (error) {
     console.error("Add XLSX dataset meta error:", error);
+    throw error;
+  }
+};
+
+// Get preprocessing report by ID
+export const getPreprocessingReportById = async (
+  id: string,
+): Promise<PreprocessingReport> => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await axios.get(`${baseUrl}/api/v1/preprocessing-report/${id}`);
+    return res.data.data;
+  } catch (error) {
+    console.error("Error fetching preprocessing report:", error);
+    throw error;
+  }
+};
+
+// Decomposition fetching
+export const getDecompositionByPreprocessingId = async (
+  id: string,
+): Promise<DecompositionReport> => {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await axios.get(
+      `${baseUrl}/api/v1/decomposition/preprocessing/${id}`,
+    );
+    return res.data.data;
+  } catch (error) {
+    console.error("Error fetching decomposition report:", error);
     throw error;
   }
 };
