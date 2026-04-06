@@ -769,6 +769,9 @@ class BmkgPreprocessor:
             self._calculate_model_coverage(processed_df)
             logger.info("Coverage analysis completed")
             
+            # FIXED: Generate quality metrics BEFORE saving the report
+            self._generate_quality_metrics(df, processed_df)
+            
             # Step 6: Save preprocessed data and report
             logger.info("\n[6/7] Saving preprocessed data and report...")
             
@@ -810,9 +813,6 @@ class BmkgPreprocessor:
             # Generate final report 
             end_time = datetime.now()
             processing_time = (end_time - start_time).total_seconds()
-            
-            # Generate quality metrics
-            self._generate_quality_metrics(df, processed_df)
             
             logger.info("PREPROCESSING COMPLETED SUCCESSFULLY")
             logger.info(f"Processing time: {processing_time:.2f}s")
@@ -4690,32 +4690,21 @@ class BmkgPreprocessor:
                             "recommended_model": data.get("recommended_model"),
                             "seasonality_strength": data.get("seasonality_strength"),
                             "is_stationary": data.get("is_stationary"),
-                            # Only include uncovered if not empty
                             **({
                                 "holt_winters_uncovered": data["holt_winters_uncovered"]
                             } if data.get("holt_winters_uncovered") else {}),
                             **({
                                 "lstm_uncovered": data["lstm_uncovered"] 
                             } if data.get("lstm_uncovered") else {})
-                            # NO analysis_details!
                         } for param, data in self.preprocessing_report.get("model_coverage", {}).get("per_parameter", {}).items()
                     }
                 },
-                
-                # Decomposition Summary ONLY (not the data)
-                "decomposition_summary": self.preprocessing_report.get("decomposition_summary", {}),
-                
-                # Warnings (filtered to important ones)
                 "warnings": [w for w in self.preprocessing_report.get("warnings", []) 
                             if "Large gap" in w or "quality is poor" in w],
-                
-                # Status
                 "status": "success",
-                
-                # Record counts
                 "record_count": {
                     "original": len(self.original_data) if self.original_data is not None else 0,
-                    "processed": self.preprocessing_report.get("quality_metrics", {}).get("forecasting_readiness", {}).get("overall_forecasting_score", 0)
+                    "processed": len(self.original_data) if self.original_data is not None else 0
                 }
             }
             

@@ -2,6 +2,16 @@ import {
   LucideProps,
   RefreshCw,
   Moon,
+  ArrowUpCircleIcon,
+  BarChartIcon,
+  ClipboardListIcon,
+  DatabaseIcon,
+  FileIcon,
+  LayoutDashboardIcon,
+  Activity,
+  Users,
+  GitCommit,
+  Bean,
   SunMedium,
   LucideIcon,
   Loader2,
@@ -36,6 +46,7 @@ import {
   TrendingUp,
   SlidersHorizontal,
   Database,
+  Waves,
   Play,
   Menu,
   Trash,
@@ -50,62 +61,99 @@ import {
   CircleAlert,
   FileCheck,
   Plus,
+  PlusCircle,
+  Notebook,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
 
 export const Icons = {
+  // Close & Remove
   closeX: X,
-  fileUpload: FileUp,
-  cloud: CloudDownload,
-  preview: Eye,
-  menu: Menu,
-  upload: Upload,
   trash: Trash,
-  externalLink: ExternalLink,
-  plus: Plus,
-  play: Play,
+  delete: Trash2,
+
+  // File Operations
+  fileUpload: FileUp,
   fileCheck: FileCheck,
+  upload: Upload,
+  cloud: CloudDownload,
   save: Save,
-  alert: AlertCircle,
-  alertCircle: CircleAlert,
+  users: Users,
+  bean: Bean,
+
+  // View & Preview
+  preview: Eye,
+  view: Eye,
+
+  // Navigation & Layout
+  menu: Menu,
   previous: ChevronLeft,
+  chevronLeft: ChevronLeft,
+  next: ChevronRight,
+  speedPrevious: ChevronsLeft,
+  speedNext: ChevronsRight,
   down: ChevronDown,
   up: ChevronUp,
-  speedPrevious: ChevronsLeft,
-  next: ChevronRight,
-  speedNext: ChevronsRight,
-  options: SlidersHorizontal,
-  sun: SunMedium,
-  moon: Moon,
-  alertTriangle: AlertTriangle,
-  spinner: Loader2,
-  chevronLeft: ChevronLeft,
-  table: TableProperties,
-  sort: ChevronsUpDown,
-  org: Building2,
-  view: Eye,
+  left: ArrowLeft,
+  arrowUpCircleIcon: ArrowUpCircleIcon,
+  barChartIcon: BarChartIcon,
+  clipboardListIcon: ClipboardListIcon,
+  databaseIcon: DatabaseIcon,
+  fileIcon: FileIcon,
+  layoutDashboardIcon: LayoutDashboardIcon,
+
+  // Add & Actions
+  plus: Plus,
+  plusCircle: PlusCircle,
+  play: Play,
+  externalLink: ExternalLink,
+  copy: Copy,
   edit: Edit,
-  delete: Trash2,
-  trendingUp: TrendingUp,
+  refresh: RefreshCw,
+
+  // Settings & Options
+  options: SlidersHorizontal,
+  settings: Settings,
   system: Laptop,
   theme: Palette,
-  settings: Settings,
-  dashboard: LayoutDashboard,
-  copy: Copy,
-  left: ArrowLeft,
-  shield: ShieldAlert,
-  info: Info,
+
+  // Theme
+  sun: SunMedium,
+  moon: Moon,
+
+  // Alerts & Status
+  alert: AlertCircle,
+  alertCircle: CircleAlert,
+  alertTriangle: AlertTriangle,
+  spinner: Loader2,
   checked: CheckCircle2,
   cancel: XCircle,
   pending: Timer,
   circle: Circle,
-  refresh: RefreshCw,
-  question: HelpCircle,
   check: Check,
-  logout: LogOut,
+  shield: ShieldAlert,
+
+  // Data & Info
+  table: TableProperties,
+  sort: ChevronsUpDown,
+  org: Building2,
+  trendingUp: TrendingUp,
+  dashboard: LayoutDashboard,
   database: Database,
   calendar: CalendarIcon,
+  notebook: Notebook,
+  info: Info,
+  question: HelpCircle,
+
+  // Auth
+  logout: LogOut,
+
+  gitcommit: GitCommit,
+  activity: Activity,
+  waves: Waves,
+
+  // Custom SVG Icons
   logo: (props: LucideProps) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}>
       <path
@@ -114,6 +162,7 @@ export const Icons = {
       />
     </svg>
   ),
+
   google: (props: LucideProps) => (
     <svg role="img" viewBox="0 0 24 24" {...props}>
       <path
@@ -122,6 +171,7 @@ export const Icons = {
       />
     </svg>
   ),
+
   gitHub: (props: LucideProps) => (
     <svg viewBox="0 0 438.549 438.549" {...props}>
       <path

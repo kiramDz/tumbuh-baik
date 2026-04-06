@@ -2824,14 +2824,10 @@ class NasaPreprocessor:
                 # SIMPLIFIED Smoothing Validation (3 fields only per parameter)
                 "smoothing_validation": self.preprocessing_report.get("smoothing_validation", {}),
                 
-                # SIMPLIFIED Model Coverage (no analysis_details, no empty uncovered objects)
+            # SIMPLIFIED Model Coverage (no analysis_details, no empty uncovered objects)
                 "model_coverage": self.preprocessing_report.get("model_coverage", {}),
                 
                 # REMOVED: alpha_optimization and adaptive_optimization (moved to preprocessing_summary)
-                
-                # Decomposition Summary ONLY (not the data)
-                "decomposition_summary": self.preprocessing_report.get("decomposition_summary", {}),
-                
                 # Warnings (filtered to important ones)
                 "warnings": [w for w in self.preprocessing_report.get("warnings", []) 
                             if "Large gap" in w or "quality is poor" in w],

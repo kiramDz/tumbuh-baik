@@ -243,7 +243,7 @@ export default function RefreshAllDatasetsDialog() {
                           {result.newRecordsCount !== undefined &&
                             result.newRecordsCount > 0 && (
                               <p className="text-xs text-gray-600">
-                                <Icons.plus className="inline h-3 w-3 mr-1" />
+                                <Icons.plusCircle className="inline h-3 w-3 mr-1" />
                                 {result.newRecordsCount} data baru ditambahkan
                               </p>
                             )}

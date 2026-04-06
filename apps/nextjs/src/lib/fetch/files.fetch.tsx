@@ -29,11 +29,11 @@ export interface ValidationMetric {
 }
 
 export interface PreprocessingReport {
-  _id: string;
+  _id: { $oid: string } | string;
   dataset_type: "nasa" | "bmkg";
   original_collection_name: string;
   cleaned_collection_name: string;
-  preprocessing_timestamp: string;
+  preprocessing_timestamp: { $date: string } | string; // Support both formats
   preprocessing_summary: Record<string, any>;
   quality_metrics: Record<string, any>;
   imputation_validation?: Record<string, ValidationMetric>; // for BMKG
@@ -62,12 +62,12 @@ export interface ParameterDecomposition {
 }
 
 export interface DecompositionReport {
-  _id: string;
-  preprocessing_id: string;
+  _id: { $oid: string } | string;
+  preprocessing_id: { $oid: string } | string;
   dataset_name: string;
   dataset_type: "nasa" | "bmkg";
   decomposition_method: string;
-  timestamp: string;
+  timestamp: { $date: string } | string;
   parameters: Record<string, ParameterDecomposition>;
 }
 
@@ -1858,7 +1858,7 @@ export const getDecompositionByPreprocessingId = async (
   try {
     const baseUrl = getBaseUrl();
     const res = await axios.get(
-      `${baseUrl}/api/v1/decomposition/preprocessing/${id}`,
+      `${baseUrl}/api/v1/preprocessing-report/${id}/decomposition`, // Fixed to match your backend route
     );
     return res.data.data;
   } catch (error) {

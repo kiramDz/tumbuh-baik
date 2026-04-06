@@ -326,7 +326,7 @@ export function FileUploader({
               disabled={loading}
               className="w-full"
             >
-              <Icons.plus className="h-4 w-4 mr-2" />
+              <Icons.plusCircle className="h-4 w-4 mr-2" />
               Tambah File Lainnya ({selectedFiles.length}/{maxFiles})
             </Button>
           )}

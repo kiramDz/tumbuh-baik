@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  ArrowUpCircleIcon,
-  BarChartIcon,
-  ClipboardListIcon,
-  DatabaseIcon,
-  FileIcon,
-  LayoutDashboardIcon,
-  Trash,
-  Users,
-  Bean,
-} from "lucide-react";
+import { Icons } from "@/app/dashboard/_components/icons";
 
 import { NavMain } from "@/components/nav-main";
 import {
@@ -33,12 +23,17 @@ const data = {
     {
       title: "Dashboard",
       url: "/dashboard",
-      icon: LayoutDashboardIcon,
+      icon: Icons.layoutDashboardIcon,
+    },
+    {
+      title: "Reports",
+      url: "/dashboard/results",
+      icon: Icons.clipboardListIcon,
     },
     {
       title: "Kalender Tanam",
       url: "/dashboard/kaltam",
-      icon: BarChartIcon,
+      icon: Icons.barChartIcon,
       items: [
         {
           title: "Holt Winter",
@@ -53,18 +48,18 @@ const data = {
     {
       title: "Data Bibit",
       url: "/dashboard/bibit",
-      icon: Bean,
+      icon: Icons.bean,
     },
     {
       title: "User Management",
       url: "/dashboard/users",
-      icon: Users,
+      icon: Icons.users,
     },
     {
       title: "Recycle Bin",
       url: "/dashboard/recycle-bin",
 
-      icon: Trash,
+      icon: Icons.trash,
     },
   ],
 
@@ -72,17 +67,17 @@ const data = {
     {
       name: "Data Library",
       url: "#",
-      icon: DatabaseIcon,
+      icon: Icons.databaseIcon,
     },
     {
       name: "Reports",
       url: "#",
-      icon: ClipboardListIcon,
+      icon: Icons.clipboardListIcon,
     },
     {
       name: "Word Assistant",
       url: "#",
-      icon: FileIcon,
+      icon: Icons.fileIcon,
     },
   ],
 };
@@ -98,7 +93,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <a href="#">
-                <ArrowUpCircleIcon className="h-6 w-6" />
+                <Icons.arrowUpCircleIcon className="h-6 w-6" />
                 <span className="text-lg font-semibold">ZonaPetik.</span>
               </a>
             </SidebarMenuButton>
