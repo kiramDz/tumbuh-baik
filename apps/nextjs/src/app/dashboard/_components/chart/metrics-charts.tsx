@@ -10,7 +10,20 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Icons } from "@/app/dashboard/_components/icons";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  ZAxis,
+  CartesianGrid,
+  ReferenceLine,
+} from "recharts";
 
 interface MetricsChartsProps {
   report: PreprocessingReport;
@@ -86,6 +99,33 @@ const CustomTooltip = ({ active, payload }: any) => {
 export function MetricsCharts({ report }: MetricsChartsProps) {
   const isNasa = report.dataset_type === "nasa";
 
+  // Resolve validation metrics scatter plot
+  const validationObj = isNasa
+    ? report.smoothing_validation
+    : report.imputation_validation;
+
+  const validationData = validationObj
+    ? Object.entries(validationObj).map(([key, val]) => ({
+        parameter: key,
+        trendPreservation: val.trend_preservation_pct || 0,
+        gcvScore: val.gcv_score || 0,
+        quality_status: val.quality_status || "unknown",
+        size:
+          val.quality_status === "excellent"
+            ? 400
+            : val.quality_status === "good"
+              ? 250
+              : 150,
+      }))
+    : [];
+
+  const getQualityColor = (status: string) => {
+    if (status === "excellent") return "hsl(var(--chart-2))";
+    if (status === "good") return "hsl(var(--chart-1))";
+    if (status === "fair") return "hsl(var(--chart-3))";
+    return "hsl(var(--muted-foreground))";
+  };
+
   // Map Parameter-specific Coverage Data
   const rawParams = report.model_coverage?.per_parameter || {};
   const parameterData: ParameterCoverageData[] = Object.entries(rawParams)
@@ -103,23 +143,102 @@ export function MetricsCharts({ report }: MetricsChartsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Signal & Trend Preservation Placeholder */}
+      {/* Signal & Trend Preservation */}
       <Card>
         <CardHeader>
           <CardTitle>Signal & Trend Preservation</CardTitle>
           <CardDescription>
-            Trend retained post-cleansing (placeholder)
+            GCV vs Trend Retained (Lower GCV & Higher Trend is better)
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
-          Chart will be implemented here
+        <CardContent className="h-[320px] w-full">
+          {validationData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart
+                margin={{ top: 20, right: 20, bottom: 20, left: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  type="number"
+                  dataKey="gcvScore"
+                  name="GCV Score"
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(val) => val.toFixed(2)}
+                  domain={[0, "auto"]}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="trendPreservation"
+                  name="Trend Preservation"
+                  domain={["auto", 100]}
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(val) => `${val}%`}
+                />
+                <ZAxis type="number" dataKey="size" range={[100, 400]} />
+                <Tooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-background border rounded-lg shadow-lg p-3 min-w-[150px]">
+                          <p className="font-semibold text-sm">
+                            {data.parameter}
+                          </p>
+                          <p className="text-xs mt-1">
+                            GCV:{" "}
+                            <span className="font-medium">
+                              {data.gcvScore.toFixed(4)}
+                            </span>
+                          </p>
+                          <p className="text-xs">
+                            Trend:{" "}
+                            <span className="font-medium">
+                              {data.trendPreservation.toFixed(2)}%
+                            </span>
+                          </p>
+                          <p className="text-xs uppercase text-muted-foreground mt-1">
+                            {data.quality_status}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Scatter name="Parameters" data={validationData}>
+                  {validationData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={getQualityColor(entry.quality_status)}
+                    />
+                  ))}
+                </Scatter>
+                <ReferenceLine
+                  y={90}
+                  stroke="hsl(var(--muted-foreground))"
+                  strokeDasharray="3 3"
+                  label={{
+                    value: "Excellent",
+                    position: "insideTopLeft",
+                    fontSize: 11,
+                    fill: "hsl(var(--muted-foreground))",
+                  }}
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No validation metrics available
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* PER-PARAMETER COVERAGE - Nested Donut Charts */}
       <div>
         <h3 className="text-xl font-semibold tracking-tight mb-4">
-          Model Coverage by Parameter
+          Model Coverage Tiap Parameter
         </h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {parameterData.map((param) => {

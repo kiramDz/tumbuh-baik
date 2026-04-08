@@ -825,8 +825,6 @@ class NasaPreprocessor:
         
         return z_scores > threshold
     
-   
-    
     def _treat_outliers(self, df: pd.DataFrame, param: str, outliers_mask: pd.Series) -> pd.DataFrame:
         """Treat detected outliers"""
         treatment = self.options.get("outlier_treatment", "interpolate")
@@ -853,6 +851,273 @@ class NasaPreprocessor:
             df = df[~outliers_mask]
         
         return df
+        
+    def _get_smoothing_quality(self, param: str) -> Dict[str, Any]:
+        """
+        Retrieve smoothing validation results for parameter
+        
+        Returns:
+            dict: GCV score, quality status, trend preservation, and penalties
+        """
+        validation = self.preprocessing_report.get("smoothing_validation", {})
+        
+        if param not in validation:
+            return {
+                "quality": "unknown",
+                "gcv": None,
+                "trend": None,
+                "trend_value": 0.0,
+                "penalty": 0.0
+            }
+        
+        param_validation = validation[param]
+        quality_status = param_validation.get("quality_status", "unknown")
+        trend_pct = param_validation.get("trend_preservation_pct", 0)
+        trend_value = trend_pct / 100.0 
+        
+        quality_penalty_map = {
+            "excellent": 0.0,
+            "good": 5.0,
+            "fair": 10.0,
+            "poor": 20.0,
+            "unknown": 0.0
+        }
+        
+        return {
+            "quality": quality_status,
+            "gcv": param_validation.get("gcv_score"),
+            "trend": param_validation.get("trend_preservation_pct"),
+            "trend_value": trend_value,
+            "penalty": quality_penalty_map.get(quality_status, 0.0)
+        }
+        
+    def _analyze_parameter_coverage(
+        self,
+        df: pd.DataFrame,
+        param: str,
+        total_points: int
+    ) -> Dict[str, Any]:
+        """
+        Analyze coverage for a specific parameter for both model types
+        Remove verbose analysis_details from output
+        """
+        series = df[param].dropna()
+        if len(series) < 30: # Need minimum data for analysis
+            return {
+                "holt_winters_coverage": 0,
+                "lstm_coverage": 0,
+                "insufficient_data": True
+            }
+        
+        # Analysis results (for internal calculation only)
+        coverage_analysis = {
+            "data_points": len(series),
+            "missing_ratio": (total_points - len(series)) / total_points
+        }
+        
+        # Perform all analysis
+        # Perform all analysis
+        large_gaps_impact = self._analyze_large_gaps(df, param)
+        extreme_outliers_impact = self._analyze_extreme_outliers(series)
+        # Use the new analysis functions
+        seasonality_analysis = self._analyze_seasonality(series)
+        stationarity_analysis = self._analyze_stationarity(series)
+        
+        precipitation_analysis = self._analyze_precipitation_extremes(series, param) if param == "PRECTOTCORR" else {}
+        
+        # Check if parameter was smoothed
+        smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
+        was_smoothed = smoothing_summary.get(param, "none") != "none"
+
+        # Calculate coverage (same logic)
+        if was_smoothed:
+            hw_coverage = self._calculate_holt_winters_coverage(
+                large_gaps_impact,
+                extreme_outliers_impact,
+                seasonality_analysis,
+                stationarity_analysis,
+                coverage_analysis,
+                param
+            )
+            
+            lstm_coverage = self._calculate_lstm_coverage(
+                large_gaps_impact,
+                extreme_outliers_impact,
+                precipitation_analysis,
+                stationarity_analysis,
+                coverage_analysis,
+                param  
+            )
+        else:
+            non_smoothed_coverage = self._calculate_non_smoothed_coverage(
+                large_gaps_impact,
+                extreme_outliers_impact,
+                coverage_analysis,
+                param
+            )
+            hw_coverage = lstm_coverage = non_smoothed_coverage
+        
+        recommended_model = self._determine_recommended_model(
+            hw_coverage.get("coverage_percentage"),
+            lstm_coverage.get("coverage_percentage")
+        )
+        
+        # Remove analysis_details entirely
+        result = {
+            "holt_winters_coverage": hw_coverage["coverage_percentage"],
+            "lstm_coverage": lstm_coverage["coverage_percentage"],
+            "recommended_model": recommended_model,
+            "seasonality_strength": seasonality_analysis.get("seasonal_strength"),
+            "is_stationary": stationarity_analysis.get("is_stationary"),
+        }
+        
+        # keep lightweight details for detailed logger
+        result["analysis_details"] = {
+            "data_points": len(series),
+            "missing_ratio": coverage_analysis.get("missing_ratio", 0),
+            "large_gaps": large_gaps_impact,
+            "extreme_outliers": extreme_outliers_impact,
+            "seasonality": seasonality_analysis,
+            "stationarity": stationarity_analysis,
+        }
+
+        if precipitation_analysis:
+            result["analysis_details"]["precipitation"] = precipitation_analysis
+        
+        # Only add uncovered reasons if they exist (avoid empty objects)
+        if hw_coverage["uncovered_reasons"]:
+            result["holt_winters_uncovered"] = hw_coverage["uncovered_reasons"]
+        
+        if lstm_coverage["uncovered_reasons"]:
+            result["lstm_uncovered"] = lstm_coverage["uncovered_reasons"]
+        
+        return result
+        
+    def _analyze_large_gaps(self, df: pd.DataFrame, param: str) -> Dict[str, Any]:
+        """Analyze impact of large gaps (>90 days)"""
+        if 'Date' not in df.columns:
+            return {"impact_percentage": 0, "large_gaps_count": 0}
+        
+        # Get gaps from preprocessing report
+        gaps_info = self.preprocessing_report.get("gaps", {})
+        large_gaps = [gap for gap in gaps_info.get("gap_details", []) if gap.get("duration_days", 0) > 90]
+        
+        if not large_gaps:
+            return {"impact_percentage": 0, "large_gaps_count": 0}
+        
+        # Calculate impact
+        total_gap_days = sum(gap["duration_days"] for gap in large_gaps)
+        total_days = (df['Date'].max() - df['Date'].min()).days + 1
+        impact_percentage = (total_gap_days / total_days) * 100
+        
+        return {
+            "impact_percentage": round(impact_percentage, 2),
+            "large_gaps_count": len(large_gaps),
+            "total_gap_days": total_gap_days
+        }
+    
+    def _analyze_extreme_outliers(self, series: pd.Series) -> Dict[str, Any]:
+        """Analyze extreme outliers that survived double-detection"""
+        if len(series) < 10:
+            return {"impact_percentage": 0}
+        
+        # More stringent outlier detection (3.5 sigma)
+        mean = series.mean()
+        std = series.std()
+        
+        if std == 0:
+            return {"impact_percentage": 0}
+        
+        z_scores = np.abs((series - mean) / std)
+        extreme_outliers = z_scores > 3.5  # More stringent than preprocessing (3.0)
+        
+        impact_percentage = (extreme_outliers.sum() / len(series)) * 100
+        
+        return {
+            "impact_percentage": round(impact_percentage, 2),
+            "extreme_outliers_count": int(extreme_outliers.sum()),
+            "max_z_score": round(float(z_scores.max()), 2)
+        }
+
+    def _analyze_seasonality(self, series: pd.Series) -> Dict[str, Any]:
+        """Analyze seasonal patterns (critical for Holt-Winters) using STL"""
+        try:
+            if len(series) < 730:  # Need at least 2 years for reliable STL
+                return {"seasonal_strength": 0, "has_clear_seasonality": False, "insufficient_data": True}
+
+            stl = STL(series, period=365, robust=True)
+            result = stl.fit()
+
+            detrended = series - result.trend
+            var_residual = np.var(result.resid)
+            var_detrended = np.var(detrended)
+            
+            if var_detrended > 0:
+                seasonal_strength = max(0, 1 - (var_residual / var_detrended))
+            else:
+                seasonal_strength = 0.0
+            
+            has_seasonality = seasonal_strength > 0.3
+            
+            return {
+                "seasonal_strength": round(seasonal_strength, 3),
+                "has_clear_seasonality": has_seasonality,
+            }
+            
+        except Exception as e:
+            logger.warning(f"Seasonality analysis failed: {str(e)}")
+            return {
+                "seasonal_strength": 0.0,
+                "has_clear_seasonality": False,
+                "error": str(e)
+            }
+
+    def _analyze_stationarity(self, series: pd.Series) -> Dict[str, Any]:
+        """Analyze stationarity using Augmented Dickey-Fuller test"""
+        try:
+            if len(series) < 50:
+                return {"is_stationary": False, "insufficient_data": True}
+            
+            result = adfuller(series, autolag='AIC')
+            p_value = result[1]
+            is_stationary = p_value < 0.05
+            
+            return {
+                "is_stationary": is_stationary,
+                "p_value": round(p_value, 4),
+            }
+            
+        except Exception as e:
+            logger.warning(f"Stationarity test failed: {str(e)}")
+            return {
+                "is_stationary": False,
+                "error": str(e)
+            }
+        
+    def _determine_recommended_model(
+        self,
+        hw_coverage: float,
+        lstm_coverage: float
+    )-> str:
+        """
+        Determine recommended model based on coverage percentages.
+        """
+        if hw_coverage is None or lstm_coverage is None:
+            return "unknown"
+        
+        if hw_coverage > 80 and lstm_coverage > 80:
+            return "both"
+        if hw_coverage > 80:
+            return "holt_winters"
+        if lstm_coverage > 80:
+            return "lstm"
+        if hw_coverage >= 60 and lstm_coverage >= 60:
+            return "lstm_with_caution" if lstm_coverage > hw_coverage else "holt_winters_with_caution"
+        if lstm_coverage >= 60:
+            return "lstm_with_caution"
+        if hw_coverage >= 60:
+            return "holt_winters_with_caution"
+        return "none"
     
     def _calculate_model_coverage(
         self,
@@ -925,236 +1190,6 @@ class NasaPreprocessor:
         self.preprocessing_report["model_coverage"] = coverage_results
         logger.info(f"Model coverage - Holt Winters: {coverage_results['holt_winters']['coverage_percentage']:.1f}%" )
         logger.info(f"Model coverage - LSTM: {coverage_results['lstm']['coverage_percentage']:.1f}%")
-        
-    def _get_smoothing_quality(self, param: str) -> Dict[str, Any]:
-        """
-        Retrieve smoothing validation results for parameter
-        
-        Returns:
-            dict: GCV score, quality status, trend preservation, and penalties
-        """
-        validation = self.preprocessing_report.get("smoothing_validation", {})
-        
-        if param not in validation:
-            return {
-                "quality": "unknown",
-                "gcv": None,
-                "trend": None,
-                "trend_value": 0.0,
-                "penalty": 0.0
-            }
-        
-        param_validation = validation[param]
-        quality_status = param_validation.get("quality_status", "unknown")
-        trend_pct = param_validation.get("trend_preservation_pct", 0)
-        trend_value = trend_pct / 100.0 
-        
-        quality_penalty_map = {
-            "excellent": 0.0,
-            "good": 5.0,
-            "fair": 10.0,
-            "poor": 20.0,
-            "unknown": 0.0
-        }
-        
-        return {
-            "quality": quality_status,
-            "gcv": param_validation.get("gcv_score"),
-            "trend": param_validation.get("trend_preservation_pct"),
-            "trend_value": trend_value,
-            "penalty": quality_penalty_map.get(quality_status, 0.0)
-        }
-        
-    def _analyze_parameter_coverage(
-        self,
-        df: pd.DataFrame,
-        param: str,
-        total_points: int
-    ) -> Dict[str, Any]:
-        """
-        Analyze coverage for a specific parameter for both model types
-        Remove verbose analysis_details from output
-        """
-        series = df[param].dropna()
-        if len(series) < 30: # Need minimum data for analysis
-            return {
-                "holt_winters_coverage": 0,
-                "lstm_coverage": 0,
-                "insufficient_data": True
-            }
-        
-        # Analysis results (for internal calculation only)
-        coverage_analysis = {
-            "data_points": len(series),
-            "missing_ratio": (total_points - len(series)) / total_points
-        }
-        
-        # Perform all analysis (same as before)
-        large_gaps_impact = self._analyze_large_gaps(df, param)
-        extreme_outliers_impact = self._analyze_extreme_outliers(series)
-        seasonality_analysis = self._analyze_seasonality(series)
-        stationarity_analysis = self._analyze_stationarity(series)
-        precipitation_analysis = self._analyze_precipitation_extremes(series, param) if param == "PRECTOTCORR" else {}
-        
-        # Check if parameter was smoothed
-        smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
-        was_smoothed = smoothing_summary.get(param, "none") != "none"
-
-        # Calculate coverage (same logic)
-        if was_smoothed:
-            hw_coverage = self._calculate_holt_winters_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                seasonality_analysis,
-                stationarity_analysis,
-                coverage_analysis,
-                param
-            )
-            
-            lstm_coverage = self._calculate_lstm_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                precipitation_analysis,
-                stationarity_analysis,
-                coverage_analysis,
-                param  
-            )
-        else:
-            non_smoothed_coverage = self._calculate_non_smoothed_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                coverage_analysis,
-                param
-            )
-            hw_coverage = lstm_coverage = non_smoothed_coverage
-        
-        # Remove analysis_details entirely
-        result = {
-            "holt_winters_coverage": hw_coverage["coverage_percentage"],
-            "lstm_coverage": lstm_coverage["coverage_percentage"]
-        }
-        
-        # ADD: keep lightweight details for detailed logger
-        result["analysis_details"] = {
-            "data_points": len(series),
-            "missing_ratio": coverage_analysis.get("missing_ratio", 0),
-            "large_gaps": large_gaps_impact,
-            "extreme_outliers": extreme_outliers_impact,
-            "seasonality": seasonality_analysis,
-            "stationarity": stationarity_analysis,
-        }
-
-        if precipitation_analysis:
-            result["analysis_details"]["precipitation"] = precipitation_analysis
-        
-        # Only add uncovered reasons if they exist (avoid empty objects)
-        if hw_coverage["uncovered_reasons"]:
-            result["holt_winters_uncovered"] = hw_coverage["uncovered_reasons"]
-        
-        if lstm_coverage["uncovered_reasons"]:
-            result["lstm_uncovered"] = lstm_coverage["uncovered_reasons"]
-        
-        return result
-        
-    def _analyze_large_gaps(self, df: pd.DataFrame, param: str) -> Dict[str, Any]:
-        """Analyze impact of large gaps (>90 days)"""
-        if 'Date' not in df.columns:
-            return {"impact_percentage": 0, "large_gaps_count": 0}
-        
-        # Get gaps from preprocessing report
-        gaps_info = self.preprocessing_report.get("gaps", {})
-        large_gaps = [gap for gap in gaps_info.get("gap_details", []) if gap.get("duration_days", 0) > 90]
-        
-        if not large_gaps:
-            return {"impact_percentage": 0, "large_gaps_count": 0}
-        
-        # Calculate impact
-        total_gap_days = sum(gap["duration_days"] for gap in large_gaps)
-        total_days = (df['Date'].max() - df['Date'].min()).days + 1
-        impact_percentage = (total_gap_days / total_days) * 100
-        
-        return {
-            "impact_percentage": round(impact_percentage, 2),
-            "large_gaps_count": len(large_gaps),
-            "total_gap_days": total_gap_days
-        }
-    
-    def _analyze_extreme_outliers(self, series: pd.Series) -> Dict[str, Any]:
-        """Analyze extreme outliers that survived double-detection"""
-        if len(series) < 10:
-            return {"impact_percentage": 0}
-        
-        # More stringent outlier detection (3.5 sigma)
-        mean = series.mean()
-        std = series.std()
-        
-        if std == 0:
-            return {"impact_percentage": 0}
-        
-        z_scores = np.abs((series - mean) / std)
-        extreme_outliers = z_scores > 3.5  # More stringent than preprocessing (3.0)
-        
-        impact_percentage = (extreme_outliers.sum() / len(series)) * 100
-        
-        return {
-            "impact_percentage": round(impact_percentage, 2),
-            "extreme_outliers_count": int(extreme_outliers.sum()),
-            "max_z_score": round(float(z_scores.max()), 2)
-        }
-
-    def _analyze_seasonality(self, series: pd.Series) -> Dict[str, Any]:
-        """Analyze seasonal patterns (critical for Holt-Winters) using STL"""
-        try:
-            if len(series) < 730:  # Need at least 2 years for seasonal analysis
-                return {"seasonal_strength": 0, "has_clear_seasonality": False, "insufficient_data": True}
-
-            # STL decomposition (consistent with decomposition pipeline)
-            stl = STL(series, period=365, robust=True)
-            decomposition = stl.fit()
-
-            # Calculate seasonal strength
-            seasonal_var = np.var(decomposition.seasonal.dropna())
-            residual_var = np.var(decomposition.resid.dropna())
-
-            if seasonal_var + residual_var == 0:
-                seasonal_strength = 0
-            else:
-                seasonal_strength = seasonal_var / (seasonal_var + residual_var)
-
-            has_clear_seasonality = seasonal_strength > 0.3  # Threshold for clear seasonality
-
-            return {
-                "seasonal_strength": round(float(seasonal_strength), 3),
-                "has_clear_seasonality": has_clear_seasonality,
-                "seasonal_variance": round(float(seasonal_var), 3),
-                "residual_variance": round(float(residual_var), 3)
-            }
-
-        except Exception as e:
-            logger.warning(f"Error in seasonal analysis: {str(e)}")
-            return {"seasonal_strength": 0, "has_clear_seasonality": False, "error": str(e)}
-
-    def _analyze_stationarity(self, series: pd.Series) -> Dict[str, Any]:
-        """Analyze stationarity using Augmented Dickey-Fuller test"""
-        try:
-            if len(series) < 50:
-                return {"is_stationary": False, "insufficient_data": True}
-            
-            # Perform ADF test
-            adf_result = adfuller(series.dropna())
-            
-            is_stationary = adf_result[1] < 0.05  # p-value < 0.05 indicates stationarity
-            
-            return {
-                "is_stationary": is_stationary,
-                "adf_statistic": round(float(adf_result[0]), 4),
-                "p_value": round(float(adf_result[1]), 4),
-                "critical_values": {k: round(v, 4) for k, v in adf_result[4].items()}
-            }
-            
-        except Exception as e:
-            logger.warning(f"Error in stationarity analysis: {str(e)}")
-            return {"is_stationary": False, "error": str(e)}
         
     def _analyze_precipitation_extremes(self, series: pd.Series, param: str) -> Dict[str, Any]:
         """Analyze extreme precipitation events (0 vs 500mm range)"""

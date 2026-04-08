@@ -1,8 +1,11 @@
 import { Hono } from "hono";
 import db from "@/lib/database/db";
 import { DatasetMeta } from "@/lib/database/schema/feature/dataset-meta.model";
+import { PreprocessingReport } from "@/lib/database/schema/feature/preprocesssing-report.model";
+import { DecompositionReport } from "@/lib/database/schema/feature/decomposition-report.model";
 import { parseError } from "@/lib/utils";
 import mongoose from "mongoose";
+import { RiContactsBookUploadFill } from "@remixicon/react";
 
 interface ConversionInfo {
   originalFormat: string;
@@ -58,13 +61,16 @@ datasetMetaRoute.patch("/:collectionName/delete", async (c) => {
     const dataset = await DatasetMeta.findOneAndUpdate(
       { collectionName },
       { $set: { deletedAt: new Date() } }, // 👈 set kolom deletedAt
-      { new: true }
+      { new: true },
     );
 
     if (!dataset) return c.json({ message: "Dataset not found" }, 404);
     console.log("Updated dataset:", dataset);
 
-    return c.json({ message: "Dataset moved to recycle bin", success: true, data: dataset }, 200);
+    return c.json(
+      { message: "Dataset moved to recycle bin", success: true, data: dataset },
+      200,
+    );
   } catch (error) {
     console.error("Soft delete dataset error:", error);
     const { message, status } = parseError(error);
@@ -101,7 +107,13 @@ datasetMetaRoute.get("/:collectionName/status", async (c) => {
     if (status === "preprocessed" || status === "validated") {
       try {
         const cleanedCollectionName = `${collectionName}_cleaned`;
-        const CleanedModel = mongoose.models[cleanedCollectionName] || mongoose.model(cleanedCollectionName, new mongoose.Schema({}, { strict: false }), cleanedCollectionName);
+        const CleanedModel =
+          mongoose.models[cleanedCollectionName] ||
+          mongoose.model(
+            cleanedCollectionName,
+            new mongoose.Schema({}, { strict: false }),
+            cleanedCollectionName,
+          );
 
         const count = await CleanedModel.countDocuments().limit(1);
         hasCleanedCollection = count > 0;
@@ -119,8 +131,16 @@ datasetMetaRoute.get("/:collectionName/status", async (c) => {
       canReactivate,
       hasCleanedCollection,
       operations: {
-        preprocessing: canPreprocess ? "allowed" : `not allowed - status is ${status}`,
-        refresh: canRefresh ? ((dataset as any).isAPI ? "allowed via NASA Power refresh" : "manual refresh (to be implemented)") : (dataset as any).isAPI ? `not allowed - status is ${status}` : `not allowed - status is ${status}`,
+        preprocessing: canPreprocess
+          ? "allowed"
+          : `not allowed - status is ${status}`,
+        refresh: canRefresh
+          ? (dataset as any).isAPI
+            ? "allowed via NASA Power refresh"
+            : "manual refresh (to be implemented)"
+          : (dataset as any).isAPI
+            ? `not allowed - status is ${status}`
+            : `not allowed - status is ${status}`,
         reactivation: canReactivate ? "allowed" : "not allowed - not archived",
       },
     });
@@ -142,7 +162,10 @@ datasetMetaRoute.patch("/:collectionName/reactivate", async (c) => {
     }
 
     if ((dataset as any).status !== "archived") {
-      return c.json({ message: "Only archived datasets can be reactivated" }, 400);
+      return c.json(
+        { message: "Only archived datasets can be reactivated" },
+        400,
+      );
     }
 
     // ENHANCED: Determine new status based on dataset type and data freshness
@@ -154,10 +177,19 @@ datasetMetaRoute.patch("/:collectionName/reactivate", async (c) => {
     } else {
       // Non-API datasets: check data freshness to determine raw vs latest
       try {
-        const dynamicModel = mongoose.models[collectionName] || mongoose.model(collectionName, new mongoose.Schema({}, { strict: false }), collectionName);
+        const dynamicModel =
+          mongoose.models[collectionName] ||
+          mongoose.model(
+            collectionName,
+            new mongoose.Schema({}, { strict: false }),
+            collectionName,
+          );
 
         // FIXED: Properly type the query result and handle potential array/single document
-        const latestRecord = (await dynamicModel.findOne({}).sort({ Date: -1 }).lean()) as any; // Type assertion to any to access Date property
+        const latestRecord = (await dynamicModel
+          .findOne({})
+          .sort({ Date: -1 })
+          .lean()) as any; // Type assertion to any to access Date property
 
         if (latestRecord && latestRecord.Date) {
           const today = new Date();
@@ -174,12 +206,19 @@ datasetMetaRoute.patch("/:collectionName/reactivate", async (c) => {
           newStatus = "raw"; // No date data found, default to raw
         }
       } catch (error) {
-        console.warn("Could not check data freshness, defaulting to raw:", error);
+        console.warn(
+          "Could not check data freshness, defaulting to raw:",
+          error,
+        );
         newStatus = "raw";
       }
     }
 
-    const updated = await DatasetMeta.findOneAndUpdate({ collectionName }, { $set: { status: newStatus } }, { new: true });
+    const updated = await DatasetMeta.findOneAndUpdate(
+      { collectionName },
+      { $set: { status: newStatus } },
+      { new: true },
+    );
 
     return c.json({
       message: "Dataset reactivated successfully",
@@ -187,7 +226,9 @@ datasetMetaRoute.patch("/:collectionName/reactivate", async (c) => {
       statusTransition: {
         from: "archived",
         to: newStatus,
-        reason: (dataset as any).isAPI ? "API dataset reactivated to latest for refresh" : "Non-API dataset reactivated based on data freshness",
+        reason: (dataset as any).isAPI
+          ? "API dataset reactivated to latest for refresh"
+          : "Non-API dataset reactivated based on data freshness",
       },
     });
   } catch (error: any) {
@@ -215,7 +256,7 @@ datasetMetaRoute.post("/:collectionName/refresh", async (c) => {
           message: "API datasets should use NASA Power refresh endpoints",
           suggestedEndpoint: "/api/v1/nasa-power/refresh/:id",
         },
-        400
+        400,
       );
     }
 
@@ -229,24 +270,36 @@ datasetMetaRoute.post("/:collectionName/refresh", async (c) => {
           message: `Cannot refresh dataset with status '${currentStatus}'`,
           refreshableStatuses,
         },
-        400
+        400,
       );
     }
 
     // Check if dataset was preprocessed/validated (has _cleaned collection)
-    const wasPreprocessed = currentStatus === "preprocessed" || currentStatus === "validated";
+    const wasPreprocessed =
+      currentStatus === "preprocessed" || currentStatus === "validated";
 
     if (wasPreprocessed) {
       // Delete the _cleaned collection if it exists
       const cleanedCollectionName = `${collectionName}_cleaned`;
       try {
-        const CleanedModel = mongoose.models[cleanedCollectionName] || mongoose.model(cleanedCollectionName, new mongoose.Schema({}, { strict: false }), cleanedCollectionName);
+        const CleanedModel =
+          mongoose.models[cleanedCollectionName] ||
+          mongoose.model(
+            cleanedCollectionName,
+            new mongoose.Schema({}, { strict: false }),
+            cleanedCollectionName,
+          );
         await CleanedModel.collection.drop();
-        console.log(`✅ Deleted cleaned collection: ${cleanedCollectionName} (manual refresh)`);
+        console.log(
+          `Deleted cleaned collection: ${cleanedCollectionName} (manual refresh)`,
+        );
       } catch (error: any) {
         if (error.code !== 26) {
           // 26 = NamespaceNotFound
-          console.warn(`⚠️ Warning deleting cleaned collection ${cleanedCollectionName}:`, error.message);
+          console.warn(
+            `Warning deleting cleaned collection ${cleanedCollectionName}:`,
+            error.message,
+          );
         }
       }
     }
@@ -254,18 +307,21 @@ datasetMetaRoute.post("/:collectionName/refresh", async (c) => {
     // PLACEHOLDER: For future manual refresh implementation
     return c.json(
       {
-        message: "Manual refresh for user-uploaded datasets will be implemented later",
+        message:
+          "Manual refresh for user-uploaded datasets will be implemented later",
         currentStatus: currentStatus,
         collectionName: collectionName,
         wasPreprocessed,
         cleanedCollectionDeleted: wasPreprocessed,
         note: "This endpoint is reserved for future manual refresh functionality",
         implementation: {
-          suggestion: "Users can re-upload newer data files to refresh non-API datasets",
-          expectedFlow: "Upload new file → Smart status detection → Replace data",
+          suggestion:
+            "Users can re-upload newer data files to refresh non-API datasets",
+          expectedFlow:
+            "Upload new file → Smart status detection → Replace data",
         },
       },
-      501
+      501,
     ); // Not Implemented
   } catch (error: any) {
     console.error("Non-API refresh error:", error);
@@ -353,7 +409,12 @@ datasetMetaRoute.get("/:slug", async (c) => {
     try {
       Model = mongoose.model(slug);
     } catch {
-      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+      Model = (mongoose.models[slug] ||
+        mongoose.model(
+          slug,
+          new mongoose.Schema({}, { strict: false }),
+          slug,
+        )) as mongoose.Model<any>;
     }
 
     const sortQuery: Record<string, 1 | -1> = {
@@ -381,7 +442,7 @@ datasetMetaRoute.get("/:slug", async (c) => {
           sortOrder,
         },
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("Error fetching dynamic dataset:", error);
@@ -409,7 +470,9 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     if (!meta) return c.json({ message: "Dataset not found" }, 404);
 
     // Validasi kolom Date
-    const hasDateColumn = meta.columns.some((col: string) => col.toLowerCase() === "date");
+    const hasDateColumn = meta.columns.some(
+      (col: string) => col.toLowerCase() === "date",
+    );
 
     if (!hasDateColumn) {
       return c.json(
@@ -417,7 +480,7 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
           message: "Dataset tidak memiliki kolom Date",
           data: null,
         },
-        200
+        200,
       );
     }
 
@@ -425,7 +488,12 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
     try {
       Model = mongoose.model(slug);
     } catch {
-      Model = (mongoose.models[slug] || mongoose.model(slug, new mongoose.Schema({}, { strict: false }), slug)) as mongoose.Model<any>;
+      Model = (mongoose.models[slug] ||
+        mongoose.model(
+          slug,
+          new mongoose.Schema({}, { strict: false }),
+          slug,
+        )) as mongoose.Model<any>;
     }
 
     // Fetch SEMUA data, sort by Date ascending untuk chart
@@ -448,7 +516,7 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
           dateColumn: "Date",
         },
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("Error fetching chart data:", error);
@@ -487,15 +555,22 @@ datasetMetaRoute.patch("/:idOrSlug", async (c) => {
     if (Object.keys(body).length === 0) {
       return c.json(
         {
-          message: "No data provided for update. Send data as JSON body or query parameters.",
+          message:
+            "No data provided for update. Send data as JSON body or query parameters.",
         },
-        400
+        400,
       );
     }
 
     // ADDED: Status transition validation
     if (body.status) {
-      const allowedStatuses = ["raw", "latest", "preprocessed", "validated", "archived"];
+      const allowedStatuses = [
+        "raw",
+        "latest",
+        "preprocessed",
+        "validated",
+        "archived",
+      ];
 
       if (!allowedStatuses.includes(body.status)) {
         return c.json({ message: `Invalid status: ${body.status}` }, 400);
@@ -535,11 +610,13 @@ datasetMetaRoute.patch("/:idOrSlug", async (c) => {
             attemptedStatus: newStatus,
             validTransitions: validTransitions[currentStatus] || [],
           },
-          400
+          400,
         );
       }
 
-      console.log(`✅ Status transition validated: ${currentStatus} → ${newStatus}`);
+      console.log(
+        `Status transition validated: ${currentStatus} → ${newStatus}`,
+      );
     }
 
     let updatedDataset;
@@ -547,10 +624,18 @@ datasetMetaRoute.patch("/:idOrSlug", async (c) => {
     // Check if idOrSlug is a valid MongoDB ObjectId
     if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
       // Update by ID
-      updatedDataset = await DatasetMeta.findByIdAndUpdate(idOrSlug, { $set: body }, { new: true, runValidators: true, lean: true });
+      updatedDataset = await DatasetMeta.findByIdAndUpdate(
+        idOrSlug,
+        { $set: body },
+        { new: true, runValidators: true, lean: true },
+      );
     } else {
       // Update by collectionName (slug)
-      updatedDataset = await DatasetMeta.findOneAndUpdate({ collectionName: idOrSlug }, { $set: body }, { new: true, runValidators: true, lean: true });
+      updatedDataset = await DatasetMeta.findOneAndUpdate(
+        { collectionName: idOrSlug },
+        { $set: body },
+        { new: true, runValidators: true, lean: true },
+      );
     }
 
     if (!updatedDataset) {
@@ -562,7 +647,7 @@ datasetMetaRoute.patch("/:idOrSlug", async (c) => {
         message: "Dataset metadata updated successfully",
         data: updatedDataset,
       },
-      200
+      200,
     );
   } catch (error) {
     console.error("Update dataset error:", error);
@@ -634,17 +719,25 @@ datasetMetaRoute.post("/", async (c) => {
 
       if (newestDate) {
         const newestDateString = newestDate.toISOString().slice(0, 10);
-        console.log(`Newest date in dataset: ${newestDateString}, Today: ${todayString}`);
+        console.log(
+          `Newest date in dataset: ${newestDateString}, Today: ${todayString}`,
+        );
 
         // If newest date matches today, set status to "latest"
         if (newestDateString === todayString) {
           finalStatus = "latest";
-          console.log(`✅ Dataset contains today's data, setting status to 'latest'`);
+          console.log(
+            `Dataset contains today's data, setting status to 'latest'`,
+          );
         } else if (newestDate < today) {
           // Data is older than today, keep as "raw"
-          const daysDiff = Math.floor((today.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24));
+          const daysDiff = Math.floor(
+            (today.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24),
+          );
           finalStatus = "raw";
-          console.log(`Dataset is ${daysDiff} days behind, setting status to 'raw'`);
+          console.log(
+            `Dataset is ${daysDiff} days behind, setting status to 'raw'`,
+          );
         } else {
           // Future date (shouldn't happen but handle gracefully)
           finalStatus = "raw";
@@ -685,7 +778,11 @@ datasetMetaRoute.post("/", async (c) => {
     try {
       dynamicModel = mongoose.model(collectionName);
     } catch {
-      dynamicModel = mongoose.model(collectionName, new mongoose.Schema({}, { strict: false }), collectionName);
+      dynamicModel = mongoose.model(
+        collectionName,
+        new mongoose.Schema({}, { strict: false }),
+        collectionName,
+      );
     }
 
     await dynamicModel.insertMany(parsedData);
@@ -711,11 +808,14 @@ datasetMetaRoute.post("/", async (c) => {
         data: newDataset,
         statusInfo: {
           detectedStatus: finalStatus,
-          reason: finalStatus === "latest" ? "Dataset contains today's data" : "Dataset requires refresh or preprocessing",
+          reason:
+            finalStatus === "latest"
+              ? "Dataset contains today's data"
+              : "Dataset requires refresh or preprocessing",
           wasAutoDetected: !requestedStatus,
         },
       },
-      201
+      201,
     );
   } catch (error) {
     console.error("Upload dataset error:", error);
@@ -724,85 +824,161 @@ datasetMetaRoute.post("/", async (c) => {
   }
 });
 
-// DELETE - Hapus dataset (metadata + collection)
+// DELETE - Hapus dataset (metadata + collection + reports + decomposition)
 datasetMetaRoute.delete("/:collectionName", async (c) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     await db();
     const { collectionName } = c.req.param();
-
-    // Decode the collection name (handle URL encoding)
     const decodedCollectionName = decodeURIComponent(collectionName);
+    console.log(
+      `[DELETE] Initiating permanent delete for: ${decodedCollectionName}`,
+    );
 
-    // 1. Get metadata
+    // 1. Find metadata to ensure get status and related information
     const metadata = await DatasetMeta.findOne({
       collectionName: decodedCollectionName,
-    }).lean();
+    }).session(session);
 
     if (!metadata) {
+      console.log(`[DELETE] Metadata for ${decodedCollectionName} not found.`);
+      await session.abortTransaction();
+      session.endSession();
       return c.json({ message: "Dataset not found" }, 404);
     }
+    console.log(`[DELETE] Found metadata:`, metadata.toObject());
 
-    // 2. Determine collections to delete
-    const collectionsToDelete: string[] = [];
-    const metaStatus = (metadata as any).status as string;
+    // 2. Determine the correct base collection name for querying reports
+    //    This handles deleting an original OR a _cleaned dataset.
+    let baseCollectionName: string;
+    if (metadata.originalCollectionName) {
+      baseCollectionName = metadata.originalCollectionName;
+    } else if (decodedCollectionName.endsWith("_cleaned")) {
+      baseCollectionName = decodedCollectionName.replace(/_cleaned$/, "");
+    } else {
+      baseCollectionName = decodedCollectionName;
+    }
+    console.log(
+      `[DELETE] Using base name '${baseCollectionName}' to find related reports.`,
+    );
 
-    // Always delete the original collection
-    collectionsToDelete.push(decodedCollectionName);
+    console.log(
+      `[DELETE] Using base name '${baseCollectionName}' to find related reports.`,
+    );
 
-    // If dataset is preprocessed/validated, also delete cleaned collection
-    if (
-      (metaStatus === "preprocessed" || metaStatus === "validated") &&
-      !decodedCollectionName.endsWith("_cleaned")
-    ) {
-      const cleanedCollectionName = `${decodedCollectionName}_cleaned`;
-      collectionsToDelete.push(cleanedCollectionName);
+    // 3. Find all related preprocessing reports
+    const reportIdsToDelete = await PreprocessingReport.find({
+      original_collection_name: baseCollectionName,
+    })
+      .session(session)
+      .distinct("_id");
+    console.log(
+      `[DELETE] Found ${reportIdsToDelete.length} preprocessing reports to delete.`,
+    );
+
+    // 4. Delete related decomposition and preprocessing reports within the transaction
+    let deletedDecompositionsCount = 0;
+    let deletedReportsCount = 0;
+
+    if (reportIdsToDelete.length > 0) {
+      const decompositionResult = await DecompositionReport.deleteMany(
+        { preprocessing_id: { $in: reportIdsToDelete } },
+        { session },
+      );
+      deletedDecompositionsCount = decompositionResult.deletedCount;
       console.log(
-        `Dataset is ${metaStatus}, will also delete cleaned collection: ${cleanedCollectionName}`
+        `[DELETE] Deleted ${deletedDecompositionsCount} decomposition reports.`,
+      );
+
+      const reportResult = await PreprocessingReport.deleteMany(
+        { _id: { $in: reportIdsToDelete } },
+        { session },
+      );
+      deletedReportsCount = reportResult.deletedCount;
+      console.log(
+        `[DELETE] Deleted ${deletedReportsCount} preprocessing reports.`,
       );
     }
 
-    // 3. Delete metadata first
-    await DatasetMeta.deleteOne({ collectionName: decodedCollectionName });
+    // 5. Identify all data collections to be dropped
+    const collectionsToDrop: string[] = [
+      baseCollectionName,
+      `${baseCollectionName}_cleaned`,
+    ];
+    console.log(`[DELETE] Collections to drop:`, collectionsToDrop);
 
-    // 4. Drop all identified collections
-    const deletedCollections: string[] = [];
-    const failedDeletions: string[] = [];
+    // 6. Delete ALL related metadata (original and cleaned)
+    await DatasetMeta.deleteMany(
+      {
+        $or: [
+          { collectionName: baseCollectionName },
+          { collectionName: `${baseCollectionName}_cleaned` },
+        ],
+      },
+      { session },
+    );
+    console.log(
+      `[DELETE] Deleted all metadata entries related to '${baseCollectionName}'.`,
+    );
 
+    // 7. Commit transaction before dropping collections
+    await session.commitTransaction();
+    console.log("[DELETE] Transaction committed successfully.");
+
+    // 8. Drop the actual MongoDB collections outside of the transaction
     const mongoDb = mongoose.connection.db;
-    if (!mongoDb) throw new Error("MongoDB connection not ready");
+    const droppedCollections: string[] = [];
 
-    for (const colName of collectionsToDelete) {
-      try {
-        const collections = await mongoDb
-          .listCollections({ name: colName })
-          .toArray();
-
-        if (collections.length > 0) {
-          await mongoDb.dropCollection(colName);
-          deletedCollections.push(colName);
-          console.log(`✅ Dropped collection: ${colName}`);
-        } else {
-          console.log(`ℹ️ Collection ${colName} not found, skipping`);
+    // Add a guard clause to ensure the db object is available
+    if (!mongoDb) {
+      console.error(
+        "[DELETE] Post-transaction: MongoDB connection is not available. Manual cleanup of collections may be required.",
+        collectionsToDrop,
+      );
+      // Since the transaction is committed, we proceed but log the critical failure.
+      // The primary goal (deleting metadata and reports) is done.
+    } else {
+      for (const colName of collectionsToDrop) {
+        try {
+          if (
+            (await mongoDb.listCollections({ name: colName }).toArray())
+              .length > 0
+          ) {
+            await mongoDb.dropCollection(colName);
+            droppedCollections.push(colName);
+            console.log(`[DELETE] Dropped collection: ${colName}`);
+          } else {
+            console.log(
+              `[DELETE] Collection ${colName} not found, skipping drop.`,
+            );
+          }
+        } catch (dropError: any) {
+          console.error(
+            `[DELETE] Post-transaction: Error dropping collection ${colName}. This requires manual cleanup.`,
+            dropError,
+          );
+          // This failure is logged but doesn't fail the request, as the metadata is already gone.
         }
-      } catch (dropError: any) {
-        console.error(`⚠️ Error dropping collection ${colName}:`, dropError);
-        failedDeletions.push(colName);
       }
     }
-
     return c.json(
       {
-        message: "Dataset deleted successfully",
-        deletedCollections,
-        failedDeletions: failedDeletions.length > 0 ? failedDeletions : undefined,
-        originalStatus: metaStatus,
+        message: "Dataset and all related reports deleted permanently",
+        deletedDataCollections: droppedCollections,
+        deletedPreprocessingReports: deletedReportsCount,
+        deletedDecompositionReports: deletedDecompositionsCount,
       },
-      200
+      200,
     );
   } catch (error) {
-    console.error("Delete dataset error:", error);
+    console.error("[DELETE] Transaction aborted due to an error:", error);
+    await session.abortTransaction();
     const { message, status } = parseError(error);
-    return c.json({ message }, status);
+    return c.json({ message: `Deletion failed: ${message}` }, status);
+  } finally {
+    session.endSession();
   }
 });
 
@@ -829,7 +1005,7 @@ async function handleXlsxUpload(c: any) {
     let filename: string;
     let filesProcessed = 0;
 
-    // ✅ Handle Multi-file XLSX merge
+    // Handle Multi-file XLSX merge
     if (isMultiFile) {
       console.log("Processing multi-file XLSX upload...");
 
@@ -841,7 +1017,10 @@ async function handleXlsxUpload(c: any) {
       const fileEntries = formData.getAll("files");
 
       if (!fileEntries || fileEntries.length === 0) {
-        return c.json({ message: "No files provided for multi-file upload" }, 400);
+        return c.json(
+          { message: "No files provided for multi-file upload" },
+          400,
+        );
       }
 
       if (fileEntries.length > MAX_FILES) {
@@ -849,7 +1028,7 @@ async function handleXlsxUpload(c: any) {
           {
             message: `Too many files. Maximum ${MAX_FILES} files allowed per batch`,
           },
-          400
+          400,
         );
       }
 
@@ -864,7 +1043,7 @@ async function handleXlsxUpload(c: any) {
               {
                 message: `File ${file.name} is not a .xlsx file`,
               },
-              400
+              400,
             );
           }
 
@@ -874,7 +1053,7 @@ async function handleXlsxUpload(c: any) {
               {
                 message: `File ${file.name} exceeds 16MB limit`,
               },
-              400
+              400,
             );
           }
 
@@ -886,7 +1065,7 @@ async function handleXlsxUpload(c: any) {
               {
                 message: `Total file size exceeds 100MB limit`,
               },
-              400
+              400,
             );
           }
 
@@ -905,14 +1084,14 @@ async function handleXlsxUpload(c: any) {
           {
             message: "No valid .xlsx files found",
           },
-          400
+          400,
         );
       }
 
       filesProcessed = files.length;
       filename = `${name.replace(/\s+/g, "_")}_merged_${files.length}_files.csv`;
 
-      // ✅ Send to Flask for merging
+      // Send to Flask for merging
       const flaskFormData = new FormData();
 
       // Add each file to FormData for Flask
@@ -926,14 +1105,19 @@ async function handleXlsxUpload(c: any) {
 
       try {
         console.log(`Sending ${files.length} files to Flask merge service...`);
-        const response = await fetch("http://localhost:5001/api/v1/convert/xlsx-merge-csv", {
-          method: "POST",
-          body: flaskFormData,
-        });
+        const response = await fetch(
+          "http://localhost:5001/api/v1/convert/xlsx-merge-csv",
+          {
+            method: "POST",
+            body: flaskFormData,
+          },
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Flask merge service error: ${response.status} ${response.statusText}. Response: ${errorText}`);
+          throw new Error(
+            `Flask merge service error: ${response.status} ${response.statusText}. Response: ${errorText}`,
+          );
         }
 
         const responseText = await response.text();
@@ -941,22 +1125,33 @@ async function handleXlsxUpload(c: any) {
           conversionResult = JSON.parse(responseText);
         } catch (jsonError) {
           console.error("JSON Parse Error:", jsonError);
-          console.error("Raw Response:", responseText.substring(0, 500) + "...");
-          throw new Error(`Invalid JSON response from merge service: ${jsonError}`);
+          console.error(
+            "Raw Response:",
+            responseText.substring(0, 500) + "...",
+          );
+          throw new Error(
+            `Invalid JSON response from merge service: ${jsonError}`,
+          );
         }
       } catch (fetchError) {
         console.error("Flask merge service error:", fetchError);
-        return c.json({ message: `Failed to connect to merge service: ${fetchError}` }, 500);
+        return c.json(
+          { message: `Failed to connect to merge service: ${fetchError}` },
+          500,
+        );
       }
     }
-    // ✅ Handle Single XLSX file
+    // Handle Single XLSX file
     else {
       console.log("Processing single XLSX file upload...");
 
       const file = formData.get("file") as File;
 
       if (!file || !(file instanceof File)) {
-        return c.json({ message: "file is required for single file upload" }, 400);
+        return c.json(
+          { message: "file is required for single file upload" },
+          400,
+        );
       }
 
       // Validate file extension
@@ -976,7 +1171,7 @@ async function handleXlsxUpload(c: any) {
       const arrayBuffer = await file.arrayBuffer();
       const fileBuffer = Array.from(new Uint8Array(arrayBuffer));
 
-      // ✅ Send to Flask for single file conversion
+      // Send to Flask for single file conversion
       const flaskFormData = new FormData();
       const buffer = Buffer.from(fileBuffer);
       const flaskFile = new File([buffer], file.name, {
@@ -986,14 +1181,19 @@ async function handleXlsxUpload(c: any) {
 
       try {
         console.log(`Sending single file to Flask conversion service...`);
-        const response = await fetch("http://localhost:5001/api/v1/convert/xlsx-to-csv", {
-          method: "POST",
-          body: flaskFormData,
-        });
+        const response = await fetch(
+          "http://localhost:5001/api/v1/convert/xlsx-to-csv",
+          {
+            method: "POST",
+            body: flaskFormData,
+          },
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Flask service error: ${response.status} ${response.statusText}. Response: ${errorText}`);
+          throw new Error(
+            `Flask service error: ${response.status} ${response.statusText}. Response: ${errorText}`,
+          );
         }
 
         const responseText = await response.text();
@@ -1001,22 +1201,30 @@ async function handleXlsxUpload(c: any) {
           conversionResult = JSON.parse(responseText);
         } catch (jsonError) {
           console.error("JSON Parse Error:", jsonError);
-          console.error("Raw Response:", responseText.substring(0, 500) + "...");
-          throw new Error(`Invalid JSON response from conversion service: ${jsonError}`);
+          console.error(
+            "Raw Response:",
+            responseText.substring(0, 500) + "...",
+          );
+          throw new Error(
+            `Invalid JSON response from conversion service: ${jsonError}`,
+          );
         }
       } catch (fetchError) {
         console.error("Flask service error:", fetchError);
-        return c.json({ message: `Failed to connect to conversion service: ${fetchError}` }, 500);
+        return c.json(
+          { message: `Failed to connect to conversion service: ${fetchError}` },
+          500,
+        );
       }
     }
 
-    // ✅ Check conversion result (same for both single and multi)
+    // Check conversion result (same for both single and multi)
     if (conversionResult.status !== "success") {
       return c.json(
         {
           message: `XLSX conversion failed: ${conversionResult.error || "Unknown error"}`,
         },
-        400
+        400,
       );
     }
 
@@ -1051,22 +1259,34 @@ async function handleXlsxUpload(c: any) {
 
       if (newestDate) {
         const newestDateString = newestDate.toISOString().slice(0, 10);
-        console.log(`XLSX - Newest date: ${newestDateString}, Today: ${todayString}`);
+        console.log(
+          `XLSX - Newest date: ${newestDateString}, Today: ${todayString}`,
+        );
 
         // If newest date matches today, set status to "latest"
         if (newestDateString === todayString) {
           finalStatus = "latest";
-          console.log(`✅ XLSX dataset contains today's data, setting status to 'latest'`);
+          console.log(
+            `XLSX dataset contains today's data, setting status to 'latest'`,
+          );
         } else if (newestDate < today) {
-          const daysDiff = Math.floor((today.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24));
+          const daysDiff = Math.floor(
+            (today.getTime() - newestDate.getTime()) / (1000 * 60 * 60 * 24),
+          );
           finalStatus = "raw";
-          console.log(`XLSX dataset is ${daysDiff} days behind, setting status to 'raw'`);
+          console.log(
+            `XLSX dataset is ${daysDiff} days behind, setting status to 'raw'`,
+          );
         } else {
           finalStatus = "raw";
-          console.log(`XLSX dataset contains future dates, setting status to 'raw'`);
+          console.log(
+            `XLSX dataset contains future dates, setting status to 'raw'`,
+          );
         }
       } else {
-        console.log("No Date column found in XLSX dataset, defaulting to 'raw'");
+        console.log(
+          "No Date column found in XLSX dataset, defaulting to 'raw'",
+        );
         finalStatus = "raw";
       }
     }
@@ -1095,7 +1315,11 @@ async function handleXlsxUpload(c: any) {
     try {
       dynamicModel = mongoose.model(collectionName);
     } catch {
-      dynamicModel = mongoose.model(collectionName, new mongoose.Schema({}, { strict: false }), collectionName);
+      dynamicModel = mongoose.model(
+        collectionName,
+        new mongoose.Schema({}, { strict: false }),
+        collectionName,
+      );
     }
 
     // Insert to MongoDB
@@ -1116,7 +1340,7 @@ async function handleXlsxUpload(c: any) {
       isAPI: false,
     });
 
-    // ✅ Return response with interface UploadResponse
+    // Return response with interface UploadResponse
     const response: UploadResponse = {
       message: "Dataset uploaded and metadata saved successfully",
       data: newDataset,
@@ -1136,7 +1360,8 @@ async function handleXlsxUpload(c: any) {
         filesSuccessful: conversionResult.processing_summary.files_processed,
         filesFailed: conversionResult.processing_summary.files_failed,
         totalFiles: conversionResult.processing_summary.total_files,
-        duplicatesRemoved: conversionResult.processing_summary.duplicates_removed,
+        duplicatesRemoved:
+          conversionResult.processing_summary.duplicates_removed,
         dateRange: conversionResult.processing_summary.date_range,
         failedFiles: conversionResult.failed_files || [],
         warnings: conversionResult.warnings || [],
@@ -1146,11 +1371,16 @@ async function handleXlsxUpload(c: any) {
     // Status information in response
     (response as any).statusInfo = {
       detectedStatus: finalStatus,
-      reason: finalStatus === "latest" ? "XLSX dataset contains today's data" : "XLSX dataset requires refresh or preprocessing",
+      reason:
+        finalStatus === "latest"
+          ? "XLSX dataset contains today's data"
+          : "XLSX dataset requires refresh or preprocessing",
       wasAutoDetected: !requestedStatus,
     };
 
-    console.log(`✅ XLSX conversion completed: ${isMultiFile ? "Multi-file" : "Single"} upload successful with status: ${finalStatus}`);
+    console.log(
+      `XLSX conversion completed: ${isMultiFile ? "Multi-file" : "Single"} upload successful with status: ${finalStatus}`,
+    );
     return c.json(response, 201);
   } catch (error) {
     console.error("XLSX upload error:", error);

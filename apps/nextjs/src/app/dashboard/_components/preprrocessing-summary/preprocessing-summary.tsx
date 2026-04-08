@@ -36,9 +36,7 @@ export function PreprocessingSummary({ report }: PreprocessingSummaryProps) {
             <Icons.database className="h-5 w-5" />
             Data Handling & Imputation
           </CardTitle>
-          <CardDescription>
-            Rules applied to handle missing values
-          </CardDescription>
+          <CardDescription>Metode handling missing values</CardDescription>
         </CardHeader>
         <CardContent>
           {!isNasa ? (
@@ -94,20 +92,17 @@ export function PreprocessingSummary({ report }: PreprocessingSummaryProps) {
             Outliers & Variance Control
           </CardTitle>
           <CardDescription>
-            How extreme values and noise were treated
+            Outlier treatment summary and smoothing methods applied (if any)
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isNasa ? (
             <div className="space-y-4">
               <div className="text-sm font-medium">
-                Total Outliers Treated: {summary.outliers?.total_outliers || 0}{" "}
-                ({nasaOutlierTreatment})
+                Outliers Treated: {summary.outliers?.total_outliers || 0} (
+                {nasaOutlierTreatment})
               </div>
               <div className="grid gap-2 border rounded-md p-4 bg-muted/20 max-h-[300px] overflow-y-auto">
-                <div className="text-xs font-bold text-muted-foreground mb-1 uppercase">
-                  Smoothing Methods Applied
-                </div>
                 {Object.entries(nasaSmoothing).map(
                   ([param, reason]: [string, any]) => (
                     <div
