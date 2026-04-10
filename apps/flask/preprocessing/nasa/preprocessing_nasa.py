@@ -928,53 +928,51 @@ class NasaPreprocessor:
         # Check if parameter was smoothed
         smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
         was_smoothed = smoothing_summary.get(param, "none") != "none"
-
-        # Calculate coverage (same logic)
-        if was_smoothed:
-            hw_coverage = self._calculate_holt_winters_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                seasonality_analysis,
-                stationarity_analysis,
-                coverage_analysis,
-                param
-            )
-            
-            lstm_coverage = self._calculate_lstm_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                precipitation_analysis,
-                stationarity_analysis,
-                coverage_analysis,
-                param  
-            )
-        else:
-            non_smoothed_coverage = self._calculate_non_smoothed_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                coverage_analysis,
-                param
-            )
-            hw_coverage = lstm_coverage = non_smoothed_coverage
+        
+        # PHASE 1 REFACTOR: Unified coverage calculation for all parameters.
+        # The distinction between smoothed and non-smoothed is now handled inside
+        # the coverage calculation functions.
+        hw_coverage = self._calculate_holt_winters_coverage(
+            large_gaps_impact,
+            extreme_outliers_impact,
+            seasonality_analysis,
+            stationarity_analysis,
+            coverage_analysis,
+            param,
+            was_smoothed  # Pass smoothing status
+        )
+        
+        lstm_coverage = self._calculate_lstm_coverage(
+            large_gaps_impact,
+            extreme_outliers_impact,
+            precipitation_analysis,
+            stationarity_analysis,
+            coverage_analysis,
+            param,
+            was_smoothed  # Pass smoothing status
+        )
         
         recommended_model = self._determine_recommended_model(
             hw_coverage.get("coverage_percentage"),
             lstm_coverage.get("coverage_percentage")
         )
         
-        # Remove analysis_details entirely
+        # Remove analysis_details entirely from the final saved report, but keep a clean
+        # version for the detailed logger. Add key diagnostic fields to the main object.
         result = {
             "holt_winters_coverage": hw_coverage["coverage_percentage"],
             "lstm_coverage": lstm_coverage["coverage_percentage"],
             "recommended_model": recommended_model,
             "seasonality_strength": seasonality_analysis.get("seasonal_strength"),
+            "has_clear_seasonality": seasonality_analysis.get("has_clear_seasonality"), # Added in Phase 3
             "is_stationary": stationarity_analysis.get("is_stationary"),
         }
         
-        # keep lightweight details for detailed logger
+        # PHASE 3: Create a cleaned-up, standardized analysis_details for logging purposes.
+        # This is not saved in the final DB report but used by the detailed logger.
         result["analysis_details"] = {
             "data_points": len(series),
-            "missing_ratio": coverage_analysis.get("missing_ratio", 0),
+            "missing_ratio": round(coverage_analysis.get("missing_ratio", 0), 4),
             "large_gaps": large_gaps_impact,
             "extreme_outliers": extreme_outliers_impact,
             "seasonality": seasonality_analysis,
@@ -985,6 +983,7 @@ class NasaPreprocessor:
             result["analysis_details"]["precipitation"] = precipitation_analysis
         
         # Only add uncovered reasons if they exist (avoid empty objects)
+        # This fulfills the "Refine uncovered_reasons" part of Phase 3.
         if hw_coverage["uncovered_reasons"]:
             result["holt_winters_uncovered"] = hw_coverage["uncovered_reasons"]
         
@@ -1059,9 +1058,14 @@ class NasaPreprocessor:
             
             has_seasonality = seasonal_strength > 0.3
             
+            # ADD: Calculate seasonal and residual variance
+            seasonal_var = np.var(result.seasonal)
+            
             return {
                 "seasonal_strength": round(seasonal_strength, 3),
                 "has_clear_seasonality": has_seasonality,
+                "seasonal_variance": round(float(seasonal_var), 3),      # ADDED
+                "residual_variance": round(float(var_residual), 3),      # ADDED
             }
             
         except Exception as e:
@@ -1069,6 +1073,8 @@ class NasaPreprocessor:
             return {
                 "seasonal_strength": 0.0,
                 "has_clear_seasonality": False,
+                "seasonal_variance": 0.0,
+                "residual_variance": 0.0,
                 "error": str(e)
             }
 
@@ -1079,20 +1085,30 @@ class NasaPreprocessor:
                 return {"is_stationary": False, "insufficient_data": True}
             
             result = adfuller(series, autolag='AIC')
+            adf_statistic = result[0]
             p_value = result[1]
+            critical_values = result[4]
             is_stationary = p_value < 0.05
+            
+            # FIX: Format p-value properly for very small values
+            if p_value < 0.0001:
+                p_value_formatted = f"{p_value:.2e}"  # Scientific notation
+            else:
+                p_value_formatted = round(p_value, 4)
             
             return {
                 "is_stationary": is_stationary,
-                "p_value": round(p_value, 4),
+                "p_value": p_value_formatted,                                    # CHANGED
+                "adf_statistic": round(float(adf_statistic), 4),                # ADDED
+                "critical_values": {                                             # ADDED
+                    "1%": round(float(critical_values['1%']), 2),
+                    "5%": round(float(critical_values['5%']), 2),
+                    "10%": round(float(critical_values['10%']), 2)
+                }
             }
-            
         except Exception as e:
             logger.warning(f"Stationarity test failed: {str(e)}")
-            return {
-                "is_stationary": False,
-                "error": str(e)
-            }
+            return {"is_stationary": False, "error": str(e)} 
         
     def _determine_recommended_model(
         self,
@@ -1306,12 +1322,20 @@ class NasaPreprocessor:
             if stationarity and not stationarity.get("insufficient_data", False):
                 logger.info(f"STATIONARITY ANALYSIS:")
                 logger.info(f"Is Stationary: {'YES' if stationarity.get('is_stationary', False) else 'NO'}")
-                logger.info(f"ADF Statistic: {stationarity.get('adf_statistic', 'N/A')}")
-                logger.info(f"P-Value: {stationarity.get('p_value', 'N/A')}")
-                if stationarity.get("critical_values"):
+                
+                # FIX: Handle both numeric and string p-values
+                adf_stat = stationarity.get('adf_statistic', 'N/A')
+                logger.info(f"ADF Statistic: {adf_stat}")
+                
+                p_value = stationarity.get('p_value', 'N/A')
+                logger.info(f"P-Value: {p_value}")  # Works for both 0.0001 and "1.23e-08"
+                
+                # ADD: Log critical values
+                critical_vals = stationarity.get('critical_values', {})
+                if critical_vals:
                     logger.info(f"Critical Values:")
-                    for level, value in stationarity.get("critical_values", {}).items():
-                        logger.info(f"{level}: {value}")
+                    for level, value in critical_vals.items():
+                        logger.info(f"  {level}: {value}")
                 if stationarity.get("error"):
                     logger.info(f"Error: {stationarity.get('error')}")
             else:
@@ -1838,7 +1862,8 @@ class NasaPreprocessor:
         seasonality, 
         stationarity, 
         coverage_analysis,
-        param: str
+        param: str,
+        was_smoothed: bool
     ) -> Dict[str, Any]:
         """
         Calculate Holt-Winters model coverage with refined penalties
@@ -1852,30 +1877,36 @@ class NasaPreprocessor:
         base_coverage = 100.0
         uncovered_reasons = {}
         
-        # PENALTY 1: GCV Smoothing Quality
-        smoothing_quality = self._get_smoothing_quality(param)
-        gcv_penalty = smoothing_quality["penalty"]
+        # FIX: Initialize penalties to 0.0 to prevent UnboundLocalError for non-smoothed parameters
+        gcv_penalty = 0.0
+        trend_penalty = 0.0
         
-        if gcv_penalty > 0:
-            base_coverage -= gcv_penalty
-            uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
-        
-        # PENALTY 2: Trend Preservation ( Phase 1)
-        trend_value = smoothing_quality.get("trend_value", 0.0)
-        
-        if trend_value > 0:  # Only if smoothing was applied
-            trend_penalty = self._calculate_trend_penalty(trend_value)
+        # Penalties related to smoothing are now conditional
+        if was_smoothed:
+            # PENALTY 1: GCV Smoothing Quality
+            smoothing_quality = self._get_smoothing_quality(param)
+            gcv_penalty = smoothing_quality["penalty"]
             
-            if trend_penalty > 0:
-                base_coverage -= trend_penalty
-                uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
+            if gcv_penalty > 0:
+                base_coverage -= gcv_penalty
+                uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
+            
+            # PENALTY 2: Trend Preservation (Phase 1)
+            trend_value = smoothing_quality.get("trend_value", 0.0)
+            
+            if trend_value > 0:  # Only if smoothing was applied
+                trend_penalty = self._calculate_trend_penalty(trend_value)
                 
-                # Log warning for severe trend loss
-                if trend_penalty >= 12.0:
-                    logger.warning(
-                        f"Parameter {param}: Severe trend preservation loss "
-                        f"({trend_value*100:.1f}%) - High forecast uncertainty"
-                    )
+                if trend_penalty > 0:
+                    base_coverage -= trend_penalty
+                    uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
+                    
+                    # Log warning for severe trend loss
+                    if trend_penalty >= 12.0:
+                        logger.warning(
+                            f"Parameter {param}: Severe trend preservation loss "
+                            f"({trend_value*100:.1f}%) - High forecast uncertainty"
+                        )
         
         # PENALTY 3: Large Gaps
         large_gap_penalty = large_gaps.get("impact_percentage", 0)
@@ -1936,9 +1967,9 @@ class NasaPreprocessor:
             issue_count += 1
         if seasonal_penalty >= 12:  # refined threshold
             issue_count += 1
-        if gcv_penalty > 10:
+        if gcv_penalty > 10:  # ✅ SAFE: Now initialized to 0.0
             issue_count += 1
-        if trend_penalty >= 12:  #  count trend as serious issue
+        if trend_penalty >= 12:  # ✅ SAFE: Now initialized to 0.0
             issue_count += 1
         
         if issue_count >= 3:
@@ -1958,16 +1989,16 @@ class NasaPreprocessor:
             "coverage_percentage": round(final_coverage, 2),
             "uncovered_reasons": uncovered_reasons
         }
-    
-    
+        
     def _calculate_lstm_coverage(
-        self, 
+      self, 
         large_gaps, 
         extreme_outliers, 
         precipitation, 
         stationarity, 
         coverage_analysis,
-        param: str
+        param: str,
+        was_smoothed: bool
     ) -> Dict[str, Any]:
         """
         Calculate LSTM model coverage with refined penalties
@@ -1983,24 +2014,30 @@ class NasaPreprocessor:
         base_coverage = 100.0
         uncovered_reasons = {}
         
-        # PENALTY 1: GCV Smoothing Quality (80% weight vs HW)
-        smoothing_quality = self._get_smoothing_quality(param)
-        gcv_penalty = smoothing_quality["penalty"] * 0.8  # Slightly less critical than HW
+        # Initialize penalties to 0.0 to prevent UnboundLocalError.
+        gcv_penalty = 0.0
+        trend_penalty = 0.0
         
-        if gcv_penalty > 0:
-            base_coverage -= gcv_penalty
-            uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
-        
-        # PENALTY 2: Trend Preservation (Phase 1, 80% weight)
-        trend_value = smoothing_quality.get("trend_value", 0.0)
-        
-        if trend_value > 0:  # Only if smoothing was applied
-            trend_penalty_full = self._calculate_trend_penalty(trend_value)
-            trend_penalty = trend_penalty_full * 0.8  # 80% weight for LSTM
+        # Penalties related to smoothing are now conditional
+        if was_smoothed:
+            # PENALTY 1: GCV Smoothing Quality (80% weight vs HW)
+            smoothing_quality = self._get_smoothing_quality(param)
+            gcv_penalty = smoothing_quality["penalty"] * 0.8  # Slightly less critical than HW
             
-            if trend_penalty > 0:
-                base_coverage -= trend_penalty
-                uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
+            if gcv_penalty > 0:
+                base_coverage -= gcv_penalty
+                uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
+            
+            # PENALTY 2: Trend Preservation (Phase 1, 80% weight)
+            trend_value = smoothing_quality.get("trend_value", 0.0)
+            
+            if trend_value > 0:  # Only if smoothing was applied
+                trend_penalty_full = self._calculate_trend_penalty(trend_value)
+                trend_penalty = trend_penalty_full * 0.8  # 80% weight for LSTM
+                
+                if trend_penalty > 0:
+                    base_coverage -= trend_penalty
+                    uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
         
         # PENALTY 3: Large Gaps (80% weight vs HW)
         large_gap_penalty = large_gaps.get("impact_percentage", 0) * 0.8
@@ -2012,6 +2049,11 @@ class NasaPreprocessor:
         # PENALTY 4: Extreme Outliers
         outlier_penalty = extreme_outliers.get("impact_percentage", 0)
         
+        # Differentiate for precipitation - LSTM handles outliers better
+        if param == "PRECTOTCORR":
+            outlier_penalty *= 0.5  # Reduce penalty by 50% for LSTM
+            logger.info(f"{param}: Halving outlier penalty for LSTM due to precipitation characteristics.")
+
         if outlier_penalty > 0:
             base_coverage -= outlier_penalty
             uncovered_reasons["extreme_outliers"] = round(outlier_penalty, 2)
@@ -2338,14 +2380,13 @@ class NasaPreprocessor:
                 trend_agreement
             )
             
-            # SIMPLIFIED STRUCTURE - Only 3 essential fields
+            # Restore smoothing_method and data_points
             validation_results[param] = {
                 "gcv_score": round(float(gcv_score), 4),
                 "trend_preservation_pct": round(float(trend_agreement * 100), 2),
-                "quality_status": quality_status
-                # REMOVED: smoothing_method (redundant with preprocessing_summary.smoothing)
-                # REMOVED: data_points (same for all parameters)
-                # REMOVED: baseline_source (internal detail)
+                "quality_status": quality_status,
+                "smoothing_method": param_smoothing_applied,
+                "data_points": len(common_idx)
             }
             
             logger.info(
@@ -2382,14 +2423,19 @@ class NasaPreprocessor:
             Quality status: "excellent", "good", "fair", "poor"
         """
         # Higher thresholds for windowed trend preservation
+        if gcv > 3.0:
+            return "poor"
+        if gcv > 1.0:
+            return "fair"
+
+        # Original thresholds for good/excellent
         if gcv < 2.0 and trend_preservation > 0.85:
             return "excellent"
-        elif gcv < 4.0 and trend_preservation > 0.80:
+        elif gcv < 4.0 and trend_preservation > 0.80: # gcv is already < 1.0 here
             return "good"
-        elif gcv < 10.0 and trend_preservation > 0.75:
-            return "fair"
         else:
-            return "poor"
+            # This path is taken if gcv is < 1.0 but trend is not high enough for good/excellent
+            return "fair"
         
     def _calculate_gcv(self, original: np.ndarray, smoothed: np.ndarray, param: str) -> float:
         """
@@ -2478,53 +2524,6 @@ class NasaPreprocessor:
         gcv = mse / denominator
 
         return gcv
-    
-    def _calculate_non_smoothed_coverage(
-        self,
-        large_gaps,
-        extreme_outliers,
-        coverage_analysis,
-        param: str
-    ) -> Dict[str, Any]:
-        """
-        Calculate coverage for parameters that don't need smoothing
-        
-        Args:
-            large_gaps: Large gaps analysis
-            extreme_outliers: Extreme outliers analysis  
-            coverage_analysis: Basic coverage data
-            param: Parameter name
-            
-        Returns:
-            Coverage dictionary for non-smoothed parameters
-        """
-        base_coverage = 95.0  # High base coverage - no smoothing needed
-        uncovered_reasons = {}
-        
-        # PENALTY 1: Large Gaps
-        large_gap_penalty = large_gaps.get("impact_percentage", 0)
-        if large_gap_penalty > 0:
-            base_coverage -= large_gap_penalty
-            uncovered_reasons["large_gaps"] = round(large_gap_penalty, 2)
-        
-        # PENALTY 2: Extreme Outliers
-        outlier_penalty = extreme_outliers.get("impact_percentage", 0)
-        if outlier_penalty > 0:
-            base_coverage -= outlier_penalty
-            uncovered_reasons["extreme_outliers"] = round(outlier_penalty, 2)
-        
-        # PENALTY 3: Missing Data
-        missing_penalty = coverage_analysis.get("missing_ratio", 0) * 25
-        if missing_penalty > 0:
-            base_coverage -= missing_penalty
-            uncovered_reasons["missing_data"] = round(missing_penalty, 2)
-        
-        final_coverage = max(0, base_coverage)
-        
-        return {
-            "coverage_percentage": round(final_coverage, 2),
-            "uncovered_reasons": uncovered_reasons
-        }
     
     def _calculate_trend_preservation(self, original: np.ndarray, smoothed: np.ndarray) -> float:
         """

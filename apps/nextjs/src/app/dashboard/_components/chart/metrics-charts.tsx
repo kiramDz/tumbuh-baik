@@ -14,16 +14,16 @@ import {
   PieChart,
   Pie,
   Cell,
-  ResponsiveContainer,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
   Tooltip,
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
-  CartesianGrid,
-  ReferenceLine,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
+import { useState } from "react";
 
 interface MetricsChartsProps {
   report: PreprocessingReport;
@@ -96,37 +96,85 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
+const RadarTooltip = ({ active, payload }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0].payload;
+
+  return (
+    <div className="bg-background border rounded-lg shadow-lg p-3 min-w-[180px]">
+      <p className="font-semibold text-sm mb-2">{data.parameter}</p>
+      <div className="space-y-1 text-xs">
+        <div className="flex justify-between gap-3">
+          <span className="text-muted-foreground">Trend:</span>
+          <span className="font-medium">
+            {data.trendPreservation.toFixed(2)}%
+          </span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-muted-foreground">GCV:</span>
+          <span className="font-medium">{data.gcvScore.toFixed(4)}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-muted-foreground">Quality:</span>
+          <span className="font-medium uppercase">{data.quality_status}</span>
+        </div>
+        {data.isKeyParameter && (
+          <div className="mt-2 pt-2 border-t">
+            <span className="text-xs font-semibold text-chart-1">
+              ⭐ Used in Forecasting Models
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export function MetricsCharts({ report }: MetricsChartsProps) {
   const isNasa = report.dataset_type === "nasa";
 
-  // Resolve validation metrics scatter plot
+  // Key parameters used in forecasting models
+  const keyParameters = isNasa
+    ? ["T2M", "RH2M", "PRECTOTCORR", "ALLSKY_SFC_SW_DWN"]
+    : ["TAVG", "RH_AVG", "RR"];
+
+  // Resolve validation metrics for radar chart
   const validationObj = isNasa
     ? report.smoothing_validation
     : report.imputation_validation;
 
-  const validationData = validationObj
-    ? Object.entries(validationObj).map(([key, val]) => ({
-        parameter: key,
-        trendPreservation: val.trend_preservation_pct || 0,
-        gcvScore: val.gcv_score || 0,
-        quality_status: val.quality_status || "unknown",
-        size:
-          val.quality_status === "excellent"
-            ? 400
-            : val.quality_status === "good"
-              ? 250
-              : 150,
-      }))
-    : [];
+  // Filter toggle state
+  const [showAllParams, setShowAllParams] = useState(false);
 
-  const getQualityColor = (status: string) => {
-    if (status === "excellent") return "hsl(var(--chart-2))";
-    if (status === "good") return "hsl(var(--chart-1))";
-    if (status === "fair") return "hsl(var(--chart-3))";
-    return "hsl(var(--muted-foreground))";
+  // GCV Normalization (inverted: lower GCV = higher quality score)
+  const normalizeGCV = (gcv: number) => {
+    const maxGCV = 5.0; // Cap at 5.0 for normalization
+    const clampedGCV = Math.min(gcv, maxGCV);
+    return (1 - clampedGCV / maxGCV) * 100;
   };
 
-  // Map Parameter-specific Coverage Data
+  const allValidationData = validationObj
+    ? Object.entries(validationObj)
+        .filter(([_, val]) => val.trend_preservation_pct !== null) // Filter null values
+        .map(([key, val]) => ({
+          parameter: key,
+          trendPreservation: val.trend_preservation_pct || 0,
+          gcvScore: val.gcv_score || 0,
+          gcvQuality: normalizeGCV(val.gcv_score || 0), // Inverted GCV for radar
+          quality_status: val.quality_status || "unknown",
+          isKeyParameter: keyParameters.includes(key),
+        }))
+    : [];
+
+  // Apply filter: show key params only if total params exceed key params
+  const shouldFilter =
+    allValidationData.length > keyParameters.length && keyParameters.length > 0;
+  const validationData =
+    shouldFilter && !showAllParams
+      ? allValidationData.filter((d) => d.isKeyParameter)
+      : allValidationData;
+
   const rawParams = report.model_coverage?.per_parameter || {};
   const parameterData: ParameterCoverageData[] = Object.entries(rawParams)
     .map(([key, data]: [string, any]) => ({
@@ -143,89 +191,94 @@ export function MetricsCharts({ report }: MetricsChartsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Signal & Trend Preservation */}
+      {/* Signal & Trend Preservation - Radar Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Signal & Trend Preservation</CardTitle>
-          <CardDescription>
-            GCV vs Trend Retained (Lower GCV & Higher Trend is better)
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Signal & Trend Preservation</CardTitle>
+              <CardDescription>
+                Trend retention and smoothing quality across parameters
+              </CardDescription>
+            </div>
+            {shouldFilter && (
+              <button
+                onClick={() => setShowAllParams(!showAllParams)}
+                className="text-xs px-3 py-1.5 rounded-md border bg-background hover:bg-muted transition-colors"
+              >
+                {showAllParams
+                  ? `Show Key Params Only (${allValidationData.filter((d) => d.isKeyParameter).length})`
+                  : `Show All Params (${allValidationData.length})`}
+              </button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="h-[320px] w-full">
+        <CardContent className="h-[400px] w-full">
           {validationData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart
-                margin={{ top: 20, right: 20, bottom: 20, left: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  type="number"
-                  dataKey="gcvScore"
-                  name="GCV Score"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(val) => val.toFixed(2)}
-                  domain={[0, "auto"]}
+              <RadarChart data={validationData}>
+                <PolarGrid
+                  gridType="polygon"
+                  stroke="hsl(var(--border))"
+                  strokeWidth={1}
                 />
-                <YAxis
-                  type="number"
-                  dataKey="trendPreservation"
-                  name="Trend Preservation"
-                  domain={["auto", 100]}
-                  tick={{ fontSize: 12 }}
+                <PolarAngleAxis
+                  dataKey="parameter"
+                  tick={({ payload, x, y, textAnchor, ...rest }) => {
+                    const isKey = validationData.find(
+                      (d) => d.parameter === payload.value,
+                    )?.isKeyParameter;
+
+                    return (
+                      <text
+                        x={x}
+                        y={y}
+                        textAnchor={textAnchor}
+                        fontSize={11}
+                        fontWeight={isKey ? 600 : 400}
+                        fill={
+                          isKey
+                            ? "hsl(var(--chart-1))"
+                            : "hsl(var(--foreground))"
+                        }
+                        {...rest}
+                      >
+                        {payload.value}
+                        {isKey && " ⭐"}
+                      </text>
+                    );
+                  }}
+                />
+                <PolarRadiusAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10 }}
                   tickFormatter={(val) => `${val}%`}
-                />
-                <ZAxis type="number" dataKey="size" range={[100, 400]} />
-                <Tooltip
-                  cursor={{ strokeDasharray: "3 3" }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-background border rounded-lg shadow-lg p-3 min-w-[150px]">
-                          <p className="font-semibold text-sm">
-                            {data.parameter}
-                          </p>
-                          <p className="text-xs mt-1">
-                            GCV:{" "}
-                            <span className="font-medium">
-                              {data.gcvScore.toFixed(4)}
-                            </span>
-                          </p>
-                          <p className="text-xs">
-                            Trend:{" "}
-                            <span className="font-medium">
-                              {data.trendPreservation.toFixed(2)}%
-                            </span>
-                          </p>
-                          <p className="text-xs uppercase text-muted-foreground mt-1">
-                            {data.quality_status}
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Scatter name="Parameters" data={validationData}>
-                  {validationData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={getQualityColor(entry.quality_status)}
-                    />
-                  ))}
-                </Scatter>
-                <ReferenceLine
-                  y={90}
                   stroke="hsl(var(--muted-foreground))"
-                  strokeDasharray="3 3"
-                  label={{
-                    value: "Excellent",
-                    position: "insideTopLeft",
-                    fontSize: 11,
-                    fill: "hsl(var(--muted-foreground))",
-                  }}
                 />
-              </ScatterChart>
+
+                {/* Trend Preservation Radar */}
+                <Radar
+                  name="Trend Preservation %"
+                  dataKey="trendPreservation"
+                  stroke="hsl(var(--chart-1))"
+                  fill="hsl(var(--chart-1))"
+                  fillOpacity={0.5}
+                  strokeWidth={2}
+                />
+
+                {/* GCV Quality Radar (Inverted) */}
+                <Radar
+                  name="GCV Quality Score"
+                  dataKey="gcvQuality"
+                  stroke="hsl(var(--chart-2))"
+                  fill="hsl(var(--chart-2))"
+                  fillOpacity={0.3}
+                  strokeWidth={2}
+                />
+
+                <Tooltip content={<RadarTooltip />} />
+                <Legend wrapperStyle={{ fontSize: "12px" }} iconType="circle" />
+              </RadarChart>
             </ResponsiveContainer>
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
