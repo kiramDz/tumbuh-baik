@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { id as localeId } from "date-fns/locale";
 import { PreprocessingSummary } from "../../_components/preprrocessing-summary/preprocessing-summary";
 import { MetricsCharts } from "../../_components/chart/metrics-charts";
-import ComparisonChart from "../../_components/chart/wind-rose/comparison-chart";
+import ComparisonChart from "@/app/dashboard/_components/chart/comparison-chart";
 
 import {
   Breadcrumb,
