@@ -2312,10 +2312,7 @@ class BmkgPreprocessor:
                 }
         
         return df
-        
 
-       
-    
     def _impute_wind_direction(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Impute wind direction using circular mean

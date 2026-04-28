@@ -18,6 +18,7 @@ import {
   ExternalLink,
   ChevronLeft,
   TableProperties,
+  LineChart,
   Building2,
   ChevronsUpDown,
   Edit,
@@ -63,6 +64,7 @@ import {
   Plus,
   PlusCircle,
   Notebook,
+  GitCompare,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -152,6 +154,8 @@ export const Icons = {
   gitcommit: GitCommit,
   activity: Activity,
   waves: Waves,
+  lineChart: LineChart,
+  gitCompare: GitCompare,
 
   // Custom SVG Icons
   logo: (props: LucideProps) => (

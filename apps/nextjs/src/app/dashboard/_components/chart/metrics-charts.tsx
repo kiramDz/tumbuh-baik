@@ -389,7 +389,7 @@ export function MetricsCharts({ report }: MetricsChartsProps) {
                     {/* Center Label */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="text-center">
-                        <div className="text-xs text-muted-foreground font-medium">
+                        {/* <div className="text-xs text-muted-foreground font-medium">
                           Coverage
                         </div>
                         <div className="text-lg font-bold">
@@ -398,7 +398,7 @@ export function MetricsCharts({ report }: MetricsChartsProps) {
                             param.lstm_coverage,
                           ).toFixed(0)}
                           %
-                        </div>
+                        </div> */}
                       </div>
                     </div>
                   </div>

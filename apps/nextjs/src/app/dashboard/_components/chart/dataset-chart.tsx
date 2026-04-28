@@ -3,8 +3,15 @@
 import { GetChartDataBySlug } from "@/lib/fetch/files.fetch";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { CartesianGrid, Line, ComposedChart, XAxis, YAxis, Scatter } from "recharts";
-import { Badge } from "@/components/ui/badge"
+import {
+  CartesianGrid,
+  Line,
+  ComposedChart,
+  XAxis,
+  YAxis,
+  Scatter,
+} from "recharts";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -27,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Icons } from "@/app/dashboard/_components/icons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import WindRoseChart from "./wind-rose-chart";
 
 interface ChartSectionProps {
   collectionName: string;
@@ -91,8 +99,15 @@ function getParamUnit(param: string): string {
 }
 
 // Helper function to check if value is invalid
-function isInvalidValue(value: number): boolean {
-  return value === 8888 || value === 9999;
+function isInvalidValue(value: number, columnName?: string): boolean {
+  if (value === 8888 || value === 9999) return true;
+
+  // Treat 0 as invalid except for rainfall metrics
+  if (value === 0 && columnName !== "RR" && columnName !== "PRECTOTCORR") {
+    return true;
+  }
+
+  return false;
 }
 
 export default function ChartSection({ collectionName }: ChartSectionProps) {
@@ -168,21 +183,30 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
     );
   }
 
+  // Pre-calculate minimum valid value to anchor invalid markers at the bottom
+  const validValues = data.items
+    .map((item: any) => Number(item[selectedColumn]))
+    .filter((val: number) => !isInvalidValue(val));
+
+  // Substract 3 to match the Y-axis bottom margin
+  const bottomMarkerY =
+    validValues.length > 0 ? Math.min(...validValues) - 3 : 0;
+
   const chartData = data.items.map((item: any) => {
     const raw = Number(item[selectedColumn]);
+    const isInvalid = isInvalidValue(raw);
 
     return {
       date: item[data.dateColumn],
-      value: isInvalidValue(raw) ? null : raw,   // line pakai null → break
-      invalidValue: isInvalidValue(raw) ? raw : null, // scatter marker
+      value: isInvalid ? null : raw,
+      invalidValue: isInvalid ? bottomMarkerY : null, // Set to bottom Y-coordinate
+      rawInvalidValue: isInvalid ? raw : null, // Preserve real value for tooltip
     };
   });
-
   // Count statistics
   const totalCount = chartData.length;
-  const validCount = chartData.filter(d => d.value !== null).length;
-  const invalidCount = chartData.filter(d => d.invalidValue !== null).length;
-
+  const validCount = chartData.filter((d) => d.value !== null).length;
+  const invalidCount = chartData.filter((d) => d.invalidValue !== null).length;
 
   const chartConfig = {
     value: {
@@ -194,7 +218,18 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
       color: "hsl(var(--destructive))",
     },
   } satisfies ChartConfig;
-  
+
+  // Determine if this is a Wind Direction parameter
+  const isWindDirection = ["WD10M", "DDD_CAR", "DDD_X"].includes(
+    selectedColumn,
+  );
+
+  // Find the paired speed column
+  let pairedSpeedColumn = "";
+  if (selectedColumn === "WD10M") pairedSpeedColumn = "WS10M";
+  if (selectedColumn === "DDD_CAR" || selectedColumn === "DDD_X")
+    pairedSpeedColumn = "FF_AVG";
+
   return (
     <Card className="mt-6">
       <CardHeader>
@@ -238,86 +273,95 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
                   </div>
                 </SelectItem>
               ))}
+              {/* If BMKG has DDD_CAR as string, it might not be in numericColumns, add logic here if needed */}
             </SelectContent>
           </Select>
         </div>
       </CardHeader>
 
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <ComposedChart
-            accessibilityLayer
-            data={chartData}
-            margin={{ left: 12, right: 12 }}
-          >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
-              tickFormatter={(value) => {
-                if (typeof value === "string" && value.includes("-")) {
-                  const date = new Date(value);
-                  return date.toLocaleDateString("id-ID", {
-                    month: "short",
-                    day: "numeric",
-                  });
-                }
-                return value;
-              }}
-            />
-            <YAxis 
-              domain={["dataMin - 3", "dataMax + 3"]}
-              tickFormatter={(value) => {
-                const unit = getParamUnit(selectedColumn);
-                return unit ? `${value.toFixed(1)}${unit}` : value.toFixed(1);
-              }}
-            />
+        {isWindDirection && pairedSpeedColumn ? (
+          <WindRoseChart
+            data={data.items}
+            directionColumn={selectedColumn}
+            speedColumn={pairedSpeedColumn}
+          />
+        ) : (
+          <ChartContainer config={chartConfig}>
+            <ComposedChart
+              accessibilityLayer
+              data={chartData}
+              margin={{ left: 12, right: 12 }}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                minTickGap={32}
+                tickFormatter={(value) => {
+                  if (typeof value === "string" && value.includes("-")) {
+                    const date = new Date(value);
+                    return date.toLocaleDateString("id-ID", {
+                      month: "short",
+                      day: "numeric",
+                    });
+                  }
+                  return value;
+                }}
+              />
+              <YAxis
+                domain={["dataMin - 3", "dataMax + 3"]}
+                tickFormatter={(value) => {
+                  const unit = getParamUnit(selectedColumn);
+                  return unit ? `${value.toFixed(1)}${unit}` : value.toFixed(1);
+                }}
+              />
 
-            <ChartTooltip 
-              cursor={false} 
-              content={
-                <ChartTooltipContent 
-                  hideLabel={false}
-                  formatter={(value) => [
-                    `${Number(value).toFixed(2)} ${getParamUnit(selectedColumn)}`,
-                    getParamLabel(selectedColumn)
-                  ]}
-                  labelFormatter={(label) => {
-                    if (typeof label === "string" && label.includes("-")) {
-                      const date = new Date(label);
-                      return date.toLocaleDateString("id-ID", {
-                        weekday: "long",
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      });
-                    }
-                    return label;
-                  }}
-                />
-              } 
-            />
-            
-            {/* Time series line */}
-            <Line
-              dataKey="value"
-              type="linear"
-              stroke="#2563eb"
-              dot={false}
-              strokeWidth={2}
-              connectNulls
-            />
-            {/* invalid marker */}
-            <Scatter
-              dataKey="invalidValue"
-              fill="#ef4444"
-              shape="circle"
-            />
-          </ComposedChart>
-        </ChartContainer>
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    hideLabel={false}
+                    formatter={(value, _name, props) => {
+                      // Extract payload to check if this is an invalid point
+                      const payload = props?.payload;
+                      const isInvalidPoint =
+                        payload?.rawInvalidValue !== null &&
+                        payload?.rawInvalidValue !== undefined;
+
+                      // Use raw invalid value if it's a scatter point, otherwise use normal value
+                      const displayValue = isInvalidPoint
+                        ? payload.rawInvalidValue
+                        : value;
+                      const labelName = isInvalidPoint
+                        ? "Data Invalid"
+                        : getParamLabel(selectedColumn);
+
+                      return [
+                        `${Number(displayValue).toFixed(2)} ${getParamUnit(selectedColumn)}`,
+                        labelName,
+                      ];
+                    }}
+                  />
+                }
+              />
+
+              {/* Time series line */}
+              <Line
+                dataKey="value"
+                type="linear"
+                stroke="#2563eb"
+                dot={false}
+                strokeWidth={2}
+                connectNulls
+              />
+              {/* invalid marker */}
+              <Scatter dataKey="invalidValue" fill="#ef4444" shape="circle" />
+            </ComposedChart>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );

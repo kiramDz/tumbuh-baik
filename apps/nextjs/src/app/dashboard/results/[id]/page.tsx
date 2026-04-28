@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { id as localeId } from "date-fns/locale";
 import { PreprocessingSummary } from "../../_components/preprrocessing-summary/preprocessing-summary";
 import { MetricsCharts } from "../../_components/chart/metrics-charts";
+import ComparisonChart from "../../_components/chart/wind-rose/comparison-chart";
 
 import {
   Breadcrumb,
@@ -187,9 +188,10 @@ export default function ResultDetailsPage({
         <PreprocessingSummary report={preprocessingReport} />
         <MetricsCharts report={preprocessingReport} />
       </div>
-      <div className="rounded-lg border-2 border-dashed border-muted p-8 text-center text-muted-foreground">
-        <h2>[Phase 4: Time Series Comparison Component will go here]</h2>
-      </div>
+      <ComparisonChart
+        originalCollectionName={preprocessingReport.original_collection_name}
+        cleanedCollectionName={preprocessingReport.cleaned_collection_name}
+      />
       <div className="rounded-lg border-2 border-dashed border-muted p-8 text-center text-muted-foreground">
         <h2>[Phase 5: Decomposition Plot will go here]</h2>
       </div>

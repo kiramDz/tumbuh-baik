@@ -391,6 +391,114 @@ datasetMetaRoute.get("/recycle-bin", async (c) => {
   }
 });
 
+datasetMetaRoute.get("/comparison/:original/:cleaned", async (c) => {
+  try {
+    await db();
+    const { original, cleaned } = c.req.param();
+
+    if (!original || !cleaned) {
+      // This check is now redundant but good for safety
+      return c.json(
+        { message: "Missing 'original' or 'cleaned' collection names in URL path" },
+        400,
+      );
+    }
+
+    // Define an interface for the expected metadata structure
+    interface IMeta {
+      columns: string[];
+      [key: string]: any; // Allow other properties
+    }
+
+    // Fetch metadata to get numeric columns
+    const meta = (await DatasetMeta.findOne({
+      collectionName: original,
+    }).lean()) as IMeta | null
+    if (!meta) {
+      return c.json(
+        { message: `Dataset meta for '${original}' not found` },
+        404,
+      );
+    }
+
+    const numericColumns = meta.columns.filter(
+      (col) =>
+        col.toLowerCase() !== "date" &&
+        col.toLowerCase() !== "_id" &&
+        !col.match(/year|month|day/i),
+    );
+
+    // Fetch all data from both collections
+    const OriginalModel =
+      mongoose.models[original] ||
+      mongoose.model(
+        original,
+        new mongoose.Schema({}, { strict: false }),
+        original,
+      );
+    const CleanedModel =
+      mongoose.models[cleaned] ||
+      mongoose.model(
+        cleaned,
+        new mongoose.Schema({}, { strict: false }),
+        cleaned,
+      );
+
+    const [originalData, cleanedData] = await Promise.all([
+      OriginalModel.find().sort({ Date: 1 }).lean(),
+      CleanedModel.find().sort({ Date: 1 }).lean(),
+    ]);
+
+    // Create a map for lookup
+    const cleanedMap = new Map(
+      cleanedData.map((item: any) => [item.Date.toISOString(), item]),
+    );
+
+    const differences: any[] = [];
+    let pointsChanged = 0;
+
+    // Compare data
+    originalData.forEach((originalItem: any) => {
+      const dateKey = originalItem.Date.toISOString();
+      const cleanedItem = cleanedMap.get(dateKey);
+
+      if (!cleanedItem) return;
+
+      let hasDifference = false;
+      const comparison: any = { date: dateKey };
+
+      numericColumns.forEach((col) => {
+        const originalValue = originalItem[col];
+        const cleanedValue = cleanedItem[col];
+
+        if (originalValue !== cleanedValue) {
+          hasDifference = true;
+        }
+        comparison[col] = { original: originalValue, cleaned: cleanedValue };
+      });
+
+      if (hasDifference) {
+        differences.push(comparison);
+        pointsChanged++;
+      }
+    });
+
+    return c.json({
+      data: {
+        differences,
+        summary: {
+          totalOriginalRecords: originalData.length,
+          pointsChanged,
+          numericColumns,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching comparison data:", error);
+    return c.json({ message: "Server error fetching comparison data" }, 500);
+  }
+});
+
 // GET - Buat slug untuk setiap dataset baru
 datasetMetaRoute.get("/:slug", async (c) => {
   try {
@@ -525,11 +633,9 @@ datasetMetaRoute.get("/:slug/chart-data", async (c) => {
 });
 
 // PUT - Update dataset meta by ID or collectionName7.565 data ditemukan
-
-
 datasetMetaRoute.patch("/:idOrSlug", async (c) => {
   try {
-  await db();
+    await db();
 
     const { idOrSlug } = c.req.param();
 
@@ -1390,4 +1496,5 @@ async function handleXlsxUpload(c: any) {
     return c.json({ message }, status);
   }
 }
+
 export default datasetMetaRoute;

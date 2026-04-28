@@ -873,6 +873,21 @@ export const GetChartDataBySlug = async (
   return json.data;
 };
 
+export const GetComparisonData = async (
+  originalCollectionName: string,
+  cleanedCollectionName: string,
+) => {
+  try {
+    const baseUrl = getBaseUrl();
+    const url = `${baseUrl}/api/v1/dataset-meta/comparison/${encodeURIComponent(originalCollectionName)}/${encodeURIComponent(cleanedCollectionName)}`;
+    const res = await axios.get(url);
+    return res.data.data;
+  } catch (error) {
+    console.error("Get comparison data error:", error);
+    throw error;
+  }
+};
+
 // Check if BMKG dataset can be preprocessed
 export const checkBmkgDatasetForPreprocessing = async (
   collectionName: string,
