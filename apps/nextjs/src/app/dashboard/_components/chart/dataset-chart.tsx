@@ -75,7 +75,7 @@ const paramUnits: Record<string, string> = {
   ALLSKY_SFC_SW_DWN: "MJ/m²/hari",
   WS10M: "m/s",
   WS10M_MAX: "m/s",
-  WD10M: "degrees",
+  WD10M: "derajat",
 
   // BMKG
   TN: "°C",
@@ -85,7 +85,7 @@ const paramUnits: Record<string, string> = {
   RR: "mm",
   SS: "jam",
   FF_X: "m/s",
-  DDD_X: "°",
+  DDD_X: "derajat",
   FF_AVG: "m/s",
   DDD_CAR: "°",
 };

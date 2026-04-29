@@ -45,6 +45,7 @@ interface RawDailyRecord {
 }
 
 const paramLabels: Record<string, string> = {
+  // NASA Variable
   T2M: "Suhu Udara (2m)",
   T2M_MAX: "Suhu Maksimum (2m)",
   T2M_MIN: "Suhu Minimum (2m)",
@@ -54,9 +55,22 @@ const paramLabels: Record<string, string> = {
   WS10M: "Kecepatan Angin (10m)",
   WS10M_MAX: "Kecepatan Angin Maksimum (10m)",
   WD10M: "Arah Angin (10m)",
+
+  // BMKG Variable
+  TN: "Temperatur Minimum",
+  TX: "Temperatur Maksimum",
+  TAVG: "Temperatur Rata-rata",
+  RH_AVG: "Kelembapan Rata-rata",
+  RR: "Curah Hujan",
+  SS: "Lamanya Penyinaran Matahari",
+  FF_X: "Kecepatan Angin Maksimum",
+  DDD_X: "Arah Angin saat Kecepatan Maksimum",
+  FF_AVG: "Kecepatan Angin Rata-rata",
+  DDD_CAR: "Arah Angin Terbanyak",
 };
 
 const paramUnits: Record<string, string> = {
+  // NASA
   T2M: "°C",
   T2M_MAX: "°C",
   T2M_MIN: "°C",
@@ -65,8 +79,28 @@ const paramUnits: Record<string, string> = {
   ALLSKY_SFC_SW_DWN: "MJ/m²/hari",
   WS10M: "m/s",
   WS10M_MAX: "m/s",
-  WD10M: "°",
+  WD10M: "derajat",
+
+  // BMKG
+  TN: "°C",
+  TX: "°C",
+  TAVG: "°C",
+  RH_AVG: "%",
+  RR: "mm",
+  SS: "jam",
+  FF_X: "m/s",
+  DDD_X: "derajat",
+  FF_AVG: "m/s",
+  DDD_CAR: "°",
 };
+
+function getParamLabel(param: string): string {
+  return paramLabels[param] || param;
+}
+
+function getParamUnit(param: string): string {
+  return paramUnits[param] || "";
+}
 
 const windDirectionSpeedMap: Record<string, string> = {
   WD10M: "WS10M",
@@ -385,7 +419,7 @@ export default function ComparisonChart({
           <div>
             <CardTitle className="flex items-center gap-2">
               <Icons.gitCompare className="h-5 w-5" />
-              Perbandingan: {paramLabels[selectedColumn] || selectedColumn}
+              Perbandingan: {getParamLabel(selectedColumn)}{" "}
             </CardTitle>
             <CardDescription className="mt-2">
               Original vs Cleaned Dataset (Data Harian)
@@ -394,9 +428,9 @@ export default function ComparisonChart({
               <Badge variant="outline" className="text-xs">
                 Parameter: {selectedColumn}
               </Badge>
-              {paramUnits[selectedColumn] && (
+              {getParamUnit(selectedColumn) && (
                 <Badge variant="outline" className="text-xs">
-                  Unit: {paramUnits[selectedColumn]}
+                  Unit: {getParamUnit(selectedColumn)}
                 </Badge>
               )}
               {/* Visual Indicators */}
@@ -421,7 +455,7 @@ export default function ComparisonChart({
               {data.summary.numericColumns.map((column: string) => (
                 <SelectItem key={column} value={column}>
                   <div className="flex items-center justify-between gap-2">
-                    <span>{paramLabels[column] || column}</span>
+                    <span>{getParamLabel(column)}</span>
                     <span className="text-xs text-muted-foreground">
                       ({column})
                     </span>
@@ -488,7 +522,7 @@ export default function ComparisonChart({
                 <YAxis
                   domain={["auto", "auto"]}
                   tickFormatter={(value) => {
-                    const unit = paramUnits[selectedColumn] || "";
+                    const unit = getParamUnit(selectedColumn);
                     return `${value.toFixed(1)}${unit}`;
                   }}
                 />
@@ -509,7 +543,7 @@ export default function ComparisonChart({
                           : `${formattedDate} (Estimasi Tren)`;
                       }}
                       formatter={(value, name) => {
-                        const unit = paramUnits[selectedColumn] || "";
+                        const unit = getParamUnit(selectedColumn);
                         const labelName =
                           name === "original" ? "Original" : "Cleaned";
                         const displayValue = isDailyMode
