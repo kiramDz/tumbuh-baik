@@ -41,7 +41,7 @@ import { getDecompositionByPreprocessingId } from "@/lib/fetch/files.fetch";
 import { useMemo, useState } from "react";
 
 interface ChartDataPoint {
-  date: string;
+  date: number;
   fullDate: string;
   original: number;
   trend: number | null;
@@ -79,15 +79,15 @@ const chartConfig = {
   },
   trend: {
     label: "Trend",
-    color: "hsl(var(--chart-2))",
+    color: "#2563eb",
   },
   seasonal: {
     label: "Seasonal",
-    color: "hsl(var(--chart-3))",
+    color: "#2563eb",
   },
   residual: {
     label: "Residual",
-    color: "hsl(var(--chart-4))",
+    color: "#2563eb",
   },
 } satisfies ChartConfig;
 
@@ -149,19 +149,21 @@ function getParamUnit(param: string): string {
 }
 
 /**
- * Calculate optimal tick interval based on year range
+ * Calculate custom ticks array for exactly every 4 years
  */
-function calculateTickInterval(chartData: ChartDataPoint[]): number {
-  const years = [...new Set(chartData.map((d) => d.year))].sort();
-  const yearRange = years.length;
+function calculateYearTicks(chartData: ChartDataPoint[]): number[] {
+  if (!chartData.length) return [];
+  const years = chartData.map((d) => d.year);
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
 
-  if (yearRange > 20) {
-    return Math.ceil(chartData.length / 10);
-  } else if (yearRange > 10) {
-    return Math.ceil(chartData.length / 15);
-  } else {
-    return Math.ceil(chartData.length / 20);
+  const ticks: number[] = [];
+  const startYear = Math.ceil(minYear / 4) * 4;
+  for (let y = startYear; y <= maxYear; y += 4) {
+    // using UTC to avoid any timezone shift rendering issues on first day of year
+    ticks.push(Date.UTC(y, 0, 1));
   }
+  return ticks;
 }
 
 // UI COMPONENTS
@@ -220,8 +222,15 @@ function ParameterDecompositionView({
       const rawDate = item.Date?.$date || item.Date;
       const dateObj = new Date(rawDate);
 
+      // Using Date.UTC to get the exact midnight timestamp without timezone offsets
+      const startOfDayUTC = Date.UTC(
+        dateObj.getUTCFullYear(),
+        dateObj.getUTCMonth(),
+        dateObj.getUTCDate(),
+      );
+
       return {
-        date: dateObj.getFullYear().toString(),
+        date: startOfDayUTC,
         fullDate: dateObj.toLocaleDateString("id-ID", {
           weekday: "long",
           year: "numeric",
@@ -278,7 +287,7 @@ function ParameterDecompositionView({
 
   // UI & metadata for decomposition view
   const dateRange = `${chartData[0]?.fullDate} - ${chartData[chartData.length - 1]?.fullDate}`;
-  const tickInterval = calculateTickInterval(chartData);
+  const xAxisTicks = calculateYearTicks(chartData);
   const unit = getParamUnit(param);
 
   return (
@@ -355,11 +364,14 @@ function ParameterDecompositionView({
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="date"
+                type="number"
+                scale="time"
+                domain={["dataMin", "dataMax"]}
+                ticks={xAxisTicks}
+                tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                minTickGap={32}
-                interval={tickInterval}
               />
               <YAxis
                 domain={["auto", "auto"]}
@@ -420,11 +432,14 @@ function ParameterDecompositionView({
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="date"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  ticks={xAxisTicks}
+                  tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  minTickGap={32}
-                  interval={tickInterval}
                 />
                 <YAxis
                   domain={["auto", "auto"]}
@@ -445,7 +460,7 @@ function ParameterDecompositionView({
                 <Line
                   type="monotone"
                   dataKey="trend"
-                  stroke="hsl(var(--chart-2))"
+                  stroke="#2563eb"
                   strokeWidth={2.5}
                   dot={false}
                   isAnimationActive={false}
@@ -484,11 +499,14 @@ function ParameterDecompositionView({
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="date"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  ticks={xAxisTicks}
+                  tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  minTickGap={32}
-                  interval={tickInterval}
                 />
                 <YAxis
                   domain={["auto", "auto"]}
@@ -510,8 +528,8 @@ function ParameterDecompositionView({
                 <Area
                   type="monotone"
                   dataKey="seasonal"
-                  stroke="hsl(var(--chart-3))"
-                  fill="hsl(var(--chart-3))"
+                  stroke="#2563eb"
+                  fill="#2563eb"
                   fillOpacity={0.3}
                   strokeWidth={2}
                   isAnimationActive={false}
@@ -546,11 +564,14 @@ function ParameterDecompositionView({
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="date"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  ticks={xAxisTicks}
+                  tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  minTickGap={32}
-                  interval={tickInterval}
                 />
                 <YAxis
                   domain={["auto", "auto"]}
@@ -573,9 +594,9 @@ function ParameterDecompositionView({
                 <Line
                   type="monotone"
                   dataKey="residual"
-                  stroke="hsl(var(--chart-4))"
+                  stroke="#2563eb"
                   strokeWidth={0}
-                  dot={{ r: 3, fill: "hsl(var(--chart-4))" }}
+                  dot={{ r: 3, fill: "#2563eb" }}
                   isAnimationActive={false}
                 />
               </LineChart>

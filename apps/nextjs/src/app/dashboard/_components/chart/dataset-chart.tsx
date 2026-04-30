@@ -100,6 +100,7 @@ function getParamUnit(param: string): string {
 
 // Helper function to check if value is invalid
 function isInvalidValue(value: number, columnName?: string): boolean {
+  if (Number.isNaN(value)) return true;
   if (value === 8888 || value === 9999) return true;
 
   // Treat 0 as invalid except for rainfall metrics
@@ -118,8 +119,17 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
 
   const [selectedColumn, setSelectedColumn] = useState<string>("");
 
-  if (data && data.numericColumns?.length > 0 && !selectedColumn) {
-    setSelectedColumn(data.numericColumns[0]);
+  // Filter out unwanted date/time parts from numeric columns
+  const filteredNumericColumns =
+    data?.numericColumns?.filter(
+      (col: string) =>
+        !["year", "month", "day", "tahun", "bulan", "hari"].includes(
+          col.toLowerCase(),
+        ),
+    ) || [];
+
+  if (data && filteredNumericColumns.length > 0 && !selectedColumn) {
+    setSelectedColumn(filteredNumericColumns[0]);
   }
 
   if (isLoading) {
@@ -169,7 +179,7 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
     );
   }
 
-  if (!data.numericColumns?.length) {
+  if (!filteredNumericColumns.length) {
     return (
       <Alert className="mt-6 border-yellow-500">
         <Icons.alert className="h-4 w-4 text-yellow-600" />
@@ -185,22 +195,26 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
 
   // Pre-calculate minimum valid value to anchor invalid markers at the bottom
   const validValues = data.items
-    .map((item: any) => Number(item[selectedColumn]))
-    .filter((val: number) => !isInvalidValue(val));
+    .map((item: any) => {
+      const v = item[selectedColumn];
+      return (v === null || v === undefined || v === "") ? NaN : Number(v);
+    })
+    .filter((val: number) => !isInvalidValue(val, selectedColumn));
 
   // Substract 3 to match the Y-axis bottom margin
   const bottomMarkerY =
     validValues.length > 0 ? Math.min(...validValues) - 3 : 0;
 
   const chartData = data.items.map((item: any) => {
-    const raw = Number(item[selectedColumn]);
-    const isInvalid = isInvalidValue(raw);
+    const rawValue = item[selectedColumn];
+    const raw = (rawValue === null || rawValue === undefined || rawValue === "") ? NaN : Number(rawValue);
+    const isInvalid = isInvalidValue(raw, selectedColumn);
 
     return {
       date: item[data.dateColumn],
       value: isInvalid ? null : raw,
       invalidValue: isInvalid ? bottomMarkerY : null, // Set to bottom Y-coordinate
-      rawInvalidValue: isInvalid ? raw : null, // Preserve real value for tooltip
+      rawInvalidValue: isInvalid ? (Number.isNaN(raw) ? "NaN" : raw) : null, // Preserve real value for tooltip
     };
   });
   // Count statistics
@@ -263,7 +277,7 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
               <SelectValue placeholder="Pilih kolom untuk chart" />
             </SelectTrigger>
             <SelectContent>
-              {data.numericColumns.map((column: string) => (
+              {filteredNumericColumns.map((column: string) => (
                 <SelectItem key={column} value={column}>
                   <div className="flex items-center justify-between gap-2">
                     <span>{getParamLabel(column)}</span>
@@ -324,6 +338,15 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
                 content={
                   <ChartTooltipContent
                     hideLabel={false}
+                    labelFormatter={(label) => {
+                      if (typeof label === "string" && label.includes("T")) {
+                        return label.split("T")[0];
+                      }
+                      if (label instanceof Date) {
+                        return label.toISOString().split("T")[0];
+                      }
+                      return label;
+                    }}
                     formatter={(value, _name, props) => {
                       // Extract payload to check if this is an invalid point
                       const payload = props?.payload;
@@ -335,13 +358,14 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
                       const displayValue = isInvalidPoint
                         ? payload.rawInvalidValue
                         : value;
-                      const labelName = isInvalidPoint
-                        ? "Data Invalid"
-                        : getParamLabel(selectedColumn);
+                      
+                      const formattedValue = isInvalidPoint
+                        ? displayValue
+                        : Number(displayValue).toFixed(2);
 
                       return [
-                        `${Number(displayValue).toFixed(2)} ${getParamUnit(selectedColumn)}`,
-                        labelName,
+                        `${formattedValue} ${getParamUnit(selectedColumn)}`,
+                        isInvalidPoint ? "Data Invalid" : "",
                       ];
                     }}
                   />
