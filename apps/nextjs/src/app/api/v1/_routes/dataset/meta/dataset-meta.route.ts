@@ -399,7 +399,10 @@ datasetMetaRoute.get("/comparison/:original/:cleaned", async (c) => {
     if (!original || !cleaned) {
       // This check is now redundant but good for safety
       return c.json(
-        { message: "Missing 'original' or 'cleaned' collection names in URL path" },
+        {
+          message:
+            "Missing 'original' or 'cleaned' collection names in URL path",
+        },
         400,
       );
     }
@@ -413,7 +416,7 @@ datasetMetaRoute.get("/comparison/:original/:cleaned", async (c) => {
     // Fetch metadata to get numeric columns
     const meta = (await DatasetMeta.findOne({
       collectionName: original,
-    }).lean()) as IMeta | null
+    }).lean()) as IMeta | null;
     if (!meta) {
       return c.json(
         { message: `Dataset meta for '${original}' not found` },
