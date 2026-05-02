@@ -368,7 +368,9 @@ function ParameterDecompositionView({
                 scale="time"
                 domain={["dataMin", "dataMax"]}
                 ticks={xAxisTicks}
-                tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
+                tickFormatter={(val) =>
+                  new Date(val).getUTCFullYear().toString()
+                }
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
@@ -405,7 +407,9 @@ function ParameterDecompositionView({
       {/* DECOMPOSITION COMPONENTS */}
       <Card>
         <CardHeader className="py-4">
-          <CardTitle className="text-sm border-b pb-2 mb-2">Komponen Dekomposisi</CardTitle>
+          <CardTitle className="text-sm border-b pb-2 mb-2">
+            Komponen Dekomposisi
+          </CardTitle>
         </CardHeader>
         <CardContent className="pb-4 space-y-6">
           {/* CHART 2: TREND */}
@@ -436,7 +440,9 @@ function ParameterDecompositionView({
                   scale="time"
                   domain={["dataMin", "dataMax"]}
                   ticks={xAxisTicks}
-                  tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
+                  tickFormatter={(val) =>
+                    new Date(val).getUTCFullYear().toString()
+                  }
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
@@ -503,7 +509,9 @@ function ParameterDecompositionView({
                   scale="time"
                   domain={["dataMin", "dataMax"]}
                   ticks={xAxisTicks}
-                  tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
+                  tickFormatter={(val) =>
+                    new Date(val).getUTCFullYear().toString()
+                  }
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
@@ -568,7 +576,9 @@ function ParameterDecompositionView({
                   scale="time"
                   domain={["dataMin", "dataMax"]}
                   ticks={xAxisTicks}
-                  tickFormatter={(val) => new Date(val).getUTCFullYear().toString()}
+                  tickFormatter={(val) =>
+                    new Date(val).getUTCFullYear().toString()
+                  }
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
@@ -596,7 +606,7 @@ function ParameterDecompositionView({
                   dataKey="residual"
                   stroke="#2563eb"
                   strokeWidth={0}
-                  dot={{ r: 3, fill: "#2563eb" }}
+                  dot={{ r: 1, fill: "#2563eb" }}
                   isAnimationActive={false}
                 />
               </LineChart>
