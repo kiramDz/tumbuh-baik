@@ -30,8 +30,7 @@ from preprocessing.nasa.preprocessing_nasa import (
     NasaDataValidator,
     NasaPreprocessingError,
 )
-
-from preprocessing.bmkg.preprocessing_bmkg_new import ( 
+from preprocessing.bmkg.preprocessing_bmkg import (
     BmkgPreprocessor,
     BmkgDataValidator,
     BmkgPreprocessingError,
@@ -39,6 +38,9 @@ from preprocessing.bmkg.preprocessing_bmkg_new import (
 
 from preprocessing.convert.xlsx_to_csv import convert_single_xlsx
 from preprocessing.convert.xlsx_merge_csv import merge_multiple_xlsx
+from routes.scheduler_routes import scheduler_bp
+from middleware.auth_middleware import require_auth
+from models.scheduler_logs import SchedulerLog
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +51,7 @@ load_dotenv()
 
 app = Flask(__name__)
 
-CORS(app, resources={r"/*": {"origins": [
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": [
     "http://localhost:3000", 
     "http://3.107.238.87",
     "https://www.zonapetik.tech"
@@ -59,7 +61,7 @@ mongo_uri = os.getenv("MONGODB_URI")
 db_name = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
 mongo_client = MongoClient(mongo_uri)
 db = mongo_client[db_name]
-app.config['MONGO_DB'] = db  # ⚠️ PENTING - Jangan sampai hilang!
+app.config['MONGO_DB'] = db
 
 preprocessing_bp = Blueprint('preprocessing', __name__, url_prefix="/api/v1")
 
@@ -265,11 +267,11 @@ def preprocess_dataset(collection_name):
             ]
         }
         
-        # Save status to MongoDB
+        # save status to MongoDB
         db["preprocessing_jobs"].insert_one(preprocessing_status)
         
-        # Get preprocessing options from request body
-        options = request.json or {}
+        # Get preprocessing options from request body (FIXED)
+        options = request.get_json(silent=True) or {}
         
         # Extract location code from collection name if available
         location_code = None
@@ -437,8 +439,8 @@ def preprocess_nasa_dataset(collection_name):
         # Save status to MongoDB
         db["preprocessing_jobs"].insert_one(preprocessing_status)
         
-        # GET preprocessing options from request body
-        options = request.json or {}
+        # GET preprocessing options from request body (FIXED)
+        options = request.get_json(silent=True) or {}
         
         try:
             # Update status to indicate validation started
@@ -788,8 +790,8 @@ def preprocess_bmkg_dataset(collection_name):
         # Save status to MongoDB
         db["preprocessing_jobs"].insert_one(preprocessing_status)
         
-        # GET preprocessing options from request body
-        options = request.json or {}
+        # GET preprocessing options from request body (FIXED)
+        options = request.get_json(silent=True) or {}
         
         try:
             # Update status to indicate validation started
@@ -968,7 +970,7 @@ def preprocess_bmkg_stream(collection_name):
         sse_handler = SSELogHandler()
         sse_handler.setFormatter(logging.Formatter('%(levelname)s:%(name)s:%(message)s'))
         
-        preprocessing_logger = logging.getLogger('preprocessing.bmkg.preprocessing_bmkg_new')
+        preprocessing_logger = logging.getLogger('preprocessing.bmkg.preprocessing_bmkg')
         preprocessing_logger.addHandler(sse_handler)
         preprocessing_logger.setLevel(logging.INFO)
         
@@ -1504,6 +1506,11 @@ def get_decomposition_data(slug):
         return jsonify({"message": f"Server error: {str(e)}"}), 500
 
 app.register_blueprint(preprocessing_bp)
+app.register_blueprint(scheduler_bp)
+
+@app.route("/api/v1/scheduler/health", methods=["GET"])
+def scheduler_health():
+    return jsonify({"status": "ok"}), 200
 
 if __name__ == "__main__":
     port = int(os.getenv("FLASK_PORT", 5001))

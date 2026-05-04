@@ -1,81 +1,150 @@
 from typing import Dict, List, Any, Optional
+from certifi import where
+from sklearn.linear_model import LinearRegression
+from statsmodels.tsa.stattools import adfuller
 from datetime import datetime
 import pandas as pd
 import numpy as np
+from statsmodels.tsa.seasonal import STL
 from pymongo import MongoClient
 from bson import ObjectId
-from scipy import stats
-from statsmodels.tsa.seasonal import seasonal_decompose
-from statsmodels.tsa.stattools import adfuller
 import logging
 import traceback
 import warnings
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
-# Configure logging
+# config logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class BmkgPreprocessingError(Exception):
     """Custom exception for BMKG preprocessing errors"""
     pass
-
 class BmkgDataValidator:
-    """Validates BMKG data before preprocessing with various checks"""
-
-    def validate_dataset(self, db, collection_name: str) -> Dict[str, Any]:
-        """Enhanced validation with dataType, range, and temporal consistency checks"""
+    """Validate BMKG data before preprocessing"""
+    
+    def validate_dataset(
+        self,
+        db,
+        collection_name: str,
+    )-> Dict[str, Any]:
+        """Validate BMKG dataset with criteria:
+        
+        Validates:
+        - Collection existence and non-empty
+        - Required fields presence
+        - Physical relationship 
+        - Temporal continuity
+        """
         try:
-            # Check if collection exist
+            # Check collection exist
             if collection_name not in db.list_collection_names():
                 return {
                     'valid': False,
-                    'errors': [f"Collection {collection_name} does not exist"]
+                    'errors': [f"Collection {collection_name} does not exist."],
                 }
-            
-            # Get total records count
+                
+            # Get total records 
             total_records = db[collection_name].count_documents({})
             if total_records == 0:
                 return {
                     'valid': False,
-                    'errors': [f"Collection {collection_name} is empty"]
+                    'errors': [f"Collection {collection_name} is empty."],
                 }
+            logger.info(f"Validating {total_records} records in {collection_name}...")
             
-            logger.info(f"Validating {total_records} records in {collection_name}")
-
-            # Sample validation - check 100 first records for performance
+            # Sample validation (100 records)
             sample_size = min(100, total_records)
             sample_docs = list(db[collection_name].find().limit(sample_size))
-
-            # Define required fields with expected types and ranges
+            
+            # Define required fields with specified requirements
             field_requirements = {
-                'Date': {'type': (str, pd.Timestamp, datetime), 'required': True, 'description': 'Date'},
-                'TN': {'type': (int, float), 'range': (-10, 35), 'required': True, 'description': 'Minimum Temperature (°C)'},
-                'TX': {'type': (int, float), 'range': (-5, 45), 'required': True, 'description': 'Maximum Temperature (°C)'},
-                'TAVG': {'type': (int, float), 'range': (-5, 40), 'required': True, 'description': 'Average Temperature (°C)'},
-                'RH_AVG': {'type': (int, float), 'range': (0, 100), 'required': True, 'description': 'Average Humidity (%)'},
-                'RR': {'type': (int, float), 'range': (0, 500), 'required': True, 'description': 'Rainfall (mm)'},
-                'SS': {'type': (int, float), 'range': (0, 14), 'required': True, 'description': 'Sunshine Duration (hours)'},
-                'FF_X': {'type': (int, float), 'range': (0, 50), 'required': True, 'description': 'Maximum Wind Speed (m/s)'},
-                'DDD_X': {'type': (int, float), 'range': (0, 360), 'required': True, 'description': 'Wind Direction (degrees)'},
-                'FF_AVG': {'type': (int, float), 'range': (0, 30), 'required': True, 'description': 'Average Wind Speed (m/s)'},
-                'DDD_CAR': {'type': str, 'required': True, 'description': 'Wind Direction (cardinal)'}
+                'Date': {
+                    'type': (str, pd.Timestamp, datetime), 
+                    'required': True, 
+                    'description': 'Date'
+                },
+                'TN': {
+                    'type': (int, float),
+                    'range': (-10, 35),
+                    'required': True,
+                    'description': 'Minimum Temperature (°C)'
+                },
+                'TX': {
+                    'type': (int, float), 
+                    'range': (-5, 45), 
+                    'required': True, 
+                    'description': 'Maximum Temperature (°C)'
+                },
+                'TAVG': {
+                    'type': (int, float), 
+                    'range': (-5, 40), 
+                    'required': True, 
+                    'description': 'Average Temperature (°C)'
+                },
+                'RH_AVG': {
+                    'type': (int, float), 
+                    'range': (0, 100), 
+                    'required': True, 
+                    'description': 'Average Humidity (%)'
+                },
+                'RR': {
+                    'type': (int, float), 
+                    'range': (0, 500), 
+                    'required': True, 
+                    'description': 'Rainfall (mm)'
+                },
+                'SS': {
+                    'type': (int, float), 
+                    'range': (0, 14), 
+                    'required': True, 
+                    'description': 'Sunshine Duration (hours)'
+                },
+                'FF_X': {
+                    'type': (int, float), 
+                    'range': (0, 50), 
+                    'required': True, 
+                    'description': 'Maximum Wind Speed (m/s)'
+                },
+                'DDD_X': {
+                    'type': (int, float), 
+                    'range': (0, 360), 
+                    'required': True, 
+                    'description': 'Wind Direction (degrees)'
+                },
+                'FF_AVG': {
+                    'type': (int, float), 
+                    'range': (0, 30), 
+                    'required': True, 
+                    'description': 'Average Wind Speed (m/s)'
+                },
+                'DDD_CAR': {
+                    'type': str, 
+                    'required': True, 
+                    'description': 'Wind Direction (cardinal)'
+                }
             }
-
+            
             # Validation results
             validation_errors = []
             validation_warnings = []
             field_stats = {}
-
-            # Check schema and data types
+            
+            # Check schema
             first_doc = sample_docs[0]
-            missing_fields = [field for field in field_requirements if field not in first_doc]
-
+            missing_fields = [
+                field for field in field_requirements
+                if field not in first_doc
+            ]
+            
             if missing_fields:
-                validation_errors.append(f"Missing required fields: {', '.join(missing_fields)}")
-
-            # Validate each field in sample documents
+                validation_errors.append(
+                    f"Missing required fields: {', '.join(missing_fields)}"
+                )
+            
+            # Validate each field
             for field, requirements in field_requirements.items():
                 if field not in first_doc:
                     continue
@@ -84,17 +153,19 @@ class BmkgDataValidator:
                 invalid_types = 0
                 out_of_range = 0
                 missing_values = 0
-
+                
                 for doc in sample_docs:
                     value = doc.get(field)
-
-                    # Check for missing/null values
-                    if value is None or value == '' or (isinstance(value, float) and np.isnan(value)):
+                    
+                    # Check missing/null
+                    if value is None or value == '' or \
+                       (isinstance(value, float) and np.isnan(value)):
                         missing_values += 1
                         continue
 
-                    # Check for missing value codes (8888, 9999)
-                    if isinstance(value, (int, float)) and value in [8888.0, 9999.0, 8888, 9999]:
+                    # Check BMKG fill values (8888, 9999)
+                    if isinstance(value, (int, float)) and \
+                       value in [8888.0, 9999.0, 8888, 9999]:
                         missing_values += 1
                         continue
 
@@ -103,15 +174,16 @@ class BmkgDataValidator:
                         invalid_types += 1
                         continue
 
-                    # Check range for numeric fields
-                    if 'range' in requirements and isinstance(value, (int, float)):
+                    # Check range
+                    if 'range' in requirements and \
+                       isinstance(value, (int, float)):
                         min_val, max_val = requirements['range']
                         if not (min_val <= value <= max_val):
                             out_of_range += 1
 
                     field_values.append(value)
-
-                # Calculate statistics
+                
+                # calculate stats
                 missing_pct = (missing_values / sample_size) * 100
                 field_stats[field] = {
                     'missing_count': missing_values,
@@ -121,7 +193,7 @@ class BmkgDataValidator:
                     'valid_values': len(field_values),
                     'description': requirements.get('description', '')
                 }
-
+                
                 # Generate warnings
                 if missing_pct > 50:
                     validation_warnings.append(
@@ -142,20 +214,26 @@ class BmkgDataValidator:
                         f"Field '{field}' has {out_of_range} outliers in sample"
                     )
             
-            # Add physical relationship validation
+            # Physical relationship validation
             relationship_warnings = self._validate_physical_relationships(sample_docs)
             validation_warnings.extend(relationship_warnings)
-                    
-            # Validation date fields and temporal consistency
-            date_validation = self._validate_temporal_continuity(db, collection_name, total_records)
-
-            if not date_validation['valid']:
+            
+            # Temporal continuity validation
+            date_validation = self._validate_temporal_continuity(
+                db, collection_name, total_records
+            )
+            
+            if date_validation.get('warnings'):
+                validation_warnings.extend(date_validation['warnings'])
+            
+            # Minimum data requirement for (STL needs 2+ years)
+            if total_records < 730:  # 2 years
                 validation_warnings.append(
-                    f"Dataset has only {total_records} records. "
-                    "ML models may not perform well with limited data."
+                    f"Dataset has only {total_records} records (<2 years). "
+                    "STL decomposition may not work optimally."
                 )
             
-            # Determine if validation passed
+            # Determine validation status
             is_valid = len(validation_errors) == 0
 
             return {
@@ -166,53 +244,58 @@ class BmkgDataValidator:
                 'warnings': validation_warnings,
                 'fields_statistics': field_stats,
                 'temporal_info': date_validation.get('temporal_info', {}),
-                'message': "Dataset validation completed" if is_valid else "Dataset validation failed"
+                'message': "Dataset validation completed" if is_valid 
+                          else "Dataset validation failed"
             }
         except Exception as e:
             logger.error(f"Error during validation: {str(e)}")
             logger.error(traceback.format_exc())
             return {
                 'valid': False,
-                'errors': [f"Validation error: {str(e)}"]
+                'errors': [f"Validation error: {str(e)}"],
             }
-
-    def _validate_temporal_continuity(self, db, collection_name: str, total_records: int) -> Dict[str, Any]:
+    def _validate_temporal_continuity(
+        self,
+        db,
+        collection_name: str,
+        total_records: int,
+    ) -> Dict[str,Any]:
         """Validate temporal continuity and coverage"""
+    
         try:
-            # Get first and latest dates
+            # Get first and last dates
             first_record = db[collection_name].find_one(sort=[('Date', 1)])
             last_record = db[collection_name].find_one(sort=[('Date', -1)])
             
             if not first_record or not last_record:
                 return {
                     'valid': False,
-                    'errors': ["Cannot determine date range from dataset"]
+                    'warnings': ["Cannot determine date range from dataset."]
                 }
             
             # Extract dates
             first_date = first_record.get('Date')
             last_date = last_record.get('Date')
             
-            # Convert to datetime if needed
+            # Convert to datetime
             if isinstance(first_date, str):
                 first_date = pd.to_datetime(first_date)
             if isinstance(last_date, str):
                 last_date = pd.to_datetime(last_date)
                 
-            # Calculate date range
+            # calculate date range
             date_range = (last_date - first_date).days + 1
-            
             warnings = []
             
-            # Check if records count matches expected date range
+              # Check for gaps
             if total_records < date_range * 0.8:
                 gap_pct = ((date_range - total_records) / date_range) * 100
                 warnings.append(
-                    f"Potential data gaps detected: Expected ~{date_range} records "
-                    f"but found {total_records} records ({gap_pct:.1f}% gap)"
+                    f"Potential data gaps: Expected ~{date_range} records "
+                    f"but found {total_records} ({gap_pct:.1f}% gap)"
                 )
             
-            # Check for duplicates
+            # Check duplicates
             pipeline = [
                 {'$group': {'_id': '$Date', 'count': {'$sum': 1}}},
                 {'$match': {'count': {'$gt': 1}}}
@@ -220,11 +303,17 @@ class BmkgDataValidator:
             duplicates = list(db[collection_name].aggregate(pipeline))
             
             if duplicates:
-                warnings.append(f"Found {len(duplicates)} dates with duplicate records")
+                warnings.append(
+                    f"Found {len(duplicates)} dates with duplicate records"
+                )
             
             temporal_info = {
-                'start_date': first_date.strftime('%Y-%m-%d') if hasattr(first_date, 'strftime') else str(first_date),
-                'end_date': last_date.strftime('%Y-%m-%d') if hasattr(last_date, 'strftime') else str(last_date),
+                'start_date': first_date.strftime('%Y-%m-%d') 
+                              if hasattr(first_date, 'strftime') 
+                              else str(first_date),
+                'end_date': last_date.strftime('%Y-%m-%d') 
+                            if hasattr(last_date, 'strftime') 
+                            else str(last_date),
                 'date_range_days': date_range,
                 'total_records': total_records,
                 'coverage_percentage': round((total_records / date_range) * 100, 2),
@@ -242,17 +331,20 @@ class BmkgDataValidator:
                 'valid': False,
                 'errors': [f"Temporal validation error: {str(e)}"]
             }
-
-    def _validate_physical_relationships(self, sample_docs: List[Dict]) -> List[str]:
-        """Validate physical relationships in the data"""
+    def _validate_physical_relationships(
+        self, 
+        sample_docs: List[Dict]
+    )-> List[str]:
+        """Validate physical relationships between fields (TX ≥ TAVG ≥ TN, FF_X ≥ FF_AVG)"""
+        
         warnings = []
         
         temp_violations = 0
         wind_violations = 0
         
         for doc in sample_docs:
-            # Check temperature relationships: TX >= TAVG >= TN
-            tx = doc.get('TX')
+            # Temperature: TX ≥ TAVG ≥ TN
+            tx =  doc.get('TX')
             tn = doc.get('TN')
             tavg = doc.get('TAVG')
             
@@ -260,321 +352,472 @@ class BmkgDataValidator:
                 if not (tn <= tavg <= tx):
                     temp_violations += 1
             
-            # Check wind speed relationships: FF_X >= FF_AVG
+            # Wind speed: FF_X ≥ FF_AVG
             ff_x = doc.get('FF_X')
             ff_avg = doc.get('FF_AVG')
             
             if all(v is not None and not pd.isna(v) for v in [ff_x, ff_avg]):
-                if ff_x < ff_avg:
+                if ff_avg > ff_x:
                     wind_violations += 1
         
         if temp_violations > 0:
-            warnings.append(f"Found {temp_violations} temperature relationship violations (TX >= TAVG >= TN)")
+            warnings.append(
+                f"Found {temp_violations} temperature relationship violations "
+                f"(TX ≥ TAVG ≥ TN)"
+            )
         
         if wind_violations > 0:
-            warnings.append(f"Found {wind_violations} wind speed relationship violations (FF_X >= FF_AVG)")
+            warnings.append(
+                f"Found {wind_violations} wind speed relationship violations "
+                f"(FF_X ≥ FF_AVG)"
+            )
         
         return warnings
-
-
 class BmkgDataLoader:
-    """Loads BMKG data from MongoDB into pandas DataFrame"""
-
-    def load_data(self, db, collection_name: str) -> pd.DataFrame:
-        """Load all data from MongoDB into pd.DataFrame"""
+    """Loads BMKG data from MongoDB into pandas DF"""
+    
+    def load_data(
+        self,
+        db,
+        collection_name: str,
+    )-> pd.DataFrame:
+        """
+        Load all data from MongoDB collection
+        
+        Returns:
+            DataFrame with Date as index, sorted chronologically
+        """
+        
         try:
-            # Load all records from MongoDB collection
+            # Load all records 
             cursor = db[collection_name].find({})
             df = pd.DataFrame(list(cursor))
-
+            
             if len(df) == 0:
-                raise BmkgPreprocessingError(f"No data found in collection '{collection_name}'")
-
+                raise BmkgPreprocessingError(
+                    f"No data found in collection '{collection_name}'"
+                )
+            
             # Convert ObjectId to string
             if '_id' in df.columns:
                 df['_id'] = df['_id'].astype(str)
 
-            # Ensure date columns is datetime type
-            if 'Date' in df.columns and not pd.api.types.is_datetime64_dtype(df['Date']):
-                try:
-                    df['Date'] = pd.to_datetime(df['Date'])
-                except Exception as e:
-                    logger.warning(f"Failed to convert 'Date' column to datetime: {str(e)}")
+            # Ensure Date is datetime
+            if 'Date' in df.columns:
+                if not pd.api.types.is_datetime64_dtype(df['Date']):
+                    try:
+                        df['Date'] = pd.to_datetime(df['Date'])
+                    except Exception as e:
+                        logger.warning(f"Failed to convert Date: {str(e)}")
+            else:
+                # Create Date from Year/Month/Day if needed
+                if all(col in df.columns for col in ['Year', 'Month', 'Day']):
+                    df['Date'] = pd.to_datetime(
+                        df[['Year', 'Month', 'Day']]
+                    )
+                else:
+                    raise BmkgPreprocessingError(
+                        "No 'Date' column or Year/Month/Day columns found"
+                    )
 
-            # Sort by Date chronologically
+            # Sort by Date
             if 'Date' in df.columns:
                 df = df.sort_values('Date')
 
             logger.info(f"Successfully loaded {len(df)} records from '{collection_name}'")
             return df
+            
+            
         except Exception as e:
-            error_msg = f"Error loading data from collection '{collection_name}': {str(e)}"
+            error_msg = f"Error loading data from {collection_name}: {str(e)}"
             logger.error(error_msg)
-            raise BmkgPreprocessingError(error_msg)
-
-
+            raise BmkgPreprocessingError(error_msg) from e
+        
 class BmkgDataSaver:
-    """Saves preprocessed BMKG data back to new collection in MongoDB"""
-
+    """Saves preprocessed BMKG data back to MongoDB"""
+    
     def save_preprocessed_data(
         self,
         db,
         preprocessed_data: pd.DataFrame,
-        original_collection_name: str,
+        original_collection: str,
+        preprocessing_id: Optional[ObjectId] = None,
     ) -> Dict[str, Any]:
-        """Save preprocessed data to a new collection, update dataset-meta"""
+        """
+        Save preprocessed data to new collection with '_cleaned' suffix
+        Update dataset metadata
+        
+        Returns:
+            Dictionary with save results and metadata info
+        """
         try:
             # Generate cleaned collection name
-            cleaned_collection_name = f"{original_collection_name}_cleaned"
+            cleaned_collection = f"{original_collection}_cleaned"
 
-            # Drop the existing cleaned collection if it exists
-            if cleaned_collection_name in db.list_collection_names():
-                logger.info(f"Dropping existing collection: {cleaned_collection_name}")
-                db[cleaned_collection_name].drop()
+            # Drop existing cleaned collection
+            if cleaned_collection in db.list_collection_names():
+                logger.info(f"Dropping existing collection: {cleaned_collection}")
+                db[cleaned_collection].drop()
 
-            # Remove _id column - MongoDB will auto-generate new IDs
-            if '_id' in preprocessed_data.columns:
-                preprocessed_data = preprocessed_data.drop('_id', axis=1)
+            # Prepare DataFrame for insertion
+            df_to_save = preprocessed_data.copy()
             
-            # Remove any existing __v column
-            if '__v' in preprocessed_data.columns:
-                preprocessed_data = preprocessed_data.drop('__v', axis=1)
-                logger.info("Dropped '__v' column from preprocessed data")
-                
+
+            # KEEP Date as column (reset index)
+            if df_to_save.index.name == 'Date' or 'Date' not in df_to_save.columns:
+                df_to_save = df_to_save.reset_index()  # Convert Date index to column
+
+            # Remove MongoDB internal fields
+            if '_id' in df_to_save.columns:
+                df_to_save = df_to_save.drop('_id', axis=1)
+
+            if '__v' in df_to_save.columns:
+                df_to_save = df_to_save.drop('__v', axis=1)
+                logger.info("Dropped '__v' column")
+            
             # Drop temporary preprocessing columns
-            temp_columns = ['Season', 'is_RR_missing', 'month']
-            columns_to_drop = [col for col in temp_columns if col in preprocessed_data.columns]
-            
+            temp_columns = [
+                'Season', 'is_RR_missing', 
+                'Month', 'day_of_year', 'max_daylight',
+                'TAVG_imputed', 'RH_AVG_imputed', '_RR_long_gap'  # NEW: added flags
+            ]
+            columns_to_drop = [
+                col for col in temp_columns 
+                if col in df_to_save.columns
+            ]
+
             if columns_to_drop:
-                preprocessed_data = preprocessed_data.drop(columns_to_drop, axis=1)
+                df_to_save = df_to_save.drop(columns_to_drop, axis=1)
                 logger.info(f"Dropped temporary columns: {columns_to_drop}")
 
-            # Convert DataFrame records for MongoDB insertion
-            records = preprocessed_data.to_dict('records')
+            # Convert to records for MongoDB
+            records = df_to_save.to_dict('records')
+            
             if records:
-                db[cleaned_collection_name].insert_many(records)
-                logger.info(f"Inserted {len(records)} records into '{cleaned_collection_name}'")
+                db[cleaned_collection].insert_many(records)
+                logger.info(
+                    f"Inserted {len(records)} records into '{cleaned_collection}'"
+                )
 
-            # Update dataset-meta collection
-            meta_info = self._update_dataset_metadata(
+            # Create new metadata for the cleaned collection
+            meta_info = self._create_cleaned_metadata(
                 db,
-                original_collection_name,
-                cleaned_collection_name,
-                len(records)
+                original_collection,
+                cleaned_collection,
+                len(records),
+                preprocessing_id
             )
 
             return {
-                "preprocessedCollections": [cleaned_collection_name],
+                "preprocessedCollections": [cleaned_collection],
                 "recordsInserted": {
-                    "original": db[original_collection_name].count_documents({}),
+                    "original": db[original_collection].count_documents({}),
                     "cleaned": len(records)
                 },
                 "metadata": meta_info
             }
+            
         except Exception as e:
             error_msg = f"Error saving preprocessed data: {str(e)}"
             logger.error(error_msg)
             raise BmkgPreprocessingError(error_msg)
         
-    def _update_dataset_metadata(
+    def _create_cleaned_metadata(
         self,
         db,
-        original_collection_name: str,
-        cleaned_collection_name: str,
-        record_count: int
-    ) -> Dict[str, Any]:
-        """Update dataset-meta after preprocessing - Point to cleaned collection"""
+        original_collection: str,
+        cleaned_collection: str,
+        record_count: int,
+        preprocessing_id: Optional[ObjectId] = None,
+        
+    )-> Dict[str, Any]:
+        """Create a new metadata entry for cleaned dataset (new meta)"""
+        
         try:
-            # Find the metadata collection
-            meta_collection = None
-            if "dataset_meta" in db.list_collection_names():
-                meta_collection = "dataset_meta"
-            elif "DatasetMeta" in db.list_collection_names():
-                meta_collection = "DatasetMeta"
-            else:
+            # Find metadata collection 
+            meta_collection_name = "dataset_meta" if "dataset_meta" in db.list_collection_names() else "DatasetMeta"
+            if not meta_collection_name:
                 logger.warning("No metadata collection found!")
                 return {"status": "no_meta_collection"}
             
-            # Get original metadata to preserve other fields
-            original_meta = db[meta_collection].find_one({"collectionName": original_collection_name})
-            
+            meta_collection = db[meta_collection_name]
+
+            # Get original metadata for reference
+            original_meta = meta_collection.find_one(
+                {"collectionName": original_collection}
+            )
             if not original_meta:
-                logger.warning(f"No metadata found for collection '{original_collection_name}'")
-                return {"status": "no_original_metadata"}
-            
-            # Get cleaned collection columns
-            sample_doc = db[cleaned_collection_name].find_one()
-            if sample_doc:
-                all_columns = list(sample_doc.keys())
-                cleaned_columns = [
-                    col for col in all_columns
-                    if col not in ['_id', '__v'] and not col.startswith('_')
-                ]
-            else:
-                cleaned_columns = []
-            
-            # Update metadata to point to cleaned collection
-            update_fields = {
+                logger.warning(f"Could not find original metadata for {original_collection}. Creating cleaned metadata with default values.")
+
+            # Get columns from the new cleaned collection
+            sample_doc = db[cleaned_collection].find_one()
+            cleaned_columns = [col for col in sample_doc.keys() if col not in ['_id', '__v']] if sample_doc else []
+
+            # Create the new metadata document
+            cleaned_meta_doc = {
+                "name": f"{original_meta.get('name', original_collection)} (Cleaned)" if original_meta else f"{original_collection} (Cleaned)",
+                "collectionName": cleaned_collection,
+                "originalCollectionName": original_collection,  # Link to the original
                 "status": "preprocessed",
-                "collectionName": cleaned_collection_name,
                 "totalRecords": record_count,
                 "columns": cleaned_columns,
+                "source": original_meta.get("source", "Unknown") if original_meta else "Unknown",
+                "fileType": original_meta.get("fileType", "csv") if original_meta else "csv",
+                "isAPI": original_meta.get("isAPI", False) if original_meta else False,
+                "uploadDate": datetime.now(),
                 "lastUpdated": datetime.now(),
-                "name": f"{original_meta.get('name', original_collection_name)} (Cleaned)"
+                "preprocessingReportId": preprocessing_id,
+                "description": original_meta.get("description", "") if original_meta else "",
+                "deletedAt": None,
+                "__v": 0,
             }
+
+            result = meta_collection.insert_one(cleaned_meta_doc)
+            logger.info(f"Created new metadata for cleaned collection: {cleaned_collection} (ID: {result.inserted_id})")
             
-            result = db[meta_collection].update_one(
-                {"collectionName": original_collection_name},
-                {"$set": update_fields}
-            )
-            
-            if result.modified_count > 0:
-                logger.info(f"Updated metadata to point to cleaned collection: {cleaned_collection_name}")
-            else:
-                logger.warning("No metadata was updated")
-            
-            return {"status": "success"}
-            
+            return {"status": "success", "metadata_id": result.inserted_id, "action": "created_new"}
+        
         except Exception as e:
-            logger.error(f"Error updating metadata: {str(e)}")
+            logger.error(f"Error creating cleaned metadata: {str(e)}")
+            logger.error(traceback.format_exc())
             return {"status": "error", "error": str(e)}
 
-
 class BmkgPreprocessor:
-    """Main class for preprocessing BMKG datasets with NASA-style coverage analysis"""
-
-    def __init__(self, db, collection_name: str):
+    """
+    Main orchestrator class for preprocessing approach
+    Implements smoothing-based imputation without ML
+    Optimized for GCV validation and time-series modeling (Holt-Winters, LSTM)
+    
+    Key differences from preprocessing_bmkg.py:
+    - NO machine learning models (RandomForest, KMeans)
+    - Focus on smoothing methods (STL, cubic spline, moving average)
+    - Seasonal median instead of mean
+    - Adaptive imputation strategies
+    """
+    
+    def __init__(
+        self,
+        db,
+        collection_name: str,
+    ):
+        """
+        Initialize preprocessor
+        
+        Args:
+            db: MongoDB database instance
+            collection_name: Name of the collection to preprocess
+        """
         self.db = db
         self.collection_name = collection_name
+        
+        # Initialize helper classes
         self.validator = BmkgDataValidator()
         self.loader = BmkgDataLoader()
         self.saver = BmkgDataSaver()
+        
+        # Store original data for validation
         self.original_data = None
         
-        # NASA-style preprocessing report structure
+        # Configuration: Season definitions
+        self.season_config = {
+            "wet_months": [9, 10, 11, 12, 1, 2, 3],  # Sep-Mar
+            "dry_months": [4, 5, 6, 7, 8],            # Apr-Aug
+            "dry_season_peak": [5, 6, 7]              # Core dry months for RR=0
+        }
+        
+        # Two-stage rain classification config
+        self.rain_classification_config = {
+            "probability_thresholds": {
+                "wet_season_base": 0.65,      # 65% chance in wet season
+                "dry_season_base": 0.15,      # 15% chance in dry season
+                "dry_peak_base": 0.05,        # 5% in peak dry months
+            },
+            "markov_weights": {
+                "rain_to_rain": 0.75,         # If yesterday rained → 75% today
+                "dry_to_dry": 0.85,          # If yesterday dry → 85% dry today
+                "rain_to_dry": 0.25,         # If yesterday rained → 25% dry today
+                "dry_to_rain": 0.15,         # If yesterday dry → 15% rain today
+            },
+            "context_thresholds": {
+                "rh_high": 85,               # RH_AVG > 85% suggests rain
+                "rh_very_high": 95,          # RH_AVG > 95% strong rain signal
+                "wind_calm": 2.5,            # FF_X < 2.5 m/s during rain
+                "wind_moderate": 5.0,        # FF_X < 5.0 m/s light rain
+            },
+            "amount_categories": {
+                "light": {"min": 0.1, "max": 5.0},      # Light rain
+                "moderate": {"min": 5.0, "max": 20.0},   # Moderate rain
+                "heavy": {"min": 20.0, "max": 100.0},    # Heavy rain
+                "extreme": {"min": 100.0, "max": 300.0}  # Extreme rain
+            }
+        }
+        
+        # Configuration: Valid ranges for outlier detection
+        self.valid_ranges = {
+            'TX': (-5, 45),      # Max temperature (°C)
+            'TN': (-10, 35),     # Min temperature (°C)
+            'TAVG': (-5, 40),    # Avg temperature (°C)
+            'RH_AVG': (0, 100),  # Relative humidity (%)
+            'RR': (0, 500),      # Rainfall (mm)
+            'FF_X': (0, 50),     # Max wind speed (m/s)
+            'FF_AVG': (0, 30),   # Avg wind speed (m/s)
+            'DDD_X': (0, 360),   # Wind direction (degrees)
+            'SS': (0, 14)        # Sunshine duration (hours)
+        } 
+        
+        # Configuration: Missing value codes
+        self.missing_codes = [8888.0, 9999.0, 8888, 9999]
+        
+        # Configuration: Parameters to process
+        self.params_to_process = [
+            'RR', 'TX', 'TN', 'TAVG', 'RH_AVG', 
+            'FF_X', 'FF_AVG', 'DDD_X', 'SS', 'DDD_CAR'
+        ]
+        
+        # Track imputation confidence
+        self.imputation_confidence = {}
+        
+        # Preprocessing report (NASA-style structure)
         self.preprocessing_report = {
             "missing_data": {},
             "outliers": {},
-            "smoothing": {},
-            "smoothing_validation": {},
-            "gaps": {},
+            "imputation": {},
+            "physical_constraints": {},
+            "imputation_validation": {},
             "model_coverage": {},
             "quality_metrics": {},
             "warnings": []
         }
-
-    def preprocess(self, options: Dict[str, Any] = None) -> Dict[str, Any]:
+    
+    def _get_imputation_method(self, param: str) -> str:
+        """Get imputation method name for reporting"""
+        method_map = {
+            'RR': 'two_stage_binary_conditional',
+            'TX': 'mathematical_relationships_cubic_spline',
+            'TN': 'mathematical_relationships_cubic_spline',
+            'TAVG': 'mathematical_relationships_cubic_spline',
+            'RH_AVG': 'dewpoint_method_cubic_spline',
+            'FF_X': 'linear_regression_cubic_spline',
+            'FF_AVG': 'linear_regression_cubic_spline',
+            'DDD_X': 'circular_mean',
+            'SS': 'cubic_spline',
+            'DDD_CAR': 'mode_based'
+        }
+        return method_map.get(param, 'unknown') 
+ 
+    def preprocess(
+        self,
+        options: Dict[str, Any] = None
+    )->  Dict[str, Any]:
         """
-        Preprocess BMKG dataset with NASA-style coverage analysis
+        Main preprocessing pipeline
         
         Args:
-            options: Dictionary of preprocessing options
+            options: Optional configuration overrides
             
         Returns:
-            Dictionary with preprocessing results and processed dataframe
+            Dictionary with preprocessing results
         """
         try:
             start_time = datetime.now()
+            logger.info("PROGRESS: Starting BMKG preprocessing pipeline...")
+            self.options = self._get_default_options()
+            if options: 
+                self.options.update(options)
             
-            # Default options (NASA-style)
-            default_options = {
-                "smoothing_method": "exponential",
-                "window_size": 5,
-                "exponential_alpha": 0.15,
-                "adaptive_alpha_selection": True,
-                "alpha_optimization_range": [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20],
-                "drop_outliers": True,
-                "outlier_methods": ["iqr", "zscore"],
-                "iqr_multiplier": 2.0,
-                "zscore_threshold": 3.5,
-                "outlier_treatment": "interpolate",
-                "fill_missing": True,
-                "detect_gaps": True,
-                "max_gap_interpolate": 30,  # 30 days for BMKG (vs 90 for NASA)
-                "calculate_coverage": True,
-                "columns_to_process": [
-                    'TN', 'TX', 'TAVG', 'RH_AVG', 'RR',
-                    'SS', 'FF_X', 'FF_AVG', 'DDD_X'
-                ],
-                "parameter_configs": {
-                    "RR": {  
-                    "smoothing_method": "exponential",
-                    "exponential_alpha": 0.04, 
-                    "apply_outlier_detection": True,
-                    "outlier_treatment": "interpolate",
-                    "iqr_multiplier": 2.5, 
-                    "zscore_threshold": 3.5,
-                    "preserve_zeros": False,
-                    "validate_range": True,
-                    "valid_min": 0.0,
-                    "valid_max": 500.0,
-                    "reason": "BMKG RR is noisy - α=0.04 smoothing + outlier detection balances denoising vs signal preservation"
-                    },
-                    "DDD_X": { 
-                        "smoothing_method": None,
-                        "apply_outlier_detection": True,
-                        "reason": "Circular variable - exponential smoothing breaks on 0°-360° wraparound"
-                    },
-                    "SS": { 
-                        "smoothing_method": "exponential",
-                        "exponential_alpha": 0.12,
-                        "reason": "Cloud patterns have inertia but vary daily"
-                    },
-                    "RH_AVG": {
-                        "smoothing_method": "exponential",
-                        "exponential_alpha": 0.12,  # Reduce from 0.15
-                        "constrain_bounds": (0, 100),  # Apply bounds after smoothing
-                        "reason": "Humidity is bounded variable"
-                    },
-                    "TAVG": {
-                        "smoothing_method": "exponential",
-                        "exponential_alpha": 0.12,
-                        "reason": "Temperature is a critical variable"
-                    }
-                }
-            }
-            
-            # Merge with provided options
-            if options is None:
-                options = {}
-            self.options = {**default_options, **options}
-            
-            # Validate dataset
-            logger.info("BMKG DATA PREPROCESSING PIPELINE")
-            logger.info("\n[1/5] Validating dataset...")
-            validation_result = self.validator.validate_dataset(self.db, self.collection_name)
+            # Step 1: Validate dataset
+            logger.info("\n[1/7] Validating dataset...")
+            validation_result = self.validator.validate_dataset(
+                self.db, self.collection_name
+            )
             
             if not validation_result.get('valid', False):
-                raise BmkgPreprocessingError(
-                    f"Validation failed: {validation_result.get('errors', ['Unknown error'])}"
-                )
+                errors = validation_result.get('errors', ['Unknown error'])
+                raise BmkgPreprocessingError(f"Validation failed: {errors}")
             
-            logger.info(f"✓ Validation passed - {validation_result['total_records']} records")
+            logger.info(f"Validation passed - {validation_result['total_records']} records")
             
-            # Load data
-            logger.info("\n[2/5] Loading data from MongoDB...")
+            # Log warnings if any
+            warnings = validation_result.get('warnings', [])
+            if warnings:
+                logger.warning(f"Validation warnings ({len(warnings)}):")
+                for warning in warnings[:5]:  # Show first 5
+                    logger.warning(f"  - {warning}")
+                    
+            # Step 2: Load data
+            logger.info("\n[2/7] Loading data from MongoDB...")
             df = self.loader.load_data(self.db, self.collection_name)
             original_record_count = len(df)
-            logger.info(f"✓ Loaded {original_record_count} records")
             
-            # Apply preprocessing
-            logger.info("\n[3/5] Applying preprocessing...")
+            # NEW CODE: self.original_data will be set in _apply_preprocessing() 
+            self.original_data = None  # Initialize as None
+            
+            logger.info(f"Loaded {original_record_count} records")
+                
+            # Step 3: Apply preprocessing
+            logger.info("\n[3/7] Applying preprocessing pipeline...")
             processed_df = self._apply_preprocessing(df)
-            logger.info("✓ Preprocessing completed")
+            logger.info("Preprocessing completed")
             
-            # Save processed data
-            logger.info("\n[4/5] Saving preprocessed data...")
+            # Step 4: Validate smoothing quality (GCV + Trend)
+            logger.info("\n[4/7] Validating preprocessing quality...")
+            self._validate_imputation_quality(processed_df)
+            logger.info("Quality validation completed")
+            
+            # Step 5: Calculate model coverage
+            logger.info("\n[5/7] Calculating model coverage (HW & LSTM)...")
+            self._calculate_model_coverage(processed_df)
+            logger.info("Coverage analysis completed")
+            
+            # FIXED: Generate quality metrics BEFORE saving the report
+            self._generate_quality_metrics(df, processed_df)
+            
+            # Step 6: Save preprocessed data and report
+            logger.info("\n[6/7] Saving preprocessed data and report...")
+            
+            # First, save the report to get an ID
+            # We need a temporary cleaned collection name for the report
+            temp_cleaned_name = f"{self.collection_name}_cleaned"
+            report_save_result = self._save_preprocessing_report(temp_cleaned_name)
+            preprocessing_id = report_save_result.get("report_id")
+
+            # Now, save the data using the preprocessing_id
             save_result = self.saver.save_preprocessed_data(
                 self.db,
                 processed_df,
-                self.collection_name
+                self.collection_name,
+                preprocessing_id  # Pass the ID to the saver
             )
-            logger.info(f"✓ Saved to collection: {save_result['preprocessedCollections'][0]}")
+            cleaned_collection = save_result.get("preprocessedCollections", [temp_cleaned_name])[0]
             
-            # Generate summary
-            logger.info("\n[5/5] Generating summary...")
+            # If the collection name in the report was temporary, update it.
+            if cleaned_collection != temp_cleaned_name and preprocessing_id:
+                self.db["preprocessing_report"].update_one(
+                    {"_id": preprocessing_id},
+                    {"$set": {"cleaned_collection_name": cleaned_collection}}
+                )
+                logger.info(f"Updated report with final cleaned collection name: {cleaned_collection}")
+            
+            # STEP 2: Calculate and save decomposition (uses preprocessing_id as reference)
+            logger.info("\n[7/7] Calculating and saving STL decomposition...")
+            if preprocessing_id and report_save_result.get("status") == "success":
+                try:
+                    self._calculate_and_save_decomposition(processed_df, preprocessing_id)
+                    decomposition_saved = True
+                    logger.info("Decomposition data saved to decomposition_report collection")
+                except Exception as e:
+                    logger.error(f"Failed to save decomposition: {str(e)}")
+                    logger.error(traceback.format_exc())  # Tambahkan traceback untuk debug
+                    decomposition_saved = False
+            
+            # Generate final report 
             end_time = datetime.now()
             processing_time = (end_time - start_time).total_seconds()
+            
+            logger.info("PREPROCESSING COMPLETED SUCCESSFULLY")
+            logger.info(f"Processing time: {processing_time:.2f}s")
+            logger.info(f"Records processed: {len(processed_df)}")
+            logger.info(f"Cleaned collection: {cleaned_collection}")
             
             return {
                 "status": "success",
@@ -584,136 +827,374 @@ class BmkgPreprocessor:
                 "recordCount": len(processed_df),
                 "originalRecordCount": original_record_count,
                 "preprocessedCollections": save_result.get("preprocessedCollections", []),
-                "cleanedCollection": save_result.get("preprocessedCollections", [])[0] if save_result.get("preprocessedCollections") else None,
+                "cleanedCollection": cleaned_collection,
                 "processingTime": round(processing_time, 2),
-                "preprocessing_report": self.preprocessing_report,
+                "preprocessing_report_id": str(preprocessing_id) if preprocessing_id else None,
+                "report_saved": report_save_result.get("status") == "success",
+                "decomposition_saved": decomposition_saved,
+                "decomposition_collection": "decomposition_report" if decomposition_saved else None,
+                "validation_result": validation_result,
                 "metadata": save_result.get("metadata", {})
             }
-            
         except Exception as e:
-            error_msg = f"Error preprocessing BMKG data: {str(e)}"
+            error_msg = f"Error during preprocessing: {str(e)}"
             logger.error(error_msg)
             logger.error(traceback.format_exc())
             raise BmkgPreprocessingError(error_msg)
-
-    def _apply_preprocessing(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply NASA-style preprocessing pipeline to BMKG data"""
-        logger.info("Starting BMKG data preprocessing with NASA-style pipeline...")
+    
+    def _get_default_options(self)-> Dict[str, Any]:
+        """Get default preprocessing options with gap-aware wind parameter configs"""
+        return {
+            # Imputation settings
+            "fill_missing": True,
+            "detect_gaps": True,
+            "max_gap_interpolate": 30,  # 30 days max for interpolation
+            
+            # Outlier detection settings
+            "detect_outliers": True,
+            "outlier_methods": ["iqr", "zscore"],
+            "iqr_multiplier": 2.5,
+            "zscore_threshold": 3.5,
+            "outlier_treatment": "interpolate",
+            
+            # Smoothing settings (NO ML!)
+            "apply_smoothing": False,  # focuses on imputation, not smoothing
+            
+            # Coverage analysis
+            "calculate_coverage": True,
+            
+            # Parameters to process
+            "columns_to_process": self.params_to_process,
+            
+            # Parameter-specific configurations
+            "parameter_configs": {
+                # FORECASTING CRITICAL - Full imputation effort
+                "TAVG": {
+                    "forecasting_critical": True,
+                    "max_gap_interpolate": 7,
+                    "apply_smoothing_on_imputed": True,
+                    "smoothing_alpha": 0.15,
+                    "reason": "Temperature is critical for forecasting (smooth only imputed points)"
+                },
+                "RR": {
+                    "forecasting_critical": True,
+                    "max_gap_interpolate": 7,
+                    "reason": "Rainfall - impute only short gaps (gap-aware)"
+                },
+                "RH_AVG": {
+                    "forecasting_critical": True,
+                    "max_gap_interpolate": 7,
+                    "apply_smoothing_on_imputed": True,
+                    "smoothing_alpha": 0.15,
+                    "reason": "Humidity is critical for forecasting (smooth only imputed points)"
+                },
+                # SUPPORTING - Standard imputation
+                "TX": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 14,
+                    "reason": "Supporting parameter for forecasting"
+                },
+                "TN": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 14,
+                    "reason": "Supporting parameter for forecasting"
+                },
+                "SS": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 14,
+                    "reason": "Supporting parameter for forecasting"
+                },
+                
+                # METADATA - Minimal/No forced imputation
+                "FF_X": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind data - metadata only, don't force completion"
+                },
+                "FF_AVG": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind data - metadata only, don't force completion"
+                },
+                "DDD_X": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind direction - metadata only"
+                },
+                "DDD_CAR": {
+                    "forecasting_critical": False,
+                    "max_gap_interpolate": 3,
+                    "skip_long_gaps": True,
+                    "reason": "Wind direction cardinal - metadata only"
+                }
+            }
+        }
         
+    def _apply_preprocessing(
+        self, 
+        df: pd.DataFrame
+    )-> pd.DataFrame:
+        """
+        Apply preprocessing pipeline with gap aware wind parameter handling
+        
+        Pipeline steps:
+        1. Prepare temporal features
+        2. Replace fill values
+        3. Detect gaps
+        4. Detect and handle outliers
+        5. Impute missing values
+        6. Apply physical constraints
+        """
+        logger.info("PROGRESS: Starting preprocessing steps...")
+        logger.info("Starting preprocessing steps")
         processed_df = df.copy()
-        total_steps = 10
-        current_step = 0
+            
+        # Step 1: Prepare temporal features
+        logger.info("[1/6] Preparing temporal features...")
+        processed_df = self._prepare_temporal_features(processed_df)
         
-        # Store original data BEFORE any modifications
-        self.original_data = df.copy()
-        
-        def log_progress(stage, message):
-            nonlocal current_step
-            current_step += 1
-            percentage = int((current_step / total_steps) * 100)
-            logger.info(f"PROGRESS:{percentage}:{stage}:{message}")
-        
-        # Ensure Date is datetime and set as index
-        if 'Date' in processed_df.columns:
-            processed_df['Date'] = pd.to_datetime(processed_df['Date'])
-            processed_df = processed_df.set_index('Date').sort_index()
-        
-        # Add temporal features
-        processed_df['month'] = processed_df.index.month
-        processed_df['Season'] = processed_df.index.month.map(
-            lambda m: 'Wet' if m in [9, 10, 11, 12, 1, 2, 3] else 'Dry'
-        )
-        
-        # STEP 1: Replace BMKG missing codes
-        log_progress("fill_values", "Replacing fill values with NaN...")
+        # Step 2: Replace fill values
+        logger.info("[2/6] Replacing fill values...")
         processed_df = self._replace_fill_values(processed_df)
+
+        # Step 2.5: Detect and fix suspicious zeros in wind data (NEW)
+        logger.info("[2.5/6] Detecting suspicious zeros...")
+        processed_df = self._detect_and_fix_suspicious_zeros(processed_df)
+
+        # Save original_data AFTER fill values replaced and suspicious zeros fixed
+        cols_to_keep = [col for col in processed_df.columns 
+                        if col not in ['Season', 'Month', 'is_RR_missing']]
+        self.original_data = processed_df[cols_to_keep].copy()
+        logger.info(f"Saved original data reference with DatetimeIndex (shape: {self.original_data.shape})")
         
-        # STEP 2: Detect and report gaps
-        log_progress("gap_detection", "Detecting gaps in time series...")
+        # Step 3: Detect gaps
         if self.options.get("detect_gaps", True):
+            logger.info("[3/6] Detecting gaps...")
             self._detect_gaps(processed_df)
         
-        # STEP 3: Handle missing values (BMKG-specific imputation)
-        log_progress("imputation", "Imputing missing values...")
-        if self.options.get("fill_missing", True):
-            processed_df = self._impute_missing_values(processed_df)
-        
-        # STEP 4: Detect and handle outliers
-        log_progress("outliers", "Detecting and handling outliers...")
-        if self.options.get("drop_outliers", True):
+        # Step 4: Detect and handle outliers
+        if self.options.get("detect_outliers", True):
+            logger.info("[4/6] Detecting and handling outliers...")
             processed_df = self._handle_outliers(processed_df)
         
-        # STEP 5: Apply physical constraints
-        log_progress("physical_constraints", "Applying physical constraints...")
+        # Step 5: Impute missing values with gap-aware wind handling (MODIFIED)
+        if self.options.get("fill_missing", True):
+            logger.info("[5/6] Imputing missing values with gap-aware logic")
+            processed_df = self._impute_missing_values(processed_df)
+
+        # NEW: Step 5.5 - Light smoothing on imputed points only
+        logger.info("[5.5/6] Applying light smoothing on imputed segments (selected params)...")
+        param_cfg = self.options.get("parameter_configs", {})
+
+        for param, flag_col in [("TAVG", "TAVG_imputed"), ("RH_AVG", "RH_AVG_imputed")]:
+            if param not in processed_df.columns or flag_col not in processed_df.columns:
+                continue
+            
+            if not param_cfg.get(param, {}).get("apply_smoothing_on_imputed", False):
+                continue
+            
+            alpha = float(param_cfg.get(param, {}).get("smoothing_alpha", 0.15))
+            mask = processed_df[flag_col].fillna(False) & processed_df[param].notna()
+            
+            if mask.any():
+                smoothed = processed_df[param].ewm(alpha=alpha, adjust=True).mean()
+                processed_df.loc[mask, param] = smoothed.loc[mask]
+                logger.info(f"  {param}: smoothed {int(mask.sum())} imputed points (α={alpha})")
+
+        # Step 6: Apply physical constraints
+        logger.info("[6/6] Applying physical constraints...")
         processed_df = self._apply_physical_constraints(processed_df)
         
-        # STEP 6: Optimize alpha (if enabled)
-        if self.options.get("adaptive_alpha_selection", False):
-            log_progress("alpha_optimization", "Optimizing smoothing parameters...")
-            self._optimize_parameter_alphas(processed_df)
-        
-        # STEP 7: Apply smoothing
-        log_progress("smoothing", "Applying smoothing methods...")
-        processed_df = self._apply_smoothing(processed_df)
-        
-        # STEP 8: Validate smoothing quality
-        log_progress("smoothing_validation", "Validating smoothing quality (GCV + Trend)...")
-        self._validate_smoothing_method(processed_df)
-        
-        # STEP 9: Calculate model coverage
-        log_progress("model_coverage", "Calculating model coverage analysis...")
-        if self.options.get("calculate_coverage", True):
-            self._calculate_model_coverage(processed_df)
-        
-        # STEP 10: Generate quality metrics
-        log_progress("quality_metrics", "Generating quality metrics...")
-        self._generate_quality_metrics(df, processed_df)
-        
-        # Reset index to have Date as column
-        processed_df = processed_df.reset_index()
-        
-        logger.info(f"Preprocessing completed - processed {len(processed_df)} records")
+        logger.info("preprocessing pipeline completed")
         return processed_df
-
+    
+    
+    def _prepare_temporal_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Prepare temporal features (Date index, Season, Month)"""
+        
+        # Ensure Date is datetime and set as index
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'])
+            df = df.set_index('Date').sort_index()
+        elif df.index.name != 'Date':
+            # Try to create Date from Year/Month/Day
+            if all(col in df.columns for col in ['Year', 'Month', 'Day']):
+                df['Date'] = pd.to_datetime(df[['Year', 'Month', 'Day']])
+                df = df.set_index('Date').sort_index()
+        
+        # Add Season column
+        df['Season'] = df.index.month.map(
+            lambda m: 'Wet' if m in self.season_config['wet_months'] else 'Dry'
+        )
+        
+        # Add Month name
+        df['Month'] = df.index.month_name()
+        
+        logger.info(f"    Date range: {df.index.min()} to {df.index.max()}")
+        logger.info(f"    Temporal features added: Season, Month")
+        
+        return df
+    
     def _replace_fill_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """Replace BMKG fill values (8888, 9999) with NaN"""
-        logger.info("Replacing fill values with NaN...")
-        
-        fill_values = [8888, 9999, 8888.0, 9999.0]
-        params = self.options.get("columns_to_process", [])
         
         replaced_count = {}
-        for param in params:
-            if param in df.columns:
-                mask = df[param].isin(fill_values)
-                count = mask.sum()
-                if count > 0:
-                    df.loc[mask, param] = np.nan
-                    replaced_count[param] = int(count)
+        
+        for param in self.params_to_process:
+            if param not in df.columns:
+                continue
+            
+            mask = df[param].isin(self.missing_codes)
+            count = mask.sum()
+            
+            if count > 0:
+                df.loc[mask, param] = np.nan
+                replaced_count[param] = int(count)
         
         self.preprocessing_report["missing_data"]["fill_values_replaced"] = replaced_count
-        logger.info(f"Replaced fill values: {replaced_count}")
+        
+        # FF_AVG Zero Analysis
+        if 'FF_AVG' in df.columns:
+            ff_avg_zeros = (df['FF_AVG'] == 0.0).sum()
+            ff_avg_missing = df['FF_AVG'].isna().sum()
+            ff_avg_valid = ((df['FF_AVG'] > 0) & df['FF_AVG'].notna()).sum()
+            total = len(df)
+            
+            # Suspicious zeros: FF_X > 0 but FF_AVG = 0
+            if 'FF_X' in df.columns:
+                suspicious_zeros = (
+                    (df['FF_X'] > 0) & 
+                    (df['FF_AVG'] == 0.0) & 
+                    df['FF_AVG'].notna()
+                ).sum()
+            else:
+                suspicious_zeros = 0
+            
+            logger.info("FF_AVG ZERO-INFLATION DIAGNOSTIC (BEFORE FIX)")
+            logger.info(f"Total records: {total}")
+            logger.info(f"FF_AVG = 0.0: {ff_avg_zeros} ({ff_avg_zeros/total*100:.1f}%)")
+            logger.info(f"FF_AVG missing: {ff_avg_missing} ({ff_avg_missing/total*100:.1f}%)")
+            logger.info(f"FF_AVG > 0 (valid): {ff_avg_valid} ({ff_avg_valid/total*100:.1f}%)")
+            logger.info(f"Suspicious zeros (FF_X>0 but FF_AVG=0): {suspicious_zeros} ({suspicious_zeros/total*100:.1f}%)")
+        
+        if replaced_count:
+            logger.info(f"Replaced fill values: {replaced_count}")
+        else:
+            logger.info("No fill values found")
+        
+        # PHASE 1 FIX: FF_AVG SUSPICIOUS ZERO REPLACEMENT
+        # Replace suspicious zeros with NaN BEFORE outlier detection
+        # This ensures two-tier imputation handles them correctly
+        # instead of treating them as valid calm wind conditions
+        
+        if 'FF_AVG' in df.columns and 'FF_X' in df.columns:
+            
+            # Identify suspicious zeros
+            suspicious_mask = (
+                (df['FF_AVG'] == 0.0) &      # FF_AVG is zero
+                (df['FF_X'] > 0) &            # But FF_X is positive
+                df['FF_AVG'].notna()          # And FF_AVG is not NaN
+            )
+            
+            suspicious_count = suspicious_mask.sum()
+            
+            if suspicious_count > 0:
+                # Store original values for reporting
+                suspicious_dates = df.index[suspicious_mask]
+                sample_dates = suspicious_dates[:5]  # First 5 for logging
+                
+                logger.info(f"Detected {suspicious_count} suspicious FF_AVG zeros")
+                
+                logger.info("Sample suspicious zeros:")
+                logger.info(f"{'Date':<12} {'FF_X':>8} {'FF_AVG (orig)':>15} {'Action':<20}")
+                
+                for idx in sample_dates:
+                    ff_x_val = df.loc[idx, 'FF_X']
+                    ff_avg_val = df.loc[idx, 'FF_AVG']
+                    logger.info(
+                        f"{idx.strftime('%Y-%m-%d'):<12} "
+                        f"{ff_x_val:>8.1f} "
+                        f"{ff_avg_val:>15.1f} "
+                        f"{'→ Replace with NaN':<20}"
+                    )
+                
+                if suspicious_count > 5:
+                    logger.info(f"... and {suspicious_count - 5} more")
+                
+                # Replace suspicious zeros with NaN
+                df.loc[suspicious_mask, 'FF_AVG'] = np.nan
+                
+                # Update statistics
+                ff_avg_zeros_after = (df['FF_AVG'] == 0.0).sum()
+                ff_avg_missing_after = df['FF_AVG'].isna().sum()
+                
+                logger.info("Fix applied successfully:")
+                logger.info(f"  Suspicious zeros replaced: {suspicious_count}")
+                logger.info(f"  FF_AVG = 0.0 remaining: {ff_avg_zeros_after} (legitimate calm wind)")
+                logger.info(f"  FF_AVG missing (total): {ff_avg_missing_after} (will be imputed)")
+                
+                
+                # Store in preprocessing report
+                if "suspicious_zeros" not in self.preprocessing_report:
+                    self.preprocessing_report["suspicious_zeros"] = {}
+                
+                self.preprocessing_report["suspicious_zeros"]["FF_AVG"] = {
+                    "count": int(suspicious_count),
+                    "percentage": round((suspicious_count / total) * 100, 2),
+                    "action": "replaced_with_nan",
+                    "reason": "physical_impossibility_FF_X_greater_than_zero"
+                }
+                                
+            else:
+                logger.info("No suspicious FF_AVG zeros detected (all zeros are legitimate)")
         return df
-
+    
+    def _detect_and_fix_suspicious_zeros(
+        self,
+        df: pd.DataFrame
+    )-> pd.DataFrame:
+        """ Detect and fix suspicious FF_AVG=0 where FF_X>0"""
+        suspicious_count = 0
+        
+        if 'FF_AVG' in df.columns and 'FF_X' in df.columns:
+            # Find suspicious cases: FF_X > 0 but FF_AVG = 0
+            suspicious_mask = (df['FF_X'] > 0) & (df['FF_AVG'] == 0.0)
+            suspicious_count = suspicious_mask.sum()
+            
+            if suspicious_count > 0:
+                logger.info(f"Detected {suspicious_count} suspicious FF_AVG zeros ({suspicious_count/len(df)*100:.1f}%)")
+                
+                # Replace suspicious zeros with NaN
+                df.loc[suspicious_mask, 'FF_AVG'] = np.nan
+                
+                # Store in report
+                self.preprocessing_report["suspicious_zeros"] = {
+                    "ff_avg_zeros_detected": int(suspicious_count),
+                    "percentage": round((suspicious_count/len(df))*100, 1),
+                    "action": "replaced_with_nan"
+                }
+        return df
+        
+    
     def _detect_gaps(self, df: pd.DataFrame) -> None:
-        """Detect and classify gaps in the BMKG time series"""
-        logger.info("Detecting gaps in time series data...")
+        """Detect and classify gaps in time series uses same logic as preprocessing_bmkg.py"""
         
         dates = df.index
-        
-        # Find expected date range
         date_range = pd.date_range(start=dates.min(), end=dates.max(), freq='D')
         missing_dates = date_range.difference(dates)
         
         if len(missing_dates) == 0:
-            logger.info("No date gaps found")
+            logger.info("    No date gaps found")
             self.preprocessing_report["gaps"] = {
                 "total_gaps": 0,
                 "gap_details": []
             }
             return
         
-        # Group consecutive missing dates into gaps
+        # Group consecutive missing dates
         gaps = []
         current_gap = [missing_dates[0]]
         
@@ -725,15 +1206,15 @@ class BmkgPreprocessor:
                 current_gap = [missing_dates[i]]
         gaps.append(current_gap)
         
-        # Classify gaps (BMKG thresholds)
+        # Classify gaps
         gap_details = []
         small_gaps = medium_gaps = large_gaps = 0
         
         for gap in gaps:
             duration = len(gap)
             gap_info = {
-                "start_date": str(gap[0]),
-                "end_date": str(gap[-1]),
+                "start_date": str(gap[0].date()),
+                "end_date": str(gap[-1].date()),
                 "duration_days": duration
             }
             
@@ -751,10 +1232,9 @@ class BmkgPreprocessor:
                 large_gaps += 1
                 
                 if duration > 90:
-                    self.preprocessing_report["warnings"].append(
-                        f"Large gap detected: {gap_info['start_date']} to {gap_info['end_date']} "
-                        f"({duration} days) - not interpolated"
-                    )
+                    warning = (f"Large gap detected: {gap_info['start_date']} to "
+                              f"{gap_info['end_date']} ({duration} days)")
+                    self.preprocessing_report["warnings"].append(warning)
             
             gap_details.append(gap_info)
         
@@ -763,829 +1243,1246 @@ class BmkgPreprocessor:
             "small_gaps": small_gaps,
             "medium_gaps": medium_gaps,
             "large_gaps": large_gaps,
-            "gap_details": gap_details[:10]  # First 10
+            "gap_details": gap_details[:10]  # Store first 10
         }
-        logger.info(f"Detected {len(gaps)} gaps: {small_gaps} small, {medium_gaps} medium, {large_gaps} large")
-   
-    def _impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Impute missing values using BMKG-specific methods"""
-        logger.info("Imputing missing values...")
         
-        # Order matters! Temperature and humidity first (needed for rainfall model)
-        df = self._impute_temperature(df)
-        df = self._impute_humidity(df)
-        df = self._impute_rainfall(df)
-        df = self._impute_wind_speed_max(df)
-        df = self._impute_wind_speed_avg(df)
-        df = self._impute_wind_direction_degrees(df)
-        df = self._impute_sunshine_duration(df)
-        df = self._impute_wind_direction_cardinal(df)
-        
-        return df
-    
-    def _impute_rainfall(
+        logger.info(f"    Detected {len(gaps)} gaps: {small_gaps} small, "
+                   f"{medium_gaps} medium, {large_gaps} large")
+    def _handle_outliers(
         self,
-        df: pd.DataFrame
-    ) -> pd.DataFrame:
+        df: pd.DataFrame,
+    )-> pd.DataFrame:
         """
-        Impute missing rainfall (RR) values using context-aware methods
-        BMKG RR special handling:
-        - Preserves zero values (dry days are important signal, not missing data)
-        - Uses surrounding context for interpolation
-        - Avoids creating unrealistic rain patterns
+        Detect and handle outliers using IQR and Z-score methods
+        
+        Strategy:
+        - IQR method: Q1 - k*IQR, Q3 + k*IQR (k=2.0 default)
+        - Z-score method: |z| > threshold (3.5 default)
+        - Treatment: Set to NaN for later imputation
         """
         
-        if 'RR' not in df.columns:
-            return df
+        outlier_stats = {}
+        methods = self.options.get("outlier_methods", ["iqr", "zscore"])
         
-        missing_mask = df['RR'].isna()
-        
-        if not missing_mask.any():
-            logger.info("  ✓ RR: No missing values")
-            return df
-        
-        missing_count = missing_mask.sum()
-        logger.info(f"  • RR: Imputing {missing_count} missing values...")
-        
-        # Get indices of missing values
-        missing_indices = np.where(missing_mask)[0]
-        
-        imputed_count = 0
-        
-        for idx in missing_indices:
-            # Get surrounding context (before and after)
-            before_idx = max(0, idx - 1)
-            after_idx = min(len(df) - 1, idx + 1)
-            
-            before_val = df.iloc[before_idx]['RR'] if before_idx < idx else np.nan
-            after_val = df.iloc[after_idx]['RR'] if after_idx > idx else np.nan
-            
-            if pd.notna(before_val) and pd.notna(after_val):
-                # Both sides have data
-                if before_val == 0 and after_val == 0:
-                    # No rain before and after → assume no rain (dry period)
-                    df.loc[df.index[idx], 'RR'] = 0.0
-                else:
-                    # Interpolate between rainy periods
-                    df.loc[df.index[idx], 'RR'] = (before_val + after_val) / 2
-                imputed_count += 1
-                
-            elif pd.notna(before_val):
-                # Only before has data → forward fill
-                df.loc[df.index[idx], 'RR'] = before_val
-                imputed_count += 1
-                
-            elif pd.notna(after_val):
-                # Only after has data → backward fill
-                df.loc[df.index[idx], 'RR'] = after_val
-                imputed_count += 1
-        
-        # Log imputation results
-        if imputed_count > 0:
-            logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} RR values")
-        
-        # Store imputation stats
-        if "imputation" not in self.preprocessing_report:
-            self.preprocessing_report["imputation"] = {}
-        self.preprocessing_report["imputation"]["RR"] = {
-            "missing_count": int(missing_count),
-            "imputed_count": int(imputed_count),
-            "method": "context_aware"
-        }
-        
-        return df
-    
-    def _impute_temperature(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing temperature values (TN, TX, TAVG)
-        Uses standard linear + spline interpolation
-        """
-        temp_params = ['TN', 'TX', 'TAVG']
-        
-        for param in temp_params:
+        for param in self.params_to_process:
             if param not in df.columns:
                 continue
-            
-            missing_count = df[param].isna().sum()
-            
-            if missing_count == 0:
-                logger.info(f"  ✓ {param}: No missing values")
+        
+            # Skip non-numeric parameters
+            if param == 'DDD_CAR':
                 continue
             
-            logger.info(f"  • {param}: Imputing {missing_count} missing values...")
+            # Get valid range for this parameter
+            if param not in self.valid_ranges:
+                continue
             
-            # Step 1: Linear interpolation (7 day limit)
-            df[param] = df[param].interpolate(method='linear', limit=7, limit_direction='both')
+            min_val, max_val = self.valid_ranges[param]
+            outliers_detected = 0
+            outlier_mask = pd.Series(False, index=df.index)
             
-            # Step 2: Spline for remaining gaps (30 day limit)
-            remaining_missing = df[param].isna().sum()
-            if remaining_missing > 0 and remaining_missing < missing_count:
-                df[param] = df[param].interpolate(method='spline', order=3, limit=30, limit_direction='both')
+            # Suspicious zero detection: FF_AVG=0 tapi FF_X>0
+            if param == 'FF_AVG' and 'FF_X' in df.columns:
+                suspicious_zero_mask = (
+                    (df['FF_AVG'] == 0.0) &
+                    (df['FF_X'] > 0) &
+                    df['FF_AVG'].notna()
+                )
+                outlier_mask |= suspicious_zero_mask
+                logger.info(f"    Detected {suspicious_zero_mask.sum()} suspicious FF_AVG zeros (FF_X>0 but FF_AVG=0)")
             
-            # Step 3: Forward/backward fill for edge cases (3 day limit)
-            df[param] = df[param].fillna(method='ffill', limit=3)
-            df[param] = df[param].fillna(method='bfill', limit=3)
+            # Method 1: IQR
+            if "iqr" in methods:
+                Q1 = df[param].quantile(0.25)
+                Q3 = df[param].quantile(0.75)
+                IQR = Q3 - Q1
+                
+                k = self.options.get("iqr_multiplier", 2.5)
+                lower_bound = Q1 - k * IQR
+                upper_bound = Q3 + k * IQR
+                
+                iqr_outliers = (df[param] < lower_bound) | (df[param] > upper_bound)
+                outlier_mask |= iqr_outliers
             
-            final_missing = df[param].isna().sum()
-            imputed_count = missing_count - final_missing
+            # Method 2: Z-score
+            if "zscore" in methods:
+                threshold = self.options.get("zscore_threshold", 3.5)
+                mean = df[param].mean()
+                std = df[param].std()
+                
+                if std > 0:
+                    z_scores = np.abs((df[param] - mean) / std)
+                    zscore_outliers = z_scores > threshold
+                    outlier_mask |= zscore_outliers
             
-            logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} {param} values")
+            # Method 3: Physical range (always applied)
+            range_outliers = (df[param] < min_val) | (df[param] > max_val)
+            outlier_mask |= range_outliers
             
-            if "imputation" not in self.preprocessing_report:
-                self.preprocessing_report["imputation"] = {}
-            self.preprocessing_report["imputation"][param] = {
-                "missing_count": int(missing_count),
-                "imputed_count": int(imputed_count),
-                "method": "linear_spline_ffill"
+            # Count outliers 
+            outliers_detected = outlier_mask.sum()
+            
+            if outliers_detected > 0:
+                # Apply treatment
+                treatment = self.options.get("outlier_treatment", "interpolate")
+                
+                if treatment == "interpolate":
+                    df.loc[outlier_mask, param] = np.nan
+                    
+                elif treatment == "cap":
+                    df.loc[df[param] < min_val, param] = min_val
+                    df.loc[df[param] > max_val, param] = max_val
+                    
+                outlier_stats[param] = {
+                    "count": int(outliers_detected),
+                    "percentage": round((outliers_detected / len(df)) * 100, 2),
+                    "treatment": treatment
+                }
+        
+        self.preprocessing_report["outliers"] = outlier_stats
+            
+        if outlier_stats:
+            total_outliers = sum(v["count"] for v in outlier_stats.values())
+            logger.info(f"    Detected and handled {total_outliers} outliers across {len(outlier_stats)} parameters")
+        else:
+            logger.info("    No outliers detected")
+        
+        return df
+    
+    def _impute_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Impute missing values using smoothing-based methods (NO ML)
+        Uses gap-aware logic for wind parameters only
+        """
+        
+        imputation_stats = {}
+        
+        # Track missing values before imputation
+        missing_before = {}
+        for param in self.params_to_process:
+            if param in df.columns:
+                missing_before[param] = int(df[param].isna().sum())
+        
+        # 1. RAINFALL (RR) - Most complex
+        if 'RR' in df.columns:
+            logger.info("Imputing RR (Rainfall)...")
+            df = self._impute_rainfall(df)
+            
+        # 2. TEMPERATURE (TX, TN, TAVG)
+        temp_params = ['TX', 'TN', 'TAVG']
+        if any(p in df.columns for p in temp_params):
+            logger.info("Imputing TX/TN/TAVG (Temperature)...")
+            df = self._impute_temperature(df)
+        
+        # 3. HUMIDITY (RH_AVG)
+        if 'RH_AVG' in df.columns:
+            logger.info("Imputing RH_AVG (Humidity)...")
+            df = self._impute_humidity(df)
+        
+        # 4. WIND SPEED (FF_X, FF_AVG) - GAP-AWARE
+        if 'FF_X' in df.columns or 'FF_AVG' in df.columns:
+            logger.info("Imputing FF_X/FF_AVG (Wind Speed - Gap Aware)...")
+            df = self._impute_wind_speed_gap_aware(df)
+        
+        # 5. WIND DIRECTION (DDD_X)
+        if 'DDD_X' in df.columns:
+            logger.info("Imputing DDD_X (Wind Direction)...")
+            df = self._impute_wind_direction(df)
+        
+        # 6. SUNSHINE DURATION (SS)
+        if 'SS' in df.columns:
+            logger.info("Imputing SS (Sunshine)...")
+            df = self._impute_sunshine(df)
+        
+        # 7. CARDINAL DIRECTION (DDD_CAR)
+        if 'DDD_CAR' in df.columns:
+            logger.info("Imputing DDD_CAR (Cardinal Direction)...")
+            df = self._impute_cardinal_direction(df)
+            
+        # Track missing values after imputation
+        missing_after = {}
+        for param in self.params_to_process:
+            if param in df.columns:
+                missing_after[param] = int(df[param].isna().sum())
+                
+                if param in missing_before:
+                    imputed_count = missing_before[param] - missing_after[param]
+                    if imputed_count > 0:
+                        imputation_stats[param] = {
+                            "before": missing_before[param],
+                            "after": missing_after[param],
+                            "imputed": imputed_count,
+                            "success_rate": round((imputed_count / missing_before[param]) * 100, 2) 
+                                        if missing_before[param] > 0 else 0,
+                            "method": self._get_imputation_method(param)
+                        }
+        
+        self.preprocessing_report["imputation"] = imputation_stats
+        
+        total_imputed = sum(v["imputed"] for v in imputation_stats.values())
+        logger.info(f"    Successfully imputed {total_imputed} values across {len(imputation_stats)} parameters")
+        
+        return df
+    
+    def _impute_rainfall(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Two-stage rainfall imputation approach
+        
+        Stage 1: Binary rain occurrence classification
+        Stage 2: Conditional amount imputation for rain days
+        
+        Expected Results:
+        - GCV improvement: 24M → ~750k (96.9% reduction)
+        - Trend preservation: 71.8% → ~87%
+        - Agricultural logic: Rain/no-rain patterns preserved
+        """
+        logger.info(f"Starting Two-Stage Rainfall Imputation...")
+        
+        df['is_RR_missing'] = df['RR'].isna().astype(int)
+        original_missing_count = df['is_RR_missing'].sum()
+        
+        if original_missing_count == 0:
+            logger.info("No missing rainfall values to impute")
+            return df
+        
+        logger.info(f"Processing {original_missing_count} missing rainfall values")
+        
+        # NEW: gap-aware long-gap marking (consecutive NaN runs)
+        param_config = self.options.get("parameter_configs", {}).get("RR", {})
+        max_gap = int(param_config.get("max_gap_interpolate", 7))
+        
+        df["_RR_long_gap"] = False
+        rr_missing_idx = df.index[df["RR"].isna()]
+        
+        if len(rr_missing_idx) > 0:
+            current_run = [rr_missing_idx[0]]
+            for t in rr_missing_idx[1:]:
+                if (t - current_run[-1]).days == 1:
+                    current_run.append(t)
+                else:
+                    if len(current_run) > max_gap:
+                        df.loc[current_run, "_RR_long_gap"] = True
+                    current_run = [t]
+            if len(current_run) > max_gap:
+                df.loc[current_run, "_RR_long_gap"] = True
+        
+        long_gap_count = df["_RR_long_gap"].sum()
+        logger.info(f"Marked {long_gap_count} long-gap points (>{max_gap} days)")
+        
+        # Keep dry peak logic (skip long gaps)
+        dry_peak_mask = (
+            (df['Season'] == 'Dry') & 
+            df['RR'].isna() & 
+            (~df["_RR_long_gap"]) &  # NEW: don't force long gaps
+            df.index.month.isin(self.season_config['dry_season_peak'])
+        )
+        dry_peak_count = 0
+        if dry_peak_mask.sum() > 0:
+            df.loc[dry_peak_mask, 'RR'] = 0
+            dry_peak_count = dry_peak_mask.sum()
+            logger.info(f"Set {dry_peak_count} peak dry season values to 0")
+        
+        # Stage 1: Binary rain occurrence classification (skip long gaps)
+        remaining_missing = (df['RR'].isna() & (~df["_RR_long_gap"])).sum()
+        if remaining_missing > 0:
+            logger.info(f"Stage 1: Classifying rain occurrence for {remaining_missing} values")
+            df = self._classify_rain_occurrence(df)
+            
+            # Stage 2: Conditional amount imputation (FIXED)
+            rain_days_to_impute = (
+                (df.get('rain_classified', 0) == 1) &
+                (df['is_RR_missing'] == 1) &
+                (df['RR'].isna()) &
+                (~df["_RR_long_gap"])
+            )
+            rain_days_count = int(rain_days_to_impute.sum())
+            
+            if rain_days_count > 0:
+                logger.info(f"Stage 2: Imputing amounts for {rain_days_count} classified rain days")
+                df = self._impute_rain_amounts(df)
+                
+        # Final validation and cleanup
+        df = self._finalize_rainfall_imputation(df)
+        final_missing = df['RR'].isna().sum()
+        imputed_count = original_missing_count - final_missing
+        
+        logger.info(f"  Original missing values: {original_missing_count}")
+        logger.info(f"  Dry peak set to 0: {dry_peak_count}")
+        logger.info(f"  Two-stage imputed: {imputed_count - dry_peak_count}")
+        logger.info(f"  Total resolved: {imputed_count}")
+        logger.info(f"  Still missing: {final_missing}")
+        logger.info(f"  Success rate: {((imputed_count / original_missing_count) * 100) if original_missing_count > 0 else 0:.1f}%")
+        return df
+    
+    def _classify_rain_occurrence(
+        self,
+        df: pd.DataFrame
+    )-> pd.DataFrame:
+        """
+        Stage 1: Classify rain/no-rain for missing values
+        
+        Agricultural Logic:
+        1. Seasonal probability (Indonesian wet/dry patterns)
+        2. Markov chain (rain event clustering)
+        3. Context awareness (meteorological indicators)
+        
+        Decision Framework:
+        - Combine all 3 methods with weighted scoring
+        - Threshold: >0.5 = rain day, ≤0.5 = no rain
+        """
+        long_gap_mask = df["_RR_long_gap"] if "_RR_long_gap" in df.columns else pd.Series(False, index=df.index)
+        missing_mask = df["RR"].isna() & (~long_gap_mask)
+
+        classified_rain = 0
+        classified_dry = 0
+        confidence_scores = []
+        
+        for idx in df.index[missing_mask]:
+            month = idx.month
+            season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
+            
+            # NEW: seasonal threshold
+            if month in self.season_config['dry_season_peak']:
+                threshold = 0.70
+            elif month in self.season_config['dry_months']:
+                threshold = 0.60
+            else:
+                threshold = 0.50
+            
+            # Method 1: Seasonal probability
+            if month in self.season_config['dry_season_peak']:
+                base_prob = self.rain_classification_config['probability_thresholds']['dry_peak_base']
+            elif season == 'Wet':
+                base_prob = self.rain_classification_config['probability_thresholds']['wet_season_base']
+            else:
+                base_prob = self.rain_classification_config['probability_thresholds']['dry_season_base']
+            
+            # Method 2: Markov chain adjustment
+            markov_prob = self._calculate_markov_probability(df, idx)
+            
+            # Method 3: Context awareness
+            context_prob = self._calculate_context_probability(df, idx)
+            
+            # Weighted combination
+            final_probability = (
+                0.40 * base_prob +
+                0.35 * markov_prob +
+                0.25 * context_prob
+            )
+            
+            # FIX: confidence (0.0 uncertain near 0.5, 1.0 certain near 0/1)
+            confidence = 2 * abs(final_probability - 0.5)
+            confidence = max(0.0, min(1.0, confidence))
+            confidence_scores.append(confidence)
+            
+            # NEW: abstain zone (leave NaN for uncertain cases)
+            if 0.45 <= final_probability <= 0.65:
+                continue
+            
+            # DECISION: Rain or No Rain
+            if final_probability > threshold:
+                df.loc[idx, 'rain_classified'] = 1
+                classified_rain += 1
+            else:
+                df.loc[idx, 'RR'] = 0
+                df.loc[idx, 'rain_classified'] = 0
+                classified_dry += 1
+                
+        if confidence_scores:
+            avg_confidence = np.mean(confidence_scores)
+            self.imputation_confidence['RR'] = avg_confidence
+            
+            logger.info(f"RR classification confidence: {avg_confidence:.3f} (1.0=certain, 0.0=uncertain)")
+        
+        logger.info(f"Binary classification results:")
+        logger.info(f"Classified as rain days: {classified_rain}")
+        logger.info(f"Classified as dry days: {classified_dry}")
+        logger.info(f"Rain day ratio: {(classified_rain / (classified_rain + classified_dry) * 100) if (classified_rain + classified_dry) > 0 else 0:.1f}%")
+        
+        return df
+    
+    def _calculate_markov_probability(
+        self, 
+        df: pd.DataFrame,
+        current_idx
+        )-> float:
+        """
+        Calculate rain probability based on yesterday's state (Markov chain)
+        
+        Indonesian Rainfall Patterns:
+        - Rain events cluster (monsoon bursts)
+        - Dry spells persist (trade wind dominance)  
+        - Transition probabilities vary by season
+        """
+        
+        try:
+            # Get yesterday date
+            yesterday_idx = current_idx - pd.Timedelta(days=1)
+            
+            if yesterday_idx not in df.index:
+                return 0.5
+            
+            yesterday_rr = df.loc[yesterday_idx, 'RR']
+            
+            # If yesterday data is missing, look 2-3 days back
+            if pd.isna(yesterday_rr):
+                for days_back in [2,3]:
+                    prev_idx = current_idx - pd.Timedelta(days=days_back)
+                    if prev_idx in df.index:
+                        prev_rr = df.loc[prev_idx, 'RR']
+                        if not pd.isna(prev_rr):
+                            yesterday_rr = prev_rr
+                            break
+                        
+            # Still no data, return netral
+            if pd.isna(yesterday_rr):
+                return 0.5
+            
+            # Apply Markov transitions
+            if yesterday_rr > 0:
+                # Yesterday rained → higher chance today
+                return self.rain_classification_config['markov_weights']['rain_to_rain']
+            else:
+                # Yesterday dry → lower chance today  
+                return self.rain_classification_config['markov_weights']['dry_to_rain']
+        except Exception as e:
+            logger.debug(f"Markov calculation error for {current_idx}: {str(e)}")
+            return 0.5
+        
+    
+    def _calculate_context_probability(
+        self,
+        df: pd.DataFrame, 
+        current_idx
+    )-> float:
+        """
+        Calculate rain probability from meteorological context
+        
+        Indonesian Meteorological Indicators:
+        - High humidity (>85%) = rain likely
+        - Very high humidity (>95%) = rain very likely  
+        - Calm winds (<2.5 m/s) during high humidity = rain
+        - Temperature-humidity combinations
+        """
+        
+        try:
+            # Get meteorological values for current day
+            rh_avg = df.loc[current_idx, 'RH_AVG'] if 'RH_AVG' in df.columns else None
+            ff_x = df.loc[current_idx, 'FF_X'] if 'FF_X' in df.columns else None
+            tavg = df.loc[current_idx, 'TAVG'] if 'TAVG' in df.columns else None
+            
+            context_score = 0.0
+            factors_used = 0
+            
+            # Factor 1: Humidity analysis
+            if pd.notna(rh_avg):
+                factors_used += 1
+                if rh_avg >= self.rain_classification_config['context_thresholds']['rh_very_high']:
+                    context_score += 0.9  # Very high humidity
+                elif rh_avg >= self.rain_classification_config['context_thresholds']['rh_high']:
+                    context_score += 0.7  # High humidity
+                elif rh_avg >= 70:
+                    context_score += 0.4  # Moderate humidity
+                else:
+                    context_score += 0.1  # Low humidity
+            
+            # Factor 2: Wind-humidity combination  
+            if pd.notna(rh_avg) and pd.notna(ff_x):
+                factors_used += 1
+                if (rh_avg >= 85 and 
+                    ff_x <= self.rain_classification_config['context_thresholds']['wind_calm']):
+                    context_score += 0.8  # Calm + humid = rain likely
+                elif (rh_avg >= 75 and 
+                      ff_x <= self.rain_classification_config['context_thresholds']['wind_moderate']):
+                    context_score += 0.5  # Moderate conditions
+                else:
+                    context_score += 0.2  # Other combinations
+            
+            # Factor 3: Multi-day humidity trend
+            if pd.notna(rh_avg):
+                factors_used += 1
+                try:
+                    # Look at 3-day humidity trend
+                    humidity_window = []
+                    for days_back in range(1, 4):
+                        prev_idx = current_idx - pd.Timedelta(days=days_back)
+                        if prev_idx in df.index and 'RH_AVG' in df.columns:
+                            prev_rh = df.loc[prev_idx, 'RH_AVG']
+                            if pd.notna(prev_rh):
+                                humidity_window.append(prev_rh)
+                    
+                    if len(humidity_window) >= 2:
+                        avg_prev_humidity = np.mean(humidity_window)
+                        if rh_avg > avg_prev_humidity + 10:  # Rising humidity
+                            context_score += 0.6
+                        elif rh_avg > avg_prev_humidity:
+                            context_score += 0.4
+                        else:
+                            context_score += 0.2
+                    else:
+                        context_score += 0.3  # Neutral when no trend available
+                        
+                except Exception:
+                    context_score += 0.3  # Neutral on error
+            
+            # Calculate final context probability
+            if factors_used > 0:
+                final_prob = context_score / factors_used
+                return max(0.0, min(1.0, final_prob))  # Clip to [0,1]
+            else:
+                return 0.5  # Neutral when no context available
+            
+        except Exception as e:
+            logger.debug(f"Context calculation error for {current_idx}: {str(e)}")
+            return 0.5
+        
+    def _impute_rain_amounts(
+        self,
+        df: pd.DataFrame
+        )-> pd.DataFrame:
+        """
+        Stage 2: Impute amounts for classified rain days
+        
+        Methods:
+        1. Neighbor context (light/moderate/heavy based on surrounding days)
+        2. Seasonal medians (month-specific realistic amounts)
+        3. Physical constraints (no negatives, reasonable maxima)
+        """
+        
+        # Find rain days that need amounts
+        rain_days_mask = (
+            (df['is_RR_missing'] == 1) & 
+            (df.get('rain_classified', 0) == 1) &
+            df['RR'].isna()
+        )
+        
+        amount_imputed = 0
+        
+        for idx in df.index[rain_days_mask]:
+            # Method 1: Neighbor context analysis
+            neighbor_context = self._analyze_neighbor_context(df, idx)
+            
+            # Method 2: Seasonal median baseline
+            seasonal_baseline = self._get_seasonal_rain_baseline(df, idx)
+            
+            # Method 3: Meteorological intensity adjustment
+            intensity_factor = self._calculate_intensity_factor(df, idx)
+            
+            # COMBINE MethodS TO GET AMOUNT
+            base_amount = seasonal_baseline
+            context_adjusted = base_amount * neighbor_context['multiplier']
+            final_amount = context_adjusted * intensity_factor
+            
+            # Apply physical constraints
+            final_amount = self._apply_rain_amount_constraints(
+                final_amount, df, idx, neighbor_context
+            )
+            
+            # Assign the amount
+            df.loc[idx, 'RR'] = final_amount
+            amount_imputed += 1
+        
+        logger.info(f"Amount imputation results:")
+        logger.info(f"Rain days processed: {amount_imputed}")
+        
+        return df
+    
+    def _analyze_neighbor_context(
+        self,
+        df: pd.DataFrame,
+        current_idx
+    )-> Dict[str, Any]:
+        """
+        Analyze surrounding days to determine rain intensity context
+        
+        Context Categories:
+        - Isolated: Single rain day (light amount)
+        - Cluster: Multi-day rain event (moderate amounts)
+        - Peak: Center of rain event (heavy amount)
+        - Tail: End of rain event (light-moderate)
+        """
+        try:
+            # Look at ±3 days window
+            window_rr = []
+            window_indices = []
+            
+            for offset in range(-3, 4):
+                if offset == 0:
+                    continue
+                    
+                check_idx = current_idx + pd.Timedelta(days=offset)
+                if check_idx in df.index:
+                    rr_val = df.loc[check_idx, 'RR']
+                    if pd.notna(rr_val):
+                        window_rr.append(rr_val)
+                        window_indices.append(offset)
+            
+            if len(window_rr) == 0:
+                return {
+                    'context_type': 'isolated',
+                    'multiplier': 0.8,  # Conservative for isolated
+                    'neighbor_count': 0,
+                    'max_neighbor': 0
+                }
+            
+            # Analyze neighbor patterns
+            rain_neighbors = [rr for rr in window_rr if rr > 0]
+            neighbor_count = len(rain_neighbors)
+            max_neighbor = max(window_rr) if window_rr else 0
+            avg_neighbor = np.mean([rr for rr in window_rr if rr > 0]) if rain_neighbors else 0
+            
+           # Determine context type and multiplier
+            if neighbor_count == 0:
+                context_type = 'isolated'
+                multiplier = 0.8
+            elif neighbor_count <= 2:
+                context_type = 'cluster_light'
+                multiplier = 1.0
+            elif neighbor_count <= 4:
+                context_type = 'cluster_moderate' 
+                multiplier = 1.1  # reduced from 1.2
+            else:
+                context_type = 'cluster_heavy'
+                multiplier = 1.2  # reduced from 1.4
+
+            # Intensity-based adjustment (reduced)
+            if max_neighbor > 50:
+                multiplier *= 1.2  # reduced from 1.3
+            elif max_neighbor > 20:
+                multiplier *= 1.05  # reduced from 1.1
+            elif max_neighbor < 5:
+                multiplier *= 0.9
+
+            # NEW: cap multiplier
+            multiplier = min(multiplier, 1.3)
+            
+            return {
+                'context_type': context_type,
+                'multiplier': multiplier,
+                'neighbor_count': neighbor_count,
+                'max_neighbor': max_neighbor,
+                'avg_neighbor': avg_neighbor
             }
+            
+        except Exception as e:
+            logger.debug(f"Neighbor context error for {current_idx}: {str(e)}")
+            return {
+                'context_type': 'unknown',
+                'multiplier': 1.0,
+                'neighbor_count': 0,
+                'max_neighbor': 0
+            }
+    
+    def _get_seasonal_rain_baseline(
+        self,
+        df: pd.DataFrame,
+        current_idx
+    )-> float:
+        """
+        Get seasonal median rainfall amount as baseline
+        Seasonal Patterns:
+        - Wet season: Higher baseline amounts
+        - Dry season: Lower baseline amounts  
+        - Monthly variation: Peak wet vs transition months
+        """
+        
+        try:
+            month = current_idx.month
+            season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
+            
+            # Get monthly data for same month
+            monthly_data = df[
+                (df.index.month == month) & 
+                (df['RR'] > 0) & 
+                (df['RR'].notna())
+            ]['RR']
+            
+            if len(monthly_data) >= 3:
+                # Use monthly median (robust to outliers)
+                baseline = monthly_data.median()
+            else:
+                # Fallback to seasonal data
+                seasonal_months = (self.season_config['wet_months'] 
+                                 if season == 'Wet' 
+                                 else self.season_config['dry_months'])
+                
+                seasonal_data = df[
+                    (df.index.month.isin(seasonal_months)) &
+                    (df['RR'] > 0) & 
+                    (df['RR'].notna())
+                ]['RR']
+                
+                if len(seasonal_data) >= 5:
+                    baseline = seasonal_data.median()
+                else:
+                    # Ultimate fallback: overall median
+                    overall_data = df[(df['RR'] > 0) & (df['RR'].notna())]['RR']
+                    baseline = overall_data.median() if len(overall_data) > 0 else 5.0
+            
+            # Apply seasonal multipliers
+            if month in [11, 12, 1, 2]:  # Peak wet months
+                baseline *= 1.2
+            elif month in [5, 6, 7]:     # Peak dry months  
+                baseline *= 0.7
+            elif month in [3, 4, 9, 10]: # Transition months
+                baseline *= 0.9
+            
+            return max(0.5, baseline)  # Minimum 0.5mm for rain days
+        except Exception as e:
+            logger.debug(f"Seasonal baseline error for {current_idx}: {str(e)}")
+            return 8.0  # Default moderate amount
+        
+    def _calculate_intensity_factor(
+        self,
+        df: pd.DataFrame,
+        current_idx
+    )-> float:
+        """
+        Calculate intensity multiplier based on meteorological conditions
+        
+        High intensity indicators:
+        - Very high humidity (>95%)
+        - Low wind + high humidity
+        - Temperature-humidity instability
+        """
+        try:
+            rh_avg = df.loc[current_idx, 'RH_AVG'] if 'RH_AVG' in df.columns else None
+            ff_x = df.loc[current_idx, 'FF_X'] if 'FF_X' in df.columns else None
+            
+            intensity_factor = 1.0
+            
+            # Humidity intensity
+            if pd.notna(rh_avg):
+                if rh_avg >= 95:
+                    intensity_factor *= 1.2  # reduced from 1.4
+                elif rh_avg >= 90:
+                    intensity_factor *= 1.1  # reduced from 1.2
+                elif rh_avg >= 80:
+                    intensity_factor *= 1.0
+                else:
+                    intensity_factor *= 0.85  # reduced from 0.8
+
+            # Wind-humidity combination
+            if pd.notna(rh_avg) and pd.notna(ff_x):
+                if rh_avg >= 90 and ff_x <= 2:
+                    intensity_factor *= 1.15  # reduced from 1.3
+                elif rh_avg >= 85 and ff_x <= 3:
+                    intensity_factor *= 1.05  # reduced from 1.1
+
+            # NEW: tighter bounds
+            return max(0.7, min(1.5, intensity_factor)) 
+        except Exception as e:
+            logger.debug(f"Intensity factor error for {current_idx}: {str(e)}")
+            return 1.0
+        
+    def _apply_rain_amount_constraints(
+        self,
+        amount: float,
+        df: pd.DataFrame,
+        current_idx,
+        neighbor_context: Dict[str, Any]
+    ) -> float:
+        """
+        Apply physical and agricultural constraints to rain amounts
+        
+        Constraints:
+        - Minimum: 0.1mm (trace amounts don't count as rain)
+        - Maximum: Based on season and neighbors
+        - Agricultural logic: Realistic daily amounts for farming
+        """
+        
+        try:
+            month = current_idx.month
+            season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
+            
+            # Minimum constraint
+            if amount < 0.1:
+                amount = 0.1
+            
+            # Maximum constraint based on season
+            if season == 'Wet':
+                if month in [12, 1, 2]:  # Peak wet season
+                    max_daily = 120.0
+                else:
+                    max_daily = 80.0
+            else:  # Dry season
+                max_daily = 40.0
+            
+            # Neighbor-based maximum adjustment
+            max_neighbor = neighbor_context.get('max_neighbor', 0)
+            if max_neighbor > 0:
+                # Don't exceed 2x the maximum neighbor
+                neighbor_max = max_neighbor * 2.0
+                max_daily = min(max_daily, neighbor_max)
+            
+            # Apply maximum constraint
+            amount = min(amount, max_daily)
+            
+            # Agricultural categories (ensure realistic amounts)
+            categories = self.rain_classification_config['amount_categories']
+            
+            if amount <= categories['light']['max']:
+                # Keep light amounts light
+                amount = min(amount, categories['light']['max'])
+            elif amount <= categories['moderate']['max']:
+                # Moderate amounts are good for agriculture
+                pass  # No additional constraint
+            else:
+                # Heavy amounts: cap based on neighbor context
+                if neighbor_context.get('neighbor_count', 0) < 2:
+                    # Isolated heavy rain: reduce to moderate
+                    amount = min(amount, categories['moderate']['max'])
+            
+            return round(amount, 1)  # Round to 0.1mm precision
+        except Exception as e:
+            logger.debug(f"Constraint application error for {current_idx}: {str(e)}")
+            return min(50.0, amount)
+    
+    def _finalize_rainfall_imputation(
+        self,
+        df: pd.DataFrame
+    )-> pd.DataFrame:
+        """
+        Final cleanup and validation of rainfall imputation
+        
+        Cleanup:
+        - Remove temporary columns
+        - Apply final constraints
+        - Validate results
+        - Handle any remaining missing values
+        """
+        try:
+            # Remove temporary columns
+            temp_columns = ['rain_classified']
+            for col in temp_columns:
+                if col in df.columns:
+                    df.drop(col, axis=1, inplace=True)
+            
+            # Final constraint: ensure non-negative
+            df['RR'] = df['RR'].clip(lower=0)
+            
+            # Handle any remaining missing values (shouldn't happen, but safety)
+            if df['RR'].isna().any():
+                remaining_missing = df['RR'].isna().sum()
+                logger.warning(f"{remaining_missing} values still missing after two-stage imputation")
+                
+                long_gap_mask = df.get("_RR_long_gap", False)
+                # Only fill NON-long-gap remaining NaN (gap-aware)
+                for month in range(1, 13):
+                    month_mask = (df.index.month == month) & df['RR'].isna() & (long_gap_mask == False)
+                    if month_mask.sum() > 0:
+                        monthly_median = df[
+                            (df.index.month == month) & 
+                            (df['RR'].notna())
+                        ]['RR'].median()
+                        
+                        if pd.notna(monthly_median) and monthly_median > 0:
+                            df.loc[month_mask, 'RR'] = monthly_median
+                        else:
+                            df.loc[month_mask, 'RR'] = 0
+
+            # Remove temporary columns (including _RR_long_gap)
+            temp_columns = ['rain_classified', '_RR_long_gap']  # added _RR_long_gap
+            for col in temp_columns:
+                if col in df.columns:
+                    df.drop(col, axis=1, inplace=True)
+            
+            # Validate results
+            negative_count = (df['RR'] < 0).sum()
+            if negative_count > 0:
+                logger.warning(f"Fixed {negative_count} negative rainfall values")
+                df['RR'] = df['RR'].clip(lower=0)
+            
+            extreme_count = (df['RR'] > 200).sum()
+            if extreme_count > 0:
+                logger.info(f"Found {extreme_count} extreme rainfall values (>200mm) - kept as valid")
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error in rainfall imputation finalization: {str(e)}")
+            # Emergency: ensure no missing values
+            if df['RR'].isna().any():
+                df['RR'] = df['RR'].fillna(0)
+            df['RR'] = df['RR'].clip(lower=0)
+            return df
+        
+    def _impute_temperature(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Impute temperature using mathematical relationships
+        
+        Relationships:
+        - TAVG = (TX + TN) / 2
+        - TX ≥ TAVG ≥ TN (constraints applied later)
+        """
+        
+        # Calculate TAVG from TX and TN where possible
+        if 'TAVG' in df.columns and 'TAVG_imputed' not in df.columns:
+            df['TAVG_imputed'] = False
+        
+        # Calculate TAVG from TX and TN where possible
+        if 'TAVG' in df.columns and 'TX' in df.columns and 'TN' in df.columns:
+            calc_mask = df['TAVG'].isna() & df['TX'].notna() & df['TN'].notna()
+            if calc_mask.sum() > 0:
+                df.loc[calc_mask, 'TAVG'] = (df.loc[calc_mask, 'TX'] + df.loc[calc_mask, 'TN']) / 2
+                df.loc[calc_mask, 'TAVG_imputed'] = True  # NEW: mark as imputed
+                logger.info(f"Calculated {calc_mask.sum()} TAVG from TX/TN")
+        
+        # Calculate TX from TAVG and TN
+        if 'TX' in df.columns and 'TAVG' in df.columns and 'TN' in df.columns:
+            calc_mask = df['TX'].isna() & df['TAVG'].notna() & df['TN'].notna()
+            if calc_mask.sum() > 0:
+                df.loc[calc_mask, 'TX'] = 2 * df.loc[calc_mask, 'TAVG'] - df.loc[calc_mask, 'TN']
+                logger.info(f"Calculated {calc_mask.sum()} TX from TAVG/TN")
+        
+        # Calculate TN from TAVG and TX
+        if 'TN' in df.columns and 'TAVG' in df.columns and 'TX' in df.columns:
+            calc_mask = df['TN'].isna() & df['TAVG'].notna() & df['TX'].notna()
+            if calc_mask.sum() > 0:
+                df.loc[calc_mask, 'TN'] = 2 * df.loc[calc_mask, 'TAVG'] - df.loc[calc_mask, 'TX']
+                logger.info(f"Calculated {calc_mask.sum()} TN from TAVG/TX")
+        
+        # Interpolate remaining values
+        for param in ['TX', 'TN', 'TAVG']:
+            if param in df.columns and df[param].isna().any():
+                missing_before = df[param].isna()  # NEW: track before interpolation
+                
+                # Try cubic spline first
+                df[param] = df[param].interpolate(method='cubic', limit_direction='both')
+                
+                # NEW: mark only TAVG imputed points (from interpolation)
+                if param == 'TAVG' and 'TAVG_imputed' in df.columns:
+                    filled_now = missing_before & df[param].notna()
+                    df.loc[filled_now, 'TAVG_imputed'] = True
+                
+                # Fallback to seasonal median
+                if df[param].isna().any():
+                    for month in range(1, 13):
+                        month_mask = (df.index.month == month) & df[param].isna()
+                        if month_mask.sum() > 0:
+                            monthly_median = df[df.index.month == month][param].median()
+                            if not np.isnan(monthly_median):
+                                df.loc[month_mask, param] = monthly_median
+                
+                logger.info(f"Interpolated remaining {param} values")
+        
+        for temp_param in ['TX', 'TN', 'TAVG']:
+            if temp_param in df.columns:
+                confidence = self._calculate_interpolation_confidence(df, temp_param)
+                self.imputation_confidence[temp_param] = confidence
+                logger.debug(f"{temp_param} imputation confidence: {confidence:.3f}")
         
         return df
 
     def _impute_humidity(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Impute missing humidity values (RH_AVG)
-        Uses standard interpolation with bounds enforcement
+        Impute humidity using dewpoint relationship
+        
+        Dewpoint formula: Td ≈ T - ((100 - RH) / 5)
         """
-        if 'RH_AVG' not in df.columns:
-            return df
+        if 'RH_AVG' in df.columns and 'RH_AVG_imputed' not in df.columns:
+            df['RH_AVG_imputed'] = False
         
-        missing_count = df['RH_AVG'].isna().sum()
+        # Calculate dewpoint where both TAVG and RH_AVG are available
+        mask = df['RH_AVG'].notna() & df['TAVG'].notna()
         
-        if missing_count == 0:
-            logger.info(f"  ✓ RH_AVG: No missing values")
-            return df
+        if mask.sum() > 50:
+            df.loc[mask, 'dewpoint'] = df.loc[mask, 'TAVG'] - ((100 - df.loc[mask, 'RH_AVG']) / 5)
+            
+            # Interpolate dewpoint
+            df['dewpoint'] = df['dewpoint'].interpolate(method='cubic', limit_direction='both')
+            
+            # Calculate RH_AVG from dewpoint
+            rh_missing = df['RH_AVG'].isna() & df['TAVG'].notna() & df['dewpoint'].notna()
+            if rh_missing.sum() > 0:
+                df.loc[rh_missing, 'RH_AVG'] = 100 - 5 * (df.loc[rh_missing, 'TAVG'] - df.loc[rh_missing, 'dewpoint'])
+                df.loc[rh_missing, 'RH_AVG_imputed'] = True  # NEW: mark as imputed
+                logger.info(f"      Calculated {rh_missing.sum()} RH_AVG from dewpoint")
+            
+            df.drop('dewpoint', axis=1, inplace=True, errors='ignore')
         
-        logger.info(f"  • RH_AVG: Imputing {missing_count} missing values...")
+        # Interpolate remaining values
+        if df['RH_AVG'].isna().any():
+            missing_before = df['RH_AVG'].isna()  # NEW: track before interpolation
+            
+            df['RH_AVG'] = df['RH_AVG'].interpolate(method='cubic', limit_direction='both')
+            
+            # NEW: mark interpolated points
+            filled_now = missing_before & df['RH_AVG'].notna()
+            df.loc[filled_now, 'RH_AVG_imputed'] = True
+            
+            logger.info(f"      Interpolated remaining RH_AVG values")
         
-        # Linear interpolation
-        df['RH_AVG'] = df['RH_AVG'].interpolate(method='linear', limit=7, limit_direction='both')
-        
-        # Spline for remaining gaps
-        remaining_missing = df['RH_AVG'].isna().sum()
-        if remaining_missing > 0:
-            df['RH_AVG'] = df['RH_AVG'].interpolate(method='spline', order=3, limit=30, limit_direction='both')
-        
-        # Enforce valid range (0-100%)
+        # Apply physical constraints (0-100%)
         df['RH_AVG'] = df['RH_AVG'].clip(0, 100)
         
-        final_missing = df['RH_AVG'].isna().sum()
-        imputed_count = missing_count - final_missing
-        
-        logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} RH_AVG values")
-        
-        if "imputation" not in self.preprocessing_report:
-            self.preprocessing_report["imputation"] = {}
-        self.preprocessing_report["imputation"]["RH_AVG"] = {
-            "missing_count": int(missing_count),
-            "imputed_count": int(imputed_count),
-            "method": "linear_spline_clip"
-        }
-        
-        return df
-    
-    def _impute_wind_speed_max(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing max wind speed values (FF_X)
-        """
-        if 'FF_X' not in df.columns:
-            return df
-        
-        missing_count = df['FF_X'].isna().sum()
-        
-        if missing_count == 0:
-            logger.info(f"  ✓ FF_X: No missing values")
-            return df
-        
-        logger.info(f"  • FF_X: Imputing {missing_count} missing values...")
-        
-        # Linear interpolation
-        df['FF_X'] = df['FF_X'].interpolate(method='linear', limit=7, limit_direction='both')
-        
-        # Spline for remaining gaps
-        remaining_missing = df['FF_X'].isna().sum()
-        if remaining_missing > 0:
-            df['FF_X'] = df['FF_X'].interpolate(method='spline', order=3, limit=30, limit_direction='both')
-        
-        # Enforce non-negative
-        df['FF_X'] = df['FF_X'].clip(lower=0)
-        
-        final_missing = df['FF_X'].isna().sum()
-        imputed_count = missing_count - final_missing
-        
-        logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} FF_X values")
-        
-        if "imputation" not in self.preprocessing_report:
-            self.preprocessing_report["imputation"] = {}
-        self.preprocessing_report["imputation"]["FF_X"] = {
-            "missing_count": int(missing_count),
-            "imputed_count": int(imputed_count),
-            "method": "linear_spline_clip"
-        }
-        
-        return df
-    
-    def _impute_wind_speed_avg(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing average wind speed values (FF_AVG)
-        """
-        if 'FF_AVG' not in df.columns:
-            return df
-        
-        missing_count = df['FF_AVG'].isna().sum()
-        
-        if missing_count == 0:
-            logger.info(f"  ✓ FF_AVG: No missing values")
-            return df
-        
-        logger.info(f"  • FF_AVG: Imputing {missing_count} missing values...")
-        
-        # Linear interpolation
-        df['FF_AVG'] = df['FF_AVG'].interpolate(method='linear', limit=7, limit_direction='both')
-        
-        # Spline for remaining gaps
-        remaining_missing = df['FF_AVG'].isna().sum()
-        if remaining_missing > 0:
-            df['FF_AVG'] = df['FF_AVG'].interpolate(method='spline', order=3, limit=30, limit_direction='both')
-        
-        # Enforce non-negative
-        df['FF_AVG'] = df['FF_AVG'].clip(lower=0)
-        
-        final_missing = df['FF_AVG'].isna().sum()
-        imputed_count = missing_count - final_missing
-        
-        logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} FF_AVG values")
-        
-        if "imputation" not in self.preprocessing_report:
-            self.preprocessing_report["imputation"] = {}
-        self.preprocessing_report["imputation"]["FF_AVG"] = {
-            "missing_count": int(missing_count),
-            "imputed_count": int(imputed_count),
-            "method": "linear_spline_clip"
-        }
-        
-        return df
-    
-    def _impute_wind_direction_degrees(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing wind direction (degrees) values (DDD_X)
-        Handles circular nature of 0°-360° data
-        """
-        if 'DDD_X' not in df.columns:
-            return df
-        
-        missing_count = df['DDD_X'].isna().sum()
-        
-        if missing_count == 0:
-            logger.info(f"  ✓ DDD_X: No missing values")
-            return df
-        
-        logger.info(f"  • DDD_X: Imputing {missing_count} missing values...")
-        
-        # For small gaps, use linear interpolation (won't preserve circularity but simple)
-        df['DDD_X'] = df['DDD_X'].interpolate(method='linear', limit=7, limit_direction='both')
-        
-        # Spline for remaining gaps
-        remaining_missing = df['DDD_X'].isna().sum()
-        if remaining_missing > 0:
-            df['DDD_X'] = df['DDD_X'].interpolate(method='spline', order=3, limit=30, limit_direction='both')
-        
-        # Forward/backward fill for edge cases
-        df['DDD_X'] = df['DDD_X'].fillna(method='ffill', limit=3)
-        df['DDD_X'] = df['DDD_X'].fillna(method='bfill', limit=3)
-        
-        # Ensure within valid range (0-360 degrees)
-        df['DDD_X'] = df['DDD_X'].clip(0, 360)
-        # Handle wraparound (values > 360 should wrap, values < 0 should wrap)
-        df['DDD_X'] = df['DDD_X'] % 360
-        
-        final_missing = df['DDD_X'].isna().sum()
-        imputed_count = missing_count - final_missing
-        
-        logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} DDD_X values")
-        
-        if "imputation" not in self.preprocessing_report:
-            self.preprocessing_report["imputation"] = {}
-        self.preprocessing_report["imputation"]["DDD_X"] = {
-            "missing_count": int(missing_count),
-            "imputed_count": int(imputed_count),
-            "method": "linear_spline_circular"
-        }
-        
-        return df
-    
-    def _impute_sunshine_duration(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing sunshine duration values (SS)
-        SS ranges from 0-14 hours
-        """
-        if 'SS' not in df.columns:
-            return df
-        
-        missing_count = df['SS'].isna().sum()
-        
-        if missing_count == 0:
-            logger.info(f"  ✓ SS: No missing values")
-            return df
-        
-        logger.info(f"  • SS: Imputing {missing_count} missing values...")
-        
-        # Linear interpolation
-        df['SS'] = df['SS'].interpolate(method='linear', limit=7, limit_direction='both')
-        
-        # Spline for remaining gaps
-        remaining_missing = df['SS'].isna().sum()
-        if remaining_missing > 0:
-            df['SS'] = df['SS'].interpolate(method='spline', order=3, limit=30, limit_direction='both')
-        
-        # Enforce valid range (0-14 hours)
-        df['SS'] = df['SS'].clip(0, 14)
-        
-        final_missing = df['SS'].isna().sum()
-        imputed_count = missing_count - final_missing
-        
-        logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} SS values")
-        
-        if "imputation" not in self.preprocessing_report:
-            self.preprocessing_report["imputation"] = {}
-        self.preprocessing_report["imputation"]["SS"] = {
-            "missing_count": int(missing_count),
-            "imputed_count": int(imputed_count),
-            "method": "linear_spline_clip"
-        }
-        
-        return df
-    
-    def _impute_wind_direction_cardinal(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Impute missing cardinal wind direction values (DDD_CAR)
-        Categorical data: N, NE, E, SE, S, SW, W, NW, C
-        """
-        if 'DDD_CAR' not in df.columns:
-            return df
-        
-        missing_count = df['DDD_CAR'].isna().sum()
-        
-        if missing_count == 0:
-            logger.info(f"  ✓ DDD_CAR: No missing values")
-            return df
-        
-        logger.info(f"  • DDD_CAR: Imputing {missing_count} missing values...")
-        
-        # For categorical data, use forward/backward fill
-        df['DDD_CAR'] = df['DDD_CAR'].fillna(method='ffill', limit=3)
-        df['DDD_CAR'] = df['DDD_CAR'].fillna(method='bfill', limit=3)
-        
-        # If still missing, use mode (most common direction)
-        remaining_missing = df['DDD_CAR'].isna().sum()
-        if remaining_missing > 0:
-            mode_direction = df['DDD_CAR'].mode()[0] if len(df['DDD_CAR'].mode()) > 0 else 'C'  # 'C' = Calm
-            df['DDD_CAR'].fillna(mode_direction, inplace=True)
-        
-        final_missing = df['DDD_CAR'].isna().sum()
-        imputed_count = missing_count - final_missing
-        
-        logger.info(f"    ✓ Imputed {imputed_count}/{missing_count} DDD_CAR values")
-        
-        if "imputation" not in self.preprocessing_report:
-            self.preprocessing_report["imputation"] = {}
-        self.preprocessing_report["imputation"]["DDD_CAR"] = {
-            "missing_count": int(missing_count),
-            "imputed_count": int(imputed_count),
-            "method": "ffill_bfill_mode"
-        }
-        
-        return df
-
-    def _handle_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Detect and handle outliers using IQR and Z-score methods"""
-        logger.info("Detecting and handling outliers...")
-        
-        params = self.options.get("columns_to_process", [])
-        outlier_methods = self.options.get("outlier_methods", ["iqr", "zscore"])
-        outlier_summary = {}
-        
-        for param in params:
-            if param not in df.columns:
-                continue
-            
-            # Skip outlier detection for specific parameters
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            if not param_config.get("apply_outlier_detection", True):
-                continue
-            
-            # Detect outliers using both methods
-            outliers_iqr = self._detect_outliers_iqr(df, param) if "iqr" in outlier_methods else pd.Series([False] * len(df))
-            outliers_zscore = self._detect_outliers_zscore(df, param) if "zscore" in outlier_methods else pd.Series([False] * len(df))
-            
-            # Intersection: both methods must agree
-            outliers_mask = outliers_iqr & outliers_zscore
-            outlier_count = outliers_mask.sum()
-            
-            if outlier_count > 0:
-                # Handle outliers
-                df = self._treat_outliers(df, param, outliers_mask)
-                outlier_summary[param] = int(outlier_count)
-        
-        self.preprocessing_report["outliers"] = {
-            "total_outliers": sum(outlier_summary.values()),
-            "by_parameter": outlier_summary,
-            "methods_used": outlier_methods,
-            "treatment": self.options.get("outlier_treatment", "interpolate")
-        }
-        
-        logger.info(f"Outlier detection summary: {outlier_summary}")
-        return df
-
-    def _detect_outliers_iqr(self, df: pd.DataFrame, param: str) -> pd.Series:
-        """Detect outliers using IQR method"""
-        Q1 = df[param].quantile(0.25)
-        Q3 = df[param].quantile(0.75)
-        IQR = Q3 - Q1
-        
-        multiplier = self.options.get("iqr_multiplier", 2.0)
-        lower_bound = Q1 - multiplier * IQR
-        upper_bound = Q3 + multiplier * IQR
-        
-        return (df[param] < lower_bound) | (df[param] > upper_bound)
-
-    def _detect_outliers_zscore(self, df: pd.DataFrame, param: str) -> pd.Series:
-        """Detect outliers using Z-score method"""
-        mean = df[param].mean()
-        std = df[param].std()
-        
-        if std == 0:
-            return pd.Series([False] * len(df))
-        
-        z_scores = np.abs((df[param] - mean) / std)
-        threshold = self.options.get("zscore_threshold", 3.5)
-        
-        return z_scores > threshold
-
-    def _treat_outliers(self, df: pd.DataFrame, param: str, outliers_mask: pd.Series) -> pd.DataFrame:
-        """Treat detected outliers"""
-        treatment = self.options.get("outlier_treatment", "interpolate")
-        
-        if treatment == "interpolate":
-            # Replace outliers with NaN then interpolate
-            df.loc[outliers_mask, param] = np.nan
-            df[param] = df[param].interpolate(method='linear', limit=3, limit_direction='both')
-        
-        elif treatment == "cap":
-            # Winsorization - cap at boundary values
-            Q1 = df[param].quantile(0.25)
-            Q3 = df[param].quantile(0.75)
-            IQR = Q3 - Q1
-            multiplier = self.options.get("iqr_multiplier", 2.0)
-            lower_bound = Q1 - multiplier * IQR
-            upper_bound = Q3 + multiplier * IQR
-            
-            df.loc[df[param] < lower_bound, param] = lower_bound
-            df.loc[df[param] > upper_bound, param] = upper_bound
-        
-        elif treatment == "remove":
-            # Remove rows with outliers (not recommended)
-            df = df[~outliers_mask]
-        
-        return df
-
-    def _apply_physical_constraints(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply physical constraints to ensure data consistency"""
-        logger.info("Applying physical constraints...")
-        
-        violations_fixed = {
-            "temp_tavg_gt_tx": 0,
-            "temp_tavg_lt_tn": 0,
-            "wind_ffx_lt_ffavg": 0,
-            "humidity_out_of_bounds": 0,
-            "negative_rainfall": 0,
-            "negative_sunshine": 0
-        }
-        
-        # Temperature constraints: TX >= TAVG >= TN
-        if all(col in df.columns for col in ['TX', 'TAVG', 'TN']):
-            # Fix TAVG > TX
-            violation_mask = df['TAVG'] > df['TX']
-            if violation_mask.sum() > 0:
-                violations_fixed["temp_tavg_gt_tx"] = int(violation_mask.sum())
-                df.loc[violation_mask, 'TAVG'] = df.loc[violation_mask, 'TX']
-
-            # Fix TAVG < TN
-            violation_mask = df['TAVG'] < df['TN']
-            if violation_mask.sum() > 0:
-                violations_fixed["temp_tavg_lt_tn"] = int(violation_mask.sum())
-                df.loc[violation_mask, 'TAVG'] = df.loc[violation_mask, 'TN']
-
-        # Wind speed constraints: FF_X >= FF_AVG
-        if 'FF_X' in df.columns and 'FF_AVG' in df.columns:
-            violation_mask = df['FF_X'] < df['FF_AVG']
-            if violation_mask.sum() > 0:
-                violations_fixed["wind_ffx_lt_ffavg"] = int(violation_mask.sum())
-                df.loc[violation_mask, 'FF_X'] = df.loc[violation_mask, 'FF_AVG'] * 1.2
-
-        # Humidity bounds
+        # Calculate and store confidence for uncertainty penalty
         if 'RH_AVG' in df.columns:
-            before_clip = ((df['RH_AVG'] < 0) | (df['RH_AVG'] > 100)).sum()
-            df['RH_AVG'] = df['RH_AVG'].clip(0, 100)
-            violations_fixed["humidity_out_of_bounds"] = int(before_clip)
-
-        # Non-negative rainfall and sunshine
-        if 'RR' in df.columns:
-            negative_rr = (df['RR'] < 0).sum()
-            df['RR'] = df['RR'].clip(lower=0)
-            violations_fixed["negative_rainfall"] = int(negative_rr)
-
-        if 'SS' in df.columns:
-            negative_ss = (df['SS'] < 0).sum()
-            df['SS'] = df['SS'].clip(lower=0)
-            violations_fixed["negative_sunshine"] = int(negative_ss)
+            confidence = self._calculate_interpolation_confidence(df, 'RH_AVG')
+            self.imputation_confidence['RH_AVG'] = confidence
+            logger.debug(f"RH_AVG imputation confidence: {confidence:.3f}")
         
-        self.preprocessing_report["physical_constraints"] = violations_fixed
-        logger.info(f"Physical constraints applied: {sum(violations_fixed.values())} violations fixed")
+        return df
+    
+    def _impute_wind_speed_gap_aware(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Gap-aware wind speed imputation - DON'T force completion for long gaps
+        """
+        
+        # TIER 1: FF_X imputation with gap limits
+        if 'FF_X' in df.columns:
+            param_config = self.options.get("parameter_configs", {}).get("FF_X", {})
+            max_gap = param_config.get("max_gap_interpolate", 3)
+            skip_long_gaps = param_config.get("skip_long_gaps", False)
+            
+            ff_x_missing = df['FF_X'].isna().sum()
+            
+            if ff_x_missing > 0:
+                logger.info(f"  • FF_X: Processing {ff_x_missing} missing values (gap-aware)...")
+                
+                # Only interpolate SHORT gaps
+                df['FF_X'] = df['FF_X'].interpolate(
+                    method='linear', 
+                    limit=max_gap,  # 3 days only
+                    limit_direction='both'
+                )
+                
+                final_missing = df['FF_X'].isna().sum()
+                imputed_count = ff_x_missing - final_missing
+                
+                if skip_long_gaps and final_missing > 0:
+                    logger.info(
+                        f"    ✓ FF_X: Imputed {imputed_count}/{ff_x_missing} values "
+                        f"({final_missing} remain due to long gaps - NOT imputed by design)"
+                    )
+                else:
+                    logger.info(f"    ✓ Imputed {imputed_count}/{ff_x_missing} FF_X values")
+        
+        # TIER 2: FF_AVG imputation with calculation + gap limits
+        if 'FF_AVG' in df.columns and 'FF_X' in df.columns:
+            param_config = self.options.get("parameter_configs", {}).get("FF_AVG", {})
+            max_gap = param_config.get("max_gap_interpolate", 3)
+            skip_long_gaps = param_config.get("skip_long_gaps", False)
+            
+            missing_count = df['FF_AVG'].isna().sum()
+            
+            if missing_count > 0:
+                logger.info(f"  • FF_AVG: Processing {missing_count} missing values (gap-aware)...")
+                
+                # Strategy 1: Calculate from FF_X where possible
+                calculated = 0
+                can_calculate = df['FF_AVG'].isna() & df['FF_X'].notna()
+                
+                if can_calculate.sum() > 0:
+                    # Use typical ratio FF_AVG ≈ 0.6 * FF_X
+                    df.loc[can_calculate, 'FF_AVG'] = df.loc[can_calculate, 'FF_X'] * 0.6
+                    calculated = can_calculate.sum()
+                    logger.info(f"    Calculated {calculated} FF_AVG from FF_X ratio")
+                
+                # Strategy 2: Interpolate SHORT gaps only
+                df['FF_AVG'] = df['FF_AVG'].interpolate(
+                    method='linear',
+                    limit=max_gap,
+                    limit_direction='both'
+                )
+                
+                final_missing = df['FF_AVG'].isna().sum()
+                total_imputed = missing_count - final_missing
+                interpolated = total_imputed - calculated
+                
+                if skip_long_gaps and final_missing > 0:
+                    logger.info(
+                        f"    ✓ FF_AVG: Calculated {calculated}, Interpolated {interpolated} "
+                        f"({final_missing} remain due to long gaps - NOT imputed by design)"
+                    )
+                else:
+                    logger.info(f"    ✓ Imputed {total_imputed}/{missing_count} FF_AVG values")
+                
+                # Store detailed results
+                if "imputation" not in self.preprocessing_report:
+                    self.preprocessing_report["imputation"] = {}
+                
+                self.preprocessing_report["imputation"]["FF_AVG"] = {
+                    "missing_count": int(missing_count),
+                    "calculated_from_ff_x": int(calculated),
+                    "interpolated": int(interpolated),
+                    "remaining_missing": int(final_missing),
+                    "method": "ratio_calculation + linear_gap_aware",
+                    "max_gap_days": max_gap,
+                    "note": "Long gaps not imputed by design" if final_missing > 0 else None
+                }
+        
         return df
 
-    def _optimize_parameter_alphas(self, df: pd.DataFrame) -> None:
-        """Optimize alpha per parameter using GCV + trend preservation"""
-        logger.info("🔍 Starting adaptive alpha optimization...")
+    def _impute_wind_direction(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Impute wind direction using circular mean
+        """
         
-        params = self.options.get("columns_to_process", [])
-        alpha_range = self.options.get("alpha_optimization_range", [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20])
+        def circular_mean(angles):
+            """Calculate circular mean for angles in degrees"""
+            if len(angles) == 0 or angles.isna().all():
+                return np.nan
+            
+            angles_rad = np.radians(angles.dropna())
+            x_mean = np.mean(np.cos(angles_rad))
+            y_mean = np.mean(np.sin(angles_rad))
+            
+            mean_angle = np.degrees(np.arctan2(y_mean, x_mean))
+            return (mean_angle + 360) % 360
         
-        optimization_results = {}
+        # Calculate monthly circular means
+        for month in range(1, 13):
+            month_data = df[df.index.month == month]['DDD_X'].dropna()
+            if not month_data.empty:
+                month_mean = circular_mean(month_data)
+                
+                month_mask = (df.index.month == month) & df['DDD_X'].isna()
+                if month_mask.sum() > 0 and not np.isnan(month_mean):
+                    df.loc[month_mask, 'DDD_X'] = month_mean
         
-        for param in params:
-            if param not in df.columns:
-                continue
-            
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            smoothing_method = param_config.get(
-                "smoothing_method",
-                self.options.get("smoothing_method", "exponential")
-            )
-            
-            # Skip if no smoothing or non-exponential
-            if smoothing_method is None:
-                logger.info(f"  ⏭️  {param}: Skipping (no smoothing configured)")
-                continue
-            
-            if smoothing_method != "exponential":
-                logger.info(f"  ⏭️  {param}: Skipping (using {smoothing_method} method)")
-                continue
-            
-            optimal_alpha = self._find_optimal_alpha_for_parameter(df, param, alpha_range)
-            
-            # Store in config
-            if "parameter_configs" not in self.options:
-                self.options["parameter_configs"] = {}
-            if param not in self.options["parameter_configs"]:
-                self.options["parameter_configs"][param] = {}
-            
-            self.options["parameter_configs"][param]["exponential_alpha"] = optimal_alpha
-            optimization_results[param] = optimal_alpha
-            
-            logger.info(f"  ✓ {param}: Optimal α = {optimal_alpha:.3f}")
+        # Fallback to seasonal mean
+        for season in ['Wet', 'Dry']:
+            season_data = df[df['Season'] == season]['DDD_X'].dropna()
+            if not season_data.empty:
+                season_mean = circular_mean(season_data)
+                
+                season_mask = (df['Season'] == season) & df['DDD_X'].isna()
+                if season_mask.sum() > 0 and not np.isnan(season_mean):
+                    df.loc[season_mask, 'DDD_X'] = season_mean
         
-        self.preprocessing_report["alpha_optimization"] = optimization_results
-        logger.info(f"Alpha optimization complete: {len(optimization_results)} parameters optimized")
-
-    def _find_optimal_alpha_for_parameter(
-        self,
-        df: pd.DataFrame,
-        param: str,
-        alpha_range: List[float]
-    ) -> float:
-        """Test multiple alpha values and return the optimal one"""
+        logger.info(f"Applied circular mean imputation for DDD_X")
         
-        if param not in df.columns:
-            return self.options.get("exponential_alpha", 0.15)
-        
-        series = df[param].dropna()
-        
-        if len(series) < 100:
-            logger.warning(f"  {param}: Insufficient data ({len(series)} points) - using default alpha")
-            return self.options.get("exponential_alpha", 0.15)
-        
-        best_alpha = self.options.get("exponential_alpha", 0.15)
-        best_score = -np.inf
-        test_results = []
-        
-        logger.info(f"     Testing {len(alpha_range)} alpha values...")
-        
-        for alpha in alpha_range:
-            performance = self._test_alpha_performance(series.values, alpha)
-            
-            if performance is None:
-                continue
-            
-            gcv_score = performance.get("gcv_score", 10.0)
-            trend_pct = performance.get("trend_preservation_pct", 0.0)
-            
-            # Scoring: prioritize trend preservation
-            combined_score = (trend_pct * 1.0) - (gcv_score * 0.5)
-            
-            test_results.append({
-                "alpha": alpha,
-                "gcv": gcv_score,
-                "trend": trend_pct,
-                "score": combined_score
-            })
-            
-            logger.info(f"     α={alpha}: GCV={gcv_score:.4f}, Trend={trend_pct:.1f}%, Score={combined_score:.2f}")
-            
-            if combined_score > best_score:
-                best_score = combined_score
-                best_alpha = alpha
-        
-        if test_results:
-            best_result = max(test_results, key=lambda x: x["score"])
-            logger.info(f"     🏆 BEST: α={best_result['alpha']}, Trend={best_result['trend']:.1f}%")
-        
-        return best_alpha
-
-    def _test_alpha_performance(
-        self,
-        original_series: np.ndarray,
-        alpha: float
-    ) -> Optional[Dict[str, Any]]:
-        """Test a single alpha value and return GCV + trend preservation metrics"""
-        
-        try:
-            if len(original_series) < 100:
-                return None
-            
-            # Check NaN issues
-            nan_count = np.isnan(original_series).sum()
-            if nan_count == len(original_series) or nan_count > len(original_series) * 0.5:
-                return None
-            
-            if alpha <= 0 or alpha >= 1:
-                return None
-            
-            # Apply exponential smoothing
-            series_pd = pd.Series(original_series).dropna()
-            
-            if len(series_pd) < 100:
-                return None
-            
-            smoothed_series = series_pd.ewm(alpha=alpha, adjust=False).mean().values
-            original_clean = original_series[~np.isnan(original_series)]
-            
-            # Ensure same length
-            min_len = min(len(original_clean), len(smoothed_series))
-            original_clean = original_clean[:min_len]
-            smoothed_series = smoothed_series[:min_len]
-            
-            gcv_score = self._calculate_gcv(original_clean, smoothed_series, param=None)
-            trend_preservation = self._calculate_trend_preservation(original_clean, smoothed_series)
-            
-            return {
-                "alpha": alpha,
-                "gcv_score": gcv_score,
-                "trend_preservation_pct": trend_preservation * 100,
-                "combined_score": (trend_preservation * 100) - (gcv_score * 0.5)
-            }
-            
-        except Exception as e:
-            logger.warning(f"Error testing α={alpha}: {str(e)}")
-            return None
-
-    def _apply_smoothing(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply smoothing to appropriate parameters"""
-        logger.info("Applying smoothing methods...")
-        
-        params = self.options.get("columns_to_process", [])
-        smoothing_method = self.options.get("smoothing_method", "exponential")
-        smoothing_summary = {}
-        
-        for param in params:
-            if param not in df.columns:
-                continue
-            
-            # Check parameter-specific config
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            param_smoothing = param_config.get("smoothing_method", smoothing_method)
-            
-            if param_smoothing is None:
-                # Skip smoothing for this parameter
-                smoothing_summary[param] = "none"
-                continue
-            
-            # Apply smoothing
-            if param_smoothing == "moving_average":
-                df[param] = self._smooth_moving_average(df[param])
-                smoothing_summary[param] = "moving_average"
-            elif param_smoothing == "exponential":
-                df[param] = self._smooth_exponential(df[param], param)
-                smoothing_summary[param] = "exponential"
-        
-        self.preprocessing_report["smoothing"] = {
-            "method": smoothing_method,
-            "parameters_smoothed": smoothing_summary
-        }
-        
-        logger.info(f"Smoothing applied: {smoothing_summary}")
         return df
-
-    def _smooth_moving_average(self, series: pd.Series) -> pd.Series:
-        """Apply moving average smoothing"""
-        window_size = self.options.get("window_size", 5)
-        return series.rolling(window=window_size, center=True, min_periods=1).mean()
-
-    def _smooth_exponential(
-        self,
-        series: pd.Series,
-        param: str = None
-    ) -> pd.Series:
-        """Apply exponential smoothing with parameter-specific alpha"""
+    
+    def _impute_sunshine(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Impute sunshine duration with interpolation
+        """
         
-        if param:
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            alpha = param_config.get("exponential_alpha", self.options.get("exponential_alpha", 0.15))
-        else:
-            alpha = self.options.get("exponential_alpha", 0.15)
-        
-        return series.ewm(alpha=alpha, adjust=False).mean()
-
-    def _calculate_gcv(self, original: np.ndarray, smoothed: np.ndarray, param: str) -> float:
-        """Calculate Generalized Cross-Validation score"""
-        n = len(original)
-        mse = np.mean((original - smoothed) ** 2)
-        
-        # Get parameter-specific smoothing method
-        if param:
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            smoothing_method = param_config.get(
-                "smoothing_method",
-                self.options.get("smoothing_method", "exponential")
-            )
-        else:
-            smoothing_method = self.options.get("smoothing_method", "exponential")
-        
-        if smoothing_method is None:
-            return 0.0
-        
-        # Estimate effective degrees of freedom
-        if smoothing_method == "moving_average":
-            window_size = self.options.get("window_size", 5)
-            edf = window_size
-        elif smoothing_method == "exponential":
-            if param:
-                param_config = self.options.get("parameter_configs", {}).get(param, {})
-                alpha = param_config.get("exponential_alpha", self.options.get("exponential_alpha", 0.15))
-            else:
-                alpha = self.options.get("exponential_alpha", 0.15)
+        if df['SS'].isna().any():
+            df['SS'] = df['SS'].interpolate(method='cubic', limit_direction='both')
             
-            alpha = max(0.01, min(alpha, 0.99))
-            edf = 1.0 / (2.0 - alpha)
-            edf = max(1.0, min(edf, n / 3.0))
+            # Apply physical constraint (0-14 hours)
+            df['SS'] = df['SS'].clip(0, 14)
+            logger.info(f"Interpolated SS (Sunshine) values")
+        
+        return df
+    
+    def _impute_cardinal_direction(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Impute cardinal wind direction using mode
+        """
+        
+        # Convert to string type
+        df['DDD_CAR'] = df['DDD_CAR'].astype(str)
+        df.loc[df['DDD_CAR'] == 'nan', 'DDD_CAR'] = np.nan
+        
+        # Use monthly mode
+        for month in range(1, 13):
+            month_data = df[df.index.month == month]['DDD_CAR'].dropna()
+            if not month_data.empty:
+                month_mode = month_data.mode()[0] if len(month_data.mode()) > 0 else None
+                
+                if month_mode:
+                    month_mask = (df.index.month == month) & df['DDD_CAR'].isna()
+                    df.loc[month_mask, 'DDD_CAR'] = month_mode
+        
+        # Fallback to overall mode
+        if df['DDD_CAR'].isna().any():
+            overall_mode = df['DDD_CAR'].mode()[0] if len(df['DDD_CAR'].mode()) > 0 else 'N'
+            df['DDD_CAR'] = df['DDD_CAR'].fillna(overall_mode)
+        
+        logger.info(f"Applied mode-based imputation for DDD_CAR")
+        
+        return df
+    def _apply_physical_constraints(
+        self,
+        df: pd.DataFrame
+    )-> pd.DataFrame:
+        """
+        Apply physical constraints to ensure data consistency
+        
+        Constraints:
+        - TX ≥ TAVG ≥ TN
+        - FF_X ≥ FF_AVG
+        - 0 ≤ RH_AVG ≤ 100
+        - RR ≥ 0, SS ≥ 0
+        - 0 ≤ DDD_X < 360
+        """
+        constraint_stats = {}
+        
+        # Temperature constraints 
+        if all(p in df.columns for p in ['TX', 'TAVG', 'TN']):
+            # TAVG should not exceed TX
+            tavg_tx_violations = (df['TAVG'] > df['TX']).sum()
+            if tavg_tx_violations > 0:
+                df.loc[df['TAVG'] > df['TX'], 'TAVG'] = df.loc[df['TAVG'] > df['TX'], 'TX']
+                constraint_stats['TAVG_TX'] = int(tavg_tx_violations)
+            
+            # TAVG should not be less than TN
+            tavg_tn_violations = (df['TAVG'] < df['TN']).sum()
+            if tavg_tn_violations > 0:
+                df.loc[df['TAVG'] < df['TN'], 'TAVG'] = df.loc[df['TAVG'] < df['TN'], 'TN']
+                constraint_stats['TAVG_TN'] = int(tavg_tn_violations)
+        
+        # Wind speed constraint: FF_X ≥ FF_AVG
+        if 'FF_X' in df.columns and 'FF_AVG' in df.columns:
+            ff_violations = (df['FF_AVG'] > df['FF_X']).sum()
+            if ff_violations > 0:
+                df.loc[df['FF_AVG'] > df['FF_X'], 'FF_AVG'] = df.loc[df['FF_AVG'] > df['FF_X'], 'FF_X']
+                constraint_stats['FF_AVG'] = int(ff_violations)
+        
+        # Humidity bounds: 0-100%
+        if 'RH_AVG' in df.columns:
+            rh_violations = ((df['RH_AVG'] < 0) | (df['RH_AVG'] > 100)).sum()
+            if rh_violations > 0:
+                df['RH_AVG'] = df['RH_AVG'].clip(0, 100)
+                constraint_stats['RH_AVG'] = int(rh_violations)
+        
+        # Non-negative constraints
+        for param in ['RR', 'SS']:
+            if param in df.columns:
+                negative_count = (df[param] < 0).sum()
+                if negative_count > 0:
+                    df[param] = df[param].clip(lower=0)
+                    constraint_stats[param] = int(negative_count)
+        
+        # Wind direction: 0-360
+        if 'DDD_X' in df.columns:
+            df['DDD_X'] = df['DDD_X'] % 360
+        
+        self.preprocessing_report["physical_constraints"] = constraint_stats
+        
+        if constraint_stats:
+            total_fixes = sum(constraint_stats.values())
+            logger.info(f"Applied {total_fixes} physical constraint fixes")
         else:
-            edf = 5
+            logger.info("No physical constraint violations found")
         
-        # GCV formula
-        denominator = (1.0 - edf / n) ** 2
-        denominator = max(denominator, 0.01)
-        
-        gcv = mse / denominator
-        return gcv
-
-    def _calculate_trend_preservation(self, original: np.ndarray, smoothed: np.ndarray) -> float:
-        """Calculate trend direction agreement between original and smoothed data"""
-        
-        if len(original) != len(smoothed):
-            logger.warning(f"Trend preservation: length mismatch")
-            return np.nan
-        
-        if len(original) < 2:
-            return np.nan
-        
-        # Calculate first differences
-        original_diff = np.diff(original)
-        smoothed_diff = np.diff(smoothed)
-        
-        # Get direction signs
-        original_direction = np.sign(original_diff)
-        smoothed_direction = np.sign(smoothed_diff)
-        
-        # Exclude flat regions
-        non_zero_mask = (original_direction != 0) & (smoothed_direction != 0)
-        
-        if non_zero_mask.sum() == 0:
-            # All flat = perfect preservation
-            return 1.0
-        
-        if non_zero_mask.sum() < 10:
-            logger.debug(f"Very few trend changes ({non_zero_mask.sum()}) - may be unreliable")
-        
-        # Calculate agreement
-        agreement = (original_direction[non_zero_mask] == smoothed_direction[non_zero_mask])
-        trend_preservation = agreement.mean()
-        
-        return trend_preservation
-
-    def _validate_smoothing_method(self, df: pd.DataFrame) -> None:
+        return df
+    
+    def _validate_imputation_quality(
+        self,
+        df: pd.DataFrame
+    )-> None:
         """
-        Validate smoothing quality using GCV + Trend Preservation
+        Validate preprocessing quality using GCV and trend preservation
+        
+        Phase 3 Implementation:
+        - Calculate GCV (Generalized Cross-Validation) scores
+        - Measure trend preservation percentage
+        - Determine quality status per parameter
+        - Generate warnings for poor quality
+        
+        Quality Thresholds:
+        - Excellent: GCV < 2.0 AND Trend > 80%
+        - Good: GCV < 4.0 AND Trend > 75%
+        - Fair: GCV < 10.0 AND Trend > 70%
+        - Poor: Otherwise
         """
-        logger.info("Validating smoothing quality...")
+        
+        # Place holder for phase 3 implementation
+        logger.info("Validating preprocessing quality (GCV + Trend Preservation)...")
         
         params = self.options.get("columns_to_process", [])
         validation_results = {}
@@ -1594,940 +2491,1507 @@ class BmkgPreprocessor:
             if param not in df.columns:
                 continue
             
-            # Check if smoothing was applied
-            smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
-            param_smoothing_applied = smoothing_summary.get(param, "none")
-            
-            if param_smoothing_applied == "none":
+            # Skip non numeric parameters
+            if param == 'DDD_CAR':
                 validation_results[param] = {
-                    "status": "no_smoothing",
-                    "gcv": None,
-                    "trend_preservation": None
+                    "status": "skipped_non_numeric",
+                    "gcv_score": None,
+                    "trend_preservation_pct": None
                 }
                 continue
             
-            if 'Date' not in self.original_data.columns:
-                logger.warning(f"Original data missing Date column for {param}")
+            # check if parameters had any imputation
+            imputation_stats = self.preprocessing_report.get("imputation", {})
+            param_was_processed = param in imputation_stats
+            
+            if not param_was_processed:
                 validation_results[param] = {
-                    "status": "missing_date_column_original",
-                    "gcv": None,
-                    "trend_preservation": None
+                    "status": "not_preprocessing",
+                    "gcv_score": None,
+                    "trend_preservation_pct": None,
+                    "message": "No imputation performed"
                 }
                 continue
             
-            if 'Date' not in df.columns:
-                logger.warning(f"Processed data missing Date column for {param}")
+            # Validate data availability
+            if self.original_data is None:
+                logger.warning(f"Original data not available for {param} validation")
                 validation_results[param] = {
-                    "status": "missing_date_column_processed",
-                    "gcv": None,
-                    "trend_preservation": None
+                    "status": "missing_original_data",
+                    "gcv_score": None,
+                    "trend_preservation_pct": None
                 }
                 continue
             
+            if param not in self.original_data.columns:
+                logger.warning(f"Parameter {param} not in original data")
+                validation_results[param] = {
+                    "status": "missing_in_original",
+                    "gcv_score": None,
+                    "trend_preservation_pct": None
+                }
+                continue
+                
             try:
-                original = self.original_data.set_index('Date')[param].dropna()    
-                smoothed = df.set_index('Date')[param].dropna()    
-                
-                # Align on Date index
-                common_idx = original.index.intersection(smoothed.index)
-                
-                if len(common_idx) == 0:
-                    logger.warning(f"No date overlap found for {param}")
+                # Extract alligned time series data
+                original_series, processed_series = self._align_time_series(
+                    self.original_data, df, param
+                )
+                if original_series is None or processed_series is None:
                     validation_results[param] = {
-                        "status": "no_date_overlap",
-                        "gcv": None,
-                        "trend_preservation": None
+                        "status": "alignment_failed",
+                        "gcv_score": None,
+                        "trend_preservation_pct": None
                     }
                     continue
-                
-                # Extract aligned values
-                original_aligned = original.loc[common_idx].values
-                smoothed_aligned = smoothed.loc[common_idx].values
                 
                 # Check minimum data requirement
-                if len(common_idx) < 30:
+                if len(original_series) < 30:
                     validation_results[param] = {
                         "status": "insufficient_data",
-                        "data_points": len(common_idx),
-                        "gcv": None,
-                        "trend_preservation": None
+                        "data_points": len(original_series),
+                        "gcv_score": None,
+                        "trend_preservation_pct": None
                     }
                     continue
-                
-                # Calculate metrics
-                gcv_score = self._calculate_gcv(original_aligned, smoothed_aligned, param)
-                trend_agreement = self._calculate_trend_preservation(original_aligned, smoothed_aligned)
-                
-                # Determine quality
-                quality_status = self._determine_smoothing_quality(gcv_score, trend_agreement)
-                
-                validation_results[param] = {
-                    "gcv_score": round(float(gcv_score), 4),
-                    "trend_preservation_pct": round(float(trend_agreement * 100), 2),
-                    "quality_status": quality_status,
-                    "smoothing_method": param_smoothing_applied,
-                    "data_points": len(common_idx)
-                }
-                
-                logger.info(
-                    f"  {param}: GCV={gcv_score:.4f}, Trend={trend_agreement*100:.2f}%, Quality={quality_status.upper()}"
+                # Metric 1: Calculate GCV Score
+                gcv_score = self._calculate_gcv_score(
+                    original_series, processed_series, param
                 )
                 
-                # Add warnings for poor quality
+                # Metric 2: Calculate Trend Preservation
+                trend_preservation = self._calculate_trend_preservation_pct(
+                    original_series, processed_series
+                )
+                
+                # Metric 3: Determine Quality Status
+                quality_status = self._determine_quality_status(
+                    gcv_score, trend_preservation, param
+                )
+                
+                # Store results
+                validation_results[param] = {
+                    "gcv_score": round(float(gcv_score), 4),
+                    "trend_preservation_pct": round(float(trend_preservation), 2),
+                    "quality_status": quality_status,
+                    "data_points": len(original_series),
+                    "imputation_method": imputation_stats.get(param, {}).get("method", "unknown")
+                }
+                
+                # Log results
+                logger.info(
+                    f"  {param}: GCV={gcv_score:.4f}, "
+                    f"Trend={trend_preservation:.2f}%, "
+                    f"Quality={quality_status.upper()}"
+                )
+                
+                # Generate warnings for poor quality
                 if quality_status == "poor":
-                    self.preprocessing_report["warnings"].append(
-                        f"Parameter {param}: smoothing quality is poor "
-                        f"(GCV={gcv_score:.3f}, Trend={trend_agreement*100:.1f}%)"
+                    warning_msg = (
+                        f"Parameter {param}: Poor preprocessing quality detected "
+                        f"(GCV={gcv_score:.3f}, Trend={trend_preservation:.1f}%)"
                     )
-            
+                    self.preprocessing_report["warnings"].append(warning_msg)
+                    logger.warning(f"{warning_msg}")
+                    
+                elif quality_status == "fair":
+                    logger.info(f"{param}: Fair quality - acceptable but not optimal")
+                
+                if param == 'FF_AVG' and 'FF_AVG' in df.columns and self.original_data is not None:
+                    logger.info("FF_AVG SAMPLE COMPARISON")
+                    
+                    # Debug: Check index types
+                    logger.info(f"original_data index type: {type(self.original_data.index)}")
+                    logger.info(f"processed df index type: {type(df.index)}")
+                    
+                    # Get samples where original was 0.0
+                    zero_samples = self.original_data[self.original_data['FF_AVG'] == 0.0].head(20)
+                    logger.info(f"Found {len(zero_samples)} zero samples in original data")
+                    
+                    if len(zero_samples) > 0:
+                        # Print header
+                        logger.info(f"{'Date':<12} {'FF_X':>6} {'Original':>10} {'Processed':>10} {'Diff':>8} {'Status'}")
+                        
+                        # Iterate through samples
+                        matched_count = 0
+                        for idx in zero_samples.index:
+                            # FIX: Check if index exists in processed df
+                            if idx in df.index:
+                                matched_count += 1
+                                
+                                # Get values
+                                ff_x = df.loc[idx, 'FF_X'] if 'FF_X' in df.columns else np.nan
+                                orig = self.original_data.loc[idx, 'FF_AVG']
+                                proc = df.loc[idx, 'FF_AVG']
+                                diff = proc - orig
+                                
+                                # Determine status
+                                if pd.notna(ff_x) and ff_x > 0 and orig == 0:
+                                    status = "SUSPICIOUS"
+                                else:
+                                    status = "OK"
+                                
+                                # Format and log
+                                date_str = idx.strftime('%Y-%m-%d') if hasattr(idx, 'strftime') else str(idx)
+                                logger.info(
+                                    f"{date_str:<12} {ff_x:>6.1f} {orig:>10.1f} "
+                                    f"{proc:>10.1f} {diff:>8.1f} {status}"
+                                )
+                            else:
+                                # Debug: Index not found
+                                logger.debug(f"Index {idx} not found in processed df")
+                        
+                        logger.info(f"Displayed {matched_count}/{len(zero_samples)} samples")
+                        
+                        if matched_count == 0:
+                            logger.warning(
+                                "No matching indices found! "
+                                "This indicates index type mismatch between original_data and processed df."
+                            )
+                            logger.warning(f"original_data index sample: {self.original_data.index[:5].tolist()}")
+                            logger.warning(f"processed df index sample: {df.index[:5].tolist()}")
+                    else:
+                        logger.info("No FF_AVG = 0.0 values found in original data")
+                    
             except Exception as e:
-                logger.error(f"Error validating smoothing for {param}: {str(e)}")
+                logger.error(f"Error validating {param}: {str(e)}")
                 validation_results[param] = {
                     "status": "error",
                     "error": str(e),
-                    "gcv": None,
-                    "trend_preservation": None
+                    "gcv_score": None,
+                    "trend_preservation_pct": None
+                    
                 }
-        
-        self.preprocessing_report["smoothing_validation"] = validation_results
-        logger.info(f"Smoothing validation completed for {len(validation_results)} parameters")
-
-    def _determine_smoothing_quality(self, gcv: float, trend_preservation: float) -> str:
-        """Determine overall smoothing quality"""
-        if gcv < 2.0 and trend_preservation > 0.80:
-            return "excellent"
-        elif gcv < 4.0 and trend_preservation > 0.75:
-            return "good"
-        elif gcv < 10.0 and trend_preservation > 0.70:
-            return "fair"
-        else:
-            return "poor"
-
-    def _calculate_model_coverage(self, df: pd.DataFrame) -> None:
-        """Calculate model applicability coverage for Holt-Winters and LSTM models"""
-        logger.info("Calculating model coverage analysis...")
-        
-        params = self.options.get("columns_to_process", [])
-        coverage_results = {
-            "holt_winters": {"coverage_percentage": 0, "uncovered_breakdown": {}},
-            "lstm": {"coverage_percentage": 0, "uncovered_breakdown": {}},
-            "per_parameter": {}
-        }
-        
-        total_data_points = len(df)
-        
-        for param in params:
-            if param not in df.columns:
-                continue
-            
-            try:
-                param_coverage = self._analyze_parameter_coverage(df, param, total_data_points)
-                coverage_results["per_parameter"][param] = param_coverage
-            except Exception as e:
-                logger.error(f"Error calculating coverage for parameter {param}: {str(e)}")
-                coverage_results["per_parameter"][param] = {
-                    "holt_winters_coverage": 0,
-                    "lstm_coverage": 0,
-                    "error": str(e)
-                }
-        
-        # Calculate overall coverage percentages
-        if coverage_results["per_parameter"]:
-            hw_coverage = [
-                result.get("holt_winters_coverage", 0)
-                for result in coverage_results["per_parameter"].values()
-                if isinstance(result, dict) and "holt_winters_coverage" in result
-            ]
-            lstm_coverage = [
-                result.get("lstm_coverage", 0)
-                for result in coverage_results["per_parameter"].values()
-                if isinstance(result, dict) and "lstm_coverage" in result
-            ]
-            
-            overall_hw_coverage = sum(hw_coverage) / len(hw_coverage) if hw_coverage else 0
-            overall_lstm_coverage = sum(lstm_coverage) / len(lstm_coverage) if lstm_coverage else 0
-            
-            # Aggregate uncovered breakdown
-            hw_uncovered = self._aggregate_uncovered_breakdown(coverage_results["per_parameter"], "holt_winters")
-            lstm_uncovered = self._aggregate_uncovered_breakdown(coverage_results["per_parameter"], "lstm")
-            
-            coverage_results["holt_winters"] = {
-                "coverage_percentage": round(overall_hw_coverage, 2),
-                "uncovered_breakdown": hw_uncovered,
-                "model_suitability": self._determine_model_suitability(overall_hw_coverage)
-            }
-            
-            coverage_results["lstm"] = {
-                "coverage_percentage": round(overall_lstm_coverage, 2),
-                "uncovered_breakdown": lstm_uncovered,
-                "model_suitability": self._determine_model_suitability(overall_lstm_coverage)
-            }
-        
-        self.preprocessing_report["model_coverage"] = coverage_results
-        logger.info(f"Model coverage - Holt Winters: {coverage_results['holt_winters']['coverage_percentage']:.1f}%")
-        logger.info(f"Model coverage - LSTM: {coverage_results['lstm']['coverage_percentage']:.1f}%")
-
-    def _analyze_parameter_coverage(
+        # store in preprocessing report
+        self.preprocessing_report["imputation_validation"] = validation_results
+        # generate summary statistics
+        self._generate_quality_summary(validation_results)
+        logger.info(f"Quality validation completed for {len(validation_results)}")
+    
+    def _align_time_series(
         self,
-        df: pd.DataFrame,
-        param: str,
-        total_points: int
-    ) -> Dict[str, Any]:
-        """Analyze coverage for a specific parameter for both model types"""
+        original_df: pd.DataFrame,
+        processed_df: pd.DataFrame,
+        param: str
+    )-> tuple:
+        """
+        Align time series on common dates for gcv evaluation
         
-        series = df[param].dropna()
-        if len(series) < 30:
-            return {
-                "holt_winters_coverage": 0,
-                "lstm_coverage": 0,
-                "insufficient_data": True
-            }
+        Conditional reference based on imputed classification
+        - Edge case handling for sparse rain months
+        - Outlier-resistant median calculation
         
-        coverage_analysis = {
-            "data_points": len(series),
-            "missing_ratio": (total_points - len(series)) / total_points
-        }
+        Strategy:
+        - For originally valid values: Compare original vs processed
+        - For originally missing values (imputed):
+            * IF processed = 0 (dry) → reference = 0
+            * IF processed > 0 (rain) → reference = conditional median (rain days only)
         
-        # Run all analyses
-        large_gaps_impact = self._analyze_large_gaps(df, param)
-        extreme_outliers_impact = self._analyze_extreme_outliers(series)
-        seasonality_analysis = self._analyze_seasonality(series)
-        stationarity_analysis = self._analyze_stationarity(series)
-        rainfall_analysis = self._analyze_rainfall_extremes(series, param) if param == "RR" else {}
-        
-        # Check if parameter was smoothed
-        smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
-        was_smoothed = smoothing_summary.get(param, "none") != "none"
-        
-        # Calculate coverage
-        if was_smoothed:
-            hw_coverage = self._calculate_holt_winters_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                seasonality_analysis,
-                stationarity_analysis,
-                coverage_analysis,
-                param
-            )
+        This evaluates BOTH preservation and imputation quality.
+        """
+        try:
+            # Ensure both DataFrames have Date as index
+            if 'Date' in original_df.columns:
+                original_df = original_df.set_index('Date')
+
+            if 'Date' in processed_df.columns:
+                processed_df = processed_df.set_index('Date')
             
-            lstm_coverage = self._calculate_lstm_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                rainfall_analysis,
-                stationarity_analysis,
-                coverage_analysis,
-                param
-            )
-        else:
-            # Non-smoothed parameters
-            non_smoothed_coverage = self._calculate_non_smoothed_coverage(
-                large_gaps_impact,
-                extreme_outliers_impact,
-                coverage_analysis,
-                param
-            )
-            hw_coverage = lstm_coverage = non_smoothed_coverage
-        
-        return {
-            "holt_winters_coverage": hw_coverage["coverage_percentage"],
-            "lstm_coverage": lstm_coverage["coverage_percentage"],
-            "holt_winters_uncovered": hw_coverage["uncovered_reasons"],
-            "lstm_uncovered": lstm_coverage["uncovered_reasons"],
-            "analysis_details": {
-                "large_gaps": large_gaps_impact,
-                "extreme_outliers": extreme_outliers_impact,
-                "seasonality": seasonality_analysis,
-                "stationarity": stationarity_analysis,
-                "rainfall": rainfall_analysis
-            }
-        }
+            # Extract parameter series
+            original = original_df[param]
+            processed = processed_df[param]
+            
+            # Find common dates
+            common_idx = original.index.intersection(processed.index)
+            
+            if len(common_idx) == 0:
+                logger.warning(f"No common dates for {param}")
+                return None, None
 
-    def _analyze_large_gaps(self, df: pd.DataFrame, param: str) -> Dict[str, Any]:
-        """Analyze impact of large gaps (>30 days for BMKG)"""
-        
-        gaps_info = self.preprocessing_report.get("gaps", {})
-        large_gaps = [gap for gap in gaps_info.get("gap_details", []) if gap.get("duration_days", 0) > 30]
-        
-        if not large_gaps:
-            return {"impact_percentage": 0, "large_gaps_count": 0}
-        
-        total_gap_days = sum(gap["duration_days"] for gap in large_gaps)
-        total_days = (df.index.max() - df.index.min()).days + 1
-        impact_percentage = (total_gap_days / total_days) * 100
-        
-        return {
-            "impact_percentage": round(impact_percentage, 2),
-            "large_gaps_count": len(large_gaps),
-            "total_gap_days": total_gap_days
-        }
-
-    def _analyze_extreme_outliers(self, series: pd.Series) -> Dict[str, Any]:
-        """Analyze extreme outliers that survived double-detection"""
-        
-        if len(series) < 10:
-            return {"impact_percentage": 0}
-        
-        mean = series.mean()
-        std = series.std()
-        
-        if std == 0:
-            return {"impact_percentage": 0}
-        
-        z_scores = np.abs((series - mean) / std)
-        extreme_outliers = z_scores > 3.5
-        
-        impact_percentage = (extreme_outliers.sum() / len(series)) * 100
-        
-        return {
-            "impact_percentage": round(impact_percentage, 2),
-            "extreme_outliers_count": int(extreme_outliers.sum()),
-            "max_z_score": round(float(z_scores.max()), 2)
-        }
-
-    def _analyze_seasonality(self, series: pd.Series) -> Dict[str, Any]:
-            """Analyze seasonal patterns (critical for Holt-Winters)"""
-            try:
-                if len(series) < 730:  # Need at least 2 years for seasonal analysis
-                    return {"seasonal_strength": 0, "has_clear_seasonality": False, "insufficient_data": True}
+            # Extract aligned series
+            original_aligned = original.loc[common_idx]
+            processed_aligned = processed.loc[common_idx]
+            
+            comparison_original = []
+            comparison_processed = []
+            
+            for idx in common_idx:
+                orig_val = original_aligned.loc[idx]
+                proc_val = processed_aligned.loc[idx]
                 
-                # Perform seasonal decomposition
-                decomposition = seasonal_decompose(series, model='additive', period=365, extrapolate_trend='freq')
+                # Skip if processed value is missing (shouldn't happen)
+                if pd.isna(proc_val):
+                    continue
                 
-                # Calculate seasonal strength
-                seasonal_var = np.var(decomposition.seasonal.dropna())
-                residual_var = np.var(decomposition.resid.dropna())
-                
-                if seasonal_var + residual_var == 0:
-                    seasonal_strength = 0
+                if pd.notna(orig_val):
+                    # CASE 1: Original value exists
+                    # Direct comparison - preserve original vs processed
+                    comparison_original.append(orig_val)
+                    comparison_processed.append(proc_val)
                 else:
-                    seasonal_strength = seasonal_var / (seasonal_var + residual_var)
-                
-                has_clear_seasonality = seasonal_strength > 0.3  # Threshold for clear seasonality
-                
-                return {
-                    "seasonal_strength": round(float(seasonal_strength), 3),
-                    "has_clear_seasonality": has_clear_seasonality,
-                    "seasonal_variance": round(float(seasonal_var), 3),
-                    "residual_variance": round(float(residual_var), 3)
-                }
-                
-            except Exception as e:
-                logger.warning(f"Error in seasonal analysis: {str(e)}")
-                return {"seasonal_strength": 0, "has_clear_seasonality": False, "error": str(e)}
-            
-    def _analyze_stationarity(self, series: pd.Series) -> Dict[str, Any]:
-            """Analyze stationarity using Augmented Dickey-Fuller test"""
-            try:
-                if len(series) < 50:
-                    return {"is_stationary": False, "insufficient_data": True}
-                
-                # Perform ADF test
-                adf_result = adfuller(series.dropna())
-                
-                is_stationary = adf_result[1] < 0.05  # p-value < 0.05 indicates stationarity
-                
-                return {
-                    "is_stationary": is_stationary,
-                    "adf_statistic": round(float(adf_result[0]), 4),
-                    "p_value": round(float(adf_result[1]), 4),
-                    "critical_values": {k: round(v, 4) for k, v in adf_result[4].items()}
-                }
-                
-            except Exception as e:
-                logger.warning(f"Error in stationarity analysis: {str(e)}")
-                return {"is_stationary": False, "error": str(e)}
-            
-    def _analyze_rainfall_extremes(self, series: pd.Series, param: str) -> Dict[str, Any]:
-            """Analyze extreme precipitation events (0 vs 500mm range)"""
-            if param != "RR":
-                return {}
-            
-            zero_ratio = (series == 0).sum() / len(series)
-            extreme_high = (series > 200).sum() / len(series) 
-            # Calculate range ratio (wide range affects LSTM)
-            data_range = series.max() - series.min()
-            range_impact = min(data_range / 300, 1.0) 
-            
-            return {
-                "zero_precipitation_ratio": round(float(zero_ratio), 3),
-                "extreme_precipitation_ratio": round(float(extreme_high), 3),
-                "range_impact": round(float(range_impact), 3),
-                "max_precipitation": round(float(series.max()), 2)
-            }
-    def log_detailed_coverage_analysis(self, processed_df: pd.DataFrame) -> None:
-        """
-        Log detailed coverage analysis for debugging and verification.
-        Outputs comprehensive breakdown of penalties, thresholds, and quality metrics.
-        """
-        logger.info("="*80)
-        logger.info("DETAILED COVERAGE ANALYSIS REPORT")
-        logger.info("="*80)
-        
-        # Get coverage data
-        coverage_data = self.preprocessing_report.get("model_coverage", {})
-        per_param = coverage_data.get("per_parameter", {})
-        
-        if not per_param:
-            logger.warning("No per-parameter coverage data available")
-            return
-        
-        # Overall Summary
-        logger.info("\n📊 OVERALL COVERAGE SUMMARY:")
-        logger.info(f"  Holt-Winters: {coverage_data.get('holt_winters', {}).get('coverage_percentage', 0):.2f}%")
-        logger.info(f"  LSTM: {coverage_data.get('lstm', {}).get('coverage_percentage', 0):.2f}%")
-        logger.info(f"  HW Suitability: {coverage_data.get('holt_winters', {}).get('model_suitability', 'unknown').upper()}")
-        logger.info(f"  LSTM Suitability: {coverage_data.get('lstm', {}).get('model_suitability', 'unknown').upper()}")
-        
-        # Per-Parameter Detailed Breakdown
-        logger.info("\n" + "="*80)
-        logger.info("PER-PARAMETER DETAILED ANALYSIS:")
-        logger.info("="*80)
-        
-        params = self.options.get("columns_to_process", [])
-        
-        for param in params:
-            if param not in per_param:
-                logger.info(f"\n❌ {param}: No coverage data available")
-                continue
-            
-            param_data = per_param[param]
-            
-            # Header
-            logger.info(f"\n{'='*80}")
-            logger.info(f"🔍 PARAMETER: {param}")
-            logger.info(f"{'='*80}")
-            
-            # Basic Coverage
-            hw_coverage = param_data.get("holt_winters_coverage", 0)
-            lstm_coverage = param_data.get("lstm_coverage", 0)
-            logger.info(f"  📈 Coverage:")
-            logger.info(f"     • Holt-Winters: {hw_coverage:.2f}%")
-            logger.info(f"     • LSTM: {lstm_coverage:.2f}%")
-            
-            # Analysis Details
-            analysis = param_data.get("analysis_details", {})
-            
-            # 1. Smoothing Quality (if available)
-            smoothing_validation = self.preprocessing_report.get("smoothing_validation", {})
-            if param in smoothing_validation:
-                smooth_data = smoothing_validation[param]
-                logger.info(f"\n  🎯 SMOOTHING QUALITY:")
-                logger.info(f"     • Status: {smooth_data.get('quality_status', 'unknown').upper()}")
-                logger.info(f"     • GCV Score: {smooth_data.get('gcv_score', 'N/A')}")
-                logger.info(f"     • Trend Preservation: {smooth_data.get('trend_preservation_pct', 'N/A')}%")
-                logger.info(f"     • Method: {smooth_data.get('smoothing_method', 'none')}")
-                logger.info(f"     • Data Points: {smooth_data.get('data_points', 0)}")
-            
-            # 2. Large Gaps Analysis
-            large_gaps = analysis.get("large_gaps", {})
-            if large_gaps:
-                logger.info(f"\n  📏 LARGE GAPS ANALYSIS:")
-                logger.info(f"     • Impact: {large_gaps.get('impact_percentage', 0):.2f}%")
-                logger.info(f"     • Count: {large_gaps.get('large_gaps_count', 0)}")
-                logger.info(f"     • Total Gap Days: {large_gaps.get('total_gap_days', 0)}")
-            else:
-                logger.info(f"\n  ✅ LARGE GAPS: None detected")
-            
-            # 3. Extreme Outliers Analysis
-            outliers = analysis.get("extreme_outliers", {})
-            if outliers:
-                logger.info(f"\n  ⚠️  EXTREME OUTLIERS:")
-                logger.info(f"     • Impact: {outliers.get('impact_percentage', 0):.2f}%")
-                logger.info(f"     • Count: {outliers.get('extreme_outliers_count', 0)}")
-                logger.info(f"     • Max Z-Score: {outliers.get('max_z_score', 'N/A')}")
-            else:
-                logger.info(f"\n  ✅ EXTREME OUTLIERS: None detected")
-            
-            # 4. Seasonality Analysis
-            seasonality = analysis.get("seasonality", {})
-            if seasonality and not seasonality.get("insufficient_data", False):
-                logger.info(f"\n  🌊 SEASONALITY ANALYSIS:")
-                logger.info(f"     • Seasonal Strength: {seasonality.get('seasonal_strength', 0):.3f}")
-                logger.info(f"     • Has Clear Seasonality: {'YES' if seasonality.get('has_clear_seasonality', False) else 'NO'}")
-                logger.info(f"     • Seasonal Variance: {seasonality.get('seasonal_variance', 'N/A')}")
-                logger.info(f"     • Residual Variance: {seasonality.get('residual_variance', 'N/A')}")
-                if seasonality.get("error"):
-                    logger.info(f"     • Error: {seasonality.get('error')}")
-            else:
-                logger.info(f"\n  ⚠️  SEASONALITY: Insufficient data or not analyzed")
-            
-            # 5. Stationarity Analysis
-            stationarity = analysis.get("stationarity", {})
-            if stationarity and not stationarity.get("insufficient_data", False):
-                logger.info(f"\n  📊 STATIONARITY ANALYSIS:")
-                logger.info(f"     • Is Stationary: {'YES' if stationarity.get('is_stationary', False) else 'NO'}")
-                logger.info(f"     • ADF Statistic: {stationarity.get('adf_statistic', 'N/A')}")
-                logger.info(f"     • P-Value: {stationarity.get('p_value', 'N/A')}")
-                if stationarity.get("critical_values"):
-                    logger.info(f"     • Critical Values:")
-                    for level, value in stationarity.get("critical_values", {}).items():
-                        logger.info(f"        - {level}: {value}")
-                if stationarity.get("error"):
-                    logger.info(f"     • Error: {stationarity.get('error')}")
-            else:
-                logger.info(f"\n  ⚠️  STATIONARITY: Insufficient data or not analyzed")
-            
-            # 6. Precipitation Extremes (if applicable)
-            precipitation = analysis.get("precipitation", {})
-            if precipitation:
-                logger.info(f"\n  🌧️  PRECIPITATION EXTREMES:")
-                logger.info(f"     • Zero Precipitation Ratio: {precipitation.get('zero_precipitation_ratio', 0):.3f}")
-                logger.info(f"     • Extreme Precipitation Ratio: {precipitation.get('extreme_precipitation_ratio', 0):.3f}")
-                logger.info(f"     • Range Impact: {precipitation.get('range_impact', 0):.3f}")
-                logger.info(f"     • Max Precipitation: {precipitation.get('max_precipitation', 'N/A')} mm")
-            
-            # 7. Holt-Winters Penalty Breakdown
-            hw_uncovered = param_data.get("holt_winters_uncovered", {})
-            if hw_uncovered:
-                logger.info(f"\n  🔻 HOLT-WINTERS PENALTY BREAKDOWN:")
-                total_penalty = sum(hw_uncovered.values())
-                logger.info(f"     • Total Penalty: {total_penalty:.2f}%")
-                
-                # Sort penalties by magnitude for better readability
-                for reason, penalty in sorted(hw_uncovered.items(), key=lambda x: x[1], reverse=True):
-                    # Better formatting for trend preservation
-                    if reason == "trend_preservation_loss":
-                        display_name = "Trend Preservation Loss"
+                    # CASE 2: Original missing (imputed value)
+                    if param == 'RR':
+                        # RAINFALL: Conditional reference based on classification
+                        if proc_val == 0:
+                            # Classified as dry day → reference = 0
+                            reference = 0.0
+                        else:
+                            # Classified as rain day → conditional median
+                            reference = self._get_rainfall_conditional_median(
+                                original_df, idx
+                            )
                     else:
-                        display_name = reason.replace('_', ' ').title()
+                        # OTHER PARAMETERS: Standard seasonal median
+                        reference = self._get_seasonal_median_reference(
+                            original_df, idx, param
+                        )
                     
-                    logger.info(f"     • {display_name}: -{penalty:.2f}%")
-            else:
-                logger.info(f"\n  ✅ HOLT-WINTERS: No penalties applied")
-
-            # 8. LSTM Penalty Breakdown
-            lstm_uncovered = param_data.get("lstm_uncovered", {})
-            if lstm_uncovered:
-                logger.info(f"\n  🔻 LSTM PENALTY BREAKDOWN:")
-                total_penalty = sum(lstm_uncovered.values())
-                logger.info(f"     • Total Penalty: {total_penalty:.2f}%")
-                
-                for reason, penalty in sorted(lstm_uncovered.items(), key=lambda x: x[1], reverse=True):
-                    # Better formatting
-                    if reason == "trend_preservation_loss":
-                        display_name = "Trend Preservation Loss"
-                    else:
-                        display_name = reason.replace('_', ' ').title()
-                    
-                    logger.info(f"     • {display_name}: -{penalty:.2f}%")
-            else:
-                logger.info(f"\n  ✅ LSTM: No penalties applied")
+                    # Only add to comparison if reference is valid
+                    if pd.notna(reference):
+                        comparison_original.append(reference)
+                        comparison_processed.append(proc_val)
             
-            # 9. Data Quality Indicators
-            logger.info(f"\n  📋 DATA QUALITY INDICATORS:")
-            logger.info(f"     • Data Points: {analysis.get('data_points', len(processed_df))}")
-            logger.info(f"     • Missing Ratio: {analysis.get('missing_ratio', 0)*100:.2f}%")
-            if analysis.get("insufficient_data"):
-                logger.info(f"     ⚠️  WARNING: Insufficient data for full analysis")
-        
-        # Global Uncovered Breakdown
-        logger.info("\n" + "="*80)
-        logger.info("GLOBAL PENALTY AGGREGATION:")
-        logger.info("="*80)
-        
-        hw_global = coverage_data.get("holt_winters", {}).get("uncovered_breakdown", {})
-        lstm_global = coverage_data.get("lstm", {}).get("uncovered_breakdown", {})
-        
-        if hw_global:
-            logger.info(f"\n  🔻 Holt-Winters Average Penalties Across Parameters:")
-            for reason, penalty in sorted(hw_global.items(), key=lambda x: x[1], reverse=True):
-                logger.info(f"     • {reason.replace('_', ' ').title()}: -{penalty:.2f}%")
-        
-        if lstm_global:
-            logger.info(f"\n  🔻 LSTM Average Penalties Across Parameters:")
-            for reason, penalty in sorted(lstm_global.items(), key=lambda x: x[1], reverse=True):
-                logger.info(f"     • {reason.replace('_', ' ').title()}: -{penalty:.2f}%")
-        
-        # Warnings Summary
-        warnings = self.preprocessing_report.get("warnings", [])
-        if warnings:
-            logger.info("\n" + "="*80)
-            logger.info("⚠️  WARNINGS SUMMARY:")
-            logger.info("="*80)
-            for i, warning in enumerate(warnings, 1):
-                logger.info(f"  {i}. {warning}")
-        
-        logger.info("\n" + "="*80)
-        logger.info("END OF DETAILED COVERAGE ANALYSIS")
-        logger.info("="*80 + "\n")
-    
-    def _calculate_trend_penalty(self, trend_preservation: float) -> float:
-        """
-        Calculate penalty based on trend preservation loss
-        
-        Args:
-            trend_preservation: Trend agreement ratio (0.0 to 1.0)
-        
-        Returns:
-            Penalty percentage (0.0 to 20.0)
-        
-        Rationale:
-        - Trend preservation measures how well smoothing maintains directional patterns
-        - Low preservation means forecasting models will learn from distorted patterns
-        - Critical for both Holt-Winters (trend component) and LSTM (sequential learning)
-        
-        Thresholds:
-        - ≥90%: Excellent preservation, no penalty
-        - 85-90%: Minor loss, models still reliable (-3%)
-        - 80-85%: Moderate loss, noticeable forecast degradation (-7%)
-        - 75-80%: Significant loss, high forecast uncertainty (-12%)
-        - <75%: Severe loss, forecasting unreliable (-20%)
-        """
-        if trend_preservation >= 0.90:
-            return 0.0
-        elif trend_preservation >= 0.85:
-            return 3.0
-        elif trend_preservation >= 0.80:
-            return 7.0
-        elif trend_preservation >= 0.75:
-            return 12.0
-        else:
-            return 20.0
-    
-    def _calculate_seasonality_penalty(
-        self, 
-        seasonal_strength: float
-    ) -> float:
-        """
-         Calculate gradient-based seasonality penalty for Holt-Winters
-    
-        Args:
-            seasonal_strength: Seasonal variance ratio (0.0 to 1.0)
-        
-        Returns:
-            Penalty percentage (0.0 to 25.0)
-        
-        Rationale:
-        - Holt-Winters Seasonal method requires clear seasonal patterns
-        - Weak/absent seasonality causes poor seasonal component estimation
-        - Model may overfit noise or fail to capture true patterns
-        
-        Thresholds (based on seasonal decomposition literature):
-        - <0.1: No seasonality, HW inappropriate (-25%)
-        - 0.1-0.2: Very weak, HW struggles (-20%)
-        - 0.2-0.3: Weak but usable with caution (-12%)
-        - 0.3-0.5: Acceptable, not optimal (-5%)
-        - ≥0.5: Strong seasonality, HW ideal (0%)
-        
-        Note: LSTM is less affected by seasonality, so this penalty
-        is applied with reduced weight for LSTM coverage calculation
-        """
-        if seasonal_strength < 0.1:
-            return 25.0
-        elif seasonal_strength < 0.2:
-            return 20.0
-        elif seasonal_strength < 0.3:
-            return 12.0
-        elif seasonal_strength < 0.5:
-            return 5.0
-        else:
-            return 0.0
-    
-    def _get_smoothing_quality(self, param: str) -> Dict[str, Any]:
-        """Get smoothing quality metrics from validation results"""
-        smoothing_validation = self.preprocessing_report.get("smoothing_validation", {})
-        
-        if param not in smoothing_validation:
-            return {"penalty": 0.0, "trend_value": 0.0}
-        
-        validation_data = smoothing_validation[param]
-        gcv_score = validation_data.get("gcv_score", 0.0)
-        trend_pct = validation_data.get("trend_preservation_pct", 100.0) / 100.0
-        
-        # Convert GCV to penalty
-        if gcv_score < 2.0:
-            gcv_penalty = 0.0
-        elif gcv_score < 4.0:
-            gcv_penalty = 5.0
-        elif gcv_score < 10.0:
-            gcv_penalty = 10.0
-        else:
-            gcv_penalty = 20.0
-        
-        return {
-            "penalty": gcv_penalty,
-            "trend_value": trend_pct
-        }
-        
-    def _optimize_parameter_alphas(self, df: pd.DataFrame) -> None:
-        logger.info("🔍 Starting adaptive alpha optimization...")
-        
-        params = self.options.get("columns_to_process", [])
-        alpha_range = self.options.get("alpha_optimization_range", [0.05, 0.08, 0.10, 0.12, 0.15, 0.18, 0.20])
-        
-        optimization_results = {}
-        
-        for param in params:
-            if param not in df.columns:
-                continue
+            if len(comparison_original) == 0:
+                logger.warning(f"No valid comparison points for {param}")
+                return None, None
             
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-
-            # Determine smoothing method with proper fallback chain
-            smoothing_method = param_config.get(
-                "smoothing_method",
-                self.options.get("smoothing_method", "exponential")
+            original_final = np.array(comparison_original)
+            processed_final = np.array(comparison_processed)
+            
+            # Count preserved vs imputed
+            valid_count = (original_aligned.notna() & processed_aligned.notna()).sum()
+            imputed_count = len(comparison_original) - valid_count
+            
+            logger.debug(
+                f"{param}: {len(original_final)} comparison points "
+                f"({valid_count} preserved, {imputed_count} imputed vs reference)"
             )
-
-            # Skip if no smoothing or non-exponential
-            if smoothing_method is None:
-                logger.info(f"  ⏭️  {param}: Skipping (no smoothing configured)")
-                continue
-                
-            if smoothing_method != "exponential":
-                logger.info(f"  ⏭️  {param}: Skipping (using {smoothing_method} method)")
-                continue
             
-            optimal_alpha = self._find_optimal_alpha_for_parameter(df, param, alpha_range)
-
-            # Store in config - ensure parameter_configs exists
-            if "parameter_configs" not in self.options:
-                self.options["parameter_configs"] = {}
-
-            # Initialize parameter config if not exists
-            if param not in self.options["parameter_configs"]:
-                self.options["parameter_configs"][param] = {}
-
-            # Update alpha
-            self.options["parameter_configs"][param]["exponential_alpha"] = optimal_alpha
-            optimization_results[param] = optimal_alpha
-
-            logger.info(f"Optimal α={optimal_alpha:.3f} for {param}")
-
-            # Store results in report
-            self.preprocessing_report["alpha_optimization"] = optimization_results
-            logger.info(f"Alpha optimization complete: {len(optimization_results)} parameters optimized")
-        
-        # Store results
-        self.preprocessing_report["alpha_optimization"] = optimization_results
-        logger.info(f"Alpha optimization complete")
-        
-    def _find_optimal_alpha_for_parameter(
+            return original_final, processed_final
+        except Exception as e:
+            logger.error(f"Error aligning time series for {param}: {str(e)}")
+            logger.error(traceback.format_exc())
+            return None, None
+    
+    def _get_rainfall_conditional_median(
         self,
-        df: pd.DataFrame,
-        param: str,
-        alpha_range: List[float]
-    ) -> float:
+        original_df: pd.DataFrame,
+        idx
+    )-> float:
         """
-        Test multiple alpha values and return the optimal one
-        Scoring: (trend_preservation * 100) - (GCV * 0.5)
-        """
+        Get conditional median rainfall reference (rain days only):
+        - IQR-filtered median (outlier-resistant)
+        - Priority cascade: Monthly → Seasonal → Overall
+        - Edge case handling for sparse data
         
-        if param not in df.columns:
-            logger.warning(f"Parameter {param} not in dataframe - using default alpha")
-            return self.options.get("exponential_alpha", 0.15)
+        Args:
+            original_df: Original dataset
+            idx: Date index for reference calculation
         
-        series = df[param].dropna()
-        
-        # Check minimum data requirement (lowered threshold for better coverage)
-        if len(series) < 100:  # Need at least 100 points for meaningful optimization
-            logger.warning(f"Parameter {param}: insufficient data ({len(series)} points < 100) - using default alpha")
-            return self.options.get("exponential_alpha", 0.15)
-        
-        # Initialize with global default
-        best_alpha = self.options.get("exponential_alpha", 0.15)
-        best_score = -np.inf
-        test_results = []
-        
-        logger.info(f"     Testing {len(alpha_range)} alpha values...")
-        
-        for alpha in alpha_range:
-            performance = self._test_alpha_performance(series.values, alpha)
-            
-            if performance is None:
-                continue
-            
-            gcv_score = performance.get("gcv_score", 10.0)
-            trend_pct = performance.get("trend_preservation_pct", 0.0)
-            
-            # Scoring: prioritize trend preservation
-            combined_score = (trend_pct * 1.0) - (gcv_score * 0.5)
-            
-            test_results.append({
-                "alpha": alpha,
-                "gcv": gcv_score,
-                "trend": trend_pct,
-                "score": combined_score
-            })
-            
-            logger.info(f"     α={alpha}: GCV={gcv_score:.4f}, Trend={trend_pct:.1f}%, Score={combined_score:.2f}")
-            
-            if combined_score > best_score:
-                best_score = combined_score
-                best_alpha = alpha
-        
-        if test_results:
-            best_result = max(test_results, key=lambda x: x["score"])
-            logger.info(f"     🏆 BEST: α={best_result['alpha']}, Trend={best_result['trend']:.1f}%")
-        
-        return best_alpha
-
-    def _test_alpha_performance(
-        self,
-        original_series: np.ndarray,
-        alpha: float
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Test a single alpha value and return GCV + trend preservation metrics
+        Returns:
+            Conditional median rainfall amount (mm)
         """
         
         try:
-            # Validate input size
-            if len(original_series) < 100:  # Match minimum from _find_optimal_alpha_for_parameter
-                return None
+            month = idx.month
+            season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
+            # PRIORITY 1: Monthly conditional median
+            monthly_rain = original_df[
+                (original_df.index.month == month) & 
+                (original_df['RR'] > 0) &
+                (original_df['RR'].notna())
+            ]['RR']
             
-            # Check for NaN issues - both all NaN and too many NaN
-            nan_count = np.isnan(original_series).sum()
-            if nan_count == len(original_series):
-                logger.warning(f"All-NaN data detected for α={alpha}")
-                return None
-            
-            if nan_count > len(original_series) * 0.5:  # More than 50% NaN
-                logger.warning(f"Too many NaN values ({nan_count}/{len(original_series)}) for α={alpha}")
-                return None
-
-            # Validate alpha range (should already be validated, but defensive)
-            if alpha <= 0 or alpha >= 1:
-                logger.warning(f"Invalid alpha value: {alpha} (must be between 0 and 1)")
-                return None
-            
-            # Apply exponential smoothing on cleaned series
-            series_pd = pd.Series(original_series).dropna()  # Drop NaN before smoothing
-            
-            if len(series_pd) < 100:  # Check again after dropping NaN
-                logger.warning(f"Insufficient valid data after dropping NaN for α={alpha}")
-                return None
+            if len(monthly_rain) >= 5:
+                # Enough data - use IQR-filtered median
+                reference = self._calculate_robust_median(monthly_rain)
                 
-            smoothed_series = series_pd.ewm(alpha=alpha, adjust=False).mean().values
-            original_clean = original_series[~np.isnan(original_series)]
+                if pd.notna(reference):
+                    logger.debug(f"RR reference for {idx}: Monthly median = {reference:.2f}mm")
+                    return reference
             
-            # Ensure same length
-            min_len = min(len(original_clean), len(smoothed_series))
-            original_clean = original_clean[:min_len]
-            smoothed_series = smoothed_series[:min_len]
+            # PRIORITY 2: Seasonal conditional median
+            seasonal_months = (
+                self.season_config['wet_months'] if season == 'Wet' 
+                else self.season_config['dry_months']
+            )
             
-            gcv_score = self._calculate_gcv(original_clean, smoothed_series, param=None)
-            trend_preservation = self._calculate_trend_preservation(original_clean, smoothed_series)
+            seasonal_rain = original_df[
+                (original_df.index.month.isin(seasonal_months)) &
+                (original_df['RR'] > 0) &
+                (original_df['RR'].notna())
+            ]['RR']
+            
+            if len(seasonal_rain) >= 10:
+                reference = self._calculate_robust_median(seasonal_rain)
+                
+                if pd.notna(reference):
+                    logger.debug(f"RR reference for {idx}: Seasonal median = {reference:.2f}mm")
+                    return reference
+            
+            # PRIORITY 3: Overall conditional median
+            overall_rain = original_df[
+                (original_df['RR'] > 0) &
+                (original_df['RR'].notna())
+            ]['RR']
+            
+            if len(overall_rain) >= 20:
+                reference = self._calculate_robust_median(overall_rain)
+                
+                if pd.notna(reference):
+                    logger.debug(f"RR reference for {idx}: Overall median = {reference:.2f}mm")
+                    return reference
+            
+            # PRIORITY 4: Hardcoded fallback
+            if season == 'Wet':
+                fallback = 8.0  # Wet season typical rain day
+            else:
+                fallback = 2.0  # Dry season typical rain day
+            
+            logger.debug(f"RR reference for {idx}: Fallback = {fallback}mm (insufficient data)")
+            return fallback
+
+        except Exception as e:
+            logger.debug(f"Error calculating rainfall reference for {idx}: {str(e)}")
+            # Emergency fallback
+            return 5.0
+    
+    def _calculate_robust_median(
+        self,
+        data: pd.Series
+    )-> float:
+        """
+        Calculate outlier-resistant median using IQR filtering
+        - Removes extreme outliers (>Q3 + 1.5*IQR)
+        - Falls back to standard median if insufficient data
+        
+        Args:
+            data: Pandas Series of values
+        
+        Returns:
+            Robust median value
+        """
+        try:
+            if len(data) < 3:
+                return data.median()
+            
+            # Calculate IQR
+            Q1 = data.quantile(0.25)
+            Q3 = data.quantile(0.75)
+            IQR = Q3 - Q1
+            
+            # Filter outliers
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            filtered_data = data[
+                (data >= lower_bound) & 
+                (data <= upper_bound)
+            ]
+            
+            if len(filtered_data) >= 3:
+                return filtered_data.median()
+            else:
+                # Fallback to standard median
+                return data.median()
+            
+        except Exception as e:
+            logger.debug(f"Error calculating robust median: {str(e)}")
+            return data.median()
+    
+    def _get_seasonal_median_reference(
+        self,
+        original_df: pd.DataFrame,
+        idx,
+        param: str
+    ) -> float:
+        """
+        Get seasonal median reference for non-rainfall parameters
+        
+        Args:
+            original_df: Original dataset
+            idx: Date index
+            param: Parameter name
+        
+        Returns:
+            Seasonal median value
+        """
+        try:
+            month = idx.month
+            
+            # Monthly median
+            monthly_data = original_df[
+                (original_df.index.month == month) &
+                original_df[param].notna()
+            ][param]
+            
+            if len(monthly_data) >= 5:
+                return monthly_data.median()
+            
+            # Seasonal fallback
+            season = 'Wet' if month in self.season_config['wet_months'] else 'Dry'
+            seasonal_months = (
+                self.season_config['wet_months'] if season == 'Wet'
+                else self.season_config['dry_months']
+            )
+            
+            seasonal_data = original_df[
+                (original_df.index.month.isin(seasonal_months)) &
+                original_df[param].notna()
+            ][param]
+            
+            if len(seasonal_data) >= 10:
+                return seasonal_data.median()
+            
+            # Overall median
+            return original_df[param].median()
+            
+        except Exception as e:
+            logger.debug(f"Error getting seasonal reference for {param}: {str(e)}")
+            return np.nan
+    
+    def _calculate_gcv_score(
+        self,
+        original: np.ndarray,
+        processed: np.ndarray,
+        param: str
+    ) -> float:
+        """
+        Calculate GCV score with adaptive CV-based normalization
+        
+        PHASE 1 FIX FOR FF_AVG:
+        - High CV params (>0.5): Use mean² normalization
+        - Moderate CV (0.2-0.5): Use variance normalization
+        - Low CV (<0.2): Use variance normalization
+        - Apply CV tolerance factor for chaotic parameters
+        
+        Expected Impact:
+        - FF_AVG GCV: 3045 → 30-50 (after Function 1 MSE reduction)
+        - Scale-independent comparison
+        - Physically meaningful thresholds
+        """
+        try:
+            n = len(original)
+            if n == 0:
+                return np.nan
+            
+            # STEP 1: Calculate MSE
+            mse = np.mean((processed - original) ** 2)
+            
+            # STEP 2: Calculate CV (Coefficient of Variation)
+            param_mean = np.mean(original)
+            param_std = np.std(original)
+            param_variance = np.var(original)
+            
+            if param_mean > 0:
+                cv = param_std / param_mean
+            else:
+                cv = 0
+            
+            # STEP 3: ADAPTIVE NORMALIZATION based on CV
+            # Define normalize_by in all branches
+            if cv > 0.5:
+                # HIGH CV (like FF_AVG): Use mean² normalization
+                if param_mean > 0:
+                    normalize_by = param_mean ** 2
+                    normalized_mse = mse / normalize_by
+                    normalization_method = "mean_squared"
+                    
+                    logger.debug(
+                        f"{param}: CV={cv:.2f} (high) → Mean² normalization "
+                        f"(MSE={mse:.4f}, Mean²={normalize_by:.4f}, "
+                        f"Normalized={normalized_mse:.4f})"
+                    )
+                else:
+                    # Fallback
+                    normalize_by = 1.0
+                    normalized_mse = mse
+                    normalization_method = "none"
+            
+            elif cv > 0.2:
+                # MODERATE CV: Use variance normalization
+                if param_variance > 0.01:
+                    normalize_by = param_variance
+                    normalized_mse = mse / param_variance
+                    normalization_method = "variance"
+                    
+                    logger.debug(
+                        f"{param}: CV={cv:.2f} (moderate) → Variance normalization "
+                        f"(MSE={mse:.4f}, Var={param_variance:.4f})"
+                    )
+                else:
+                    normalize_by = 1.0
+                    normalized_mse = mse
+                    normalization_method = "none"
+            
+            else:
+                # LOW CV: Use variance normalization (standard)
+                if param_variance > 0.01:
+                    normalize_by = param_variance
+                    normalized_mse = mse / param_variance
+                    normalization_method = "variance"
+                else:
+                    normalize_by = 1.0
+                    normalized_mse = mse
+                    normalization_method = "none"
+            
+            # STEP 4: Apply CV Tolerance Factor (for high-CV params)
+            if cv > 0.5:
+                tolerance_factor = 1.0 + (cv - 0.5)
+                adjusted_mse = normalized_mse / tolerance_factor
+                
+                logger.debug(
+                    f"{param}: CV tolerance applied "
+                    f"(factor={tolerance_factor:.2f}, "
+                    f"adjusted={adjusted_mse:.4f})"
+                )
+            else:
+                tolerance_factor = 1.0
+                adjusted_mse = normalized_mse
+            
+            # STEP 5: Estimate EDF (Effective Degrees of Freedom)
+            imputation_stats = self.preprocessing_report.get("imputation", {})
+            param_method = imputation_stats.get(param, {}).get("method", "unknown")
+            
+            # Method-specific EDF
+            if "two_stage" in param_method.lower() or "two_tier" in param_method.lower():
+                edf = 2  # Two-tier seasonal imputation
+            elif "seasonal" in param_method.lower():
+                edf = 2
+            elif "spline" in param_method.lower() or "cubic" in param_method.lower():
+                edf = 4
+            elif "linear" in param_method.lower():
+                edf = 2
+            else:
+                edf = 3
+            
+            # Ensure EDF is reasonable
+            edf = max(1.0, min(edf, n / 3.0))
+            
+            # STEP 6: Calculate GCV
+            denominator = (1.0 - edf / n) ** 2
+            denominator = max(denominator, 0.01)
+            
+            gcv = adjusted_mse / denominator
+            
+            # STEP 7: Enhanced logging for SS
+            
+            if param in ['SS', 'FF_AVG']:
+                logger.info(f"{param} GCV DEBUG")
+                logger.info(f"original array sample: {original[:20]}")
+                logger.info(f"processed array sample: {processed[:20]}")
+                logger.info(f"Mean: {param_mean:.4f}")
+                logger.info(f"Std: {param_std:.4f}")
+                logger.info(f"Variance: {param_variance:.4f}")
+                logger.info(f"CV: {cv:.4f}")
+                logger.info(f"MSE (raw): {mse:.4f}")
+                logger.info(f"Normalization method: {normalization_method}")
+                logger.info(f"normalize_by: {normalize_by:.4f}")
+                logger.info(f"normalized_mse: {normalized_mse:.4f}")
+                if cv > 0.5:
+                    logger.info(f"tolerance_factor: {tolerance_factor:.4f}")
+                    logger.info(f"adjusted_mse: {adjusted_mse:.4f}")
+                logger.info(f"EDF: {edf:.1f}")
+                logger.info(f"denominator: {denominator:.6f}")
+                logger.info(f"Final GCV: {gcv:.4f}")
+            
+            return gcv            
+        except Exception as e:
+            logger.error(f"GCV calculation error for {param}: {str(e)}")
+            logger.error(traceback.format_exc())
+            return np.nan
+    
+    def _calculate_trend_preservation_pct(
+        self,
+        original: np.ndarray,
+        processed: np.ndarray
+    )-> float:
+        """
+        Calculate trend preservation percentage
+        
+        Measures how well preprocessing maintains directional changes
+        
+        Returns:
+            Percentage (0-100) of matching trend directions
+        """
+        
+        if len(original) != len(processed):
+            logger.warning("Trend preservation: length mismatch")
+            return 0.0
+        
+        if len(original) < 2:
+            return 0.0 
+        
+        # Calculate first differences (trend direction)
+        original_diff = np.diff(original)
+        processed_diff = np.diff(processed)
+        
+        # Get direction signs
+        original_direction = np.sign(original_diff)
+        processed_direction = np.sign(processed_diff)
+        
+        # Exclude flat regions (0 values)
+        non_zero_mask = (original_direction != 0) & (processed_direction != 0)
+        
+        if non_zero_mask.sum() == 0:
+            # All flat data = perfect preservation
+            return 100.0
+        
+        # Calculate agreement
+        agreement = (original_direction[non_zero_mask] == processed_direction[non_zero_mask])
+        trend_preservation = agreement.mean() * 100
+        
+        return trend_preservation
+        
+    def _determine_quality_status(
+        self,
+        gcv_score: float,
+        trend_preservation: float,
+        param: str = None
+    )-> str:
+        """
+        Determine overall preprocessing quality status
+        
+        Quality Tiers:
+        - Excellent: GCV < 2.0 AND Trend > 80%
+        - Good: GCV < 4.0 AND Trend > 75%
+        - Fair: GCV < 10.0 AND Trend > 70%
+        - Poor: Otherwise
+        
+        Args:
+            gcv_score: GCV score (lower is better)
+            trend_preservation: Trend preservation % (higher is better)
+        
+        Returns:
+            Quality status string
+        """
+        if gcv_score < 2.0 and trend_preservation > 80.0:
+            return "excellent"
+        elif gcv_score < 4.0 and trend_preservation > 75.0:
+            return "good"
+        elif gcv_score < 10.0 and trend_preservation > 70.0:
+            return "fair"
+        else:
+            return "poor"
+        
+    def _generate_quality_summary(
+        self,
+        validation_results: Dict[str, Any]
+    )-> None:
+        """
+        Generate summary statistics for quality validation
+        
+        Aggregates:
+        - Count of parameters by quality status
+        - Average GCV and trend preservation
+        - Overall quality assessment
+        """
+        
+        # filter valid results
+        valid_results = {
+            param: result for param, result in validation_results.items()
+            if isinstance(result, dict) and "quality_status" in result
+        }
+        
+        if not valid_results:
+            logger.warning("No valid quality validation results")
+            return
+        
+        # Count by quality status
+        quality_counts = {}
+        gcv_scores = []
+        trend_preservations = []
+        
+        for result in valid_results.values():
+            status = result.get("quality_status")
+            if status:
+                quality_counts[status] = quality_counts.get(status, 0) + 1
+            
+            gcv = result.get("gcv_score")
+            if gcv is not None:
+                gcv_scores.append(gcv)
+            
+            trend = result.get("trend_preservation_pct")
+            if trend is not None:
+                trend_preservations.append(trend)
+                
+        # Calculate averages
+        avg_gcv = np.mean(gcv_scores) if gcv_scores else None
+        avg_trend = np.mean(trend_preservations) if trend_preservations else None
+        
+        # determine overall quality
+        excellent_count = quality_counts.get("excellent", 0)
+        good_count = quality_counts.get("good", 0)
+        total_valid = len(valid_results)
+        
+        if excellent_count + good_count >= total_valid * 0.8:
+            overall_quality = "excellent"
+        elif excellent_count + good_count >= total_valid * 0.6:
+            overall_quality = "good"
+        elif quality_counts.get("fair", 0) + excellent_count + good_count >= total_valid * 0.7:
+            overall_quality = "fair"
+        else:
+            overall_quality = "poor"
+            
+        # store summary
+        quality_summary = {
+            "overall_quality": overall_quality,
+            "parameters_validated": total_valid,
+            "quality_distribution": quality_counts,
+            "average_gcv_score": round(avg_gcv, 4) if avg_gcv is not None else None,
+            "average_trend_preservation": round(avg_trend, 2) if avg_trend is not None else None
+        }
+        self.preprocessing_report["quality_summary"] = quality_summary
+        logger.info("QUALITY VALIDATION SUMMARY")
+        logger.info(f"Overall Quality: {overall_quality.upper()}")
+        logger.info(f"Parameters Validated: {total_valid}")
+        logger.info(f"Quality Distribution:")
+        for status, count in sorted(quality_counts.items()):
+            logger.info(f"  - {status.capitalize()}: {count}")
+        if avg_gcv is not None:
+            logger.info(f"Average GCV Score: {avg_gcv:.4f}")
+        if avg_trend is not None:
+            logger.info(f"Average Trend Preservation: {avg_trend:.2f}%")
+            
+            
+    def _calculate_model_coverage(self, df: pd.DataFrame) -> None:
+        """
+        Calculate coverage for Holt-Winters and LSTM models
+        
+        Coverage criteria:
+        - Holt-Winters: Seasonality, stationarity, gap impact, smoothing quality
+        - LSTM: Sequence continuity, extreme values, trend preservation
+        """
+        
+        logger.info("Calculate model coverage for Holt-Winters and LSTM models")
+        params = self.options.get("columns_to_process", [])
+        per_parameter_coverage = {}
+        
+        for param in params:
+            if param not in df.columns:
+                continue
+            
+            # skip non-numeric parameters
+            if param == 'DDD_CAR':
+                per_parameter_coverage[param] = {
+                    "status": "skipped_non_numeric",
+                    "holt_winters_coverage": None,
+                    "lstm_coverage": None
+                }
+                continue
+            logger.info(f"Analyzing{param}..")
+            
+            try:
+                # STEP 1: Analyze data characteristics
+                seasonality = self._analyze_seasonality(df, param)
+                stationarity = self._test_stationarity(df, param)
+                gaps = self._analyze_gaps(df, param)
+                extreme_values = self._analyze_extreme_values(df, param)
+                
+                # Get smoothing quality from Phase 3
+                smoothing_quality = self._get_smoothing_quality(param)
+                
+                # Calculate missing data ratio
+                missing_ratio = df[param].isna().sum() / len(df)
+                
+                # Special handling for precipitation
+                precipitation = None
+                if param == 'RR':
+                    precipitation = self._analyze_precipitation_extremes(df, param)
+                
+                # STEP 2: Calculate Holt-Winters coverage
+                hw_coverage = self._calculate_hw_coverage(
+                    seasonality=seasonality,
+                    stationarity=stationarity,
+                    gaps=gaps,
+                    extreme_values=extreme_values,
+                    smoothing_quality=smoothing_quality,
+                    missing_ratio=missing_ratio,
+                    param=param
+                )
+                
+                # STEP 3: Calculate LSTM coverage (Phase 5 Batch 12)
+                lstm_coverage = self._calculate_lstm_coverage(
+                    gaps=gaps,
+                    extreme_values=extreme_values,
+                    precipitation=precipitation,
+                    smoothing_quality=smoothing_quality,
+                    missing_ratio=missing_ratio,
+                    param=param
+                )
+                
+                # STEP 4: Determine recommended model
+                recommended_model = self._determine_recommended_model(
+                    hw_coverage["coverage_percentage"],
+                    lstm_coverage["coverage_percentage"]
+                )
+                
+                # Store results
+                per_parameter_coverage[param] = {
+                    "holt_winters_coverage": hw_coverage["coverage_percentage"],
+                    "holt_winters_uncovered": hw_coverage["uncovered_reasons"],
+                    "lstm_coverage": lstm_coverage["coverage_percentage"],
+                    "lstm_uncovered": lstm_coverage["uncovered_reasons"],
+                    "recommended_model": recommended_model,
+                    "seasonality_strength": seasonality.get("seasonal_strength", 0),
+                    "is_stationary": stationarity.get("is_stationary", False)
+                }
+                
+                logger.info(
+                    f"    {param}: HW={hw_coverage['coverage_percentage']:.1f}%, "
+                    f"LSTM={lstm_coverage['coverage_percentage']:.1f}%, "
+                    f"Recommended={recommended_model}"
+                )
+            except Exception as e:
+                logger.error(f"Error analyzing coverage for {param}: {str(e)}")
+                per_parameter_coverage[param] = {
+                    "status": "error",
+                    "error": str(e)
+                }
+
+         # STEP 5: Aggregate uncovered reasons
+        hw_aggregate = self._aggregate_uncovered_breakdown(
+            per_parameter_coverage, "holt_winters"
+        )
+        lstm_aggregate = self._aggregate_uncovered_breakdown(
+            per_parameter_coverage, "lstm"
+        )
+        
+        # Calculate overall coverage
+        hw_coverages = [
+            v["holt_winters_coverage"] 
+            for v in per_parameter_coverage.values() 
+            if isinstance(v, dict) and "holt_winters_coverage" in v and v["holt_winters_coverage"] is not None
+        ]
+        lstm_coverages = [
+            v["lstm_coverage"] 
+            for v in per_parameter_coverage.values() 
+            if isinstance(v, dict) and "lstm_coverage" in v and v["lstm_coverage"] is not None
+        ]
+        
+        overall_hw = np.mean(hw_coverages) if hw_coverages else 0
+        overall_lstm = np.mean(lstm_coverages) if lstm_coverages else 0
+        
+        # Store in report
+        self.preprocessing_report["model_coverage"] = {
+            "per_parameter": per_parameter_coverage,
+            "aggregate_hw_uncovered": hw_aggregate,
+            "aggregate_lstm_uncovered": lstm_aggregate,
+            "overall_hw_coverage": round(overall_hw, 2),
+            "overall_lstm_coverage": round(overall_lstm, 2)
+        }
+        
+        logger.info(f"\n  Overall HW Coverage: {overall_hw:.2f}%")
+        logger.info(f"  Overall LSTM Coverage: {overall_lstm:.2f}%")
+        
+    def _analyze_seasonality(
+        self,
+        df: pd.DataFrame,
+        param: str
+    )-> Dict[str, Any]:
+        """
+        Analyze seasonality strength using STL decomposition
+        
+        Returns:
+            {
+                "seasonal_strength": float (0-1),
+                "has_seasonality": bool,
+                "penalty": float (0-20)
+            }
+        """
+        
+        try:
+            # Need at least 2 years of data for reliable STL
+            if len(df) < 730:
+                return {
+                    "seasonal_strength": 0.0,
+                    "has_seasonality": False,
+                    "penalty": 20.0,  # Maximum penalty
+                    "message": "Insufficient data for seasonality analysis (<2 years)"
+                }
+            
+            # Get non-null values
+            series = df[param].dropna()
+            
+            if len(series) < 730:
+                return {
+                    "seasonal_strength": 0.0,
+                    "has_seasonality": False,
+                    "penalty": 20.0,
+                    "message": "Too many missing values for STL"
+                }
+            
+            # Apply STL decomposition
+            stl = STL(series, period=365, robust=True)
+            result = stl.fit()
+            
+            # Calculate seasonality strength
+            # Formula: 1 - Var(Residual) / Var(Detrended)
+            detrended = series - result.trend
+            var_residual = np.var(result.resid)
+            var_detrended = np.var(detrended)
+            
+            if var_detrended > 0:
+                seasonal_strength = max(0, 1 - (var_residual / var_detrended))
+            else:
+                seasonal_strength = 0.0
+            
+            # Determine if seasonality exists
+            has_seasonality = seasonal_strength > 0.3
+            
+            # Calculate penalty (inverse relationship)
+            # Strong seasonality (>0.6) = no penalty
+            # Moderate (0.3-0.6) = 5-10% penalty
+            # Weak (<0.3) = 10-20% penalty
+            if seasonal_strength >= 0.6:
+                penalty = 0.0
+            elif seasonal_strength >= 0.3:
+                penalty = 5.0 + (0.6 - seasonal_strength) * (5.0 / 0.3)
+            else:
+                penalty = 10.0 + (0.3 - seasonal_strength) * (10.0 / 0.3)
             
             return {
-                "alpha": alpha,
-                "gcv_score": gcv_score,
-                "trend_preservation_pct": trend_preservation * 100,
-                "combined_score": (trend_preservation * 100) - (gcv_score * 0.5)
+                "seasonal_strength": round(seasonal_strength, 3),
+                "has_seasonality": has_seasonality,
+                "penalty": round(penalty, 2),
+                "message": f"Seasonality strength: {seasonal_strength:.3f}"
             }
             
         except Exception as e:
-            logger.warning(f"Error testing α={alpha}: {str(e)}")
-            return None
+            logger.warning(f"Seasonality analysis failed for {param}: {str(e)}")
+            return {
+                "seasonal_strength": 0.0,
+                "has_seasonality": False,
+                "penalty": 15.0,  # Moderate penalty for analysis failure
+                "error": str(e)
+            }
         
-    def _calculate_holt_winters_coverage(
+    def _test_stationarity(
+        self,
+        df: pd.DataFrame,
+        param: str
+    )-> Dict[str, Any]:
+        """
+        Test stationarity using Augmented Dickey-Fuller test
+        
+        Returns:
+            {
+                "is_stationary": bool,
+                "adf_statistic": float,
+                "p_value": float,
+                "penalty": float (0-15)
+            }
+        """
+        try:
+            # Get non-null values
+            series = df[param].dropna()
+            
+            if len(series) < 50:
+                return {
+                    "is_stationary": False,
+                    "adf_statistic": None,
+                    "p_value": None,
+                    "penalty": 15.0,
+                    "message": "Insufficient data for ADF test"
+                }
+            
+            # Perform ADF test
+            result = adfuller(series, autolag='AIC')
+            
+            adf_statistic = result[0]
+            p_value = result[1]
+            
+            # Determine stationarity (p-value < 0.05 = stationary)
+            is_stationary = p_value < 0.05
+            
+            # Calculate penalty
+            # Stationary (p < 0.05) = no penalty
+            # Borderline (0.05-0.10) = 5% penalty
+            # Non-stationary (p > 0.10) = 10-15% penalty
+            if p_value < 0.05:
+                penalty = 0.0
+            elif p_value < 0.10:
+                penalty = 5.0
+            elif p_value < 0.20:
+                penalty = 10.0
+            else:
+                penalty = 15.0
+            
+            return {
+                "is_stationary": is_stationary,
+                "adf_statistic": round(adf_statistic, 4),
+                "p_value": round(p_value, 4),
+                "penalty": penalty,
+                "message": f"ADF p-value: {p_value:.4f}"
+            }
+            
+        except Exception as e:
+            logger.warning(f"Stationarity test failed for {param}: {str(e)}")
+            return {
+                "is_stationary": False,
+                "adf_statistic": None,
+                "p_value": None,
+                "penalty": 10.0,  # Moderate penalty for test failure
+                "error": str(e)
+            }
+            
+    def _analyze_gaps(
+        self,
+        df: pd.DataFrame,
+        param: str
+    )-> Dict[str, Any]:
+        """
+        Analyze gap impact from preprocessing report
+        
+        Returns:
+            {
+                "large_gaps_count": int,
+                "impact_percentage": float (0-15)
+            }
+        """
+        gaps_report = self.preprocessing_report.get("gaps", {})
+        # Count large gaps (>30 days)
+        large_gaps = gaps_report.get("large_gaps", 0)
+        total_gaps = gaps_report.get("total_gaps", 0)
+        
+        # Calculate impact percentage
+        # Each large gap adds 2-3% penalty, capped at 15%
+        if large_gaps == 0:
+            impact_percentage = 0.0
+        elif large_gaps <= 2:
+            impact_percentage = large_gaps * 2.5
+        elif large_gaps <= 5:
+            impact_percentage = 5.0 + (large_gaps - 2) * 2.0
+        else:
+            impact_percentage = min(15.0, 11.0 + (large_gaps - 5) * 1.0)
+        
+        return {
+            "large_gaps_count": large_gaps,
+            "total_gaps": total_gaps,
+            "impact_percentage": round(impact_percentage, 2),
+            "message": f"{large_gaps} large gaps detected"
+        }
+    
+    def _analyze_extreme_values(
         self, 
-        large_gaps, 
-        extreme_outliers, 
-        seasonality, 
-        stationarity, 
-        coverage_analysis,
+        df: pd.DataFrame,
+        param: str
+    )-> Dict[str, Any]:
+        """
+        Analyze extreme values/outliers from preprocessing report
+        
+        Returns:
+            {
+                "extreme_count": int,
+                "impact_percentage": float (0-varies)
+            }
+        """
+        
+        # Get outlier information from preprocessing report
+        outliers_report = self.preprocessing_report.get("outliers", {})
+        param_outliers = outliers_report.get(param, {})
+        
+        outlier_count = param_outliers.get("count", 0)
+        outlier_percentage = param_outliers.get("percentage", 0.0)
+        
+        # Calculate impact
+        # 0-2%: minimal impact (0-2% penalty)
+        # 2-5%: moderate impact (2-5% penalty)
+        # >5%: high impact (5-10% penalty)
+        if outlier_percentage <= 2.0:
+            impact_percentage = outlier_percentage
+        elif outlier_percentage <= 5.0:
+            impact_percentage = 2.0 + (outlier_percentage - 2.0)
+        else:
+            impact_percentage = min(10.0, 5.0 + (outlier_percentage - 5.0) * 0.5)
+        
+        return {
+            "extreme_count": outlier_count,
+            "outlier_percentage": outlier_percentage,
+            "impact_percentage": round(impact_percentage, 2),
+            "message": f"{outlier_count} outliers ({outlier_percentage:.1f}%)"
+        }
+    
+    def _analyze_precipitation_extremes(self, df: pd.DataFrame, param: str) -> Dict[str, Any]:
+        """
+        Analyze precipitation extremes (0-500mm range)
+        
+        Returns:
+            {
+                "zero_percentage": float,
+                "extreme_percentage": float,
+                "range_impact": float (0-1)
+            }
+        """
+        
+        series = df[param].dropna()
+        
+        if len(series) == 0:
+            return {
+                "zero_percentage": 0.0,
+                "extreme_percentage": 0.0,
+                "range_impact": 0.0
+            }
+        
+        # Calculate zero percentage
+        zero_count = (series == 0).sum()
+        zero_percentage = (zero_count / len(series)) * 100
+        
+        # Calculate extreme percentage (>200mm)
+        extreme_count = (series > 200).sum()
+        extreme_percentage = (extreme_count / len(series)) * 100
+        
+        # Calculate range impact (0-1 scale)
+        # High zero percentage (>50%) in wet season = problematic
+        # High extreme percentage (>5%) = problematic
+        zero_impact = min(1.0, zero_percentage / 50.0) if zero_percentage > 30 else 0
+        extreme_impact = min(1.0, extreme_percentage / 5.0)
+        
+        range_impact = max(zero_impact, extreme_impact)
+        
+        return {
+            "zero_percentage": round(zero_percentage, 2),
+            "extreme_percentage": round(extreme_percentage, 2),
+            "range_impact": round(range_impact, 3),
+            "message": f"{zero_percentage:.1f}% zeros, {extreme_percentage:.1f}% extremes"
+        }
+    
+    def _get_smoothing_quality(self, param: str) -> Dict[str, Any]:
+        """
+        Extract smoothing quality from Phase 3 validation results
+        
+        Returns:
+            {
+                "gcv_score": float,
+                "trend_preservation_pct": float,
+                "penalty": float (0-15),
+                "trend_value": float (for trend penalty calc)
+            }
+        """
+        
+        # Get validation results from Phase 3
+        validation_results = self.preprocessing_report.get("imputation_validation", {})
+        param_result = validation_results.get(param, {})
+        
+        gcv_score = param_result.get("gcv_score", 0)
+        trend_preservation = param_result.get("trend_preservation_pct", 100)
+        
+        # Calculate GCV penalty
+        # GCV < 2.0: excellent (0% penalty)
+        # GCV 2.0-4.0: good (0-5% penalty)
+        # GCV 4.0-10.0: fair (5-10% penalty)
+        # GCV > 10.0: poor (10-15% penalty)
+        if gcv_score < 2.0:
+            gcv_penalty = 0.0
+        elif gcv_score < 4.0:
+            gcv_penalty = (gcv_score - 2.0) * 2.5
+        elif gcv_score < 10.0:
+            gcv_penalty = 5.0 + (gcv_score - 4.0) * 0.833
+        else:
+            gcv_penalty = min(15.0, 10.0 + (gcv_score - 10.0) * 0.5)
+        
+        return {
+            "gcv_score": gcv_score,
+            "trend_preservation_pct": trend_preservation,
+            "penalty": round(gcv_penalty, 2),
+            "trend_value": trend_preservation,  # For trend penalty calculation
+            "message": f"GCV={gcv_score:.4f}, Trend={trend_preservation:.2f}%"
+        }
+    
+    def _calculate_and_save_decomposition(
+        self,
+        df: pd.DataFrame,
+        preprocessing_id: ObjectId
+    ) -> None:
+        """
+        Calculate seasonal decomposition and save ONE document per preprocessing
+        containing all parameters.
+        """
+        logger.info("Calculating seasonal decomposition for all parameters...")
+
+        params = self.options.get("columns_to_process", [])
+        parameters_dict = {}          # akan menampung data per parameter
+        total_data_points = 0
+        successful_params = []
+
+        for param in params:
+            # Skip non-numeric
+            if param == 'DDD_CAR':
+                continue
+                
+            if param not in df.columns:
+                logger.warning(f"{param}: Not found in dataframe, skipping")
+                continue
+
+            # Minimal 2 tahun data (730 hari)
+            if len(df) < 730:
+                logger.warning(f"{param}: Insufficient data for decomposition ({len(df)} days < 730)")
+                continue
+
+            try:
+                series = df[param].dropna()
+                if len(series) < 730:
+                    logger.warning(f"{param}: Insufficient valid data after dropping NaN ({len(series)} < 730)")
+                    continue
+
+                logger.info(f"{param}: Decomposing original data...")
+
+                stl = STL(series, period=365, robust=True)
+                result = stl.fit()
+
+                # Hitung seasonal strength
+                seasonal_var = np.var(result.seasonal.dropna())
+                residual_var = np.var(result.resid.dropna())
+                if seasonal_var + residual_var == 0:
+                    seasonal_strength = 0.0
+                else:
+                    seasonal_strength = seasonal_var / (seasonal_var + residual_var)
+
+                # Bangun array data untuk parameter ini
+                data_array = []
+                for i in range(len(series)):
+                    date_idx = series.index[i]
+                    
+                    data_array.append({
+                        "Date": date_idx,  # Datetime object (MongoDB native)
+                        "original": float(series.iloc[i]) if pd.notna(series.iloc[i]) else None,
+                        "trend": float(result.trend.iloc[i]) if pd.notna(result.trend.iloc[i]) else None,
+                        "seasonal": float(result.seasonal.iloc[i]) if pd.notna(result.seasonal.iloc[i]) else None,
+                        "residual": float(result.resid.iloc[i]) if pd.notna(result.resid.iloc[i]) else None
+                    })
+
+                # Simpan ke dictionary parameter
+                parameters_dict[param] = {
+                    "seasonal_strength": round(float(seasonal_strength), 3),
+                    "data": data_array
+                }
+                total_data_points += len(data_array)
+                successful_params.append(param)
+                
+                logger.info(f"{param}: Decomposition successful ({len(data_array)} points)")
+
+            except Exception as e:
+                logger.error(f"{param}: Decomposition failed - {str(e)}")
+                logger.error(traceback.format_exc())
+                self.preprocessing_report["warnings"].append(f"Failed to decompose {param}: {str(e)}")
+                continue
+
+        # VALIDASI: Pastikan ada data sebelum insert
+        if not parameters_dict:
+            logger.warning("No parameters successfully decomposed. Skipping save.")
+            self.preprocessing_report["decomposition_summary"] = {
+                "parameters_decomposed": [],
+                "total_documents": 0,
+                "total_data_points": 0,
+                "collection": "decomposition_report",
+                "status": "no_data"
+            }
+            return
+
+        # Buat satu dokumen gabungan
+        combined_doc = {
+            "preprocessing_id": preprocessing_id,
+            "dataset_name": self.collection_name,
+            "dataset_type": "bmkg",
+            "decomposition_method": "STL",
+            "timestamp": datetime.now(),
+            "parameters": parameters_dict,
+        }
+
+        try:
+            result = self.db["decomposition_report"].insert_one(combined_doc)
+            logger.info(
+                f"Saved decomposition document: {len(parameters_dict)} parameters, "
+                f"{total_data_points} points (ID: {result.inserted_id})"
+            )
+
+            # Update ringkasan di preprocessing_report
+            self.preprocessing_report["decomposition_summary"] = {
+                "parameters_decomposed": successful_params,
+                "total_documents": 1,
+                "total_data_points": total_data_points,
+                "collection": "decomposition_report",
+                "document_id": str(result.inserted_id),
+                "status": "success"
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to save decomposition to MongoDB: {str(e)}")
+            logger.error(traceback.format_exc())
+            
+            self.preprocessing_report["decomposition_summary"] = {
+                "parameters_decomposed": successful_params,
+                "total_documents": 0,
+                "total_data_points": total_data_points,
+                "collection": "decomposition_report",
+                "status": "save_failed",
+                "error": str(e)
+            }
+        
+    def _calculate_trend_strength(self, series: pd.Series, trend: pd.Series, residual: pd.Series) -> float:
+        """
+        Calculate trend strength for STL decomposition
+        
+        FIXED: Use actual residual from STL result instead of (series - trend)
+        
+        Formula: trend_strength = 1 - var(residual) / var(detrended)
+        where detrended = series - trend (contains seasonal + residual)
+        """
+        try:
+            # Calculate detrended series (contains seasonal + residual components)
+            detrended = (series - trend).dropna()
+            
+            # Use actual residual from STL decomposition (NOT series - trend)
+            actual_residual = residual.dropna()
+            
+            # Ensure same length by aligning indices
+            common_idx = detrended.index.intersection(actual_residual.index)
+            if len(common_idx) < 10:  # Need minimum data points
+                return 0.0
+            
+            detrended_aligned = detrended.loc[common_idx]
+            residual_aligned = actual_residual.loc[common_idx]
+            
+            # Calculate variances
+            var_detrended = np.var(detrended_aligned)
+            var_residual = np.var(residual_aligned)
+            
+            if var_detrended > 0:
+                trend_strength = max(0, 1 - (var_residual / var_detrended))
+                
+                # Debug logging for verification
+                logger.debug(f"Trend strength calc: var_detrended={var_detrended:.4f}, var_residual={var_residual:.4f}, strength={trend_strength:.4f}")
+                
+                return trend_strength
+            return 0.0
+            
+        except Exception as e:
+            logger.warning(f"Error calculating trend strength: {str(e)}")
+            return 0.0
+    
+    def _calculate_seasonal_strength(
+        self,
+        series: pd.Series,
+        seasonal: pd.Series,
+        residual: pd.Series
+    )-> float:
+        """Calculate seasonal strength for STL decomposition"""
+        try:
+            var_seasonal = np.var(seasonal.dropna())
+            var_residual = np.var(residual.dropna())
+            
+            if (var_seasonal + var_residual) > 0:
+                return var_seasonal / (var_seasonal + var_residual)
+            return 0.0
+        except:
+            return 0.0
+    
+    def _calculate_trend_penalty(self, trend_preservation_pct: float) -> float:
+        """
+        Calculate penalty based on trend preservation loss
+        
+        Thresholds:
+        - > 80%: No penalty
+        - 70-80%: 5% penalty
+        - 60-70%: 10% penalty
+        - < 60%: 15% penalty
+        """
+        
+        if trend_preservation_pct >= 80:
+            return 0.0
+        elif trend_preservation_pct >= 70:
+            return 5.0
+        elif trend_preservation_pct >= 60:
+            return 10.0
+        else:
+            return 15.0
+    
+    
+    def _calculate_hw_coverage(
+        self,
+        seasonality: Dict[str, Any],
+        stationarity: Dict[str, Any],
+        gaps: Dict[str, Any],
+        extreme_values: Dict[str, Any],
+        smoothing_quality: Dict[str, Any],
+        missing_ratio: float,
         param: str
     ) -> Dict[str, Any]:
         """
-        Calculate Holt-Winters model coverage with refined penalties
+        Calculate Holt-Winters model coverage with enhanced penalties
         
-        Phase 1 Improvements:
-        1. Added independent trend preservation penalty
-        2. Gradient-based seasonality penalty
-        3. Integrated GCV smoothing quality
+        FIXED: 
+        1. Missing data penalty uses ORIGINAL ratio
+        2. Added debug logging for penalty breakdown
+        
+        Penalties:
+        1. GCV Smoothing Quality (0-15%)
+        2. Trend Preservation (0-15%)
+        3. Seasonality Loss (0-20%)
+        4. Non-stationarity (0-15%)
+        5. Large Gaps (0-12%, enhanced)
+        6. Missing Data - ORIGINAL ratio (0-5%)
+        7. Compound Issues (0-15%)
         """
         
         base_coverage = 100.0
         uncovered_reasons = {}
         
         # PENALTY 1: GCV Smoothing Quality
-        smoothing_quality = self._get_smoothing_quality(param)
-        gcv_penalty = smoothing_quality["penalty"]
+        gcv_penalty = smoothing_quality.get("penalty", 0)
         
         if gcv_penalty > 0:
             base_coverage -= gcv_penalty
             uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
         
-        # PENALTY 2: Trend Preservation ( Phase 1)
-        trend_value = smoothing_quality.get("trend_value", 0.0)
+        # PENALTY 2: Trend Preservation
+        trend_value = smoothing_quality.get("trend_value", 100)
+        trend_penalty = self._calculate_trend_penalty(trend_value)
         
-        if trend_value > 0:  # Only if smoothing was applied
-            trend_penalty = self._calculate_trend_penalty(trend_value)
-            
-            if trend_penalty > 0:
-                base_coverage -= trend_penalty
-                uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
-                
-                # Log warning for severe trend loss
-                if trend_penalty >= 12.0:
-                    logger.warning(
-                        f"Parameter {param}: Severe trend preservation loss "
-                        f"({trend_value*100:.1f}%) - High forecast uncertainty"
-                    )
+        if trend_penalty > 0:
+            base_coverage -= trend_penalty
+            uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
         
-        # PENALTY 3: Large Gaps
-        large_gap_penalty = large_gaps.get("impact_percentage", 0)
+        # PENALTY 3: Seasonality Loss (Critical for HW)
+        seasonality_penalty = seasonality.get("penalty", 0)
         
-        if large_gap_penalty > 0:
-            base_coverage -= large_gap_penalty
-            uncovered_reasons["large_gaps"] = round(large_gap_penalty, 2)
+        if seasonality_penalty > 0:
+            base_coverage -= seasonality_penalty
+            uncovered_reasons["seasonality_loss"] = round(seasonality_penalty, 2)
         
-        # PENALTY 4: Extreme Outliers
-        outlier_penalty = extreme_outliers.get("impact_percentage", 0)
+        # PENALTY 4: Non-stationarity
+        stationarity_penalty = stationarity.get("penalty", 0)
         
-        if outlier_penalty > 0:
-            base_coverage -= outlier_penalty
-            uncovered_reasons["extreme_outliers"] = round(outlier_penalty, 2)
-        
-        # PENALTY 5: Weak Seasonality (REFINED - Phase 1)
-        seasonal_strength = seasonality.get("seasonal_strength", 0)
-        has_clear_seasonality = seasonality.get("has_clear_seasonality", False)
-        
-        # Use refined gradient-based penalty
-        seasonal_penalty = self._calculate_seasonality_penalty(seasonal_strength)
-        
-        if seasonal_penalty > 0:
-            base_coverage -= seasonal_penalty
-            uncovered_reasons["weak_seasonality"] = round(seasonal_penalty, 2)
-            
-            # Log info about seasonality quality
-            if seasonal_penalty >= 20.0:
-                logger.warning(
-                    f"Parameter {param}: Very weak seasonality "
-                    f"(strength={seasonal_strength:.3f}) - Holt-Winters may be inappropriate"
-                )
-            elif seasonal_penalty >= 12.0:
-                logger.info(
-                    f"Parameter {param}: Weak seasonality "
-                    f"(strength={seasonal_strength:.3f}) - Holt-Winters suboptimal"
-                )
-        
-        # PENALTY 6: Non-Stationarity
-        if not stationarity.get("is_stationary", False):
-            stationarity_penalty = 5.0
+        if stationarity_penalty > 0:
             base_coverage -= stationarity_penalty
-            uncovered_reasons["non_stationary"] = round(stationarity_penalty, 2)
+            uncovered_reasons["non_stationarity"] = round(stationarity_penalty, 2)
         
-        # PENALTY 7: Missing Data
-        missing_penalty = coverage_analysis.get("missing_ratio", 0) * 25
+        # PENALTY 5: Large Gaps (enhanced)
+        gap_penalty = self._calculate_enhanced_gap_penalty(gaps, param)
         
-        if missing_penalty > 0:
-            base_coverage -= missing_penalty
-            uncovered_reasons["missing_data"] = round(missing_penalty, 2)
+        if gap_penalty > 0:
+            base_coverage -= gap_penalty
+            uncovered_reasons["large_gaps"] = round(gap_penalty, 2)
         
-        # PENALTY 8: Compound Penalty (if multiple serious issues)
+        # PENALTY 6: Missing Data - FIXED to use ORIGINAL ratio
+        original_missing_penalty = self._calculate_original_missing_penalty(param)
+        
+        if original_missing_penalty > 0:
+            base_coverage -= original_missing_penalty
+            uncovered_reasons["original_missing_data"] = round(original_missing_penalty, 2)
+        
+        # PENALTY 7: Compound Penalty
         issue_count = 0
         
-        if large_gap_penalty > 5:
+        if gap_penalty > 5:
             issue_count += 1
-        if outlier_penalty > 3:
-            issue_count += 1
-        if seasonal_penalty >= 12:  # refined threshold
+        if extreme_values.get("impact_percentage", 0) > 3:
             issue_count += 1
         if gcv_penalty > 10:
             issue_count += 1
-        if trend_penalty >= 12:  #  count trend as serious issue
+        if trend_penalty >= 10:
+            issue_count += 1
+        if seasonality_penalty >= 15:
             issue_count += 1
         
         if issue_count >= 3:
@@ -2535,71 +3999,83 @@ class BmkgPreprocessor:
             base_coverage -= compound_penalty
             uncovered_reasons["compound_issues"] = round(compound_penalty, 2)
             
-            logger.warning(
-                f"Parameter {param}: {issue_count} serious issues detected "
-                f"- Compound penalty applied (forecasting highly uncertain)"
-            )
+            logger.warning(f"{param}: {issue_count} serious issues for HW")
         
-        # FINAL COVERAGE
+        # Final coverage
         final_coverage = max(0, base_coverage)
+        
+        # DEBUG LOGGING
+        logger.debug(f"HW {param} penalty breakdown:")
+        logger.debug(f"  GCV: {gcv_penalty:.2f}%")
+        logger.debug(f"  Trend: {trend_penalty:.2f}%")
+        logger.debug(f"  Seasonality: {seasonality_penalty:.2f}%")
+        logger.debug(f"  Stationarity: {stationarity_penalty:.2f}%")
+        logger.debug(f"  Gap (enhanced): {gap_penalty:.2f}%")
+        logger.debug(f"  Original Missing: {original_missing_penalty:.2f}%")
+        logger.debug(f"  Compound: {uncovered_reasons.get('compound_issues', 0):.2f}%")
+        logger.debug(f"  TOTAL PENALTY: {100 - final_coverage:.2f}%")
+        logger.debug(f"  FINAL COVERAGE: {final_coverage:.2f}%")
         
         return {
             "coverage_percentage": round(final_coverage, 2),
             "uncovered_reasons": uncovered_reasons
         }
-    
-    
+        
     def _calculate_lstm_coverage(
-        self, 
-        large_gaps, 
-        extreme_outliers, 
-        precipitation, 
-        stationarity, 
-        coverage_analysis,
+        self,
+        gaps: Dict[str, Any],
+        extreme_values: Dict[str, Any],
+        precipitation: Optional[Dict[str, Any]],
+        smoothing_quality: Dict[str, Any],
+        missing_ratio: float,
         param: str
     ) -> Dict[str, Any]:
         """
         Calculate LSTM model coverage with refined penalties
         
-        Phase 1 Improvements:
-        1. Added trend preservation penalty (slightly reduced weight vs HW)
-        2. Integrated GCV smoothing quality
+        FIXED BUGS:
+        1. Missing data penalty now uses ORIGINAL missing ratio
+        2. Added imputation quality penalty (method-based weighting)
+        3. Added debug logging for penalty breakdown
         
-        Note: LSTM is less sensitive to seasonality than Holt-Winters,
-        so seasonality penalty is not applied here
+        Penalties:
+        1. GCV Smoothing Quality (0-15%)
+        2. Trend Preservation (0-15%)
+        3. Large Gaps (0-12%)
+        4. Extreme Outliers (0-10%)
+        5. Precipitation Extremes (0-10%, RR only)
+        6. Missing Data - ORIGINAL ratio (0-5%)
+        7. Imputation Quality (0-15%, NEW)
+        8. Compound Issues (0-15%)
         """
         
         base_coverage = 100.0
         uncovered_reasons = {}
         
-        # PENALTY 1: GCV Smoothing Quality (80% weight vs HW)
-        smoothing_quality = self._get_smoothing_quality(param)
-        gcv_penalty = smoothing_quality["penalty"] * 0.8  # Slightly less critical than HW
+        # PENALTY 1: GCV Smoothing Quality
+        gcv_penalty = smoothing_quality.get("penalty", 0)
         
         if gcv_penalty > 0:
             base_coverage -= gcv_penalty
             uncovered_reasons["smoothing_quality"] = round(gcv_penalty, 2)
         
-        # PENALTY 2: Trend Preservation (Phase 1, 80% weight)
-        trend_value = smoothing_quality.get("trend_value", 0.0)
+        # PENALTY 2: Trend Preservation
+        trend_value = smoothing_quality.get("trend_value", 100)
+        trend_penalty = self._calculate_trend_penalty(trend_value)
         
-        if trend_value > 0:  # Only if smoothing was applied
-            trend_penalty_full = self._calculate_trend_penalty(trend_value)
-            trend_penalty = trend_penalty_full * 0.8  # 80% weight for LSTM
-            
-            if trend_penalty > 0:
-                base_coverage -= trend_penalty
-                uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
+        if trend_penalty > 0:
+            base_coverage -= trend_penalty
+            uncovered_reasons["trend_preservation_loss"] = round(trend_penalty, 2)
         
-        # PENALTY 3: Large Gaps (80% weight vs HW)
-        large_gap_penalty = large_gaps.get("impact_percentage", 0) * 0.8
+        # PENALTY 3: Large Gaps (enhanced with unfilled gap detection)
+        gap_penalty = self._calculate_enhanced_gap_penalty(gaps, param)
         
-        if large_gap_penalty > 0:
-            base_coverage -= large_gap_penalty
-            uncovered_reasons["large_gaps"] = round(large_gap_penalty, 2)
+        if gap_penalty > 0:
+            base_coverage -= gap_penalty
+            uncovered_reasons["large_gaps"] = round(gap_penalty, 2)
         
         # PENALTY 4: Extreme Outliers
-        outlier_penalty = extreme_outliers.get("impact_percentage", 0)
+        outlier_penalty = extreme_values.get("impact_percentage", 0)
         
         if outlier_penalty > 0:
             base_coverage -= outlier_penalty
@@ -2609,31 +4085,41 @@ class BmkgPreprocessor:
         precip_penalty = 0
         
         if precipitation:
-            precip_penalty = precipitation.get("range_impact", 0) * 10
+            range_impact = precipitation.get("range_impact", 0)
+            precip_penalty = range_impact * 10  # 0-10% penalty
             
             if precip_penalty > 0:
                 base_coverage -= precip_penalty
                 uncovered_reasons["precipitation_extremes"] = round(precip_penalty, 2)
         
-        # PENALTY 6: Missing Data
-        missing_penalty = coverage_analysis.get("missing_ratio", 0) * 25
+        # PENALTY 6: Missing Data - FIXED to use ORIGINAL ratio
+        original_missing_penalty = self._calculate_original_missing_penalty(param)
         
-        if missing_penalty > 0:
-            base_coverage -= missing_penalty
-            uncovered_reasons["missing_data"] = round(missing_penalty, 2)
+        if original_missing_penalty > 0:
+            base_coverage -= original_missing_penalty
+            uncovered_reasons["original_missing_data"] = round(original_missing_penalty, 2)
         
-        # PENALTY 7: Compound Penalty (if multiple serious issues)
+        # PENALTY 7: Imputation Quality - NEW
+        imputation_quality_penalty = self._calculate_imputation_quality_penalty(param)
+        
+        if imputation_quality_penalty > 0:
+            base_coverage -= imputation_quality_penalty
+            uncovered_reasons["imputation_quality"] = round(imputation_quality_penalty, 2)
+        
+        # PENALTY 8: Compound Penalty
         issue_count = 0
         
-        if large_gap_penalty > 4:  # Slightly lower threshold than HW
+        if gap_penalty > 5:
             issue_count += 1
         if outlier_penalty > 3:
             issue_count += 1
         if precip_penalty > 5:
             issue_count += 1
-        if gcv_penalty > 8:
+        if gcv_penalty > 10:
             issue_count += 1
-        if trend_penalty >= 10:  #  count trend as serious issue (80% of 12)
+        if trend_penalty >= 12:
+            issue_count += 1
+        if imputation_quality_penalty > 5:
             issue_count += 1
         
         if issue_count >= 3:
@@ -2641,21 +4127,331 @@ class BmkgPreprocessor:
             base_coverage -= compound_penalty
             uncovered_reasons["compound_issues"] = round(compound_penalty, 2)
             
-            logger.warning(
-                f"Parameter {param}: {issue_count} serious issues detected "
-                f"- Compound penalty applied (LSTM forecasting uncertain)"
-            )
+            logger.warning(f"{param}: {issue_count} serious issues for LSTM")
         
-        # FINAL COVERAGE
+        # Final coverage
         final_coverage = max(0, base_coverage)
+        
+        # DEBUG LOGGING
+        logger.debug(f"LSTM {param} penalty breakdown:")
+        logger.debug(f"  GCV: {gcv_penalty:.2f}%")
+        logger.debug(f"  Trend: {trend_penalty:.2f}%")
+        logger.debug(f"  Gap (enhanced): {gap_penalty:.2f}%")
+        logger.debug(f"  Outliers: {outlier_penalty:.2f}%")
+        logger.debug(f"  Precipitation: {precip_penalty:.2f}%")
+        logger.debug(f"  Original Missing: {original_missing_penalty:.2f}%")
+        logger.debug(f"  Imputation Quality: {imputation_quality_penalty:.2f}%")
+        logger.debug(f"  Compound: {uncovered_reasons.get('compound_issues', 0):.2f}%")
+        logger.debug(f"  TOTAL PENALTY: {100 - final_coverage:.2f}%")
+        logger.debug(f"  FINAL COVERAGE: {final_coverage:.2f}%")
         
         return {
             "coverage_percentage": round(final_coverage, 2),
             "uncovered_reasons": uncovered_reasons
         }
-
-    def _aggregate_uncovered_breakdown(self, per_parameter_results: Dict, model_type: str) -> Dict[str, float]:
-        """Aggregate uncovered breakdown across all parameters"""
+    
+    def _calculate_original_missing_penalty(self, param: str) -> float:
+        """
+        Calculate penalty based on ORIGINAL missing data ratio (before imputation)
+        
+        CRITICAL FIX: Uses original missing count from imputation report,
+        NOT post-imputation missing ratio which is always 0.
+        
+        Args:
+            param: Parameter name
+        
+        Returns:
+            Penalty percentage (0-5%)
+        """
+        try:
+            # Get original missing count from imputation report
+            imputation_stats = self.preprocessing_report.get("imputation", {})
+            
+            if param not in imputation_stats:
+                # No imputation performed = no missing data
+                return 0.0
+            
+            param_stats = imputation_stats[param]
+            original_missing = param_stats.get("before", 0)
+            
+            # Get total records
+            if self.original_data is not None:
+                total_records = len(self.original_data)
+            else:
+                # Fallback to current dataset length
+                total_records = 7565  # Default BMKG dataset size
+            
+            # Calculate original missing ratio
+            if total_records > 0:
+                original_missing_ratio = original_missing / total_records
+            else:
+                original_missing_ratio = 0.0
+            
+            # Apply penalty (max 5% for missing data)
+            # 0-5% missing → 0-1% penalty
+            # 5-20% missing → 1-3% penalty
+            # >20% missing → 3-5% penalty
+            if original_missing_ratio <= 0.05:
+                penalty = original_missing_ratio * 20  # 0-1%
+            elif original_missing_ratio <= 0.20:
+                penalty = 1.0 + (original_missing_ratio - 0.05) * 13.33  # 1-3%
+            else:
+                penalty = 3.0 + min((original_missing_ratio - 0.20) * 10, 2.0)  # 3-5%
+            
+            logger.debug(
+                f"{param}: Original missing = {original_missing}/{total_records} "
+                f"({original_missing_ratio*100:.1f}%) → penalty = {penalty:.2f}%"
+            )
+            
+            return round(penalty, 2)
+            
+        except Exception as e:
+            logger.warning(f"Error calculating original missing penalty for {param}: {str(e)}")
+            return 0.0
+    
+    def _calculate_imputation_quality_penalty(self, param: str) -> float:
+        """
+        Calculate penalty based on imputation method quality and confidence
+        
+        NEW FEATURE: Penalizes low-confidence imputation methods
+        
+        Quality tiers:
+        - Calculation/Interpolate (physics-based, short gaps): Low penalty
+        - Two-stage/Ratio (algorithmic): Medium penalty
+        - Statistical fallback (circular mean, mode): High penalty
+        
+        Args:
+            param: Parameter name
+        
+        Returns:
+            Penalty percentage (0-15%)
+        """
+        try:
+            # Get imputation stats
+            imputation_stats = self.preprocessing_report.get("imputation", {})
+            
+            if param not in imputation_stats:
+                # No imputation = no penalty
+                return 0.0
+            
+            param_stats = imputation_stats[param]
+            imputed_count = param_stats.get("imputed", 0)
+            method = param_stats.get("method", "")
+            
+            # Get total records
+            if self.original_data is not None:
+                total_records = len(self.original_data)
+            else:
+                total_records = 7565
+            
+            if total_records == 0 or imputed_count == 0:
+                return 0.0
+            
+            # Calculate imputation ratio
+            imputation_ratio = imputed_count / total_records
+            
+            # Determine quality multiplier based on method
+            # Lower multiplier = higher confidence = lower penalty
+            method_lower = method.lower()
+            
+            if "calculation" in method_lower or "mathematical" in method_lower:
+                # Physics-based calculations (TX from TAVG/TN)
+                quality_multiplier = 0.2
+                quality_tier = "high_confidence"
+                
+            elif "interpolate" in method_lower or "spline" in method_lower or "cubic" in method_lower:
+                # Interpolation for short gaps
+                quality_multiplier = 0.3
+                quality_tier = "high_confidence"
+                
+            elif "ratio" in method_lower and "gap_aware" in method_lower:
+                # FF_AVG from FF_X ratio (gap-aware)
+                quality_multiplier = 0.4
+                quality_tier = "medium_confidence"
+                
+            elif "two_stage" in method_lower or "two_tier" in method_lower or "binary" in method_lower:
+                # RR two-stage imputation
+                quality_multiplier = 0.5
+                quality_tier = "medium_confidence"
+                
+            elif "dewpoint" in method_lower:
+                # RH_AVG from dewpoint
+                quality_multiplier = 0.4
+                quality_tier = "medium_confidence"
+                
+            elif "circular" in method_lower or "circular_mean" in method_lower:
+                # DDD_X circular mean (statistical fallback)
+                quality_multiplier = 0.7
+                quality_tier = "low_confidence"
+                
+            elif "mode" in method_lower:
+                # DDD_CAR mode (categorical fallback)
+                quality_multiplier = 0.8
+                quality_tier = "low_confidence"
+                
+            else:
+                # Unknown method - moderate penalty
+                quality_multiplier = 0.5
+                quality_tier = "medium_confidence"
+            
+            # Calculate penalty
+            # penalty = imputation_ratio * quality_multiplier * max_penalty
+            max_penalty = 15.0
+            penalty = imputation_ratio * quality_multiplier * max_penalty
+            
+            # Cap at max_penalty
+            penalty = min(penalty, max_penalty)
+            
+            logger.debug(
+                f"{param}: Imputation quality penalty calculation:"
+            )
+            logger.debug(f"  Method: {method} → tier: {quality_tier} (multiplier: {quality_multiplier})")
+            logger.debug(f"  Imputed: {imputed_count}/{total_records} ({imputation_ratio*100:.1f}%)")
+            logger.debug(f"  Penalty: {penalty:.2f}%")
+            
+            return round(penalty, 2)
+            
+        except Exception as e:
+            logger.warning(f"Error calculating imputation quality penalty for {param}: {str(e)}")
+            return 0.0
+        
+    def _calculate_enhanced_gap_penalty(self, gaps: Dict[str, Any], param: str) -> float:
+        """
+        Calculate enhanced gap penalty considering gap size and unfilled gaps
+        
+        ENHANCEMENT: Also checks for unfilled gaps from gap-aware imputation
+        
+        Args:
+            gaps: Gap analysis results
+            param: Parameter name
+        
+        Returns:
+            Penalty percentage (0-12%)
+        """
+        try:
+            penalty = 0.0
+            
+            # COMPONENT 1: Standard gap penalty from detection
+            gap_impact = gaps.get("impact_percentage", 0)
+            penalty += gap_impact
+            
+            # COMPONENT 2: Unfilled gaps penalty (gap-aware parameters only)
+            gap_aware_params = ["FF_X", "FF_AVG", "DDD_X", "DDD_CAR"]
+            
+            if param in gap_aware_params:
+                imputation_stats = self.preprocessing_report.get("imputation", {})
+                
+                if param in imputation_stats:
+                    param_stats = imputation_stats[param]
+                    
+                    # Check for remaining missing values
+                    remaining_missing = param_stats.get("remaining_missing", 0)
+                    
+                    if remaining_missing > 0:
+                        # Get total records
+                        if self.original_data is not None:
+                            total_records = len(self.original_data)
+                        else:
+                            total_records = 7565
+                        
+                        # Calculate unfilled ratio
+                        unfilled_ratio = remaining_missing / total_records
+                        
+                        # Unfilled gaps penalty: 0.5 weight (moderate impact)
+                        # These are INTENTIONALLY unfilled (long gaps), not failures
+                        unfilled_penalty = unfilled_ratio * 50  # Max ~5% for 10% unfilled
+                        
+                        penalty += unfilled_penalty
+                        
+                        logger.debug(
+                            f"{param}: Unfilled gaps detected: {remaining_missing} "
+                            f"({unfilled_ratio*100:.1f}%) → penalty: {unfilled_penalty:.2f}%"
+                        )
+            
+            # Cap at maximum
+            penalty = min(penalty, 12.0)
+            
+            return round(penalty, 2)
+            
+        except Exception as e:
+            logger.warning(f"Error calculating enhanced gap penalty for {param}: {str(e)}")
+            return gaps.get("impact_percentage", 0)
+    
+    def _calculate_interpolation_confidence(self, df: pd.DataFrame, param: str) -> float:
+        """
+        Calculate confidence score for interpolated parameters
+        
+        Confidence based on:
+        - Seasonal stability (lower variance = higher confidence)
+        - Gap length (shorter gaps = higher confidence)
+        
+        Returns confidence score (0.0-1.0)
+        """
+        try:
+            # Get parameter statistics
+            param_series = df[param].dropna()
+            
+            if len(param_series) < 30:
+                return 0.5  # Neutral confidence for insufficient data
+            
+            # Factor 1: Seasonal stability
+            monthly_vars = []
+            for month in range(1, 13):
+                month_data = param_series[param_series.index.month == month]
+                if len(month_data) >= 3:
+                    monthly_vars.append(np.var(month_data))
+            
+            if monthly_vars:
+                avg_monthly_var = np.mean(monthly_vars)
+                overall_var = np.var(param_series)
+                
+                # If monthly variance is much lower than overall variance,
+                # parameter is more predictable (higher confidence)
+                if overall_var > 0:
+                    stability_factor = 1 - (avg_monthly_var / overall_var)
+                    stability_factor = max(0, min(1, stability_factor))
+                else:
+                    stability_factor = 0.8
+            else:
+                stability_factor = 0.6
+            
+            # Factor 2: Gap length penalty
+            # Shorter interpolated gaps have higher confidence
+            gaps_report = self.preprocessing_report.get("gaps", {})
+            large_gaps = gaps_report.get("large_gaps", 0)
+            total_gaps = gaps_report.get("total_gaps", 1)
+            
+            if total_gaps > 0:
+                gap_factor = 1 - (large_gaps / total_gaps)
+            else:
+                gap_factor = 1.0
+            
+            # Combine factors
+            confidence = (stability_factor * 0.7) + (gap_factor * 0.3)
+            return max(0.3, min(1.0, confidence))  # Clip to reasonable range
+            
+        except Exception as e:
+            logger.debug(f"Error calculating confidence for {param}: {str(e)}")
+            return 0.6  # Default moderate confidence
+        
+    def _aggregate_uncovered_breakdown(
+        self,
+        per_parameter_results: Dict[str, Any],
+        model_type: str
+    )-> Dict[str, float]:
+        """
+        Aggregate uncovered breakdown across all parameters
+        
+        Averages penalty percentages across parameters to show
+        overall impact of each issue type.
+        
+        Args:
+            per_parameter_results: Coverage results per parameter
+            model_type: "holt_winters" or "lstm"
+        
+        Returns:
+            Dictionary of averaged penalty percentages by reason
+        """
         
         uncovered_key = f"{model_type}_uncovered"
         all_reasons = {}
@@ -2673,396 +4469,298 @@ class BmkgPreprocessor:
             aggregated[reason] = round(sum(percentages) / len(percentages), 2)
         
         return aggregated
-
-    def _determine_model_suitability(self, coverage_percentage: float) -> str:
-        """Determine model suitability based on coverage percentage"""
-        if coverage_percentage >= 85:
-            return "excellent"
-        elif coverage_percentage >= 75:
-            return "good"
-        elif coverage_percentage >= 60:
-            return "fair"
-        else:
-            return "poor"
-    
-    def _apply_smoothing(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply smoothing to appropriate parameters"""
-        logger.info("Applying smoothing methods...")
-        
-        params = self.options.get("columns_to_process", [])
-        smoothing_method = self.options.get("smoothing_method", "exponential")
-        smoothing_summary = {}
-        
-        for param in params:
-            if param not in df.columns:
-                continue
-            
-            # Check parameter-specific config
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            param_smoothing = param_config.get("smoothing_method", smoothing_method)
-            
-            if param_smoothing is None:
-                # Skip smoothing for this parameter (e.g., PRECTOTCORR)
-                smoothing_summary[param] = "none"
-                continue
-            
-            # Apply smoothing
-            if param_smoothing == "moving_average":
-                df[param] = self._smooth_moving_average(df[param])
-                smoothing_summary[param] = "moving_average"
-            elif param_smoothing == "exponential":
-                df[param] = self._smooth_exponential(df[param], param)  # Pass param
-                smoothing_summary[param] = "exponential"
-        
-        self.preprocessing_report["smoothing"] = {
-            "method": smoothing_method,
-            "parameters_smoothed": smoothing_summary
-        }
-        
-        logger.info(f"Smoothing applied: {smoothing_summary}")
-        
-        return df
-    
-    def _validate_smoothing_method(self, df: pd.DataFrame) -> None:
+    def _determine_recommended_model(
+        self,
+        hw_coverage: float,
+        lstm_coverage: float
+    )-> str:
         """
-        Validate smoothing quality using GCV + Trend Preservation
-        """
+        Determine recommended model based on coverage percentages
         
-        logger.info("Validating smoothing quality...")
-        
-        params = self.options.get("columns_to_process", [])
-        validation_results = {}
-        
-        for param in params:
-            if param not in df.columns:
-                continue
-            
-            # Check smoothing_summary instead of config
-            smoothing_summary = self.preprocessing_report.get("smoothing", {}).get("parameters_smoothed", {})
-            param_smoothing_applied = smoothing_summary.get(param, "none")
-            
-            # Skip parameters where smoothing was NOT applied
-            if param_smoothing_applied == "none":
-                validation_results[param] = {
-                    "status": "no_smoothing",
-                    "gcv": None,
-                    "trend_preservation": None
-                }
-                continue
-            
-            # Get original and smoothed values
-            if self.original_data is None or param not in self.original_data.columns:
-                logger.warning(f"Original data not available for {param}")
-                validation_results[param] = {
-                    "status": "missing_original_data",
-                    "gcv": None,
-                    "trend_preservation": None
-                }
-                continue        
-            
-            original = self.original_data.reset_index()[['Date', param]].set_index('Date')[param].dropna()
-            smoothed = df.reset_index()[['Date', param]].set_index('Date')[param].dropna() if 'Date' in df.columns else df[param].dropna()
-            common_idx = original.index.intersection(smoothed.index)
-            if len(common_idx) == 0:
-                logger.warning(f"No common indices found between original and smoothed data for {param}")
-                validation_results[param] = {
-                    "status": "no_common_indices",
-                    "gcv": None,
-                    "trend_preservation": None
-                }
-                continue
-            original_aligned = original.loc[common_idx]
-            smoothed_aligned = smoothed.loc[common_idx]
-            
-            # Check if enough data
-            if len(common_idx) < 30:
-                validation_results[param] = {
-                    "status": "insufficient_data",
-                    "data_points": len(common_idx),
-                    "gcv": None,
-                    "trend_preservation": None
-                }
-                continue
-            
-            # 1. Calculate GCV 
-            gcv_score = self._calculate_gcv(
-                original_aligned.values,
-                smoothed_aligned.values,
-                param
-            )
-            
-            # 2. Calculate Trend Preservation
-            trend_agreement = self._calculate_trend_preservation(
-                original_aligned.values,
-                smoothed_aligned.values
-            )
-            
-            # 3. Determine quality 
-            quality_status = self._determine_smoothing_quality(
-                gcv_score,
-                trend_agreement
-            )
-            
-            validation_results[param] = {
-                "gcv_score": round(float(gcv_score), 4),
-                "trend_preservation_pct": round(float(trend_agreement * 100), 2),
-                "quality_status": quality_status,
-                "smoothing_method": param_smoothing_applied,
-                "data_points": len(common_idx)
-            }
-            
-            # Log individual parameter results
-            logger.info(
-                f"Parameter {param}: "
-                f"GCV={gcv_score:.4f}, "
-                f"Trend={trend_agreement*100:.2f}%, "
-                f"Quality={quality_status.upper()}"
-            )
-            
-            # Add warnings if quality is poor
-            if quality_status == "poor":
-                self.preprocessing_report["warnings"].append(
-                    f"Parameter {param}: smoothing quality is poor "
-                    f"(GCV={gcv_score:.3f}, Trend={trend_agreement*100:.1f}%)"
-                )
-        
-        # Store in report
-        self.preprocessing_report["smoothing_validation"] = validation_results
-        logger.info(f"Smoothing validation completed for {len(validation_results)} parameters")
-        
-    def _determine_smoothing_quality(self, gcv: float, trend_preservation: float) -> str:
-        """
-        Determine overall smoothing quality based on GCV and trend preservation
+        Recommendation Logic:
+        - Both > 80%: "both" (prefer both models)
+        - HW > 80%, LSTM ≤ 80%: "holt_winters"
+        - LSTM > 80%, HW ≤ 80%: "lstm"
+        - HW > LSTM (both ≤ 80%): "holt_winters_with_caution"
+        - LSTM > HW (both ≤ 80%): "lstm_with_caution"
+        - Both < 60%: "none" (data quality issues)
         
         Args:
-            gcv: Generalized Cross-Validation score (lower = better)
-            trend_preservation: Trend agreement ratio (0.0 to 1.0, higher = better)
+            hw_coverage: Holt-Winters coverage percentage
+            lstm_coverage: LSTM coverage percentage
         
         Returns:
-            Quality status: "excellent", "good", "fair", "poor"
+            Recommended model string
         """
-        if gcv < 2.0 and trend_preservation > 0.80:
-            return "excellent"
-        elif gcv < 4.0 and trend_preservation > 0.75:
-            return "good"
-        elif gcv < 10.0 and trend_preservation > 0.70:
-            return "fair"
-        else:
-            return "poor"
         
-    def _calculate_gcv(self, original: np.ndarray, smoothed: np.ndarray, param: str) -> float:
-        """
-        Calculate Generalized Cross-Validation score
-        Lower GCV = better smoothing balance between fit and complexity
+        # Both models have good coverage
+        if hw_coverage > 80 and lstm_coverage > 80:
+            return "both"
         
-        GCV penalizes both:
-        - Poor fit (high MSE)
-        - Over-smoothing (high effective degrees of freedom)
-        """
-        n = len(original)
+        # Only one model has good coverage
+        if hw_coverage > 80:
+            return "holt_winters"
         
-        # Calculate Mean Squared Error
-        mse = np.mean((original - smoothed) ** 2)
+        if lstm_coverage > 80:
+            return "lstm"
         
-        # Get parameter-specific smoothing method (not global!)
-        param_config = self.options.get("parameter_configs", {}).get(param, {})
-        smoothing_method = param_config.get(
-            "smoothing_method", 
-            self.options.get("smoothing_method", "exponential")  # Fallback to global
-        )
-        
-        # Handle case where smoothing_method is None (defensive programming)
-        if smoothing_method is None:
-            logger.warning(f"GCV called for parameter {param} with no smoothing method")
-            return 0.0  # Return 0 to indicate no smoothing was applied
-        
-                # Estimate effective degrees of freedom based on smoothing method
-        if smoothing_method == "moving_average":
-            window_size = self.options.get("window_size", 5)
-            edf = window_size
-            
-        elif smoothing_method == "exponential":
-            # Get parameter-specific alpha correctly
-            if param:
-                param_config = self.options.get("parameter_configs", {}).get(param, {})
-                alpha = param_config.get("exponential_alpha", self.options.get("exponential_alpha", 0.15))
+        # Both models have moderate coverage (60-80%)
+        if hw_coverage >= 60 and lstm_coverage >= 60:
+            if hw_coverage > lstm_coverage:
+                return "holt_winters_with_caution"
             else:
-                alpha = self.options.get("exponential_alpha", 0.15)
-            
-            # Validate alpha range
-            if alpha <= 0:
-                alpha = 0.01  # Minimum alpha
-                logger.warning(f"Alpha too low, using minimum: {alpha}")
-            elif alpha >= 1:
-                alpha = 0.99  # Maximum alpha
-                logger.warning(f"Alpha too high, using maximum: {alpha}")
-            
-            # CORRECTED FORMULA for Exponential Weighted Moving Average (EWMA)
-            # Reference: Hyndman & Athanasopoulos "Forecasting: Principles and Practice"
-            # For EWMA, effective degrees of freedom: edf ≈ 1 / (2 - alpha)
-            # Alternative simple approximation: edf ≈ 1/alpha (for small alpha)
-            
-            # Using the more accurate formula:
-            edf = 1.0 / (2.0 - alpha)
-            
-            # Ensure reasonable bounds
-            edf = max(1.0, min(edf, n / 3.0))  # EDF should be between 1 and n/3
-            
-            # Debug logging for verification
-            # logger.debug(f"GCV calculation: alpha={alpha:.3f}, edf={edf:.2f}, n={n}")
-            
+                return "lstm_with_caution"
+        
+        # One model is better but not great
+        if hw_coverage >= 60:
+            return "holt_winters_with_caution"
+        
+        if lstm_coverage >= 60:
+            return "lstm_with_caution"
+        
+        # Both models have poor coverage
+        if hw_coverage > lstm_coverage:
+            return "holt_winters_with_caution"
+        elif lstm_coverage > hw_coverage:
+            return "lstm_with_caution"
         else:
-            edf = 5  # Default conservative estimate
-            if smoothing_method:
-                logger.warning(f"Unknown smoothing method '{smoothing_method}' for parameter {param}, using default EDF=5")
-
-        # GCV formula: MSE / (1 - edf/n)²
-        # Protection against numerical issues
-        denominator = (1.0 - edf / n) ** 2
-
-        # Ensure denominator is not too small (prevents division explosion)
-        if denominator <= 0.01:
-            logger.warning(f"GCV denominator too small ({denominator:.4f}), clamping to 0.01")
-            denominator = 0.01
-
-        gcv = mse / denominator
-
-        return gcv
-    
-    def _calculate_non_smoothed_coverage(
-        self,
-        large_gaps,
-        extreme_outliers,
-        coverage_analysis,
-        param: str
-    ) -> Dict[str, Any]:
-        """
-        Calculate coverage for parameters that don't need smoothing
+            return "none"  # Data quality too poor
         
-        Args:
-            large_gaps: Large gaps analysis
-            extreme_outliers: Extreme outliers analysis  
-            coverage_analysis: Basic coverage data
-            param: Parameter name
-            
-        Returns:
-            Coverage dictionary for non-smoothed parameters
-        """
-        base_coverage = 95.0  # High base coverage - no smoothing needed
-        uncovered_reasons = {}
-        
-        # PENALTY 1: Large Gaps
-        large_gap_penalty = large_gaps.get("impact_percentage", 0)
-        if large_gap_penalty > 0:
-            base_coverage -= large_gap_penalty
-            uncovered_reasons["large_gaps"] = round(large_gap_penalty, 2)
-        
-        # PENALTY 2: Extreme Outliers
-        outlier_penalty = extreme_outliers.get("impact_percentage", 0)
-        if outlier_penalty > 0:
-            base_coverage -= outlier_penalty
-            uncovered_reasons["extreme_outliers"] = round(outlier_penalty, 2)
-        
-        # PENALTY 3: Missing Data
-        missing_penalty = coverage_analysis.get("missing_ratio", 0) * 25
-        if missing_penalty > 0:
-            base_coverage -= missing_penalty
-            uncovered_reasons["missing_data"] = round(missing_penalty, 2)
-        
-        final_coverage = max(0, base_coverage)
-        
-        return {
-            "coverage_percentage": round(final_coverage, 2),
-            "uncovered_reasons": uncovered_reasons
-        }
-    
-    def _calculate_trend_preservation(self, original: np.ndarray, smoothed: np.ndarray) -> float:
-        """
-        Calculate trend direction agreement between original and smoothed data
-        
-        Returns: percentage of matching trend directions (0.0 to 1.0)
-        
-        Special cases:
-        - Returns 1.0 if data is flat (no trends to preserve = perfect preservation)
-        - Returns np.nan if insufficient data for meaningful calculation
-        """
-        # Validate input lengths
-        if len(original) != len(smoothed):
-            logger.warning(f"Trend preservation: length mismatch (original={len(original)}, smoothed={len(smoothed)})")
-            return np.nan
-        
-        if len(original) < 2:  # Need at least 2 points for diff
-            logger.warning(f"Trend preservation: insufficient data (n={len(original)})")
-            return np.nan
-        
-        # Calculate first differences (trend direction)
-        original_diff = np.diff(original)
-        smoothed_diff = np.diff(smoothed)
-        
-        # Get signs (direction: +1 for increase, -1 for decrease, 0 for no change)
-        original_direction = np.sign(original_diff)
-        smoothed_direction = np.sign(smoothed_diff)
-        
-        # Calculate agreement (exclude zeros - flat regions)
-        non_zero_mask = (original_direction != 0) & (smoothed_direction != 0)
-        
-        if non_zero_mask.sum() == 0:
-            # No clear trends in data (all flat) - this is GOOD, not bad!
-            # Flat data means smoothing preserved the flat nature perfectly
-            logger.debug(f"Trend preservation: No clear trends detected (flat data) - returning 1.0 (perfect)")
-            return 1.0  # ← FIXED: was 0.0
-        
-        if non_zero_mask.sum() < 10:  # Too few trend changes for reliable calculation
-            logger.debug(f"Trend preservation: Very few trend changes ({non_zero_mask.sum()}) - may be unreliable")
-            # Still calculate but warn
-        
-        # Check where directions match
-        agreement = (original_direction[non_zero_mask] == smoothed_direction[non_zero_mask])
-        trend_preservation = agreement.mean()
-        
-        return trend_preservation
-    
-    def _smooth_moving_average(self, series: pd.Series) -> pd.Series:
-        """Apply moving average smoothing"""
-        window_size = self.options.get("window_size", 5)
-        return series.rolling(window=window_size, center=True, min_periods=1).mean()
-    
-    def _smooth_exponential(
-        self,
-        series: pd.Series,
-        param: str = None
-    ) -> pd.Series:
-        """Apply exponential smoothing with parameter-specific alpha"""
-        
-        if param:
-            param_config = self.options.get("parameter_configs", {}).get(param, {})
-            alpha = param_config.get("exponential_alpha", self.options.get("exponential_alpha", 0.15))
-        else:
-            alpha = self.options.get("exponential_alpha", 0.15)
-        return series.ewm(alpha=alpha, adjust=False).mean()
-    
     def _generate_quality_metrics(self, original_df: pd.DataFrame, processed_df: pd.DataFrame) -> None:
-        """Generate quality metrics for preprocessing report"""
+        """Generate quality metrics with forecasting readiness assessment"""
         logger.info("Generating quality metrics...")
         
-        params = self.options.get("columns_to_process", [])
+        quality_metrics = {}
         
-        # Calculate completeness
-        total_cells = len(processed_df) * len(params)
-        missing_cells = sum(processed_df[param].isna().sum() for param in params if param in processed_df.columns)
-        completeness = ((total_cells - missing_cells) / total_cells) * 100 if total_cells > 0 else 0
+        # FORECASTING READINESS - New section
+        forecasting_params = ['TAVG', 'RR', 'RH_AVG']
+        forecasting_readiness = {}
         
-        # Calculate data modification percentage
-        original_count = len(original_df)
-        processed_count = len(processed_df)
-        records_removed = original_count - processed_count
+        for param in forecasting_params:
+            if param in processed_df.columns:
+                coverage = (1 - processed_df[param].isna().sum() / len(processed_df)) * 100
+                forecasting_readiness[param] = {
+                    "coverage_pct": round(coverage, 2),
+                    "status": "READY" if coverage >= 95 else "NEEDS_REVIEW"
+                }
         
+        # Supporting parameters status
+        supporting_params = ['TX', 'TN', 'SS']
+        supporting_status = {}
+        
+        for param in supporting_params:
+            if param in processed_df.columns:
+                coverage = (1 - processed_df[param].isna().sum() / len(processed_df)) * 100
+                supporting_status[param] = {
+                    "coverage_pct": round(coverage, 2),
+                    "status": "GOOD" if coverage >= 85 else "ACCEPTABLE" if coverage >= 70 else "POOR"
+                }
+        
+        # Metadata parameters status
+        metadata_params = ['FF_X', 'FF_AVG', 'DDD_X', 'DDD_CAR']
+        metadata_status = {}
+        
+        for param in metadata_params:
+            if param in processed_df.columns:
+                coverage = (1 - processed_df[param].isna().sum() / len(processed_df)) * 100
+                metadata_status[param] = {
+                    "coverage_pct": round(coverage, 2),
+                    "note": "Metadata only - gaps expected" if coverage < 50 else "Better than expected coverage"
+                }
+        
+        # Overall forecasting suitability
+        forecasting_avg = sum(r["coverage_pct"] for r in forecasting_readiness.values()) / len(forecasting_readiness) if forecasting_readiness else 0
+        supporting_avg = sum(r["coverage_pct"] for r in supporting_status.values()) / len(supporting_status) if supporting_status else 0
+        
+        overall_forecasting_score = (forecasting_avg * 0.7) + (supporting_avg * 0.3)
+        
+        # Calculate traditional metrics per parameter
+        for param in self.params_to_process:
+            if param not in processed_df.columns:
+                continue
+            
+            if param == 'DDD_CAR':
+                continue
+            
+            original_missing = original_df[param].isna().sum()
+            processed_missing = processed_df[param].isna().sum()
+            
+            quality_metrics[param] = {
+                "original_missing": int(original_missing),
+                "processed_missing": int(processed_missing),
+                "completeness": round(((len(processed_df) - processed_missing) / len(processed_df)) * 100, 2)
+            }
+        
+        # Store comprehensive results
         self.preprocessing_report["quality_metrics"] = {
-            "original_records": int(original_count),
-            "processed_records": int(processed_count),
-            "records_removed": int(records_removed),
-            "completeness_percentage": round(completeness, 2),
-            "data_quality": "high" if completeness > 95 else "medium" if completeness > 90 else "low"
+            "parameter_details": quality_metrics,
+            
+            # Forecasting readiness sections
+            "forecasting_readiness": {
+                "critical_parameters": forecasting_readiness,
+                "supporting_parameters": supporting_status,
+                "metadata_parameters": metadata_status,
+                "overall_forecasting_score": round(overall_forecasting_score, 1),
+                "forecasting_suitable": overall_forecasting_score >= 90
+            }
         }
         
-        logger.info(f"Quality metrics: {completeness:.2f}% complete, {records_removed} records removed")
+        logger.info(f"Quality metrics: {overall_forecasting_score:.1f}% forecasting readiness")
+        critical_params_str = [f'{k}={v["coverage_pct"]:.1f}%' for k, v in forecasting_readiness.items()]
+        logger.info(f"Critical parameters: {critical_params_str}")
+        metadata_params_str = [f'{k}={v["coverage_pct"]:.1f}%' for k, v in metadata_status.items()]
+        logger.info(f"Metadata parameters: {metadata_params_str}")
+        
+    def _save_preprocessing_report(
+        self, 
+        cleaned_collection_name: str
+    )->  Dict[str, Any]:
+        """
+        Save unified preprocessing report to MongoDB preprocessing_report collection
+        Compatible with NASA structure for unified frontend consumption
+        """
+        try:
+            # Prepare simplified report document
+            report_doc = {
+                "dataset_type": "bmkg",
+                "original_collection_name": self.collection_name,
+                "cleaned_collection_name": cleaned_collection_name,
+                "preprocessing_timestamp": datetime.now(),
+                
+                # Preprocessing Summary (simplified inline)
+                "preprocessing_summary": {
+                    "missing_data": {
+                        "fill_values_replaced": self.preprocessing_report.get("missing_data", {}).get("fill_values_replaced", {}),
+                        # INLINE imputation simplification
+                        "imputation_summary": {
+                            "total_imputed": sum(
+                                data.get("imputed", 0) 
+                                for data in self.preprocessing_report.get("imputation", {}).values()
+                            ),
+                            "per_parameter": {
+                                param: {
+                                    "imputed": data.get("imputed", 0),
+                                    "success_rate": data.get("success_rate", 0),
+                                    "method": data.get("method", "unknown")
+                                    # NO before/after counts
+                                } for param, data in self.preprocessing_report.get("imputation", {}).items()
+                            }
+                        }
+                    },
+                    "outliers": self.preprocessing_report.get("outliers", {}),
+                    "physical_constraints": self.preprocessing_report.get("physical_constraints", {}),
+                    "gaps_summary": {
+                        "total_gaps": self.preprocessing_report.get("gaps", {}).get("total_gaps", 0),
+                        "small_gaps": self.preprocessing_report.get("gaps", {}).get("small_gaps", 0),
+                        "medium_gaps": self.preprocessing_report.get("gaps", {}).get("medium_gaps", 0),
+                        "large_gaps": self.preprocessing_report.get("gaps", {}).get("large_gaps", 0)
+                        # NO gap_details[] array
+                    },
+                    "suspicious_zeros": self.preprocessing_report.get("suspicious_zeros", {})
+                },
+                
+                # Quality Metrics (keep full)
+                "quality_metrics": self.preprocessing_report.get("quality_metrics", {}),
+                
+                # INLINE imputation validation simplification
+                "imputation_validation": {
+                    param: {
+                        "gcv_score": data.get("gcv_score"),
+                        "trend_preservation_pct": data.get("trend_preservation_pct"),
+                        "quality_status": data.get("quality_status")
+                        # NO data_points, NO imputation_method
+                    } for param, data in self.preprocessing_report.get("imputation_validation", {}).items()
+                    if isinstance(data, dict) and "gcv_score" in data
+                },
+                
+                # INLINE model coverage simplification
+                "model_coverage": {
+                    # Keep aggregate results
+                    "aggregate_hw_uncovered": self.preprocessing_report.get("model_coverage", {}).get("aggregate_hw_uncovered", {}),
+                    "aggregate_lstm_uncovered": self.preprocessing_report.get("model_coverage", {}).get("aggregate_lstm_uncovered", {}),
+                    "overall_hw_coverage": self.preprocessing_report.get("model_coverage", {}).get("overall_hw_coverage", 0),
+                    "overall_lstm_coverage": self.preprocessing_report.get("model_coverage", {}).get("overall_lstm_coverage", 0),
+                    "per_parameter": {
+                        param: {
+                            "holt_winters_coverage": data.get("holt_winters_coverage"),
+                            "lstm_coverage": data.get("lstm_coverage"),
+                            "recommended_model": data.get("recommended_model"),
+                            "seasonality_strength": data.get("seasonality_strength"),
+                            "is_stationary": data.get("is_stationary"),
+                            **({
+                                "holt_winters_uncovered": data["holt_winters_uncovered"]
+                            } if data.get("holt_winters_uncovered") else {}),
+                            **({
+                                "lstm_uncovered": data["lstm_uncovered"] 
+                            } if data.get("lstm_uncovered") else {})
+                        } for param, data in self.preprocessing_report.get("model_coverage", {}).get("per_parameter", {}).items()
+                    }
+                },
+                "warnings": [w for w in self.preprocessing_report.get("warnings", []) 
+                            if "Large gap" in w or "quality is poor" in w],
+                "status": "success",
+                "record_count": {
+                    "original": len(self.original_data) if self.original_data is not None else 0,
+                    "processed": len(self.original_data) if self.original_data is not None else 0
+                }
+            }
+            
+            # Sanitize for MongoDB 
+            sanitized_document = self._sanitize_for_mongodb(report_doc)
+            
+            # Insert into preprocessing_report collection
+            result = self.db["preprocessing_report"].insert_one(sanitized_document)
+            
+            logger.info(f"Simplified preprocessing report saved with ID: {result.inserted_id}")
+            
+            return {
+                "status": "success",
+                "report_id": result.inserted_id,  # ← ObjectId (NOT STRING!)
+                "collection": "preprocessing_report"
+            }
+            
+        except Exception as e:
+            error_msg = f"Error saving preprocessing report: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+            
+    def _sanitize_for_mongodb(self, obj):
+        """
+        Recursively convert numpy types to native Python types for MongoDB serialization
+        (Same implementation as NASA preprocessing)
+        """
+        if isinstance(obj, dict):
+            sanitized_dict = {}
+            for key, value in obj.items():
+                # Convert pandas Timestamp keys to strings
+                if isinstance(key, pd.Timestamp):
+                    str_key = key.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    str_key = str(key) if not isinstance(key, str) else key
+                sanitized_dict[str_key] = self._sanitize_for_mongodb(value)
+            return sanitized_dict
+        elif isinstance(obj, list):
+            return [self._sanitize_for_mongodb(item) for item in obj]
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, pd.DataFrame):
+            return obj.to_dict('records')
+        elif isinstance(obj, pd.Series):
+            return obj.to_dict()  # also convert timestamp keys
+        elif isinstance(obj, pd.Index):
+            return obj.tolist()
+        elif isinstance(obj, pd.Timestamp):
+            return obj.isoformat()
+        elif hasattr(obj, 'item'):
+            return obj.item()
+        else:
+            return obj
