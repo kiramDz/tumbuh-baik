@@ -35,7 +35,7 @@ const RecycleBinTable = () => {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["recycle-bin", page, pageSize],
-    queryFn: () => GetRecycleBinDatasets(),
+    queryFn: () => GetRecycleBinDatasets(page, pageSize),
     refetchOnWindowFocus: false,
   });
 

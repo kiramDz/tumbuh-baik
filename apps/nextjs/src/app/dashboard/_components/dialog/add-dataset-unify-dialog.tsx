@@ -82,7 +82,7 @@ const ACEH_LOCATIONS: AcehLocations = {
     { name: "Kec. Jaya/Lamno", lat: 5.0804551, lon: 95.3515282 },
     { name: "Kec. Setia Bakti", lat: 4.7639286, lon: 95.5762011 },
     { name: "Kec. Pasie Raya", lat: 4.4993835, lon: 95.8792798 },
-    { name: "Kec. Teunom ", lat: 4.451494, lon: 95.8573616 },
+    { name: "Kec. Teunom", lat: 4.451494, lon: 95.8573616 },
   ],
   "Kabupaten Pidie": [
     { name: "Kec. Pidie", lat: 5.3580667, lon: 95.9413261 },
@@ -635,9 +635,9 @@ export default function AddDatasetDialog() {
                   <option value="Data NASA (https://power.larc.nasa.gov/)">
                     Data NASA (https://power.larc.nasa.gov/)
                   </option>
-                  <option value="Data BUOYS (https://www.pmel.noaa.gov)">
+                  {/* <option value="Data BUOYS (https://www.pmel.noaa.gov)">
                     Data BUOYS (https://www.pmel.noaa.gov)
-                  </option>
+                  </option> */}
                 </select>
               </div>
               <div className="grid gap-2">

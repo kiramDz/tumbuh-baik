@@ -156,160 +156,152 @@ def make_api_call(method, base_url, endpoint, payload=None, retries=3):
         time.sleep(wait_time)
         
     return False, {"message": "Max retries reached."}
+
+
 # Tasks
-def task_nasa_refresh(is_dry_run):
+def task_nasa_refresh(
+    is_dry_run,
+    target_datasets= None
+):
     logger.info("Task: Refreshing NASA data...")
     if is_dry_run:
         logger.info("DRY RUN: Bypassing NASA refresh")
         return {"name": "nasa_refresh", "status": "success"}
 
-    # NASA refresh-all ada di Next.js (Hono backend)
+    # Saat ini backend hanya memiliki endpoint refresh-all. 
+    # Jika di masa depan ada endpoint per-dataset, logikanya dapat diubah di sini.
+    if target_datasets:
+        logger.info(f"Custom datasets requested for refresh: {target_datasets}. Triggering generic refresh-all...")
+
     success, data = make_api_call("POST", NEXT_API_BASE_URL, "/api/v1/nasa-power/refresh-all")
     if success:
         logger.info(f"SUCCESS: NASA refresh completed.")
-        return {"name": "nasa_refresh", "status": "success", "response": data}
-
+        return {"name": "nasa_refresh", "status": "success"}
     else:
         logger.error("FAILED: NASA refresh failed.")
         return {"name": "nasa_refresh", "status": "failed", "error": data}
+        
 
-def task_bmkg_preprocess(is_dry_run):
+def task_bmkg_preprocess(is_dry_run, target_datasets=None):
     logger.info("Task: Preprocessing BMKG datasets...")
     if is_dry_run:
         logger.info("DRY RUN: Bypassing BMKG preprocess")
         return {"name": "bmkg_preprocess", "status": "success"}
     
-    # 1. Fetch BMKG datasets (metadata ada di Next.js Hono routes)
-    success, data = make_api_call("GET", NEXT_API_BASE_URL, "/api/v1/dataset-meta")
-    if not success:
-        return {"name": "bmkg_preprocess", "status": "failed", "error": "Could not fetch datasets list"}
-    
-    # Data dari Next.js biasanya ada di dalam format data.data jika di-wrap Response
-    datasets = data if isinstance(data, list) else data.get("data", [])
-    
-    # FIX: Filter dataset yang HANYA berstatus "raw" dan mengandung kata "bmkg" di source/dataType
-    bmkg_datasets = []
-    for d in datasets:
-        # Pengecekan apakah ini data BMKG (cek kata "bmkg" ada di dalam source atau dataType)
-        is_bmkg = (
-            "bmkg" in str(d.get("source", "")).lower() or 
-            "bmkg" in str(d.get("dataType", "")).lower()
-        )
-        # Pengecekan apakah statusnya masih raw (belum dipreprocess)
-        is_raw = str(d.get("status", "")).lower() == "raw"
+    if target_datasets:
+        bmkg_datasets = target_datasets
+    else:
+        # Fetch auto dari list raw
+        success, data = make_api_call("GET", NEXT_API_BASE_URL, "/api/v1/dataset-meta")
+        if not success:
+            return {"name": "bmkg_preprocess", "status": "failed"}
         
-        if is_bmkg and is_raw:
-            bmkg_datasets.append(d["collectionName"])
+        datasets = data if isinstance(data, list) else data.get("data", [])
+        bmkg_datasets = [
+            d["collectionName"] for d in datasets 
+            if ("bmkg" in str(d.get("source", "")).lower() or "bmkg" in str(d.get("dataType", "")).lower()) 
+            and str(d.get("status", "")).lower() == "raw"
+        ]
     
     if not bmkg_datasets:
         logger.info("No RAW BMKG datasets found to process.")
         return {"name": "bmkg_preprocess", "status": "success", "processed": 0}
         
-    logger.info(f"Found {len(bmkg_datasets)} RAW BMKG datasets. Starting preprocessing loop...")
+    logger.info(f"Found {len(bmkg_datasets)} BMKG datasets. Starting preprocessing...")
     count_success = 0
-    errors = []
     
     for name in bmkg_datasets:
         logger.info(f" -> Processing {name}")
-        # Preprocessing eksekusi aslinya ada di Flask
-        c_success, c_data = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/bmkg/{name}")
-        if c_success:
-            count_success += 1
-        else:
-            errors.append(f"Failed on {name}")
+        c_success, _ = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/bmkg/{name}")
+        if c_success: count_success += 1
 
-    if count_success == len(bmkg_datasets):
-        logger.info(f"SUCCESS: BMKG preprocessing completed ({count_success}/{len(bmkg_datasets)})")
-        return {"name": "bmkg_preprocess", "status": "success"}
-    else:
-        logger.warning(f"PARTIAL: BMKG preprocessing ({count_success}/{len(bmkg_datasets)})")
-        return {"name": "bmkg_preprocess", "status": "failed" if count_success == 0 else "partial"}
+    final_status = "success" if count_success == len(bmkg_datasets) else "partial" if count_success > 0 else "failed"
+    return {"name": "bmkg_preprocess", "status": final_status}
 
-def task_nasa_preprocess(is_dry_run):
+
+def task_nasa_preprocess(is_dry_run, target_datasets=None):
     logger.info("Task: Preprocessing NASA datasets...")
     if is_dry_run:
         logger.info("DRY RUN: Bypassing NASA preprocess")
         return {"name": "nasa_preprocess", "status": "success"}
 
-    success, data = make_api_call("GET", NEXT_API_BASE_URL, "/api/v1/dataset-meta")
-    if not success:
-        return {"name": "nasa_preprocess", "status": "failed", "error": "Could not fetch datasets list"}
+    if target_datasets:
+        nasa_datasets = target_datasets
+    else:
+        success, data = make_api_call("GET", NEXT_API_BASE_URL, "/api/v1/dataset-meta")
+        if not success: return {"name": "nasa_preprocess", "status": "failed"}
 
-    datasets = data if isinstance(data, list) else data.get("data", [])
-    
-    nasa_datasets = []
-    for d in datasets:
-        # Pengecekan apakah ini data NASA
-        is_nasa = (
-            "nasa" in str(d.get("source", "")).lower() or 
-            "nasa" in str(d.get("dataType", "")).lower()
-        )
-        # Pengecekan apakah statusnya raw atau latest
-        status = str(d.get("status", "")).lower()
-        is_pending_preprocess = status in ["raw", "latest"]
-        
-        if is_nasa and is_pending_preprocess:
-            nasa_datasets.append(d["collectionName"])
+        datasets = data if isinstance(data, list) else data.get("data", [])
+        nasa_datasets = [
+            d["collectionName"] for d in datasets 
+            if ("nasa" in str(d.get("source", "")).lower() or "nasa" in str(d.get("dataType", "")).lower()) 
+            and str(d.get("status", "")).lower() in ["raw", "latest"]
+        ]
 
     if not nasa_datasets:
-        logger.info("No pending NASA datasets found to process.")
+        logger.info("No pending NASA datasets found.")
         return {"name": "nasa_preprocess", "status": "success", "processed": 0}
 
-    logger.info(f"Found {len(nasa_datasets)} pending NASA datasets. Starting preprocessing loop...")
+    logger.info(f"Found {len(nasa_datasets)} NASA datasets. Starting...")
     count_success = 0
-    errors = []
 
     for name in nasa_datasets:
         logger.info(f" -> Processing {name}")
         c_success, _ = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/nasa/{name}")
-        if c_success:
-            count_success += 1
-        else:
-            errors.append(f"Failed on {name}")
+        if c_success: count_success += 1
 
-    if count_success == len(nasa_datasets):
-        logger.info(f"SUCCESS: NASA preprocessing completed ({count_success}/{len(nasa_datasets)})")
-        return {"name": "nasa_preprocess", "status": "success"}
-    else:
-        logger.warning(f"PARTIAL: NASA preprocessing ({count_success}/{len(nasa_datasets)})")
-        return {"name": "nasa_preprocess", "status": "failed" if count_success == 0 else "partial"}
+    final_status = "success" if count_success == len(nasa_datasets) else "partial" if count_success > 0 else "failed"
+    return {"name": "nasa_preprocess", "status": final_status}
 
 def main():
     parser = argparse.ArgumentParser(description="Climate Automation Scheduler")
     parser.add_argument("--manual", action="store_true", help="Mark execution as manual")
-    # FIX: Tambahkan nasa_preprocess ke choices 
     parser.add_argument("--tasks", choices=["nasa_refresh", "nasa_preprocess", "bmkg_preprocess", "all"], default="all", help="Specific tasks to run")
     parser.add_argument("--dry-run", action="store_true", help="Simulate execution without side effects")
+    
+    # Custom Selection Arguments
+    parser.add_argument("--nasa-refresh", help="Comma-separated NASA datasets to refresh")
+    parser.add_argument("--nasa-preprocess", help="Comma-separated NASA datasets to preprocess")
+    parser.add_argument("--bmkg-preprocess", help="Comma-separated BMKG datasets to preprocess")
     args = parser.parse_args()
 
     trigger_type = "manual" if args.manual else "cron"
-    if args.dry_run:
-        logger.info("=== STARTING SCHEDULER IN DRY-RUN MODE ===")
-        log_id = None
-    else:
-        logger.info("=== STARTING SCHEDULER EXECUTION ===")
-        log_id = create_log(trigger_type)
-        if not log_id: sys.exit(1)
+    log_id = None if args.dry_run else create_log(trigger_type)
+    if not args.dry_run and not log_id: sys.exit(1)
 
     start_time = time.time()
     results = []
     
-    # Execution (Sekarang berurutan: Refresh NASA -> Preprocess NASA -> Preprocess BMKG)
-    if args.tasks in ["nasa_refresh", "all"]:
-        res_nasa = task_nasa_refresh(args.dry_run)
-        results.append(res_nasa)
-        update_task_log(log_id, res_nasa)
+    # Parse custom lists
+    t_nasa_refresh = args.nasa_refresh.split(",") if args.nasa_refresh else None
+    t_nasa_pre = args.nasa_preprocess.split(",") if args.nasa_preprocess else None
+    t_bmkg_pre = args.bmkg_preprocess.split(",") if args.bmkg_preprocess else None
 
-    # TAMBAHKAN PEMANGGILAN NASA PREPROCESS DISINI
-    if args.tasks in ["nasa_preprocess", "all"]:
-        res_nasa_pre = task_nasa_preprocess(args.dry_run)
-        results.append(res_nasa_pre)
-        update_task_log(log_id, res_nasa_pre)
+    # Logic: Jika argumen spesifik (custom) diberikan, kita jalankan task tersebut tanpa peduli --tasks
+    is_custom = bool(t_nasa_refresh or t_nasa_pre or t_bmkg_pre)
 
-    if args.tasks in ["bmkg_preprocess", "all"]:
-        res_bmkg = task_bmkg_preprocess(args.dry_run)
-        results.append(res_bmkg)
-        update_task_log(log_id, res_bmkg)
+    if is_custom:
+        logger.info("=== STARTING SCHEDULER (CUSTOM SELECTION) ===")
+        if t_nasa_refresh:
+            res = task_nasa_refresh(args.dry_run, t_nasa_refresh)
+            results.append(res); update_task_log(log_id, res)
+        if t_nasa_pre:
+            res = task_nasa_preprocess(args.dry_run, t_nasa_pre)
+            results.append(res); update_task_log(log_id, res)
+        if t_bmkg_pre:
+            res = task_bmkg_preprocess(args.dry_run, t_bmkg_pre)
+            results.append(res); update_task_log(log_id, res)
+    else:
+        logger.info("=== STARTING SCHEDULER (QUICK RUN) ===")
+        if args.tasks in ["nasa_refresh", "all"]:
+            res = task_nasa_refresh(args.dry_run)
+            results.append(res); update_task_log(log_id, res)
+        if args.tasks in ["nasa_preprocess", "all"]:
+            res = task_nasa_preprocess(args.dry_run)
+            results.append(res); update_task_log(log_id, res)
+        if args.tasks in ["bmkg_preprocess", "all"]:
+            res = task_bmkg_preprocess(args.dry_run)
+            results.append(res); update_task_log(log_id, res)
 
     # Summarize Final Status
     statuses = [r["status"] for r in results]

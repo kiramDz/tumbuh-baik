@@ -1,10 +1,16 @@
 import os
+import sys
+import subprocess
 import logging
 import threading
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, jsonify, request
+from models.scheduler_logs import SchedulerLog # dynamic import map
 from models.scheduler_logs import SchedulerLog
 from middleware.auth_middleware import require_auth
+from bson import ObjectId
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +30,16 @@ def get_next_run() -> str:
     # Next WIB 02:00:
     # Convert now to WIB (+7)
     now_wib = now + timedelta(hours=7)
-    next_wib_run = datetime(now_wib.year, now_wib.month, now_wib.day, 2, 0, 0)
+    
+    # Tambahkan tzinfo agar object ini menjadi offset-aware
+    next_wib_run = datetime(now_wib.year, now_wib.month, now_wib.day, 2, 0, 0, tzinfo=timezone.utc)
     
     if now_wib >= next_wib_run:
         next_wib_run += timedelta(days=1)
         
     next_utc_run = next_wib_run - timedelta(hours=7)
     return next_utc_run.replace(tzinfo=timezone.utc).isoformat()
+
 
 def validate_api_key(req) -> bool:
     """Validate API key via Header Authorization."""
@@ -42,22 +51,40 @@ def validate_api_key(req) -> bool:
     expected_token = os.getenv("API_KEY", "dev_secret_key")
     return token == expected_token
 
-def run_scheduler_async(log_id: str, tasks: list):
+def run_scheduler_async(log_id: str, mode: str, tasks: list, datasets: dict):
     """
-    Mock async executor for manual triggers.
-    In Phase 3, this should ideally invoke the actual daily_scheduler.py logic 
-    or trigger the same processes.
+    Execute daily_scheduler.py using subprocess to ensure it runs independently.
     """
     try:
-        # Update log to running with targeted tasks
-        logger.info(f"Running scheduler async for log: {log_id}. Tasks: {tasks}")
-        # Simulaton of async task logic ...
-        # After completion:
-        # SchedulerLog.complete_log(log_id, status="success")
-    except Exception as e:
-        logger.error(f"Async scheduler failed: {e}")
-        SchedulerLog.complete_log(log_id, status="failed")
+        logger.info(f"Running scheduler async for log: {log_id}. Mode: {mode}")
+        
+        script_path = os.path.join(os.path.dirname(__file__), '..', 'scheduler', 'daily_scheduler.py')
+        cmd = [sys.executable, script_path, "--manual"]
+        
+        if mode == "custom":
+            if datasets.get("nasa_refresh"):
+                cmd.extend(["--nasa-refresh", ",".join(datasets["nasa_refresh"])])
+            if datasets.get("nasa_preprocess"):
+                cmd.extend(["--nasa-preprocess", ",".join(datasets["nasa_preprocess"])])
+            if datasets.get("bmkg_preprocess"):
+                cmd.extend(["--bmkg-preprocess", ",".join(datasets["bmkg_preprocess"])])
+        else:
+            if tasks and "all" not in tasks:
+                # Assuming quick run single task
+                cmd.extend(["--tasks", tasks[0]])
+            else:
+                cmd.extend(["--tasks", "all"])
 
+        # Execute detached process
+        subprocess.Popen(cmd)
+        
+    except Exception as e:
+        logger.error(f"Async scheduler execution failed: {e}")
+        db = SchedulerLog._get_db()
+        db.scheduler_logs.update_one(
+            {"_id": ObjectId(log_id)},
+            {"$set": {"status": "failed", "completedAt": datetime.now(timezone.utc)}}
+        )
 @scheduler_bp.route("/status", methods=["GET"])
 def get_status():
     """Get Scheduler Status"""
@@ -79,12 +106,28 @@ def get_status():
         ]))
         avg_duration = durations[0]["avgDuration"] if durations else 0
 
-        # Check if cron service might active (simple ping check or assume true if enabled in env)
-        is_active = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
+        # === PERBAIKAN: BACA DARI DATABASE CONFIG, BUKAN DARI .ENV ===
+        config = db.scheduler_config.find_one({})
+        
+        if config and config.get("enabled") is True:
+            is_active = True
+            # Gunakan helper yang baru dibuat di Phase 4.5
+            computed_runs = calculate_next_runs(
+                config.get("frequency", "weekly"),
+                config.get("executionTime", "02:00"),
+                config.get("dayOfWeek", 0),
+                config.get("daysOfWeek"),
+                config.get("daysOfMonth"),
+                1
+            )
+            next_run = computed_runs[0] if computed_runs else None
+        else:
+            is_active = False
+            next_run = None
 
         data = {
             "lastRun": latest_log,
-            "nextRun": get_next_run(),
+            "nextRun": next_run,
             "isActive": is_active,
             "statistics": {
                 "successRate": success_rate,
@@ -137,6 +180,108 @@ def get_logs():
     except Exception as e:
         logger.error(f"Error fetching logs: {e}")
         return jsonify({"success": False, "error": {"code": "INTERNAL_ERROR"}}), 500
+    
+
+def calculate_next_runs(frequency, exec_time, day_of_week=0, days_of_week=None, days_of_month=None, count=5):
+    """Simple calculation for next runs in UTC based on WIB time (UTC+7)"""
+    try:
+        hour, minute = map(int, exec_time.split(':'))
+    except:
+        hour, minute = 2, 0
+        
+    now = datetime.now(timezone.utc)
+    runs = []
+    
+    # Base starting point in WIB
+    current_wib = now + timedelta(hours=7)
+    base_date = current_wib.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if current_wib > base_date:
+        base_date += timedelta(days=1)
+        
+    date_cursor = base_date
+    while len(runs) < count:
+        if frequency == "weekly" and date_cursor.weekday() != day_of_week:
+            date_cursor += timedelta(days=1)
+            continue
+        elif frequency == "biweekly" and days_of_week and date_cursor.weekday() not in days_of_week:
+            date_cursor += timedelta(days=1)
+            continue
+        elif frequency == "monthly" and days_of_month and date_cursor.day not in days_of_month:
+            date_cursor += timedelta(days=1)
+            continue
+            
+        utc_run = date_cursor - timedelta(hours=7)
+        runs.append(utc_run.isoformat())
+        date_cursor += timedelta(days=1)
+        
+    return runs
+
+@scheduler_bp.route("/config", methods=["GET"])
+@require_auth
+def get_automation_config():
+    try:
+        db = SchedulerLog._get_db()
+        config = db.scheduler_config.find_one({})
+        
+        if not config:
+            config = {
+                "enabled": False,
+                "frequency": "weekly",
+                "executionTime": "02:00",
+                "dayOfWeek": 0,
+                "daysOfWeek": [0, 3],
+                "daysOfMonth": [1, 15],
+                "selectedDatasets": {"nasa": [], "bmkg": []}
+            }
+        else:
+            config["_id"] = str(config["_id"])
+            
+        config["nextRuns"] = calculate_next_runs(
+            config.get("frequency", "weekly"),
+            config.get("executionTime", "02:00"),
+            config.get("dayOfWeek", 0),
+            config.get("daysOfWeek"),
+            config.get("daysOfMonth")
+        ) if config.get("enabled", False) else []
+            
+        return jsonify({"success": True, "data": config})
+    except Exception as e:
+        logger.error(f"Error getting config: {e}")
+        return jsonify({"success": False, "error": {"code": "INTERNAL_ERROR"}}), 500
+
+@scheduler_bp.route("/config", methods=["POST"])
+@require_auth
+def save_automation_config():
+    try:
+        body = request.get_json() or {}
+        db = SchedulerLog._get_db()
+        
+        # Validasi dasar
+        if body.get("frequency") not in ["weekly", "biweekly", "monthly"]:
+            return jsonify({"success": False, "error": {"message": "Invalid frequency"}}), 400
+            
+        update_data = {
+            "enabled": body.get("enabled", False),
+            "frequency": body.get("frequency", "weekly"),
+            "executionTime": body.get("executionTime", "02:00"),
+            "dayOfWeek": body.get("dayOfWeek", 0),
+            "daysOfWeek": body.get("daysOfWeek", [0, 3]),
+            "daysOfMonth": body.get("daysOfMonth", [1, 15]),
+            "selectedDatasets": body.get("selectedDatasets", {"nasa": [], "bmkg": []}),
+            "updatedAt": datetime.now(timezone.utc)
+        }
+        
+        db.scheduler_config.update_one({}, {"$set": update_data}, upsert=True)
+        
+        next_run = calculate_next_runs(
+            update_data["frequency"], update_data["executionTime"], 
+            update_data["dayOfWeek"], update_data["daysOfWeek"], update_data["daysOfMonth"], 1
+        )
+        
+        return jsonify({"success": True, "message": "Config saved", "data": {"nextRun": next_run[0] if next_run else None}})
+    except Exception as e:
+        logger.error(f"Error saving config: {e}")
+        return jsonify({"success": False, "error": {"code": "INTERNAL_ERROR"}}), 500
 
 @scheduler_bp.route("/trigger", methods=["POST"])
 @require_auth
@@ -156,28 +301,30 @@ def trigger_scheduler():
          return jsonify({"success": False, "error": {"code": "CONFLICT", "message": "Scheduler is already running."}}), 409
          
     _trigger_history.append(now)
-
+    
     try:
         body = request.get_json(silent=True) or {}
+        mode = body.get("mode", "quick")
         tasks = body.get("tasks", [])
+        datasets = body.get("datasets", {})
         is_async = body.get("async", True)
         
+        # Biarkan manual script yang create log. Kita asumsikan pending log di sini.
         log_id = SchedulerLog.create_log(triggered_by="manual")
         
         if is_async:
-            _thread = threading.Thread(target=run_scheduler_async, args=(log_id, tasks))
+            _thread = threading.Thread(target=run_scheduler_async, args=(log_id, mode, tasks, datasets))
             _thread.start()
             
             return jsonify({
                 "success": True,
                 "data": {
                     "executionId": log_id,
-                    "status": "running",
+                    "status": "queued",
                     "startedAt": datetime.now(timezone.utc).isoformat(),
-                    "estimatedDuration": 120
+                    "estimatedDuration": 360 # Menit estimasi kasar jika full run
                 }
             }), 202
-            
         else:
             # Sync execution    
             run_scheduler_async(log_id, tasks)

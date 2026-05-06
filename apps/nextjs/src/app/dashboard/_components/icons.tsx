@@ -60,12 +60,14 @@ import {
   AlertTriangle,
   CloudDownload,
   CircleAlert,
+  Clock,
   FileCheck,
   Plus,
   PlusCircle,
   Notebook,
   GitCompare,
   Zap,
+  CheckSquare,
 } from "lucide-react";
 
 export type Icon = LucideIcon;
@@ -125,7 +127,7 @@ export const Icons = {
   sun: SunMedium,
   moon: Moon,
 
-  // Alerts & Status
+  // ChevronDownts & Status
   alert: AlertCircle,
   alertCircle: CircleAlert,
   alertTriangle: AlertTriangle,
@@ -158,6 +160,9 @@ export const Icons = {
   lineChart: LineChart,
   gitCompare: GitCompare,
   zap: Zap,
+
+  clock: Clock,
+  checkSquare: CheckSquare,
 
   // Custom SVG Icons
   logo: (props: LucideProps) => (

@@ -13,6 +13,7 @@
     "vercel-build": "pnpm install --no-frozen-lockfile && next build"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.10",
     "@hookform/resolvers": "^3.10.0",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",

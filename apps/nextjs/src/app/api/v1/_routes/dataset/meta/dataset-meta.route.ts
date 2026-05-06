@@ -673,6 +673,19 @@ datasetMetaRoute.patch("/:idOrSlug", async (c) => {
       );
     }
 
+    let currentDataset;
+    if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
+      currentDataset = await DatasetMeta.findById(idOrSlug).lean();
+    } else {
+      currentDataset = await DatasetMeta.findOne({
+        collectionName: idOrSlug,
+      }).lean();
+    }
+
+    if (!currentDataset) {
+      return c.json({ message: "Dataset not found" }, 404);
+    }
+
     // ADDED: Status transition validation
     if (body.status) {
       const allowedStatuses = [
@@ -685,20 +698,6 @@ datasetMetaRoute.patch("/:idOrSlug", async (c) => {
 
       if (!allowedStatuses.includes(body.status)) {
         return c.json({ message: `Invalid status: ${body.status}` }, 400);
-      }
-
-      // Get current dataset to check current status
-      let currentDataset;
-      if (mongoose.Types.ObjectId.isValid(idOrSlug)) {
-        currentDataset = await DatasetMeta.findById(idOrSlug).lean();
-      } else {
-        currentDataset = await DatasetMeta.findOne({
-          collectionName: idOrSlug,
-        }).lean();
-      }
-
-      if (!currentDataset) {
-        return c.json({ message: "Dataset not found" }, 404);
       }
 
       // ADDED: Validate status transitions according to lifecycle
@@ -728,6 +727,68 @@ datasetMetaRoute.patch("/:idOrSlug", async (c) => {
       console.log(
         `Status transition validated: ${currentStatus} → ${newStatus}`,
       );
+    }
+
+    const oldCollectionName = (currentDataset as any).collectionName;
+
+    // Handle renaming dataset logic
+    if (body.name && body.name.trim() !== (currentDataset as any).name) {
+      const newName = body.name.trim();
+      body.name = newName;
+      
+      const newCollectionName = newName.replace(/[^a-zA-Z0-9\s]/g, "").replace(/\s+/g, " ");
+      body.collectionName = newCollectionName;
+      
+      const isAPI = (currentDataset as any).isAPI;
+      const fileExt = (currentDataset as any).fileType || "json";
+      body.filename = isAPI ? `Dataset ${newName}.${fileExt}` : `${newName}.${fileExt}`;
+    } else if (body.collectionName && body.collectionName !== oldCollectionName) {
+      body.collectionName = body.collectionName.trim().replace(/[^a-zA-Z0-9\s]/g, "").replace(/\s+/g, " ");
+    }
+
+    if (body.collectionName && body.collectionName !== oldCollectionName) {
+      const newCollectionName = body.collectionName;
+      const existingMeta = await DatasetMeta.findOne({
+        collectionName: newCollectionName,
+        _id: { $ne: (currentDataset as any)._id }
+      }).lean();
+
+      if (existingMeta) {
+        return c.json({ message: "Nama koleksi ini sudah digunakan oleh dataset lain" }, 400);
+      }
+
+      const mongoDb = mongoose.connection.db;
+      if (mongoDb) {
+        try {
+          await mongoDb.collection(oldCollectionName).rename(newCollectionName);
+          console.log(`[RENAME] collection ${oldCollectionName} to ${newCollectionName}`);
+          if (mongoose.models[oldCollectionName]) delete mongoose.models[oldCollectionName];
+        } catch (e: any) {
+          if (!e.message.includes('not found') && !e.message.includes('ns not found')) {
+            console.error("[RENAME ERROR]", e);
+          }
+        }
+
+        try {
+          await mongoDb.collection(`${oldCollectionName}_cleaned`).rename(`${newCollectionName}_cleaned`);
+          console.log(`[RENAME] collection ${oldCollectionName}_cleaned to ${newCollectionName}_cleaned`);
+          if (mongoose.models[`${oldCollectionName}_cleaned`]) delete mongoose.models[`${oldCollectionName}_cleaned`];
+        } catch (e: any) {}
+
+        try {
+          if (mongoose.models['PreprocessingReport']) {
+            await mongoose.model('PreprocessingReport').updateMany(
+              { original_collection_name: oldCollectionName },
+              { 
+                $set: { 
+                  original_collection_name: newCollectionName,
+                  cleaned_collection_name: `${newCollectionName}_cleaned`
+                } 
+              }
+            );
+          }
+        } catch(e) { console.error("[RENAME ERROR] Reports update:", e); }
+      }
     }
 
     let updatedDataset;
@@ -1053,24 +1114,30 @@ datasetMetaRoute.delete("/:collectionName", async (c) => {
     } else {
       for (const colName of collectionsToDrop) {
         try {
+          await mongoDb.dropCollection(colName);
+          droppedCollections.push(colName);
+          console.log(`[DELETE] Dropped collection: ${colName}`);
+
+          // Also remove model from mongoose cache if exists
+          if (mongoose.models[colName]) {
+            delete mongoose.models[colName];
+          }
+        } catch (dropError: any) {
           if (
-            (await mongoDb.listCollections({ name: colName }).toArray())
-              .length > 0
+            dropError.code === 26 ||
+            dropError.message.includes("not found") ||
+            dropError.message.includes("ns not found")
           ) {
-            await mongoDb.dropCollection(colName);
-            droppedCollections.push(colName);
-            console.log(`[DELETE] Dropped collection: ${colName}`);
-          } else {
             console.log(
               `[DELETE] Collection ${colName} not found, skipping drop.`,
             );
+          } else {
+            console.error(
+              `[DELETE] Post-transaction: Error dropping collection ${colName}. This requires manual cleanup.`,
+              dropError,
+            );
+            // This failure is logged but doesn't fail the request, as the metadata is already gone.
           }
-        } catch (dropError: any) {
-          console.error(
-            `[DELETE] Post-transaction: Error dropping collection ${colName}. This requires manual cleanup.`,
-            dropError,
-          );
-          // This failure is logged but doesn't fail the request, as the metadata is already gone.
         }
       }
     }

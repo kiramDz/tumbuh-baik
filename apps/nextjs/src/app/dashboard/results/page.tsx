@@ -16,7 +16,6 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
-
 // Expand type locally to handle preprocessing fields
 interface CleanedDataset {
   _id: string;
@@ -66,8 +65,8 @@ export default function ResultsPage() {
           <Icons.fileCheck className="text-muted-foreground mb-4 h-12 w-12 opacity-20" />
           <CardTitle>No Cleaned Datasets Found</CardTitle>
           <CardDescription className="mt-2 text-center">
-            You don&apos;t have any preprocessed datasets yet. Run preprocessing
-            on your raw datasets to see reports here.
+            Anda belum memiliki dataset yang sudah dibersihkan. Lakukan
+            preprocessing dan lihat hasil reportnya
           </CardDescription>
         </Card>
       ) : (

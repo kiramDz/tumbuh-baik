@@ -31,6 +31,11 @@ const data = {
       icon: Icons.clipboardListIcon,
     },
     {
+      title: "Automasi",
+      url: "/dashboard/automation",
+      icon: Icons.databaseIcon,
+    },
+    {
       title: "Kalender Tanam",
       url: "/dashboard/kaltam",
       icon: Icons.barChartIcon,

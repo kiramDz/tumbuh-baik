@@ -48,6 +48,10 @@ function SingleDatePicker({
   const [viewMode, setViewMode] = React.useState<ViewMode>("date");
   const [displayDate, setDisplayDate] = React.useState(date || new Date());
 
+  // Max date is today (no future dates allowed)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   // Update display date when date prop changes
   React.useEffect(() => {
     if (date) {
@@ -68,6 +72,16 @@ function SingleDatePicker({
       newDate.setMonth(newDate.getMonth() - 1);
     } else {
       newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setDisplayDate(newDate);
+  };
+
+  const navigateYearRange = (direction: "prev" | "next") => {
+    const newDate = new Date(displayDate);
+    if (direction === "prev") {
+      newDate.setFullYear(newDate.getFullYear() - 12);
+    } else {
+      newDate.setFullYear(newDate.getFullYear() + 12);
     }
     setDisplayDate(newDate);
   };
@@ -113,20 +127,30 @@ function SingleDatePicker({
   const handleDateSelect = (selectedDate: Date | undefined) => {
     if (!selectedDate) return;
 
+    // Don't allow future dates
+    if (selectedDate > today) {
+      toast.error("Tidak bisa memilih tanggal yang belum terjadi");
+      return;
+    }
+
     // Validation logic based on picker type and other date
     if (otherDate) {
       if (type === "start" && selectedDate > otherDate) {
-        // If start date is after end date, don't allow selection
+        toast.error("Tanggal mulai tidak boleh lebih besar dari tanggal akhir");
         return;
       }
       if (type === "end" && selectedDate < otherDate) {
-        // If end date is before start date, don't allow selection
+        toast.error("Tanggal akhir tidak boleh lebih kecil dari tanggal mulai");
         return;
       }
     }
 
     onDateSelect(selectedDate);
     setOpen(false);
+  };
+
+  const handleTodayClick = () => {
+    handleDateSelect(today);
   };
 
   const handleMonthClick = () => {
@@ -139,6 +163,9 @@ function SingleDatePicker({
 
   // Check if a date should be disabled
   const isDateDisabled = (checkDate: Date) => {
+    // Disable future dates
+    if (checkDate > today) return true;
+
     if (!otherDate) return false;
 
     if (type === "start") {
@@ -146,6 +173,27 @@ function SingleDatePicker({
     } else {
       return checkDate < otherDate;
     }
+  };
+
+  // Check if month should be disabled (all days in month are disabled)
+  const isMonthDisabled = (monthIndex: number) => {
+    const testDate = new Date(displayDate.getFullYear(), monthIndex, 1);
+
+    // Disable if month is in the future
+    if (
+      testDate.getFullYear() > today.getFullYear() ||
+      (testDate.getFullYear() === today.getFullYear() &&
+        monthIndex > today.getMonth())
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Check if year should be disabled
+  const isYearDisabled = (year: number) => {
+    return year > today.getFullYear();
   };
 
   const renderDateView = () => (
@@ -184,6 +232,10 @@ function SingleDatePicker({
           size="sm"
           onClick={() => navigateMonth("next")}
           className="h-8 w-8 p-0"
+          disabled={
+            displayDate.getFullYear() === today.getFullYear() &&
+            displayDate.getMonth() === today.getMonth()
+          }
         >
           <Icons.next className="h-4 w-4" />
         </Button>
@@ -209,39 +261,88 @@ function SingleDatePicker({
           day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md",
           day_selected:
             "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-          day_today: "bg-accent text-accent-foreground",
+          day_today: "bg-accent text-accent-foreground font-semibold",
           day_outside: "text-muted-foreground opacity-50",
-          day_disabled: "text-muted-foreground opacity-50",
+          day_disabled: "text-muted-foreground opacity-50 cursor-not-allowed",
           day_hidden: "invisible",
         }}
       />
+
+      {/* Today Button */}
+      <div className="p-3 border-t">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleTodayClick}
+          className="w-full"
+        >
+          Hari Ini
+        </Button>
+      </div>
     </div>
   );
 
   const renderMonthView = () => (
     <div className="p-4">
-      <div className="mb-4 text-center">
+      <div className="mb-4 flex items-center justify-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            const newDate = new Date(displayDate);
+            newDate.setFullYear(newDate.getFullYear() - 1);
+            setDisplayDate(newDate);
+          }}
+          disabled={displayDate.getFullYear() <= 2000}
+          className="h-8 w-8 p-0"
+        >
+          <Icons.chevronLeft className="h-4 w-4" />
+        </Button>
+
         <Button
           variant="ghost"
           onClick={handleYearClick}
-          className="text-lg font-semibold hover:bg-accent"
+          className="text-lg font-semibold hover:bg-accent min-w-[100px]"
         >
           {displayDate.getFullYear()}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            const newDate = new Date(displayDate);
+            newDate.setFullYear(newDate.getFullYear() + 1);
+            setDisplayDate(newDate);
+          }}
+          disabled={displayDate.getFullYear() >= today.getFullYear()}
+          className="h-8 w-8 p-0"
+        >
+          <Icons.next className="h-4 w-4" />
         </Button>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        {monthNames.map((month, index) => (
-          <Button
-            key={month}
-            variant={displayDate.getMonth() === index ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleMonthSelect(index)}
-            className="h-10 text-sm"
-          >
-            {month}
-          </Button>
-        ))}
+        {monthNames.map((month, index) => {
+          const isDisabled = isMonthDisabled(index);
+          const isCurrent = displayDate.getMonth() === index;
+
+          return (
+            <Button
+              key={month}
+              variant={isCurrent ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleMonthSelect(index)}
+              disabled={isDisabled}
+              className={cn(
+                "h-10 text-sm",
+                isDisabled && "opacity-50 cursor-not-allowed",
+              )}
+            >
+              {month}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );
@@ -251,58 +352,55 @@ function SingleDatePicker({
 
     return (
       <div className="p-4">
-        <div className="mb-4 text-center">
-          <span className="text-lg font-semibold">
-            {years[0]} - {years[years.length - 1]}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          {years.map((year) => (
-            <Button
-              key={year}
-              variant={
-                displayDate.getFullYear() === year ? "default" : "outline"
-              }
-              size="sm"
-              onClick={() => handleYearSelect(year)}
-              className="h-10 text-sm"
-            >
-              {year}
-            </Button>
-          ))}
-        </div>
-
-        <div className="flex justify-between mt-4">
+        <div className="mb-4 flex items-center justify-between">
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              const newYears = getYearRange(years[0] - 12);
-              const newDate = new Date(displayDate);
-              newDate.setFullYear(newYears[0]);
-              setDisplayDate(newDate);
-            }}
+            onClick={() => navigateYearRange("prev")}
+            disabled={years[0] <= 2000}
             className="text-xs"
           >
             <Icons.chevronLeft className="h-3 w-3 mr-1" />
-            Prev
+            {years[0] - 12} - {years[0] - 1}
           </Button>
+
+          <span className="text-lg font-semibold">
+            {years[0]} - {years[years.length - 1]}
+          </span>
 
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              const newYears = getYearRange(years[years.length - 1] + 1);
-              const newDate = new Date(displayDate);
-              newDate.setFullYear(newYears[0]);
-              setDisplayDate(newDate);
-            }}
+            onClick={() => navigateYearRange("next")}
+            disabled={years[years.length - 1] >= today.getFullYear()}
             className="text-xs"
           >
-            Next
+            {years[years.length - 1] + 1} - {years[years.length - 1] + 12}
             <Icons.next className="h-3 w-3 ml-1" />
           </Button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {years.map((year) => {
+            const isDisabled = isYearDisabled(year);
+            const isCurrent = displayDate.getFullYear() === year;
+
+            return (
+              <Button
+                key={year}
+                variant={isCurrent ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleYearSelect(year)}
+                disabled={isDisabled}
+                className={cn(
+                  "h-10 text-sm",
+                  isDisabled && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                {year}
+              </Button>
+            );
+          })}
         </div>
       </div>
     );
@@ -315,7 +413,7 @@ function SingleDatePicker({
           variant="outline"
           className={cn(
             "w-full justify-start text-left font-normal",
-            !date && "text-muted-foreground"
+            !date && "text-muted-foreground",
           )}
           disabled={disabled}
         >
@@ -344,24 +442,12 @@ export function DateRangePicker({
   startPlaceholder = "Pilih tanggal mulai",
   endPlaceholder = "Pilih tanggal akhir",
 }: DateRangePickerProps) {
-  const [warningMessage, setWarningMessage] = React.useState("");
-
   // Handlers for start changes
   const handleStartDateChange = (startDate: Date | undefined) => {
     const newRange = {
       from: startDate,
       to: dateRange?.to,
     };
-
-    // Check if end date is earlier than start date
-    if (startDate && dateRange?.to && startDate > dateRange.to) {
-      setWarningMessage(
-        "Tanggal mulai tidak boleh lebih besar dari tanggal akhir"
-      );
-    } else {
-      setWarningMessage("");
-    }
-
     onDateRangeChange(newRange);
   };
 
@@ -370,16 +456,6 @@ export function DateRangePicker({
       from: dateRange?.from,
       to: endDate,
     };
-
-    // Check if end date is earlier than start date
-    if (dateRange?.from && endDate && endDate < dateRange.from) {
-      setWarningMessage(
-        "Tanggal akhir tidak boleh lebih kecil dari tanggal mulai"
-      );
-    } else {
-      setWarningMessage("");
-    }
-
     onDateRangeChange(newRange);
   };
 
@@ -387,11 +463,25 @@ export function DateRangePicker({
     <div className={cn("grid gap-4", className)}>
       {/* Date Range Status */}
       {dateRange?.from && dateRange?.to && (
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-          <span className="text-sm font-medium">
-            Tanggal: {format(dateRange.from, "dd MMM yyyy", { locale: id })} -{" "}
-            {format(dateRange.to, "dd MMM yyyy", { locale: id })}
-          </span>
+        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <Icons.calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">
+              {format(dateRange.from, "dd MMM yyyy", { locale: id })} -{" "}
+              {format(dateRange.to, "dd MMM yyyy", { locale: id })}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              onDateRangeChange(undefined);
+              toast.success("Tanggal berhasil dihapus");
+            }}
+            className="h-8 px-2 text-xs"
+          >
+            <Icons.closeX className="h-3 w-3" />
+          </Button>
         </div>
       )}
 
@@ -423,27 +513,14 @@ export function DateRangePicker({
         </div>
       </div>
 
-      {/* Warning Message Display */}
-      {warningMessage && (
-        <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <Icons.alertTriangle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{warningMessage}</span>
+      {/* Info Message */}
+      {!dateRange?.from && !dateRange?.to && (
+        <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg">
+          <Icons.info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <span className="text-sm text-blue-800 dark:text-blue-300">
+            Pilih tanggal mulai dan akhir untuk menentukan periode
+          </span>
         </div>
-      )}
-
-      {/* Clear Button */}
-      {(dateRange?.from || dateRange?.to) && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            onDateRangeChange(undefined);
-            toast.success("Tanggal berhasil dihapus");
-          }}
-          className="w-fit self-center"
-        >
-          Hapus Tanggal
-        </Button>
       )}
     </div>
   );
@@ -451,7 +528,7 @@ export function DateRangePicker({
 
 // Helper functions (unchanged)
 export const yyyymmddToDate = (
-  dateString: string | undefined
+  dateString: string | undefined,
 ): Date | undefined => {
   if (!dateString || dateString.length !== 8) return undefined;
   const year = parseInt(dateString.substring(0, 4), 10);
