@@ -60,11 +60,11 @@ export default function ManualTrigger({
       const data = await getAvailableDatasets();
       setAvailableDatasets({ nasa: data.nasa_raw, bmkg: data.bmkg_raw });
 
-      // Auto-select all by default for convenience
+      // Default to uncheck all
       setSelected({
-        nasa_refresh: data.nasa_raw.map((d) => d.collectionName),
-        nasa_preprocess: data.nasa_raw.map((d) => d.collectionName),
-        bmkg_preprocess: data.bmkg_raw.map((d) => d.collectionName),
+        nasa_refresh: [],
+        nasa_preprocess: [],
+        bmkg_preprocess: [],
       });
     } catch (err: any) {
       setFetchError(err.message || "Failed to load datasets");

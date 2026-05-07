@@ -557,9 +557,15 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
   try {
     await db();
 
-    // Find dataset by Id
-    const dataset = (await DatasetMeta.findById(
-      requestedId,
+    // Check if requestedId is a valid ObjectId
+    const isObjectId = mongoose.Types.ObjectId.isValid(requestedId);
+    const query = isObjectId
+      ? { _id: requestedId }
+      : { collectionName: requestedId };
+
+    // Find dataset by Id or collectionName
+    const dataset = (await DatasetMeta.findOne(
+      query,
     ).lean()) as DatasetMetaDocument;
 
     if (!dataset) {
@@ -822,13 +828,12 @@ nasaPowerRoute.post("/refresh/:id", async (c) => {
       }
 
       const updatedDataset = await DatasetMeta.findByIdAndUpdate(
-        requestedId,
+        dataset._id, // 👈 UBAH requestedId MENJADI dataset._id
         {
           $set: {
-            lastUpdated: today,
-            totalRecords,
-            "apiConfig.params.end": todayFormatted,
             status: newStatus,
+            totalRecords: totalRecords,
+            updatedAt: new Date(),
           },
         },
         { new: true },

@@ -36,9 +36,10 @@ export default function AutomationConfig() {
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([0, 3]);
   const [daysOfMonth, setDaysOfMonth] = useState<number[]>([1, 15]);
   const [selectedDatasets, setSelectedDatasets] = useState<{
-    nasa: string[];
-    bmkg: string[];
-  }>({ nasa: [], bmkg: [] });
+    nasa_refresh: string[];
+    nasa_preprocess: string[];
+    bmkg_preprocess: string[];
+  }>({ nasa_refresh: [], nasa_preprocess: [], bmkg_preprocess: [] });
 
   const [availableDatasets, setAvailableDatasets] = useState<{
     nasa: DatasetConfig[];
@@ -96,7 +97,13 @@ export default function AutomationConfig() {
       setDayOfWeek(config.dayOfWeek || 0);
       setDaysOfWeek(config.daysOfWeek || [0, 3]);
       setDaysOfMonth(config.daysOfMonth || [1, 15]);
-      setSelectedDatasets(config.selectedDatasets || { nasa: [], bmkg: [] });
+      setSelectedDatasets(
+        config.selectedDatasets || {
+          nasa_refresh: [],
+          nasa_preprocess: [],
+          bmkg_preprocess: [],
+        },
+      );
       setAvailableDatasets({
         nasa: datasets.nasa_raw,
         bmkg: datasets.bmkg_raw,
@@ -131,8 +138,9 @@ export default function AutomationConfig() {
         );
       }
       if (
-        selectedDatasets.nasa.length === 0 &&
-        selectedDatasets.bmkg.length === 0
+        selectedDatasets.nasa_refresh.length === 0 &&
+        selectedDatasets.nasa_preprocess.length === 0 &&
+        selectedDatasets.bmkg_preprocess.length === 0
       ) {
         return toast.error("At least one dataset must be selected.");
       }
@@ -157,7 +165,10 @@ export default function AutomationConfig() {
     }
   };
 
-  const toggleDataset = (category: "nasa" | "bmkg", name: string) => {
+  const toggleDataset = (
+    category: "nasa_refresh" | "nasa_preprocess" | "bmkg_preprocess",
+    name: string,
+  ) => {
     setSelectedDatasets((prev) => ({
       ...prev,
       [category]: prev[category].includes(name)
@@ -166,12 +177,14 @@ export default function AutomationConfig() {
     }));
   };
 
-  const selectAll = (category: "nasa" | "bmkg", checked: boolean) => {
+  const selectAll = (
+    category: "nasa_refresh" | "nasa_preprocess" | "bmkg_preprocess",
+    checked: boolean,
+    sourceList: DatasetConfig[],
+  ) => {
     setSelectedDatasets((prev) => ({
       ...prev,
-      [category]: checked
-        ? availableDatasets[category].map((d) => d.collectionName)
-        : [],
+      [category]: checked ? sourceList.map((d) => d.collectionName) : [],
     }));
   };
 
@@ -319,26 +332,43 @@ export default function AutomationConfig() {
               Datasets to Auto Process
             </h3>
 
-            {["nasa", "bmkg"].map((cat) => {
-              const category = cat as "nasa" | "bmkg";
-              const lists = availableDatasets[category];
+            {[
+              {
+                key: "nasa_refresh",
+                label: "NASA Refresh",
+                list: availableDatasets.nasa,
+              },
+              {
+                key: "nasa_preprocess",
+                label: "NASA Preprocess",
+                list: availableDatasets.nasa,
+              },
+              {
+                key: "bmkg_preprocess",
+                label: "BMKG Preprocess",
+                list: availableDatasets.bmkg,
+              },
+            ].map((cat) => {
+              const categoryKey = cat.key as keyof typeof selectedDatasets;
+              const lists = cat.list;
               return (
-                <div key={category} className="mb-4">
+                <div key={categoryKey} className="mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium uppercase text-gray-600">
-                      {category} Datasets
+                      {cat.label}
                     </span>
                     <button
                       type="button"
                       onClick={() =>
                         selectAll(
-                          category,
-                          selectedDatasets[category].length !== lists.length,
+                          categoryKey,
+                          selectedDatasets[categoryKey].length !== lists.length,
+                          lists,
                         )
                       }
                       className="text-xs text-blue-600"
                     >
-                      {selectedDatasets[category].length === lists.length
+                      {selectedDatasets[categoryKey].length === lists.length
                         ? "Deselect All"
                         : "Select All"}
                     </button>
@@ -356,11 +386,11 @@ export default function AutomationConfig() {
                         >
                           <input
                             type="checkbox"
-                            checked={selectedDatasets[category].includes(
+                            checked={selectedDatasets[categoryKey].includes(
                               ds.collectionName,
                             )}
                             onChange={() =>
-                              toggleDataset(category, ds.collectionName)
+                              toggleDataset(categoryKey, ds.collectionName)
                             }
                             className="rounded border-gray-300 text-blue-600 mr-2"
                           />

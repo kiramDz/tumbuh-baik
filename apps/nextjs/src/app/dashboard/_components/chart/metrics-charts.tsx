@@ -17,6 +17,7 @@ import {
   RadarChart,
   Radar,
   PolarGrid,
+  LabelList,
   PolarAngleAxis,
   PolarRadiusAxis,
   Tooltip,

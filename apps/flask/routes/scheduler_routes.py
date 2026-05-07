@@ -8,9 +8,9 @@ from flask import Blueprint, jsonify, request
 from models.scheduler_logs import SchedulerLog # dynamic import map
 from models.scheduler_logs import SchedulerLog
 from middleware.auth_middleware import require_auth
+from pymongo import MongoClient
 from bson import ObjectId
-
-
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def run_scheduler_async(log_id: str, mode: str, tasks: list, datasets: dict):
         logger.info(f"Running scheduler async for log: {log_id}. Mode: {mode}")
         
         script_path = os.path.join(os.path.dirname(__file__), '..', 'scheduler', 'daily_scheduler.py')
-        cmd = [sys.executable, script_path, "--manual"]
+        cmd = [sys.executable, script_path, "--manual", "--log-id", str(log_id)]
         
         if mode == "custom":
             if datasets.get("nasa_refresh"):
@@ -192,7 +192,6 @@ def calculate_next_runs(frequency, exec_time, day_of_week=0, days_of_week=None, 
     now = datetime.now(timezone.utc)
     runs = []
     
-    # Base starting point in WIB
     current_wib = now + timedelta(hours=7)
     base_date = current_wib.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if current_wib > base_date:
@@ -200,10 +199,13 @@ def calculate_next_runs(frequency, exec_time, day_of_week=0, days_of_week=None, 
         
     date_cursor = base_date
     while len(runs) < count:
-        if frequency == "weekly" and date_cursor.weekday() != day_of_week:
+        # Konversi format hari Python ke format JavaScript (Minggu=0, Senin=1, dst)
+        js_weekday = (date_cursor.weekday() + 1) % 7
+        
+        if frequency == "weekly" and js_weekday != day_of_week:
             date_cursor += timedelta(days=1)
             continue
-        elif frequency == "biweekly" and days_of_week and date_cursor.weekday() not in days_of_week:
+        elif frequency == "biweekly" and days_of_week and js_weekday not in days_of_week:
             date_cursor += timedelta(days=1)
             continue
         elif frequency == "monthly" and days_of_month and date_cursor.day not in days_of_month:
@@ -231,7 +233,7 @@ def get_automation_config():
                 "dayOfWeek": 0,
                 "daysOfWeek": [0, 3],
                 "daysOfMonth": [1, 15],
-                "selectedDatasets": {"nasa": [], "bmkg": []}
+                "selectedDatasets": {"nasa_refresh": [], "nasa_preprocess": [], "bmkg_preprocess": []}
             }
         else:
             config["_id"] = str(config["_id"])
@@ -267,11 +269,11 @@ def save_automation_config():
             "dayOfWeek": body.get("dayOfWeek", 0),
             "daysOfWeek": body.get("daysOfWeek", [0, 3]),
             "daysOfMonth": body.get("daysOfMonth", [1, 15]),
-            "selectedDatasets": body.get("selectedDatasets", {"nasa": [], "bmkg": []}),
+            "selectedDatasets": body.get("selectedDatasets", {"nasa_refresh": [], "nasa_preprocess": [], "bmkg_preprocess": []}),
             "updatedAt": datetime.now(timezone.utc)
         }
         
-        db.scheduler_config.update_one({}, {"$set": update_data}, upsert=True)
+        db.scheduler_config.update_one({}, {"$set": update_data, "$unset": {"lastTriggeredDate": ""}}, upsert=True)
         
         next_run = calculate_next_runs(
             update_data["frequency"], update_data["executionTime"], 
@@ -338,3 +340,83 @@ def trigger_scheduler():
     except Exception as e:
         logger.error(f"Trigger error: {e}")
         return jsonify({"success": False, "error": {"code": "INTERNAL_ERROR"}}), 500
+    
+def scheduler_daemon():
+    """Background thread that checks the schedule every minute."""
+    # Baris with dihapus karena Blueprint tidak mendukung context manager 
+    try:
+        client = MongoClient(os.getenv("MONGODB_URI"))
+        db = client[os.getenv("MONGODB_DB_NAME", "tugas_akhir")]
+    except Exception as e:
+        logger.error(f"Daemon failed to connect to DB: {e}")
+        return
+
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            now_wib = now + timedelta(hours=7)
+            
+            config = db.scheduler_config.find_one({})
+            
+            if config and config.get("enabled"):
+                exec_time = config.get("executionTime", "02:00")
+                try:
+                    t_hour, t_minute = map(int, exec_time.split(':'))
+                except ValueError:
+                    t_hour, t_minute = 2, 0
+                    
+                # Check frequency matching
+                freq = config.get("frequency", "weekly")
+                is_today = False
+                
+                # Konversi hari agar sama dengan format database/frontend
+                js_weekday = (now_wib.weekday() + 1) % 7
+                
+                if freq == "weekly" and js_weekday == config.get("dayOfWeek", 0):
+                    is_today = True
+                elif freq == "biweekly" and js_weekday in config.get("daysOfWeek", []):
+                    is_today = True
+                elif freq == "monthly" and now_wib.day in config.get("daysOfMonth", []):
+                    is_today = True
+
+                # Trigger if day and exact minute matches
+                if is_today and now_wib.hour == t_hour and now_wib.minute == t_minute:
+                    today_str = now_wib.strftime("%Y-%m-%d")
+                    
+                    # Prevent duplicate runs in the same minute/day
+                    if config.get("lastTriggeredDate") != today_str:
+                        logger.info(f"Cron Daemon: Time matches ({exec_time} WIB)! Executing automation...")
+                        
+                        # Lock execution for today
+                        db.scheduler_config.update_one({}, {"$set": {"lastTriggeredDate": today_str}})
+                        
+                        # Prepare and Run
+                        datasets = config.get("selectedDatasets", {})
+                        
+                        # Bypass Flask models & create log directly in MongoDB
+                        log_doc = {
+                            "status": "running",
+                            "triggeredBy": "cron",
+                            "executedAt": datetime.now(timezone.utc),
+                            "createdAt": datetime.now(timezone.utc),
+                            "updatedAt": datetime.now(timezone.utc),
+                            "tasks": [],
+                            "totalDatasets": sum(len(v) for v in datasets.values() if isinstance(v, list)),
+                            "datasetsUpdated": 0,
+                            "errors": []
+                        }
+                        
+                        res = db.scheduler_logs.insert_one(log_doc)
+                        log_id = str(res.inserted_id)
+                        
+                        run_scheduler_async(log_id, "custom", [], datasets)
+
+        except Exception as e:
+            logger.error(f"Daemon encountered an error: {e}")
+            
+        # Wait 60 seconds before checking again
+        time.sleep(60)
+            
+# Start the daemon when app initialize
+daemon_thread = threading.Thread(target=scheduler_daemon, daemon=True)
+daemon_thread.start()

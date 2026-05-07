@@ -159,27 +159,33 @@ def make_api_call(method, base_url, endpoint, payload=None, retries=3):
 
 
 # Tasks
-def task_nasa_refresh(
-    is_dry_run,
-    target_datasets= None
-):
+def task_nasa_refresh(is_dry_run, target_datasets=None):
     logger.info("Task: Refreshing NASA data...")
     if is_dry_run:
         logger.info("DRY RUN: Bypassing NASA refresh")
         return {"name": "nasa_refresh", "status": "success"}
 
-    # Saat ini backend hanya memiliki endpoint refresh-all. 
-    # Jika di masa depan ada endpoint per-dataset, logikanya dapat diubah di sini.
     if target_datasets:
-        logger.info(f"Custom datasets requested for refresh: {target_datasets}. Triggering generic refresh-all...")
-
-    success, data = make_api_call("POST", NEXT_API_BASE_URL, "/api/v1/nasa-power/refresh-all")
-    if success:
-        logger.info(f"SUCCESS: NASA refresh completed.")
-        return {"name": "nasa_refresh", "status": "success"}
+        logger.info(f"Custom datasets requested for refresh: {len(target_datasets)} datasets. Processing individually...")
+        count_success = 0
+        for name in target_datasets:
+            logger.info(f" -> Refreshing {name}")
+            # Asumsi Anda punya endpoint di Next.js untuk refresh 1 dataset:
+            success, _ = make_api_call("POST", NEXT_API_BASE_URL, f"/api/v1/nasa-power/refresh/{name}")
+            if success: count_success += 1
+            
+        final_status = "success" if count_success == len(target_datasets) else "partial" if count_success > 0 else "failed"
+        return {"name": "nasa_refresh", "status": final_status}
     else:
-        logger.error("FAILED: NASA refresh failed.")
-        return {"name": "nasa_refresh", "status": "failed", "error": data}
+        # Quick run: Eksekusi semua
+        logger.info("Triggering generic refresh-all...")
+        success, data = make_api_call("POST", NEXT_API_BASE_URL, "/api/v1/nasa-power/refresh-all")
+        if success:
+            logger.info(f"SUCCESS: NASA refresh completed.")
+            return {"name": "nasa_refresh", "status": "success"}
+        else:
+            logger.error("FAILED: NASA refresh failed.")
+            return {"name": "nasa_refresh", "status": "failed", "error": data}
         
 
 def task_bmkg_preprocess(is_dry_run, target_datasets=None):
@@ -258,6 +264,7 @@ def main():
     parser.add_argument("--manual", action="store_true", help="Mark execution as manual")
     parser.add_argument("--tasks", choices=["nasa_refresh", "nasa_preprocess", "bmkg_preprocess", "all"], default="all", help="Specific tasks to run")
     parser.add_argument("--dry-run", action="store_true", help="Simulate execution without side effects")
+    parser.add_argument("--log-id", help="Existing MongoDB log ID to update")
     
     # Custom Selection Arguments
     parser.add_argument("--nasa-refresh", help="Comma-separated NASA datasets to refresh")
@@ -266,7 +273,13 @@ def main():
     args = parser.parse_args()
 
     trigger_type = "manual" if args.manual else "cron"
-    log_id = None if args.dry_run else create_log(trigger_type)
+    
+    # Gunakan log_id dari argumen jika ada, jika tidak buat baru
+    if args.log_id:
+        log_id = args.log_id
+    else:
+        log_id = None if args.dry_run else create_log(trigger_type)
+        
     if not args.dry_run and not log_id: sys.exit(1)
 
     start_time = time.time()
