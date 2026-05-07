@@ -259,12 +259,45 @@ export default function AutomationConfig() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Execution Time (WIB UTC+7)
             </label>
-            <input
-              type="time"
-              value={executionTime}
-              onChange={(e) => setExecutionTime(e.target.value)}
-              className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            />
+            <div className="flex items-center space-x-2">
+              <select
+                value={executionTime.split(":")[0] || "02"}
+                onChange={(e) =>
+                  setExecutionTime(
+                    `${e.target.value}:${executionTime.split(":")[1] || "00"}`,
+                  )
+                }
+                className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              >
+                {Array.from({ length: 24 }).map((_, i) => {
+                  const hour = i.toString().padStart(2, "0");
+                  return (
+                    <option key={hour} value={hour}>
+                      {hour}
+                    </option>
+                  );
+                })}
+              </select>
+              <span className="font-bold">:</span>
+              <select
+                value={executionTime.split(":")[1] || "00"}
+                onChange={(e) =>
+                  setExecutionTime(
+                    `${executionTime.split(":")[0] || "02"}:${e.target.value}`,
+                  )
+                }
+                className="border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              >
+                {Array.from({ length: 60 }).map((_, i) => {
+                  const min = i.toString().padStart(2, "0");
+                  return (
+                    <option key={min} value={min}>
+                      {min}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
           </div>
 
           {frequency === "weekly" && (
