@@ -22,23 +22,23 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
     },
-    // 🔥 KONFIGURASI COOKIE UNTUK PRODUCTION (cross-domain)
-    cookie: {
-      sameSite: "none", // memungkinkan cookie dikirim ke domain berbeda (ngrok)
-      secure: true, // wajib jika sameSite=none, hanya melalui HTTPS
-      httpOnly: true, // default, amankan dari XSS
-      // path: "/",
-      // domain: ".zonapetik.tech", // jika ingin cookie tersedia di semua subdomain custom domain
-    },
   },
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
         console.log(`Send login link to ${email}: ${url}`);
-        // TODO: implement email sender
       },
     }),
     admin(),
-    nextCookies(),
+    nextCookies(), // ✅ Tidak perlu argumen
   ],
+  // 🔥 Konfigurasi cookie untuk cross-domain
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      httpOnly: true,
+      // path: "/",    // opsional, default sudah "/"
+    },
+  },
 });
