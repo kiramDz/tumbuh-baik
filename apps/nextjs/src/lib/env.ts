@@ -7,16 +7,17 @@ export const MONGODB_URI = process.env.MONGODB_URI || "";
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 
-export const NEXT_PUBLIC_PADDLE_CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || "";
+export const NEXT_PUBLIC_PADDLE_CLIENT_TOKEN =
+  process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || "";
 
 export const PADDLE_API_KEY = process.env.PADDLE_API_KEY || "";
 
 export const PADDLE_PRODUCT_ID = process.env.PADDLE_PRODUCT_ID || "";
 
-export const PADDLE_SUBSCRIPTION_WEBHOOK_SECRET_KEY = process.env.PADDLE_SUBSCRIPTION_WEBHOOK_SECRET_KEY || "";
+export const PADDLE_SUBSCRIPTION_WEBHOOK_SECRET_KEY =
+  process.env.PADDLE_SUBSCRIPTION_WEBHOOK_SECRET_KEY || "";
 
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "";
-
-// Default ke localhost untuk development, set NEXT_PUBLIC_FLASK_API_URL di production
-export const FLASK_API_URL = process.env.NEXT_PUBLIC_FLASK_API_URL || 
-  (process.env.NODE_ENV === "production" ? "https://api.zonapetik.tech" : "http://localhost:5001");
+export const FLASK_API_URL =
+  process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5001";
+export const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

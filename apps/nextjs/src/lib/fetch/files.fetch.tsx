@@ -1321,7 +1321,8 @@ export const preprocessNasaDatasetWithStream = (
   onError: (error: string) => void,
 ) => {
   const baseUrl = getBaseUrl();
-  const apiUrl = baseUrl === "" ? "http://localhost:5001" : baseUrl;
+  const apiUrl =
+    process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5001";
   const encodedName = encodeURIComponent(collectionName);
   const eventSource = new EventSource(
     `${apiUrl}/api/v1/preprocess/nasa/${encodedName}/stream`,
@@ -1463,7 +1464,8 @@ export const preprocessBmkgDatasetWithStream = (
   onError: (error: string) => void,
 ) => {
   const baseUrl = getBaseUrl();
-  const apiUrl = baseUrl === "" ? "http://localhost:5001" : baseUrl;
+  const apiUrl =
+    process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5001";
   const encodedName = encodeURIComponent(collectionName);
   const eventSource = new EventSource(
     `${apiUrl}/api/v1/preprocess/bmkg/${encodedName}/stream`,

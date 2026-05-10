@@ -81,8 +81,7 @@ export const getAvailableDatasets = async (): Promise<{
   bmkg_raw: DatasetConfig[];
 }> => {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     // Menembak endpoint Next.js secara paralel (Promise.all) agar lebih cepat
     const [nasaRes, bmkgRes] = await Promise.all([
       axios.get(

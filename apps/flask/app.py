@@ -52,9 +52,11 @@ load_dotenv()
 app = Flask(__name__)
 
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": [
-    "http://localhost:3000", 
-    "http://3.107.238.87",
-    "https://www.zonapetik.tech"
+    "http://localhost:3000",           # Untuk testing lokal
+    "https://zonapetik.tech",          # Domain utama
+    "https://www.zonapetik.tech",      # Subdomain www
+    "https://tumbuh-baik-jet.vercel.app", # Domain sementara Vercel
+    "https://backed-octagon-levitate.ngrok-free.dev" # Jalur ngrok
 ]}})
 
 mongo_uri = os.getenv("MONGODB_URI")
