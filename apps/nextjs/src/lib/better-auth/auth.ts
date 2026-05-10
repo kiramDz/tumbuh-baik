@@ -9,20 +9,37 @@ const dbClient = (await getClient()).db();
 
 export const auth = betterAuth({
   database: mongodbAdapter(dbClient),
+
   socialProviders: {
     google: {
       clientId: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
     },
   },
+
   emailAndPassword: {
     enabled: true,
   },
+
+  trustedOrigins: [
+    "https://tumbuh-baik-psi.vercel.app",
+    "https://backed-octagon-levitate.ngrok-free.dev",
+  ],
+
   session: {
     cookieCache: {
       enabled: true,
     },
   },
+
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      httpOnly: true,
+    },
+  },
+
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
@@ -30,15 +47,6 @@ export const auth = betterAuth({
       },
     }),
     admin(),
-    nextCookies(), // ✅ Tidak perlu argumen
+    nextCookies(),
   ],
-  // 🔥 Konfigurasi cookie untuk cross-domain
-  advanced: {
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
-      httpOnly: true,
-      // path: "/",    // opsional, default sudah "/"
-    },
-  },
 });

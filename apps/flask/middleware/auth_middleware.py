@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import request, jsonify, current_app
+from flask import request, jsonify
 from pymongo import MongoClient
 from datetime import datetime, timezone
 import urllib.parse
@@ -8,36 +8,35 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-# MongoDB connection
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
 client = MongoClient(MONGODB_URI)
 db = client[DB_NAME]
+
 def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Ambil cookie
-        raw_token = request.cookies.get('better-auth.session_token')
+        # Coba ambil cookie dari dua kemungkinan nama (production vs localhost)
+        raw_token = (request.cookies.get('__Secure-better-auth.session_token') or
+                     request.cookies.get('better-auth.session_token'))
         
         if not raw_token:
-            logger.warning(f"Unauthorized: No session token cookie. Path={request.path}")
+            # Logging untuk membantu debug: tampilkan semua nama cookie yang tersedia
+            logger.warning(f"Unauthorized: No session token cookie. Path={request.path}. Cookies received: {list(request.cookies.keys())}")
             return jsonify({
                 "success": False, 
                 "error": {"code": "UNAUTHORIZED", "message": "Session required. Please login."}
             }), 401
 
-        # Decode URL encoding jika ada (misal %3D untuk =)
+        # Decode URL encoding (misal %3D menjadi =)
         decoded_token = urllib.parse.unquote(raw_token)
         
-        # Jika token mengandung titik, ambil bagian pertama (sesuai dengan penyimpanan di DB)
-        # Namun dari contoh DB token tidak ada titik, jadi aman
+        # Jika token mengandung titik (signature), ambil bagian pertama
         session_token = decoded_token.split('.')[0] if '.' in decoded_token else decoded_token
         
         logger.debug(f"Validating token: {session_token[:10]}...")
         
-        # Validasi di collection 'session' (pastikan nama collection benar)
-        # Gunakan timezone aware untuk perbandingan expiresAt
+        # Validasi di collection 'session' dengan timezone-aware
         now_utc = datetime.now(timezone.utc)
         session = db.session.find_one({
             "token": session_token,
@@ -54,8 +53,7 @@ def require_auth(f):
                 }
             }), 401
         
-        # Simpan session ke request context untuk digunakan di route jika perlu
+        # Simpan session ke request context
         request.session = session
-        
         return f(*args, **kwargs)
     return decorated_function
