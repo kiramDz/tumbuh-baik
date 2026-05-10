@@ -1,36 +1,51 @@
 from functools import wraps
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from pymongo import MongoClient
-from datetime import datetime
+from datetime import datetime, timezone
 import urllib.parse
 import os
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 # MongoDB connection
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
 client = MongoClient(MONGODB_URI)
 db = client[DB_NAME]
-
 def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Get session token from cookie
+        # Ambil cookie
         raw_token = request.cookies.get('better-auth.session_token')
         
         if not raw_token:
-            return jsonify({"success": False, "error": {"code": "UNAUTHORIZED", "message": "Session required. Please login."}}), 401
+            logger.warning(f"Unauthorized: No session token cookie. Path={request.path}")
+            return jsonify({
+                "success": False, 
+                "error": {"code": "UNAUTHORIZED", "message": "Session required. Please login."}
+            }), 401
 
-        # URL Decode cookie (%3D menjadi =) jika ada, lalu ambil string sebelum tanda titik (.)
+        # Decode URL encoding jika ada (misal %3D untuk =)
         decoded_token = urllib.parse.unquote(raw_token)
-        session_token = decoded_token.split('.')[0]
         
-        # Validate token in MongoDB better-auth session table
+        # Jika token mengandung titik, ambil bagian pertama (sesuai dengan penyimpanan di DB)
+        # Namun dari contoh DB token tidak ada titik, jadi aman
+        session_token = decoded_token.split('.')[0] if '.' in decoded_token else decoded_token
+        
+        logger.debug(f"Validating token: {session_token[:10]}...")
+        
+        # Validasi di collection 'session' (pastikan nama collection benar)
+        # Gunakan timezone aware untuk perbandingan expiresAt
+        now_utc = datetime.now(timezone.utc)
         session = db.session.find_one({
             "token": session_token,
-            "expiresAt": {"$gt": datetime.utcnow()}
+            "expiresAt": {"$gt": now_utc}
         })
         
         if not session:
+            logger.warning(f"Invalid or expired session for token: {session_token[:10]}...")
             return jsonify({
                 "success": False,
                 "error": {
@@ -39,7 +54,7 @@ def require_auth(f):
                 }
             }), 401
         
-        # Attach to request for later use
+        # Simpan session ke request context untuk digunakan di route jika perlu
         request.session = session
         
         return f(*args, **kwargs)

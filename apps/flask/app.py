@@ -51,13 +51,13 @@ load_dotenv()
 
 app = Flask(__name__)
 
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": [
-    "http://localhost:3000",           # Untuk testing lokal
-    "https://zonapetik.tech",          # Domain utama
-    "https://www.zonapetik.tech",      # Subdomain www
-    "https://tumbuh-baik-jet.vercel.app", # Domain sementara Vercel
-    "https://backed-octagon-levitate.ngrok-free.dev" # Jalur ngrok
-]}})
+cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
+CORS(app, 
+     origins=cors_origins,
+     supports_credentials=True,   # 🔥 Kunci: izinkan kirim cookie
+     allow_headers=["Content-Type", "Authorization", "Cookie"],
+     expose_headers=["Content-Type"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 mongo_uri = os.getenv("MONGODB_URI")
 db_name = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
