@@ -107,7 +107,7 @@ const getBaseUrl = () => {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "https://zonapetik.tech";
+    return "https://zonapetik.site";
   }
 
   // Local development
@@ -677,7 +677,7 @@ export const triggerLSTMForecast = async () => {
   try {
     const baseUrl = getBaseUrl();
     const apiUrl =
-      baseUrl === "" ? "https://lstm.zonapetik.tech" : `${baseUrl}/lstm`;
+      baseUrl === "" ? "https://lstm.zonapetik.site" : `${baseUrl}/lstm`;
     const res = await axios.post(`${apiUrl}/run-lstm`);
   } catch (error) {
     console.error("Trigger LSTM forecast failed:", error);
