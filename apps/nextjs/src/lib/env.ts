@@ -18,6 +18,9 @@ export const PADDLE_SUBSCRIPTION_WEBHOOK_SECRET_KEY =
   process.env.PADDLE_SUBSCRIPTION_WEBHOOK_SECRET_KEY || "";
 
 export const FLASK_API_URL =
-  process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5001";
+  process.env.NEXT_PUBLIC_FLASK_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5001";
+
 export const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
