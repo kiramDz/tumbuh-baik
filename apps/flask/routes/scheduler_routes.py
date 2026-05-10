@@ -219,7 +219,7 @@ def calculate_next_runs(frequency, exec_time, day_of_week=0, days_of_week=None, 
     return runs
 
 @scheduler_bp.route("/config", methods=["GET"])
-@require_auth
+# @require_auth, matikan sementara untuk demo
 def get_automation_config():
     try:
         db = SchedulerLog._get_db()
@@ -252,7 +252,7 @@ def get_automation_config():
         return jsonify({"success": False, "error": {"code": "INTERNAL_ERROR"}}), 500
 
 @scheduler_bp.route("/config", methods=["POST"])
-@require_auth
+# @require_auth, matikan sementara untuk demo
 def save_automation_config():
     try:
         body = request.get_json() or {}
@@ -286,7 +286,7 @@ def save_automation_config():
         return jsonify({"success": False, "error": {"code": "INTERNAL_ERROR"}}), 500
 
 @scheduler_bp.route("/trigger", methods=["POST"])
-@require_auth
+# @require_auth, matikan sementara untuk demo
 def trigger_scheduler():
     """Trigger Scheduler Manually"""
     global _trigger_history

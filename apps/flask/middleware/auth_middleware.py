@@ -27,10 +27,13 @@ def require_auth(f):
             logger.debug(f"Validating token from Authorization header: {session_token[:10]}...")
             
             now_utc = datetime.now(timezone.utc)
+            print("RAW AUTH HEADER:", auth_header, flush=True)            
+            print("SESSION TOKEN AFTER SPLIT:", session_token, flush=True)
             session = db.session.find_one({
                 "token": session_token,
                 "expiresAt": {"$gt": now_utc}
             })
+            print("SESSION FOUND:", session, flush=True)
             if session:
                 request.session = session
                 return f(*args, **kwargs)
@@ -54,10 +57,13 @@ def require_auth(f):
         logger.debug(f"Validating token from cookie: {session_token[:10]}...")
         
         now_utc = datetime.now(timezone.utc)
+        logger.warning(f"RAW AUTH HEADER: {auth_header}")
+        logger.warning(f"SESSION TOKEN AFTER SPLIT: {session_token}")
         session = db.session.find_one({
             "token": session_token,
             "expiresAt": {"$gt": now_utc}
         })
+        logger.warning(f"SESSION FOUND: {session}")
         
         if not session:
             logger.warning(f"Invalid or expired session from cookie: {session_token[:10]}...")
