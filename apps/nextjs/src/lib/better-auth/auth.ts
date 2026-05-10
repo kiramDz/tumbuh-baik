@@ -22,7 +22,8 @@ export const auth = betterAuth({
   },
 
   trustedOrigins: [
-    "https://tumbuh-baik-psi.vercel.app",
+    "https://zonapetik.site",
+    "https://www.zonapetik.site",
     "https://backed-octagon-levitate.ngrok-free.dev",
   ],
 
