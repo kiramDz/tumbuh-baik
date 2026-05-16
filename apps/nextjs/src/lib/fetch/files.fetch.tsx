@@ -1325,10 +1325,8 @@ export const preprocessNasaDatasetWithStream = (
     process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5001"
   ).replace(/\/$/, "");
   const encodedName = encodeURIComponent(collectionName);
-  const eventSource = new EventSource(
-    `${apiUrl}/api/v1/preprocess/nasa/${encodedName}/stream`,
-  );
 
+  const abortController = new AbortController();
   let connectionTimeout: NodeJS.Timeout;
   let hasCompletedSuccessfully = false;
   let hasReceivedData = false;
@@ -1343,115 +1341,153 @@ export const preprocessNasaDatasetWithStream = (
         onError(
           "Connection timeout - preprocessing may still be running in background",
         );
-        eventSource.close();
+        abortController.abort();
       }
     }, 300000); // 5 minutes timeout
   };
 
-  resetTimeout();
-
-  eventSource.onmessage = (event) => {
+  const startStream = async () => {
     try {
-      const data = JSON.parse(event.data);
-      hasReceivedData = true;
       resetTimeout();
+      const response = await fetch(
+        `${apiUrl}/api/v1/preprocess/nasa/${encodedName}/stream`,
+        {
+          headers: {
+            Accept: "text/event-stream",
+            "ngrok-skip-browser-warning": "69420",
+          },
+          signal: abortController.signal,
+        },
+      );
 
-      switch (data.type) {
-        case "connected":
-          onLog({
-            type: "info",
-            message: `Connected to preprocessing stream. Session: ${data.session_id}`,
-          });
-          break;
-
-        case "log":
-          onLog(data);
-          break;
-
-        case "progress":
-          const progressValue =
-            data.percentage ?? data.progress ?? data.percent ?? 0;
-          onProgress(
-            progressValue,
-            data.stage || "Processing",
-            data.message || "Processing...",
-          );
-          break;
-
-        case "complete":
-          hasCompletedSuccessfully = true;
-          streamClosed = true;
-
-          onLog({
-            type: "success",
-            message: "🎉 NASA preprocessing completed successfully!",
-          });
-
-          const completionResult =
-            data.result && typeof data.result === "object"
-              ? data.result
-              : {
-                  recordCount: null,
-                  cleanedCollection: `${collectionName}_cleaned`,
-                  preprocessing_report: null,
-                };
-
-          onComplete(completionResult);
-          clearTimeout(connectionTimeout);
-          eventSource.close();
-          break;
-
-        case "error":
-          streamClosed = true;
-          onError(data.message || "An error occurred during preprocessing");
-          clearTimeout(connectionTimeout);
-          eventSource.close();
-          break;
-
-        default:
-          break;
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
       }
-    } catch (error) {
-      console.error("Error parsing SSE data:", error);
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No readable stream available");
+
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (!streamClosed) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const messages = buffer.split("\n\n");
+        buffer = messages.pop() || "";
+
+        for (const message of messages) {
+          if (message.startsWith("data: ")) {
+            let dataStr = message.slice(6).trim();
+            if (
+              !dataStr ||
+              dataStr === "keepalive" ||
+              dataStr === "completion-sent"
+            )
+              continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+              hasReceivedData = true;
+              resetTimeout();
+
+              switch (data.type) {
+                case "connected":
+                  onLog({
+                    type: "info",
+                    message: `Connected to preprocessing stream. Session: ${data.session_id}`,
+                  });
+                  break;
+
+                case "log":
+                  onLog(data);
+                  break;
+
+                case "progress":
+                  const progressValue =
+                    data.percentage ?? data.progress ?? data.percent ?? 0;
+                  onProgress(
+                    progressValue,
+                    data.stage || "Processing",
+                    data.message || "Processing...",
+                  );
+                  break;
+
+                case "complete":
+                  hasCompletedSuccessfully = true;
+                  streamClosed = true;
+
+                  onLog({
+                    type: "success",
+                    message: "🎉 NASA preprocessing completed successfully!",
+                  });
+
+                  const completionResult =
+                    data.result && typeof data.result === "object"
+                      ? data.result
+                      : {
+                          recordCount: null,
+                          cleanedCollection: `${collectionName}_cleaned`,
+                          preprocessing_report: null,
+                        };
+
+                  onComplete(completionResult);
+                  clearTimeout(connectionTimeout);
+                  abortController.abort();
+                  break;
+
+                case "error":
+                  streamClosed = true;
+                  onError(
+                    data.message || "An error occurred during preprocessing",
+                  );
+                  clearTimeout(connectionTimeout);
+                  abortController.abort();
+                  break;
+
+                default:
+                  break;
+              }
+            } catch (err) {
+              console.error("Error parsing SSE JSON:", err);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error.name === "AbortError" || streamClosed) return;
+      clearTimeout(connectionTimeout);
+      streamClosed = true;
+
+      if (hasCompletedSuccessfully) return;
+
+      if (hasReceivedData) {
+        onLog({
+          type: "success",
+          message: "✅ Preprocessing completed successfully!",
+        });
+        onComplete({
+          recordCount: null,
+          cleanedCollection: `${collectionName}_cleaned`,
+          preprocessing_report: null,
+        });
+        return;
+      }
+
+      onError("❌ Connection failed - no preprocessing data received");
     }
   };
 
-  eventSource.onerror = (error) => {
-    if (streamClosed) {
-      return;
-    }
-
-    clearTimeout(connectionTimeout);
-    streamClosed = true;
-
-    if (hasCompletedSuccessfully) {
-      return; // Don't call onError for successful completion
-    }
-
-    if (hasReceivedData) {
-      onLog({
-        type: "success",
-        message: "✅ Preprocessing completed successfully!",
-      });
-
-      onComplete({
-        recordCount: null,
-        cleanedCollection: `${collectionName}_cleaned`,
-        preprocessing_report: null,
-      });
-      return;
-    }
-
-    onError("❌ Connection failed - no preprocessing data received");
-    eventSource.close();
-  };
+  startStream();
 
   return {
-    eventSource,
+    eventSource: null, // Stub for backward compatibility
     cleanup: () => {
       streamClosed = true;
       clearTimeout(connectionTimeout);
-      eventSource.close();
+      abortController.abort();
     },
   };
 };
@@ -1469,10 +1505,8 @@ export const preprocessBmkgDatasetWithStream = (
     process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5001"
   ).replace(/\/$/, "");
   const encodedName = encodeURIComponent(collectionName);
-  const eventSource = new EventSource(
-    `${apiUrl}/api/v1/preprocess/bmkg/${encodedName}/stream`,
-  );
 
+  const abortController = new AbortController();
   let connectionTimeout: NodeJS.Timeout;
   let hasCompletedSuccessfully = false;
   let streamClosed = false;
@@ -1485,100 +1519,141 @@ export const preprocessBmkgDatasetWithStream = (
       onError(
         "Connection timeout - preprocessing may still be running in background",
       );
-      eventSource.close();
+      abortController.abort();
     }, 300000); // 5 minutes timeout
   };
-  resetTimeout();
 
-  eventSource.onmessage = (event) => {
+  const startStream = async () => {
     try {
-      const data = JSON.parse(event.data);
       resetTimeout();
+      const response = await fetch(
+        `${apiUrl}/api/v1/preprocess/bmkg/${encodedName}/stream`,
+        {
+          headers: {
+            Accept: "text/event-stream",
+            "ngrok-skip-browser-warning": "69420",
+          },
+          signal: abortController.signal,
+        },
+      );
 
-      switch (data.type) {
-        case "connected":
-          onLog({
-            type: "info",
-            message: `Connected to BMKG preprocessing stream. Session: ${data.session_id}`,
-          });
-          break;
-
-        case "log":
-          onLog(data);
-          break;
-
-        case "progress":
-          // Handle multiple possible field names for progress percentage
-          const progressValue =
-            data.percentage ?? data.progress ?? data.percent ?? 0;
-
-          onProgress(
-            progressValue,
-            data.stage || "Processing",
-            data.message || "Processing...",
-          );
-          break;
-
-        case "complete":
-          hasCompletedSuccessfully = true;
-          streamClosed = true;
-
-          onLog({
-            type: "success",
-            message: "🎉 BMKG preprocessing completed successfully!",
-          });
-
-          const completionResult =
-            data.result && typeof data.result === "object"
-              ? data.result
-              : {
-                  recordCount: null,
-                  cleanedCollection: `${collectionName}_cleaned`,
-                  preprocessing_report: null,
-                };
-
-          onComplete(completionResult);
-          clearTimeout(connectionTimeout);
-          eventSource.close();
-          break;
-
-        case "error":
-          onError(
-            data.message || "An error occurred during BMKG preprocessing",
-          );
-          eventSource.close();
-          break;
-
-        default:
-          console.log("Unknown SSE message type:", data.type, data);
-          break;
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
       }
-    } catch (error) {
-      console.error("Error parsing SSE data:", error);
-      console.log("Raw event data:", event.data);
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No readable stream available");
+
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (!streamClosed) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const messages = buffer.split("\n\n");
+        buffer = messages.pop() || "";
+
+        for (const message of messages) {
+          if (message.startsWith("data: ")) {
+            let dataStr = message.slice(6).trim();
+            if (
+              !dataStr ||
+              dataStr === "keepalive" ||
+              dataStr === "completion-sent"
+            )
+              continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+              resetTimeout();
+
+              switch (data.type) {
+                case "connected":
+                  onLog({
+                    type: "info",
+                    message: `Connected to BMKG preprocessing stream. Session: ${data.session_id}`,
+                  });
+                  break;
+
+                case "log":
+                  onLog(data);
+                  break;
+
+                case "progress":
+                  const progressValue =
+                    data.percentage ?? data.progress ?? data.percent ?? 0;
+                  onProgress(
+                    progressValue,
+                    data.stage || "Processing",
+                    data.message || "Processing...",
+                  );
+                  break;
+
+                case "complete":
+                  hasCompletedSuccessfully = true;
+                  streamClosed = true;
+
+                  onLog({
+                    type: "success",
+                    message: "🎉 BMKG preprocessing completed successfully!",
+                  });
+
+                  const completionResult =
+                    data.result && typeof data.result === "object"
+                      ? data.result
+                      : {
+                          recordCount: null,
+                          cleanedCollection: `${collectionName}_cleaned`,
+                          preprocessing_report: null,
+                        };
+
+                  onComplete(completionResult);
+                  clearTimeout(connectionTimeout);
+                  abortController.abort();
+                  break;
+
+                case "error":
+                  onError(
+                    data.message ||
+                      "An error occurred during BMKG preprocessing",
+                  );
+                  abortController.abort();
+                  break;
+
+                default:
+                  console.log("Unknown SSE message type:", data.type, data);
+                  break;
+              }
+            } catch (err) {
+              console.error("Error parsing SSE JSON:", err);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error.name === "AbortError" || streamClosed) return;
+      console.error("SSE error:", error);
+      clearTimeout(connectionTimeout);
+
+      if (!hasCompletedSuccessfully) {
+        onError(
+          "Connection error occurred with the BMKG preprocessing stream.",
+        );
+      }
+      abortController.abort();
     }
   };
 
-  eventSource.onerror = (error) => {
-    console.error("SSE error:", error);
-    clearTimeout(connectionTimeout);
-
-    if (eventSource.readyState === EventSource.CLOSED) {
-      onLog({
-        type: "info",
-        message: "Preprocessing stream closed - check results in dashboard",
-      });
-    } else {
-      onError("Connection error occurred with the BMKG preprocessing stream.");
-    }
-    eventSource.close();
-  };
+  startStream();
 
   return {
-    eventSource,
+    eventSource: null, // Stub for backward compatibility
     cleanup: () => {
+      streamClosed = true;
       clearTimeout(connectionTimeout);
-      eventSource.close();
+      abortController.abort();
     },
   };
 };
