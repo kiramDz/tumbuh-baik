@@ -105,9 +105,11 @@ export default function ResultsPage() {
                       {dataset.lastUpdated
                         ? format(
                             new Date(
-                              typeof dataset.lastUpdated === "object"
-                                ? dataset.lastUpdated.$date
-                                : dataset.lastUpdated,
+                              String(
+                                typeof dataset.lastUpdated === "object"
+                                  ? dataset.lastUpdated.$date
+                                  : dataset.lastUpdated,
+                              ).replace(/Z$/, ""),
                             ),
                             "dd MMM yyyy",
                             { locale: id },

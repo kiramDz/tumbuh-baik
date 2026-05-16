@@ -79,11 +79,15 @@ export default function ResultDetailsPage({
       </div>
     );
   }
-  // Parse the preprocessing timestamp
-  const dateObj =
+
+  // Parse the preprocessing timestamp and ignore the wrong UTC 'Z' flag
+  let dateStr =
     typeof preprocessingReport.preprocessing_timestamp === "object"
-      ? new Date((preprocessingReport.preprocessing_timestamp as any).$date)
-      : new Date(preprocessingReport.preprocessing_timestamp);
+      ? (preprocessingReport.preprocessing_timestamp as any).$date
+      : (preprocessingReport.preprocessing_timestamp as string);
+
+  if (dateStr.endsWith("Z")) dateStr = dateStr.slice(0, -1);
+  const dateObj = new Date(dateStr);
 
   return (
     <div className="space-y-6 p-6">
