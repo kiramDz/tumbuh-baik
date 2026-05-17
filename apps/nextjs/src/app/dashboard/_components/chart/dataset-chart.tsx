@@ -101,7 +101,7 @@ function getParamUnit(param: string): string {
 // Helper function to check if value is invalid
 function isInvalidValue(value: number, columnName?: string): boolean {
   if (Number.isNaN(value)) return true;
-  if (value === 8888 || value === 9999) return true;
+  if (value === 8888 || value === 9999 || value === -999) return true;
 
   // Treat 0 as invalid except for rainfall metrics
   if (value === 0 && columnName !== "RR" && columnName !== "PRECTOTCORR") {
@@ -197,7 +197,7 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
   const validValues = data.items
     .map((item: any) => {
       const v = item[selectedColumn];
-      return (v === null || v === undefined || v === "") ? NaN : Number(v);
+      return v === null || v === undefined || v === "" ? NaN : Number(v);
     })
     .filter((val: number) => !isInvalidValue(val, selectedColumn));
 
@@ -207,7 +207,10 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
 
   const chartData = data.items.map((item: any) => {
     const rawValue = item[selectedColumn];
-    const raw = (rawValue === null || rawValue === undefined || rawValue === "") ? NaN : Number(rawValue);
+    const raw =
+      rawValue === null || rawValue === undefined || rawValue === ""
+        ? NaN
+        : Number(rawValue);
     const isInvalid = isInvalidValue(raw, selectedColumn);
 
     return {
@@ -358,7 +361,7 @@ export default function ChartSection({ collectionName }: ChartSectionProps) {
                       const displayValue = isInvalidPoint
                         ? payload.rawInvalidValue
                         : value;
-                      
+
                       const formattedValue = isInvalidPoint
                         ? displayValue
                         : Number(displayValue).toFixed(2);

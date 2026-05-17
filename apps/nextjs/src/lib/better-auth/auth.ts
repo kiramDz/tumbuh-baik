@@ -9,25 +9,42 @@ const dbClient = (await getClient()).db();
 
 export const auth = betterAuth({
   database: mongodbAdapter(dbClient),
+
   socialProviders: {
     google: {
       clientId: GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
     },
   },
+
   emailAndPassword: {
     enabled: true,
   },
+
+  trustedOrigins: [
+    "https://zonapetik.site",
+    "https://backed-octagon-levitate.ngrok-free.dev",
+    "http://localhost:3000",
+  ],
+
   session: {
     cookieCache: {
       enabled: true,
     },
   },
+
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      httpOnly: true,
+    },
+  },
+
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
         console.log(`Send login link to ${email}: ${url}`);
-        // TODO: implement email sender
       },
     }),
     admin(),

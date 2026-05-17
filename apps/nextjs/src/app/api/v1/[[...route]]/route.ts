@@ -28,9 +28,6 @@ export const runtime = "nodejs";
 const app = new Hono().basePath("/api/v1");
 
 app.route("/bmkg-api", bmkgApiRoute); //api untuk ambil dari mongdo, tampilin d UI
-
-//fetch : http://localhost:3000/api/v1/bmkg-fetch
-
 app.route("/bmkg-live", bmkgLiveRoute);
 app.route("/bmkg-live", bmkgLiveRoute);
 app.route("/bmkg-fetch", bmkgFetcherRoute); //api untuk ambik dari bmkg api dan masukin ke mongodb

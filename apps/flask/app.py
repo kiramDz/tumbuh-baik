@@ -51,11 +51,18 @@ load_dotenv()
 
 app = Flask(__name__)
 
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": [
-    "http://localhost:3000", 
-    "http://3.107.238.87",
-    "https://www.zonapetik.tech"
-]}})
+cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
+CORS(app, 
+     origins=cors_origins,
+     supports_credentials=True,
+     allow_headers=[
+         "Content-Type",
+         "Authorization",
+         "Cookie",
+         "ngrok-skip-browser-warning",
+     ],
+     expose_headers=["Content-Type"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 mongo_uri = os.getenv("MONGODB_URI")
 db_name = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
@@ -552,6 +559,9 @@ def preprocess_nasa_stream(collection_name):
     SSE endpoint for real-time preprocessing logs
     Stream preprocessing progress to frontend
     """
+    # Trace log to verify if ngrok header is missing from EventSource request
+    logger.info(f"NASA Stream Request Headers: {dict(request.headers)}")
+    
     def generate():
         # Create log queue for this session
         log_queue = Queue()
@@ -562,6 +572,7 @@ def preprocess_nasa_stream(collection_name):
             def emit(self, record):
                 try:
                     log_entry = self.format(record)
+                    
                     # Parse progress information
                     if "PROGRESS:" in log_entry:
                         try:
@@ -665,21 +676,14 @@ def preprocess_nasa_stream(collection_name):
                     preprocessing_result['status'] = 'success'
                     preprocessing_result['data'] = safe_result
                     
+                    # Send completion
                     safe_result = {
-                        'recordCount': int(result['recordCount']) if 'recordCount' in result and result['recordCount'] is not None else 0,
-                        'originalRecordCount': int(result['originalRecordCount']) if 'originalRecordCount' in result and result['originalRecordCount'] is not None else 0,
+                        'recordCount': int(result.get('recordCount', 0)) if result.get('recordCount') else 0,
+                        'originalRecordCount': int(result.get('originalRecordCount', 0)) if result.get('originalRecordCount') else 0,
                         'cleanedCollection': result.get('cleanedCollection'),
                         'collection': result.get('collection'),
                         'message': result.get('message'),
-                        'preprocessedCollections': result.get('preprocessedCollections', []),
-                        'preprocessing_report': {
-                            'outliers': {
-                                'total_outliers': int(result.get('preprocessing_report', {}).get('outliers', {}).get('total_outliers', 0))
-                            },
-                            'quality_metrics': {
-                                'completeness_percentage': float(result.get('preprocessing_report', {}).get('quality_metrics', {}).get('completeness_percentage', 0))
-                            }
-                        } if result.get('preprocessing_report') else None
+                        'preprocessing_report': result.get('preprocessing_report')
                     }
                     
                     logger.info(f"📤 Sending safe result: {safe_result}")
@@ -703,6 +707,7 @@ def preprocess_nasa_stream(collection_name):
                         'traceback': traceback.format_exc()
                     })
                 finally:
+                    # Signal completion
                     logger.info("🏁 Preprocessing thread completed, stream will close naturally")
                     preprocessing_result['thread_complete'] = True
             
@@ -713,27 +718,27 @@ def preprocess_nasa_stream(collection_name):
             
             while True:
                 try:
+                    # Get log from queue (timeout to check if client disconnected)
                     log_data = log_queue.get(timeout=1)
                     
-                    # Send log to client as SSE
+                    # ✅ FIXED: Send log to client FIRST before checking completion
                     yield f"data: {json.dumps(log_data)}\n\n"
                     
-                    # ✅ FIXED: After sending completion, wait briefly then close
+                    # Check if done AFTER sending the message
                     if log_data.get('type') == 'complete':
-                        
                         yield f": completion-sent\n\n"
                         time.sleep(1.0)  # 1 second delay
                         logger.info("🎯 Closing stream after completion processed")
                         break
-                        
+                    
                 except Exception:
                     if preprocessing_result.get('thread_complete'):
                         logger.info("🏁 Thread completed, closing stream")
                         break
-                        
                     # Timeout - send keepalive
                     yield ": keepalive\n\n"
                     continue
+                    
         except GeneratorExit:
             # Client disconnected
             logger.info(f"Client disconnected from preprocessing stream: {collection_name}")
@@ -908,6 +913,9 @@ def preprocess_bmkg_stream(collection_name):
     SSE endpoint for real-time BMKG preprocessing logs
     Stream preprocessing progress to frontend
     """
+    # Trace log to verify if ngrok header is missing from EventSource request
+    logger.info(f"BMKG Stream Request Headers: {dict(request.headers)}")
+    
     def generate():
         # Create log queue for this session
         log_queue = Queue()

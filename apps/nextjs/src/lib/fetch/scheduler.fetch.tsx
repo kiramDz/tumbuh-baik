@@ -1,5 +1,5 @@
 import axios from "axios";
-import { FLASK_API_URL } from "../env";
+import { api } from "../better-auth/axios";
 import {
   SchedulerStatus,
   LogsPagination,
@@ -8,12 +8,13 @@ import {
   DatasetConfig,
 } from "@/types/scheduler";
 
+/**
+ * Mendapatkan status scheduler (publik, tidak perlu auth)
+ */
 export const getSchedulerStatus = async (): Promise<SchedulerStatus> => {
   try {
-    const res = await axios.get(`${FLASK_API_URL}/api/v1/scheduler/status`, {
-      withCredentials: true,
-    });
-    // Menyesuaikan apabila Flask membungkus data dalam properti "data"
+    const res = await api.get("/api/v1/scheduler/status");
+    // Flask membungkus data di res.data.data
     return res.data.data || res.data;
   } catch (error) {
     console.error("Error fetching scheduler status:", error);
@@ -21,6 +22,9 @@ export const getSchedulerStatus = async (): Promise<SchedulerStatus> => {
   }
 };
 
+/**
+ * Mendapatkan logs scheduler (publik, tidak perlu auth)
+ */
 export const getSchedulerLogs = async (
   limit = 10,
   offset = 0,
@@ -30,10 +34,7 @@ export const getSchedulerLogs = async (
     const params: any = { limit, offset };
     if (status) params.status = status;
 
-    const res = await axios.get(`${FLASK_API_URL}/api/v1/scheduler/logs`, {
-      params,
-      withCredentials: true,
-    });
+    const res = await api.get("/api/v1/scheduler/logs", { params });
     return res.data.data || res.data;
   } catch (error) {
     console.error("Error fetching scheduler logs:", error);
@@ -41,7 +42,9 @@ export const getSchedulerLogs = async (
   }
 };
 
-// Diperbarui menerima objek TriggerRequest untuk mengakomodasi mode Custom/Quick
+/**
+ * Trigger manual scheduler (membutuhkan auth)
+ */
 export const triggerScheduler = async (
   request: TriggerRequest,
 ): Promise<TriggerResponse> => {
@@ -53,13 +56,7 @@ export const triggerScheduler = async (
       async: request.async ?? true,
     };
 
-    const res = await axios.post(
-      `${FLASK_API_URL}/api/v1/scheduler/trigger`,
-      payload,
-      {
-        withCredentials: true,
-      },
-    );
+    const res = await api.post("/api/v1/scheduler/trigger", payload);
     return res.data.data || res.data;
   } catch (error: any) {
     console.error("Error triggering scheduler:", error);
@@ -73,27 +70,21 @@ export const triggerScheduler = async (
 };
 
 /**
- * Endpoint baru untuk mengambil dataset yang tersedia (NASA dan BMKG)
- * Untuk keperluan Manual Trigger Custom Selection
+ * Mendapatkan daftar dataset yang tersedia (NASA dan BMKG) dari Next.js internal API
+ * Gunakan axios biasa karena bukan ke Flask
  */
 export const getAvailableDatasets = async (): Promise<{
   nasa_raw: DatasetConfig[];
   bmkg_raw: DatasetConfig[];
 }> => {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-    // Menembak endpoint Next.js secara paralel (Promise.all) agar lebih cepat
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    // Menggunakan axios biasa (bukan instance api) untuk memanggil API Next.js sendiri
     const [nasaRes, bmkgRes] = await Promise.all([
       axios.get(
         `${baseUrl}/api/v1/dataset-meta?dataType=nasa&status=raw,latest`,
-        {
-          withCredentials: true,
-        },
       ),
-      axios.get(`${baseUrl}/api/v1/dataset-meta?dataType=bmkg&status=raw`, {
-        withCredentials: true,
-      }),
+      axios.get(`${baseUrl}/api/v1/dataset-meta?dataType=bmkg&status=raw`),
     ]);
 
     return {
@@ -106,11 +97,12 @@ export const getAvailableDatasets = async (): Promise<{
   }
 };
 
+/**
+ * Mendapatkan konfigurasi automation (membutuhkan auth)
+ */
 export const getAutomationConfig = async (): Promise<any> => {
   try {
-    const res = await axios.get(`${FLASK_API_URL}/api/v1/scheduler/config`, {
-      withCredentials: true,
-    });
+    const res = await api.get("/api/v1/scheduler/config");
     return res.data.data;
   } catch (error) {
     console.error("Error getting config:", error);
@@ -118,15 +110,12 @@ export const getAutomationConfig = async (): Promise<any> => {
   }
 };
 
+/**
+ * Menyimpan konfigurasi automation (membutuhkan auth)
+ */
 export const saveAutomationConfig = async (configData: any): Promise<any> => {
   try {
-    const res = await axios.post(
-      `${FLASK_API_URL}/api/v1/scheduler/config`,
-      configData,
-      {
-        withCredentials: true,
-      },
-    );
+    const res = await api.post("/api/v1/scheduler/config", configData);
     return res.data;
   } catch (error) {
     console.error("Error saving config:", error);

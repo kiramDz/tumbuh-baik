@@ -37,6 +37,8 @@ interface UploadResponse {
 
 const datasetMetaRoute = new Hono();
 
+const flaskUrl = process.env.FLASK_API_BASE_URL || "http://localhost:5001";
+
 // GET - Ambil semua metadata dataset
 datasetMetaRoute.get("/", async (c) => {
   try {
@@ -1248,7 +1250,7 @@ async function handleXlsxUpload(c: any) {
       try {
         console.log(`Sending ${files.length} files to Flask merge service...`);
         const response = await fetch(
-          "http://localhost:5001/api/v1/convert/xlsx-merge-csv",
+          `${flaskUrl}/api/v1/convert/xlsx-merge-csv`,
           {
             method: "POST",
             body: flaskFormData,

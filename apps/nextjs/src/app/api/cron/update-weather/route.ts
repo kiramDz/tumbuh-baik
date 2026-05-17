@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/bmkg-fetch`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_FLASK_API_URL}/api/v1/bmkg-fetch`, {
       method: "GET",
     });
 

@@ -9,11 +9,11 @@ import { siteConfig } from "@/config/site";
 export const metadata: Metadata = {
   title: siteConfig.name,
   description: siteConfig.description,
-  metadataBase: new URL("https://zonapetik.tech/"),
+  metadataBase: new URL("https://zonapetik.site/"),
   authors: [
     {
       name: "Zona Petik",
-      url: "https://zonapetik.tech/",
+      url: "https://zonapetik.site/",
     },
   ],
   creator: "brokariim",
