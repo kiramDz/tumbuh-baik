@@ -51,6 +51,11 @@ export default function AutomationConfig() {
       return;
     }
 
+    if (frequency === "biweekly" && daysOfWeek.length !== 2) {
+      setNextRunsPreview([]);
+      return;
+    }
+
     const runs: string[] = [];
     const [hour = 2, minute = 0] = executionTime.split(":").map(Number);
 
@@ -171,23 +176,37 @@ export default function AutomationConfig() {
     }));
   };
 
-  const toggleArrayItem = (
-    setter: React.Dispatch<React.SetStateAction<number[]>>,
-    val: number,
-  ) => {
-    setter((prev) =>
-      prev.includes(val)
-        ? prev.filter((x) => x !== val)
-        : [...prev, val].sort((a, b) => a - b),
-    );
+  const toggleDaySelection = (val: number) => {
+    setDaysOfWeek((prev) => {
+      if (prev.includes(val)) {
+        // Allow unselecting
+        return prev.filter((x) => x !== val);
+      }
+      // Block selecting a 3rd day if frequency is biweekly
+      if (frequency === "biweekly" && prev.length >= 2) {
+        toast.error("Maximum 2 days allowed. Unselect a day first.");
+        return prev; // Return unchanged array
+      }
+      // Add and sort the days
+      return [...prev, val].sort((a, b) => a - b);
+    });
   };
-
   if (loading)
     return (
       <div className="p-6 text-center text-gray-500 animate-pulse">
         Loading config...
       </div>
     );
+
+  const totalSelectedDatasets =
+    selectedDatasets.nasa_refresh.length +
+    selectedDatasets.nasa_preprocess.length +
+    selectedDatasets.bmkg_preprocess.length;
+
+  const isSaveDisabled =
+    saving ||
+    (enabled && frequency === "biweekly" && daysOfWeek.length !== 2) ||
+    (enabled && totalSelectedDatasets === 0);
 
   return (
     <div className="bg-white border rounded-xl shadow-sm overflow-hidden flex flex-col">
@@ -311,8 +330,8 @@ export default function AutomationConfig() {
                   <button
                     key={i}
                     type="button"
-                    onClick={() => toggleArrayItem(setDaysOfWeek, i)}
-                    className={`px-3 py-1 text-sm rounded ${daysOfWeek.includes(i) ? "bg-blue-100 text-blue-700 border border-blue-300" : "bg-gray-100 text-gray-600 border border-gray-200"}`}
+                    onClick={() => toggleDaySelection(i)}
+                    className={`px-3 py-1 text-sm rounded transition-colors ${daysOfWeek.includes(i) ? "bg-blue-100 text-blue-700 border border-blue-300" : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"}`}
                   >
                     {d}
                   </button>
@@ -323,8 +342,13 @@ export default function AutomationConfig() {
 
           {/* Dataset Checkboxes */}
           <div className="pt-4 border-t">
-            <h3 className="font-semibold text-gray-800 mb-3">
+            <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
               Datasets to Auto Process
+              {enabled && totalSelectedDatasets === 0 && (
+                <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium border border-red-200">
+                  0 datasets selected
+                </span>
+              )}
             </h3>
 
             {[
@@ -410,6 +434,12 @@ export default function AutomationConfig() {
               <p className="text-sm text-gray-500 italic">
                 Automation disabled
               </p>
+            ) : frequency === "biweekly" && daysOfWeek.length === 0 ? (
+              <p className="text-sm text-red-500 italic">Select days first</p>
+            ) : frequency === "biweekly" && daysOfWeek.length !== 2 ? (
+              <p className="text-sm text-red-500 italic">
+                Select exactly 2 days for preview
+              </p>
             ) : nextRunsPreview.length === 0 ? (
               <p className="text-sm text-gray-500 italic">Calculating...</p>
             ) : (
@@ -467,8 +497,12 @@ export default function AutomationConfig() {
         </button>
         <button
           onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center"
+          disabled={isSaveDisabled}
+          className={`px-4 py-2 text-sm text-white rounded-lg flex items-center transition-colors ${
+            isSaveDisabled
+              ? "bg-blue-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
           {saving ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
