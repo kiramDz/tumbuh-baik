@@ -82,9 +82,19 @@ def update_task_log(log_id, task_result):
     try:
         db = get_db()
         from bson import ObjectId
+        
+        update_op = {
+            "$push": {"tasks": task_result}, 
+            "$set": {"updatedAt": datetime.now(timezone.utc)}
+        }
+        
+        # Safely push specific errors directly into the document's root errors array
+        if task_result.get("errors"):
+            update_op["$push"]["errors"] = {"$each": task_result["errors"]}
+            
         db.scheduler_logs.update_one(
             {"_id": ObjectId(log_id)},
-            {"$push": {"tasks": task_result}, "$set": {"updatedAt": datetime.now(timezone.utc)}}
+            update_op
         )
     except Exception as e:
         logger.error(f"Failed to update MongoDB log for task: {e}")
@@ -124,6 +134,8 @@ def finish_log(log_id, status, datasets_updated=0, total_datasets=0):
 def make_api_call(method, base_url, endpoint, payload=None, retries=3):
     """Make API call with retry mechanism and exponential backoff."""
     url = f"{base_url}{endpoint}"
+    last_error = {"message": "Max retries reached without a specific error."}
+    
     for attempt in range(retries):
         try:
             # FIX: Tingkatkan timeout menjadi 3600 detik (1 jam) untuk proses berat
@@ -133,29 +145,49 @@ def make_api_call(method, base_url, endpoint, payload=None, retries=3):
                 response = http_session.post(url, json=payload, timeout=3600)
                 
             if response.status_code in [200, 202]:
-                return True, response.json()
+                try:
+                    return True, response.json()
+                except ValueError:
+                    return True, {"message": "Success", "text": response.text}
+                    
             elif response.status_code == 401:
                 logger.error("Authentication failed. Invalid CRON_SECRET.")
                 sys.exit(1)
-            elif response.status_code == 400: # Langsung gagalkan jika 400 (Bad Request)
-                logger.warning(f"API Error (400): {response.text}")
-                return False, {"message": "Bad request or validation error"}
             else:
-                logger.warning(f"API Error ({response.status_code}): {response.text}")
+                # Safely parse actual error response instead of generic strings
+                try:
+                    err_json = response.json()
+                    err_msg = err_json.get("error", err_json.get("message", response.text))
+                    # Handle if 'error' is a dict (like your Flask internal errors)
+                    if isinstance(err_msg, dict):
+                        err_msg = err_msg.get("message", str(err_msg))
+                except ValueError:
+                    err_msg = response.text if response.text else "Empty response body"
+                
+                last_error = {"message": f"HTTP {response.status_code}: {err_msg}"}
+                
+                if response.status_code == 400: # Langsung gagalkan jika 400 (Bad Request)
+                    logger.warning(f"API Error (400) Unrecoverable: {err_msg}")
+                    return False, last_error
+                else:
+                    logger.warning(f"API Error ({response.status_code}) on attempt {attempt + 1}: {err_msg}")
                 
         except requests.exceptions.ReadTimeout as e:
-            # FIX: Jika server lama merespons (ReadTimeout), JANGAN di-retry (karena server masih bekerja di background)
-            logger.error(f"Timeout on attempt {attempt + 1}. Server might still be processing this heavily in background. Aborting retry to prevent duplicates.")
-            return False, {"message": "Server processing timeout."}
+            # FIX: Jangan langsung gagal, biarkan retry bekerja (catat di last_error)
+            last_error = {"message": f"Server processing timeout (ReadTimeout) on attempt {attempt + 1}."}
+            logger.warning(f"Timeout on attempt {attempt + 1}. The server might still be working, but we will retry to ensure completion...")
             
         except requests.exceptions.RequestException as e:
+            last_error = {"message": f"Connection Error: {str(e)}"}
             logger.warning(f"Connection error on attempt {attempt + 1}: {e}")
             
-        wait_time = 2 * (2 ** attempt)  # 2s, 4s, 8s
-        logger.info(f"Retrying in {wait_time}s...")
-        time.sleep(wait_time)
+        # Only sleep if it's not the last attempt
+        if attempt < retries - 1:
+            wait_time = 2 * (2 ** attempt)  # 2s, 4s, 8s
+            logger.info(f"Retrying in {wait_time}s...")
+            time.sleep(wait_time)
         
-    return False, {"message": "Max retries reached."}
+    return False, last_error
 
 
 # Tasks
@@ -163,36 +195,42 @@ def task_nasa_refresh(is_dry_run, target_datasets=None):
     logger.info("Task: Refreshing NASA data...")
     if is_dry_run:
         logger.info("DRY RUN: Bypassing NASA refresh")
-        return {"name": "nasa_refresh", "status": "success"}
+        return {"name": "nasa_refresh", "status": "success", "errors": []}
 
+    errors = []
     if target_datasets:
         logger.info(f"Custom datasets requested for refresh: {len(target_datasets)} datasets. Processing individually...")
         count_success = 0
         for name in target_datasets:
             logger.info(f" -> Refreshing {name}")
-            # Asumsi Anda punya endpoint di Next.js untuk refresh 1 dataset:
-            success, _ = make_api_call("POST", NEXT_API_BASE_URL, f"/api/v1/nasa-power/refresh/{name}")
-            if success: count_success += 1
+            success, resp_data = make_api_call("POST", NEXT_API_BASE_URL, f"/api/v1/nasa-power/refresh/{name}")
+            if success: 
+                count_success += 1
+            else:
+                error_msg = resp_data.get("message", "Unknown error") if isinstance(resp_data, dict) else str(resp_data)
+                logger.error(f"   FAILED: {name} - {error_msg}")
+                errors.append(f"Refresh {name}: {error_msg}")
             
         final_status = "success" if count_success == len(target_datasets) else "partial" if count_success > 0 else "failed"
-        return {"name": "nasa_refresh", "status": final_status}
+        return {"name": "nasa_refresh", "status": final_status, "errors": errors}
     else:
         # Quick run: Eksekusi semua
         logger.info("Triggering generic refresh-all...")
-        success, data = make_api_call("POST", NEXT_API_BASE_URL, "/api/v1/nasa-power/refresh-all")
+        success, resp_data = make_api_call("POST", NEXT_API_BASE_URL, "/api/v1/nasa-power/refresh-all")
         if success:
             logger.info(f"SUCCESS: NASA refresh completed.")
-            return {"name": "nasa_refresh", "status": "success"}
+            return {"name": "nasa_refresh", "status": "success", "errors": []}
         else:
             logger.error("FAILED: NASA refresh failed.")
-            return {"name": "nasa_refresh", "status": "failed", "error": data}
+            error_msg = resp_data.get("error", resp_data.get("message", "Unknown error")) if isinstance(resp_data, dict) else str(resp_data)
+            return {"name": "nasa_refresh", "status": "failed", "errors": [f"Refresh All: {error_msg}"]}
         
 
 def task_bmkg_preprocess(is_dry_run, target_datasets=None):
     logger.info("Task: Preprocessing BMKG datasets...")
     if is_dry_run:
         logger.info("DRY RUN: Bypassing BMKG preprocess")
-        return {"name": "bmkg_preprocess", "status": "success"}
+        return {"name": "bmkg_preprocess", "status": "success", "errors": []}
     
     if target_datasets:
         bmkg_datasets = target_datasets
@@ -200,7 +238,7 @@ def task_bmkg_preprocess(is_dry_run, target_datasets=None):
         # Fetch auto dari list raw
         success, data = make_api_call("GET", NEXT_API_BASE_URL, "/api/v1/dataset-meta")
         if not success:
-            return {"name": "bmkg_preprocess", "status": "failed"}
+            return {"name": "bmkg_preprocess", "status": "failed", "errors": ["Failed to fetch dataset meta"]}
         
         datasets = data if isinstance(data, list) else data.get("data", [])
         bmkg_datasets = [
@@ -211,31 +249,36 @@ def task_bmkg_preprocess(is_dry_run, target_datasets=None):
     
     if not bmkg_datasets:
         logger.info("No RAW BMKG datasets found to process.")
-        return {"name": "bmkg_preprocess", "status": "success", "processed": 0}
+        return {"name": "bmkg_preprocess", "status": "success", "processed": 0, "errors": []}
         
     logger.info(f"Found {len(bmkg_datasets)} BMKG datasets. Starting preprocessing...")
     count_success = 0
+    errors = []
     
     for name in bmkg_datasets:
         logger.info(f" -> Processing {name}")
-        c_success, _ = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/bmkg/{name}")
-        if c_success: count_success += 1
+        c_success, resp_data = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/bmkg/{name}")
+        if c_success: 
+            count_success += 1
+        else:
+            error_msg = resp_data.get("message", "Unknown error") if isinstance(resp_data, dict) else str(resp_data)
+            logger.error(f"   FAILED: {name} - {error_msg}")
+            errors.append(f"Preprocess BMKG {name}: {error_msg}")
 
     final_status = "success" if count_success == len(bmkg_datasets) else "partial" if count_success > 0 else "failed"
-    return {"name": "bmkg_preprocess", "status": final_status}
-
+    return {"name": "bmkg_preprocess", "status": final_status, "errors": errors}
 
 def task_nasa_preprocess(is_dry_run, target_datasets=None):
     logger.info("Task: Preprocessing NASA datasets...")
     if is_dry_run:
         logger.info("DRY RUN: Bypassing NASA preprocess")
-        return {"name": "nasa_preprocess", "status": "success"}
+        return {"name": "nasa_preprocess", "status": "success", "errors": []}
 
     if target_datasets:
         nasa_datasets = target_datasets
     else:
         success, data = make_api_call("GET", NEXT_API_BASE_URL, "/api/v1/dataset-meta")
-        if not success: return {"name": "nasa_preprocess", "status": "failed"}
+        if not success: return {"name": "nasa_preprocess", "status": "failed", "errors": ["Failed to fetch dataset meta"]}
 
         datasets = data if isinstance(data, list) else data.get("data", [])
         nasa_datasets = [
@@ -246,18 +289,24 @@ def task_nasa_preprocess(is_dry_run, target_datasets=None):
 
     if not nasa_datasets:
         logger.info("No pending NASA datasets found.")
-        return {"name": "nasa_preprocess", "status": "success", "processed": 0}
+        return {"name": "nasa_preprocess", "status": "success", "processed": 0, "errors": []}
 
     logger.info(f"Found {len(nasa_datasets)} NASA datasets. Starting...")
     count_success = 0
+    errors = []
 
     for name in nasa_datasets:
         logger.info(f" -> Processing {name}")
-        c_success, _ = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/nasa/{name}")
-        if c_success: count_success += 1
+        c_success, resp_data = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/nasa/{name}")
+        if c_success: 
+            count_success += 1
+        else:
+            error_msg = resp_data.get("message", "Unknown error") if isinstance(resp_data, dict) else str(resp_data)
+            logger.error(f"   FAILED: {name} - {error_msg}")
+            errors.append(f"Preprocess NASA {name}: {error_msg}")
 
     final_status = "success" if count_success == len(nasa_datasets) else "partial" if count_success > 0 else "failed"
-    return {"name": "nasa_preprocess", "status": final_status}
+    return {"name": "nasa_preprocess", "status": final_status, "errors": errors}
 
 def main():
     parser = argparse.ArgumentParser(description="Climate Automation Scheduler")
@@ -298,9 +347,17 @@ def main():
         if t_nasa_refresh:
             res = task_nasa_refresh(args.dry_run, t_nasa_refresh)
             results.append(res); update_task_log(log_id, res)
+            if t_nasa_pre or t_bmkg_pre:
+                logger.info("Cooling down server resources for 15s...")
+                time.sleep(15)
+                
         if t_nasa_pre:
             res = task_nasa_preprocess(args.dry_run, t_nasa_pre)
             results.append(res); update_task_log(log_id, res)
+            if t_bmkg_pre:
+                logger.info("Cooling down server resources for 15s...")
+                time.sleep(15)
+                
         if t_bmkg_pre:
             res = task_bmkg_preprocess(args.dry_run, t_bmkg_pre)
             results.append(res); update_task_log(log_id, res)
@@ -309,9 +366,17 @@ def main():
         if args.tasks in ["nasa_refresh", "all"]:
             res = task_nasa_refresh(args.dry_run)
             results.append(res); update_task_log(log_id, res)
+            if args.tasks == "all":
+                logger.info("Cooling down server resources for 15s...")
+                time.sleep(15)
+                
         if args.tasks in ["nasa_preprocess", "all"]:
             res = task_nasa_preprocess(args.dry_run)
             results.append(res); update_task_log(log_id, res)
+            if args.tasks == "all":
+                logger.info("Cooling down server resources for 15s...")
+                time.sleep(15)
+                
         if args.tasks in ["bmkg_preprocess", "all"]:
             res = task_bmkg_preprocess(args.dry_run)
             results.append(res); update_task_log(log_id, res)

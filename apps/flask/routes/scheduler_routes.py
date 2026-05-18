@@ -85,6 +85,7 @@ def run_scheduler_async(log_id: str, mode: str, tasks: list, datasets: dict):
             {"_id": ObjectId(log_id)},
             {"$set": {"status": "failed", "completedAt": datetime.now(timezone.utc)}}
         )
+
 @scheduler_bp.route("/status", methods=["GET"])
 def get_status():
     """Get Scheduler Status"""
@@ -104,11 +105,15 @@ def get_status():
             {"$match": {"status": "success", "duration": {"$ne": None}}},
             {"$group": {"_id": None, "avgDuration": {"$avg": "$duration"}}}
         ]))
-        avg_duration = durations[0]["avgDuration"] if durations else 0
+        
+        # FIX: Mencegah TypeError jika avgDuration mengembalikan None dari database
+        if durations and durations[0].get("avgDuration") is not None:
+            avg_duration = durations[0]["avgDuration"]
+        else:
+            avg_duration = 0
 
         # === PERBAIKAN: BACA DARI DATABASE CONFIG, BUKAN DARI .ENV ===
         config = db.scheduler_config.find_one({})
-        
         if config and config.get("enabled") is True:
             is_active = True
             computed_runs = calculate_next_runs(
@@ -271,8 +276,8 @@ def save_automation_config():
             "updatedAt": datetime.now(timezone.utc)
         }
         
-        db.scheduler_config.update_one({}, {"$set": update_data, "$unset": {"lastTriggeredDate": "", "daysOfMonth": ""}}, upsert=True)
         
+        db.scheduler_config.update_one({}, {"$set": update_data, "$unset": {"lastTriggeredDate": "", "daysOfMonth": ""}}, upsert=True)
         next_run = calculate_next_runs(
             update_data["frequency"], update_data["executionTime"], 
             update_data["dayOfWeek"], update_data["daysOfWeek"], count=1
