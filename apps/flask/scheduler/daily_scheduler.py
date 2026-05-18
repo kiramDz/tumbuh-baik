@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from urlib.parse import quote
 
 # Load env 
 load_dotenv()
@@ -203,7 +204,8 @@ def task_nasa_refresh(is_dry_run, target_datasets=None):
         count_success = 0
         for name in target_datasets:
             logger.info(f" -> Refreshing {name}")
-            success, resp_data = make_api_call("POST", NEXT_API_BASE_URL, f"/api/v1/nasa-power/refresh/{name}")
+            safe_name = quote(name)
+            success, resp_data = make_api_call("POST", NEXT_API_BASE_URL, f"/api/v1/nasa-power/refresh/{safe_name}")
             if success: 
                 count_success += 1
             else:
@@ -257,7 +259,8 @@ def task_bmkg_preprocess(is_dry_run, target_datasets=None):
     
     for name in bmkg_datasets:
         logger.info(f" -> Processing {name}")
-        c_success, resp_data = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/bmkg/{name}")
+        safe_name = quote(name)
+        c_success, resp_data = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/bmkg/{safe_name}")
         if c_success: 
             count_success += 1
         else:
@@ -297,7 +300,8 @@ def task_nasa_preprocess(is_dry_run, target_datasets=None):
 
     for name in nasa_datasets:
         logger.info(f" -> Processing {name}")
-        c_success, resp_data = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/nasa/{name}")
+        safe_name = quote(name)
+        c_success, resp_data = make_api_call("POST", FLASK_API_BASE_URL, f"/api/v1/preprocess/nasa/{safe_name}")
         if c_success: 
             count_success += 1
         else:
