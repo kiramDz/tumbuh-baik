@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from urlib.parse import quote
+from urllib.parse import quote
+
 
 # Load env 
 load_dotenv()
