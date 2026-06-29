@@ -34,6 +34,31 @@ PARAM_MODEL_CONFIG = {
         "seasonal": "add",
         "damped_trend": False,
     },
+    "RH2M": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": False,
+    },
+    "PRECTOTCORR": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": False,
+    },
+    "T2M": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": False,
+    },
+    "ALLSKY_SFC_SW_DWN": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": True,
+        "damping_trend": 0.90,
+    },
 }
 
 DEFAULT_PARAM_CONFIG = {
@@ -44,7 +69,7 @@ DEFAULT_PARAM_CONFIG = {
 }
 
 def get_param_model_config(param_name):
-    """Return Holt-Winters behavior for a BMKG parameter."""
+    """Return Holt-Winters behavior for a BMKG or NASA POWER parameter."""
     return PARAM_MODEL_CONFIG.get(param_name, DEFAULT_PARAM_CONFIG)
 
 def transform_series(values, method):
@@ -90,6 +115,7 @@ def calculate_smearing_factor(actual_values, forecast_transformed, method):
     if len(residuals) == 0:
         return 1.0
 
+    residuals = np.clip(residuals, -20, 20)
     factor = float(np.mean(np.exp(residuals)))
     if not np.isfinite(factor) or factor <= 0:
         return 1.0
@@ -104,8 +130,8 @@ def fit_robust_model(data, best_params, param_name):
 
     try:
         model_kwargs = {
-            "trend": config.get("trend", "add"),
-            "seasonal": config.get("seasonal", "add"),
+            "trend": best_params.get("trend", config.get("trend", "add")),
+            "seasonal": best_params.get("seasonal", config.get("seasonal", "add")),
             "seasonal_periods": best_params.get('seasonal_periods', 365),
             "initialization_method": best_params.get('initialization_method', 'heuristic'),
         }
@@ -146,21 +172,34 @@ def post_process_forecast(forecast, param_name):
     """
     Post-processing untuk memastikan forecast masuk akal
     """
-    if param_name == "RR" or param_name == "RR_imputed":  # Curah Hujan
+    if param_name in ["RR", "RR_imputed"]:  # Curah Hujan BMKG
         forecast = np.maximum(forecast, 0)
         forecast = np.minimum(forecast, 300)
         
     elif param_name == "RH_AVG":  # Kelembapan
         # Harus dalam range 0-100%
         forecast = np.clip(forecast, 0, 100)
+
+    elif param_name == "RH2M":  # Kelembapan NASA POWER
+        forecast = np.clip(forecast, 0, 100)
+
+    elif param_name == "PRECTOTCORR":  # Presipitasi NASA POWER
+        forecast = np.maximum(forecast, 0)
+        forecast = np.minimum(forecast, 300)
+
+    elif param_name == "T2M":  # Suhu NASA POWER
+        forecast = np.clip(forecast, -50, 60)
+
+    elif param_name == "ALLSKY_SFC_SW_DWN":  # MJ/m2/day
+        forecast = np.clip(forecast, 0, 30)
     
     elif param_name == "NDVI":  # Normalized Difference Vegetation Index
         # NDVI harus dalam range -1 to 1
         forecast = np.clip(forecast, -1, 1)
     
     elif "Suhu" in param_name or "Temperature" in param_name:  # Suhu
-        # Batasi suhu dalam range yang masuk akal (-50°C to 60°C)
         forecast = np.clip(forecast, -50, 60)
+        # Batasi suhu dalam range yang masuk akal (-50°C to 60°C)
     
     return forecast
 
@@ -176,9 +215,9 @@ def grid_search_hw_params(train_data, param_name):
         return None, None
     
     # Parameter grid yang lebih konservatif untuk rainfall
-    alpha_range = [0.1, 0.2, 0.3, 0.5]  
-    beta_range = [0.05, 0.1, 0.2]       
-    gamma_range = [0.1, 0.2, 0.3]       
+    alpha_range = config.get("alpha_range", [0.1, 0.2, 0.3, 0.5])
+    beta_range = config.get("beta_range", [0.05, 0.1, 0.2])
+    gamma_range = config.get("gamma_range", [0.1, 0.2, 0.3])
     
     seasonal_periods_options = []
     if len(train_data) >= 365*2:  
@@ -213,7 +252,7 @@ def grid_search_hw_params(train_data, param_name):
     for seasonal_periods in seasonal_periods_options:
         if len(train_split_model) < seasonal_periods * 2:
             continue
-            
+
         for alpha in alpha_range:
             for beta in beta_range:
                 for gamma in gamma_range:
@@ -238,13 +277,11 @@ def grid_search_hw_params(train_data, param_name):
                         if config.get("damped_trend"):
                             fit_kwargs["damping_trend"] = config.get("damping_trend", 0.90)
 
-                        # Fit model
                         model = ExponentialSmoothing(
                             train_split_model,
                             **model_kwargs
                         ).fit(**fit_kwargs)
-                        
-                        # Forecast
+
                         forecast_model_scale = model.forecast(len(val_split))
                         correction_factor = 1.0
                         if config.get("bias_correction") == "smearing":
@@ -259,16 +296,15 @@ def grid_search_hw_params(train_data, param_name):
                             config.get("transform"),
                             correction_factor
                         )
-                        forecast = np.maximum(forecast, 0)  # Non-negative
-                        
-                        # Calculate metrics
+                        forecast = np.maximum(forecast, 0)
+
                         mae = mean_absolute_error(val_split, forecast)
                         mse = mean_squared_error(val_split, forecast)
                         rmse = np.sqrt(mse)
                         mape = np.mean(np.abs((val_split - forecast) / np.where(val_split != 0, val_split, 1))) * 100
-                        
+
                         score = mae * 0.7 + rmse * 0.3
-                        
+
                         if score < best_score:
                             best_score = score
                             best_params = {
@@ -293,18 +329,28 @@ def grid_search_hw_params(train_data, param_name):
                                 'valid_models': valid_models + 1
                             }
                             valid_models += 1
-                            
+
                     except Exception as e:
                         print(
                             "❌ Grid search fit failed for "
                             f"{param_name} | seasonal_periods={seasonal_periods}, "
-                            f"alpha={alpha}, beta={beta}, gamma={gamma}: {type(e).__name__}: {e}"
+                            f"alpha={alpha}, beta={beta}, gamma={gamma}: "
+                            f"{type(e).__name__}: {e}"
                         )
                         continue
     
     return best_params, best_metrics
 
-def run_optimized_hw_analysis(collection_name, target_column, save_collection="holt-winter", config_id=None, append_column_id=True, client=None):
+def run_optimized_hw_analysis(
+    collection_name,
+    target_column,
+    save_collection="holt-winter",
+    config_id=None,
+    append_column_id=True,
+    client=None,
+    start_date=None,
+    end_date=None
+):
     """
     Fungsi Holt-Winter yang dinamis berdasarkan parameter dari forecast_config
     """
@@ -354,13 +400,23 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         missing_dates = date_range.difference(df.index)
         print(f"Missing dates: {missing_dates}")
 
-        df = df.reindex(date_range, fill_value=0)
-        
-        print(f"Data range: {df.index[0]} to {df.index[-1]}")
-        
         # Cek apakah target column ada
         if target_column not in df.columns:
             raise ValueError(f"Column '{target_column}' not found in {collection_name}")
+
+        df = df.reindex(date_range)
+
+        if target_column in ["RR", "RR_imputed", "PRECTOTCORR"]:
+            df[target_column] = df[target_column].fillna(0)
+        elif target_column in ["RH2M", "T2M", "ALLSKY_SFC_SW_DWN"]:
+            df[target_column] = df[target_column].interpolate(
+                method="time",
+                limit_direction="both"
+            )
+        else:
+            df[target_column] = df[target_column].fillna(0)
+
+        print(f"Data range: {df.index[0]} to {df.index[-1]}")
 
         config = get_param_model_config(target_column)
         
@@ -375,6 +431,8 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         
         if best_params is None:
             raise ValueError(f"No valid model found for {target_column}")
+
+        print(f"Selected HW params for {target_column}: {best_params}")
         
         # Fit final model
         final_model = fit_robust_model(param_data, best_params, target_column)
@@ -382,10 +440,19 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
         
-        # Calculate forecast horizon (sampai akhir 2026)
-        forecast_start_date = pd.Timestamp("2025-09-20")
-        forecast_end_date = pd.Timestamp("2026-09-19")
-        forecast_days = (forecast_end_date - forecast_start_date).days + 1
+        if start_date is not None and end_date is not None:
+            forecast_start_date = pd.to_datetime(start_date)
+            forecast_end_date = pd.to_datetime(end_date)
+        else:
+            forecast_start_date = df.index[-1] + pd.Timedelta(days=1)
+            forecast_end_date = forecast_start_date + pd.Timedelta(days=364)
+
+        forecast_dates = pd.date_range(
+            start=forecast_start_date,
+            end=forecast_end_date,
+            freq='D'
+        )
+        forecast_days = len(forecast_dates)
         
         print(f"Forecast horizon: {forecast_days} days")
         
@@ -427,8 +494,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         forecast_docs = []
         
         try:
-            for i in range(len(forecast)):
-                forecast_date = df.index[-1] + pd.Timedelta(days=i + 1)
+            for i, forecast_date in enumerate(forecast_dates):
                 forecast_date_only = datetime.strptime(forecast_date.strftime('%Y-%m-%d'), '%Y-%m-%d')
                 
                 forecast_value = float(forecast[i])
@@ -455,7 +521,9 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                                 "damped_trend": best_params.get("damped_trend", config.get("damped_trend", False)),
                                 "damping_trend": best_params.get("damping_trend", config.get("damping_trend")),
                                 "bias_correction": best_params.get("bias_correction", config.get("bias_correction")),
-                                "smearing_factor": best_params.get("smearing_factor")
+                                "smearing_factor": best_params.get("smearing_factor"),
+                                "trend": best_params.get("trend", config.get("trend")),
+                                "seasonal": best_params.get("seasonal", config.get("seasonal"))
                             }
                         }
                     }
@@ -472,9 +540,22 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # Upsert ke collection
         upsert_count = 0
         for doc in forecast_docs:
+            set_fields = {
+                f"parameters.{target_column}": doc["parameters"][target_column],
+                "timestamp": doc["timestamp"],
+                "source_collection": doc["source_collection"],
+                "config_id": doc["config_id"]
+            }
+
+            if append_column_id and "column_id" in doc:
+                set_fields["column_id"] = doc["column_id"]
+
             result = db[save_collection].update_one(
-                {"forecast_date": doc["forecast_date"]},
-                {"$set": doc},
+                {
+                    "forecast_date": doc["forecast_date"],
+                    "config_id": doc["config_id"]
+                },
+                {"$set": set_fields},
                 upsert=True
             )
             if result.upserted_id or result.modified_count > 0:
@@ -491,6 +572,8 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             "model_params": best_params,
             "error_metrics": error_metrics,  # Menambahkan MAE, RMSE, MAPE, MSE
             "forecast_range": {
+                "start": forecast_start_date.strftime("%Y-%m-%d"),
+                "end": forecast_end_date.strftime("%Y-%m-%d"),
                 "min": float(forecast.min()),
                 "max": float(forecast.max())
             }
