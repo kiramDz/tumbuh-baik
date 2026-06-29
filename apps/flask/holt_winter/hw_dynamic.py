@@ -9,31 +9,134 @@ import itertools
 import warnings
 warnings.filterwarnings('ignore')
 
-def fit_robust_model(data, best_params):
+PARAM_MODEL_CONFIG = {
+    "TAVG": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": False,
+    },
+    "RH_AVG": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": False,
+    },
+    "RR": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": False,
+    },
+    "RR_imputed": {
+        "transform": None,
+        "trend": "add",
+        "seasonal": "add",
+        "damped_trend": False,
+    },
+}
+
+DEFAULT_PARAM_CONFIG = {
+    "transform": None,
+    "trend": "add",
+    "seasonal": "add",
+    "damped_trend": False,
+}
+
+def get_param_model_config(param_name):
+    """Return Holt-Winters behavior for a BMKG parameter."""
+    return PARAM_MODEL_CONFIG.get(param_name, DEFAULT_PARAM_CONFIG)
+
+def transform_series(values, method):
+    """
+    Transform data for model fitting while preserving a Series index when present.
+    """
+    transformed = np.asarray(values, dtype=float)
+    if method == "log1p":
+        transformed = np.log1p(transformed)
+
+    if isinstance(values, pd.Series):
+        return pd.Series(transformed, index=values.index, name=values.name)
+    return transformed
+
+def inverse_transform(values, method):
+    """
+    Invert model output back to the physical unit scale.
+    """
+    inverted = np.asarray(values, dtype=float)
+    if method == "log1p":
+        inverted = np.expm1(inverted)
+    return inverted
+
+def inverse_transform_forecast(values, method, correction_factor=1.0):
+    """
+    Invert forecast output and optionally apply log1p smearing correction.
+    """
+    values = np.asarray(values, dtype=float)
+    if method == "log1p":
+        return np.exp(values) * correction_factor - 1
+    return inverse_transform(values, method)
+
+def calculate_smearing_factor(actual_values, forecast_transformed, method):
+    """
+    Estimate Duan smearing factor from validation residuals.
+    """
+    if method != "log1p":
+        return 1.0
+
+    actual_transformed = transform_series(actual_values, method)
+    residuals = np.asarray(actual_transformed, dtype=float) - np.asarray(forecast_transformed, dtype=float)
+    residuals = residuals[np.isfinite(residuals)]
+    if len(residuals) == 0:
+        return 1.0
+
+    factor = float(np.mean(np.exp(residuals)))
+    if not np.isfinite(factor) or factor <= 0:
+        return 1.0
+    return factor
+
+def fit_robust_model(data, best_params, param_name):
     """
     Fit model dengan error handling yang lebih baik
     """
+    config = get_param_model_config(param_name)
+    transformed_data = transform_series(data, config.get("transform"))
+
     try:
+        model_kwargs = {
+            "trend": config.get("trend", "add"),
+            "seasonal": config.get("seasonal", "add"),
+            "seasonal_periods": best_params.get('seasonal_periods', 365),
+            "initialization_method": best_params.get('initialization_method', 'heuristic'),
+        }
+
+        if config.get("damped_trend"):
+            model_kwargs["damped_trend"] = True
+
+        fit_kwargs = {
+            "smoothing_level": best_params['alpha'],
+            "smoothing_trend": best_params['beta'],
+            "smoothing_seasonal": best_params['gamma'],
+            "optimized": False,
+        }
+
+        if config.get("damped_trend"):
+            fit_kwargs["damping_trend"] = config.get("damping_trend", 0.90)
+
         model = ExponentialSmoothing(
-            data,
-            trend="add",
-            seasonal="add",
-            seasonal_periods=best_params.get('seasonal_periods', 365)
-        ).fit(
-            smoothing_level=best_params['alpha'],
-            smoothing_trend=best_params['beta'],
-            smoothing_seasonal=best_params['gamma'],
-            optimized=False
-        )
+            transformed_data,
+            **model_kwargs
+        ).fit(**fit_kwargs)
         return model
     except Exception as e:
         print(f"Model fitting failed: {e}")
         # Fallback ke simple exponential smoothing
         try:
             model = ExponentialSmoothing(
-                data,
+                transformed_data,
                 trend=None,
-                seasonal=None
+                seasonal=None,
+                initialization_method='heuristic'
             ).fit(smoothing_level=0.3)
             return model
         except:
@@ -66,6 +169,7 @@ def grid_search_hw_params(train_data, param_name):
     Grid search disesuaikan untuk pola curah hujan Indonesia
     """
     print(f"\n--- Grid Search for Indonesian Rainfall Pattern: {param_name} ---")
+    config = get_param_model_config(param_name)
     
     if len(train_data) < 365:  # Minimal 1 tahun
         print("❌ Insufficient data (need at least 1 year)")
@@ -102,32 +206,59 @@ def grid_search_hw_params(train_data, param_name):
     
     train_split = train_data[:split_point]
     val_split = train_data[split_point:]
+    train_split_model = transform_series(train_split, config.get("transform"))
     
     print(f"Train: {len(train_split)} days, Validation: {len(val_split)} days")
     
     for seasonal_periods in seasonal_periods_options:
-        if len(train_split) < seasonal_periods * 2:
+        if len(train_split_model) < seasonal_periods * 2:
             continue
             
         for alpha in alpha_range:
             for beta in beta_range:
                 for gamma in gamma_range:
                     try:
+                        model_kwargs = {
+                            "trend": config.get("trend", "add"),
+                            "seasonal": config.get("seasonal", "add"),
+                            "seasonal_periods": seasonal_periods,
+                            "initialization_method": "heuristic",
+                        }
+
+                        if config.get("damped_trend"):
+                            model_kwargs["damped_trend"] = True
+
+                        fit_kwargs = {
+                            "smoothing_level": alpha,
+                            "smoothing_trend": beta,
+                            "smoothing_seasonal": gamma,
+                            "optimized": False,
+                        }
+
+                        if config.get("damped_trend"):
+                            fit_kwargs["damping_trend"] = config.get("damping_trend", 0.90)
+
                         # Fit model
                         model = ExponentialSmoothing(
-                            train_split,
-                            trend="add",
-                            seasonal="add",
-                            seasonal_periods=seasonal_periods
-                        ).fit(
-                            smoothing_level=alpha,
-                            smoothing_trend=beta,
-                            smoothing_seasonal=gamma,
-                            optimized=False
-                        )
+                            train_split_model,
+                            **model_kwargs
+                        ).fit(**fit_kwargs)
                         
                         # Forecast
-                        forecast = model.forecast(len(val_split))
+                        forecast_model_scale = model.forecast(len(val_split))
+                        correction_factor = 1.0
+                        if config.get("bias_correction") == "smearing":
+                            correction_factor = calculate_smearing_factor(
+                                val_split,
+                                forecast_model_scale,
+                                config.get("transform")
+                            )
+
+                        forecast = inverse_transform_forecast(
+                            forecast_model_scale,
+                            config.get("transform"),
+                            correction_factor
+                        )
                         forecast = np.maximum(forecast, 0)  # Non-negative
                         
                         # Calculate metrics
@@ -144,7 +275,15 @@ def grid_search_hw_params(train_data, param_name):
                                 'alpha': alpha,
                                 'beta': beta,
                                 'gamma': gamma,
-                                'seasonal_periods': seasonal_periods
+                                'seasonal_periods': seasonal_periods,
+                                'initialization_method': 'heuristic',
+                                'transform': config.get('transform'),
+                                'trend': config.get('trend', 'add'),
+                                'seasonal': config.get('seasonal', 'add'),
+                                'damped_trend': config.get('damped_trend', False),
+                                'damping_trend': config.get('damping_trend'),
+                                'bias_correction': config.get('bias_correction'),
+                                'smearing_factor': correction_factor
                             }
                             best_metrics = {
                                 'mae': mae,
@@ -156,6 +295,11 @@ def grid_search_hw_params(train_data, param_name):
                             valid_models += 1
                             
                     except Exception as e:
+                        print(
+                            "❌ Grid search fit failed for "
+                            f"{param_name} | seasonal_periods={seasonal_periods}, "
+                            f"alpha={alpha}, beta={beta}, gamma={gamma}: {type(e).__name__}: {e}"
+                        )
                         continue
     
     return best_params, best_metrics
@@ -217,6 +361,8 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
         # Cek apakah target column ada
         if target_column not in df.columns:
             raise ValueError(f"Column '{target_column}' not found in {collection_name}")
+
+        config = get_param_model_config(target_column)
         
         # Get data (tanpa preprocessing karena data sudah bersih)
         param_data = df[target_column].dropna()
@@ -231,7 +377,7 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             raise ValueError(f"No valid model found for {target_column}")
         
         # Fit final model
-        final_model = fit_robust_model(param_data, best_params)
+        final_model = fit_robust_model(param_data, best_params, target_column)
         
         if final_model is None:
             raise ValueError(f"Failed to fit final model for {target_column}")
@@ -258,6 +404,15 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
             
             if np.isnan(forecast).any() or np.isinf(forecast).any():
                 raise ValueError("Forecast contains NaN or infinite values")
+
+            forecast = inverse_transform_forecast(
+                forecast,
+                config.get("transform"),
+                best_params.get("smearing_factor", 1.0)
+            )
+
+            if np.isnan(forecast).any() or np.isinf(forecast).any():
+                raise ValueError("Forecast contains NaN or infinite values after inverse transform")
             
             # Post-process forecast
             forecast = post_process_forecast(forecast, target_column)
@@ -294,7 +449,13 @@ def run_optimized_hw_analysis(collection_name, target_column, save_collection="h
                                 "beta": best_params["beta"],
                                 "gamma": best_params["gamma"],
                                 "use_seasonal": best_params.get("use_seasonal", True),
-                                "seasonal_periods": best_params.get("seasonal_periods", 365)
+                                "seasonal_periods": best_params.get("seasonal_periods", 365),
+                                "initialization_method": best_params.get("initialization_method", "heuristic"),
+                                "transform": best_params.get("transform", config.get("transform")),
+                                "damped_trend": best_params.get("damped_trend", config.get("damped_trend", False)),
+                                "damping_trend": best_params.get("damping_trend", config.get("damping_trend")),
+                                "bias_correction": best_params.get("bias_correction", config.get("bias_correction")),
+                                "smearing_factor": best_params.get("smearing_factor")
                             }
                         }
                     }
