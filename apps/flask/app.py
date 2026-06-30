@@ -7,12 +7,13 @@ from jobs.run_forecast_from_config import run_forecast_from_config
 from jobs.run_lstm import (
     get_all_lstm_statuses,
     get_lstm_status,
-    run_lstm_background_worker,
 )
 from bson import ObjectId
 import json
 from bson.json_util import dumps
 import requests
+import subprocess
+import sys
 from dotenv import load_dotenv
 from datetime import datetime
 import logging
@@ -21,7 +22,6 @@ import tempfile
 import shutil
 from queue import Queue
 import threading
-import multiprocessing as mp
 import time
 from typing import Dict, Any
 from preprocessing.buoys.preprocessing_buoys import (
@@ -108,26 +108,38 @@ def run_lstm():
         return jsonify({"message": "No pending LSTM config found."}), 404
 
     config_id = str(pending_config["_id"])
-    start_method = os.getenv("LSTM_MP_START_METHOD", "spawn")
-    process_ctx = mp.get_context(start_method)
-    process = process_ctx.Process(
-        target=run_lstm_background_worker,
-        args=(config_id, mongo_uri, db_name)
-    )
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    worker_script = os.path.join(app_dir, "jobs", "lstm_worker_entrypoint.py")
+    log_path = os.path.join(tempfile.gettempdir(), f"lstm_{config_id}.log")
+    env = os.environ.copy()
+    env["MONGODB_DB_NAME"] = db_name
+
     try:
-        process.start()
+        log_file = open(log_path, "a", buffering=1)
+        process = subprocess.Popen(
+            [sys.executable, worker_script, config_id, db_name],
+            cwd=app_dir,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+            close_fds=True,
+            env=env,
+        )
+        log_file.close()
     except Exception as e:
         db.lstm_configs.update_one(
             {"_id": pending_config["_id"]},
-            {"$set": {"status": "failed", "error_message": f"Failed to start background process: {str(e)}", "updatedAt": datetime.now()}}
+            {"$set": {"status": "failed", "error_message": f"Failed to start subprocess: {str(e)}", "updatedAt": datetime.now()}}
         )
-        return jsonify({"error": "Failed to start LSTM background process", "details": str(e)}), 500
+        return jsonify({"error": "Failed to start LSTM subprocess", "details": str(e)}), 500
 
     return jsonify({
-        "message": "LSTM job started in background.",
+        "message": "LSTM job started in background subprocess.",
         "status": "running",
         "config_id": config_id,
-        "pid": process.pid
+        "pid": process.pid,
+        "log_path": log_path
     }), 202
 
 @app.route("/run-lstm" , methods=["GET"])
