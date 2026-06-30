@@ -1,12 +1,13 @@
 from pymongo import MongoClient
+from pymongo import ReturnDocument
 from datetime import datetime
 import time
 import traceback
 import os
 from flask import jsonify
 from dotenv import load_dotenv
-from lstm.lstm_dynamic_2 import run_lstm_analysis
 import pandas as pd
+from bson import ObjectId
 
 
 load_dotenv()
@@ -15,12 +16,17 @@ MONGO_URI = os.getenv("MONGODB_URI")
 if not MONGO_URI:
     raise ValueError("No MONGODB_URI set in environment variables!")
 
+DB_NAME = os.getenv("MONGODB_DB_NAME", "tugas_akhir")
 client = MongoClient(MONGO_URI)
-db = client["tugas_akhir"]
+db = client[DB_NAME]
 
 def convert_objectid(obj):
     """Convert ObjectId to string for JSON serialization"""
-    if isinstance(obj, list):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, list):
         return [convert_objectid(item) for item in obj]
     elif isinstance(obj, dict):
         return {key: convert_objectid(value) for key, value in obj.items()}
@@ -43,20 +49,40 @@ def is_valid_column(collection_name, column_name, client):
     except Exception as e:
         return False, f"Error checking column {column_name}: {str(e)}"
 
-def run_lstm_from_config():
-    try:
-        # Kosongkan collection temp-lstm dan decompose di awal
-        db["temp-lstm"].delete_many({})
-        db["decompose-lstm-temp"].delete_many({})  # ✅ TAMBAH
+def run_lstm_from_config_core(config_id=None, mongo_uri=None, db_name=None):
+    """
+    Run one pending LSTM config without depending on Flask response context.
+    This is safe to call from a background child process because it creates
+    its own MongoClient instead of reusing the Gunicorn parent connection.
+    """
+    local_client = MongoClient(mongo_uri or MONGO_URI)
+    local_db = local_client[db_name or DB_NAME]
+    config = None
 
-        config = db.lstm_configs.find_one_and_update(
-            {"status": "pending"},
-            {"$set": {"status": "running"}},
-            return_document=True
+    try:
+        from lstm.lstm_dynamic_2 import run_lstm_analysis
+
+        # Kosongkan collection temp-lstm dan decompose di awal
+        local_db["temp-lstm"].delete_many({})
+        local_db["decompose-lstm-temp"].delete_many({})  # ✅ TAMBAH
+
+        if config_id:
+            try:
+                config_object_id = ObjectId(config_id)
+            except Exception:
+                return {"error": f"Invalid LSTM config_id: {config_id}"}, 400
+            config_filter = {"_id": config_object_id, "status": {"$in": ["pending", "running"]}}
+        else:
+            config_filter = {"status": "pending"}
+
+        config = local_db.lstm_configs.find_one_and_update(
+            config_filter,
+            {"$set": {"status": "running", "startedAt": datetime.now(), "updatedAt": datetime.now()}},
+            return_document=ReturnDocument.AFTER
         )
         
         if not config:
-            return jsonify({"message": "No pending LSTM config found."}), 404
+            return {"message": "No pending LSTM config found."}, 404
 
         config_id = str(config["_id"])
         
@@ -71,11 +97,11 @@ def run_lstm_from_config():
 
         if not start_date_str or not end_date_str:
             error_msg = "startDate and endDate must be specified in the config."
-            db.lstm_configs.update_one(
+            local_db.lstm_configs.update_one(
                 {"_id": config["_id"]},
-                {"$set": {"status": "failed", "error_message": error_msg}}
+                {"$set": {"status": "failed", "error_message": error_msg, "updatedAt": datetime.now()}}
             )
-            return jsonify({"error": error_msg}), 400
+            return {"error": error_msg}, 400
         
         try:
             start_date= pd.to_datetime(start_date_str).date()
@@ -83,23 +109,23 @@ def run_lstm_from_config():
             print(f"[INFO] Using startDate: {start_date}, endDate: {end_date}")
         except Exception as e:
             error_msg = f"Invalid date format for startDate or endDate: {str(e)}"
-            db.lstm_configs.update_one(
+            local_db.lstm_configs.update_one(
                 {"_id": config["_id"]},
-                {"$set": {"status": "failed", "error_message": error_msg}}
+                {"$set": {"status": "failed", "error_message": error_msg, "updatedAt": datetime.now()}}
             )
-            return jsonify({"error": error_msg}), 400
+            return {"error": error_msg}, 400
 
         # Validasi kolom
         for item in columns:
             collection = item["collectionName"]
             column = item["columnName"]
-            is_valid, error_msg = is_valid_column(collection, column, client)
+            is_valid, error_msg = is_valid_column(collection, column, local_client)
             if not is_valid:
-                db.lstm_configs.update_one(
+                local_db.lstm_configs.update_one(
                     {"_id": config["_id"]},
-                    {"$set": {"status": "failed", "error_message": error_msg}}
+                    {"$set": {"status": "failed", "error_message": error_msg, "updatedAt": datetime.now()}}
                 )
-                return jsonify({"error": error_msg}), 400
+                return {"error": error_msg}, 400
         
         results = []
         forecast_data = {}
@@ -120,7 +146,7 @@ def run_lstm_from_config():
                     save_collection="temp-lstm",
                     config_id=config_id,
                     append_column_id=True,
-                    client=client,
+                    client=local_client,
                     start_date=start_date,
                     end_date=end_date
                 )
@@ -154,7 +180,7 @@ def run_lstm_from_config():
                     })
                 
                 # Ambil hasil forecast untuk digabung
-                temp_forecasts = list(db["temp-lstm"].find({"config_id": config_id}))
+                temp_forecasts = list(local_db["temp-lstm"].find({"config_id": config_id}))
                 
                 for forecast_doc in temp_forecasts:
                     forecast_date = pd.to_datetime(forecast_doc["forecast_date"]).strftime("%Y-%m-%d")
@@ -175,7 +201,7 @@ def run_lstm_from_config():
                         )
                 
                 # ✅ TAMBAH: Ambil hasil decompose untuk digabung
-                temp_decompose = list(db["decompose-lstm-temp"].find({"config_id": config_id}))
+                temp_decompose = list(local_db["decompose-lstm-temp"].find({"config_id": config_id}))
                 
                 for decompose_doc in temp_decompose:
                     date_str = decompose_doc["date"]
@@ -195,47 +221,49 @@ def run_lstm_from_config():
                 
             except Exception as e:
                 error_msg = f"LSTM failed for {collection}:{column} → {str(e)}"
-                db.lstm_configs.update_one(
+                local_db.lstm_configs.update_one(
                     {"_id": config["_id"]},
-                    {"$set": {"status": "failed", "error_message": error_msg}}
+                    {"$set": {"status": "failed", "error_message": error_msg, "updatedAt": datetime.now()}}
                 )
                 traceback.print_exc()
-                return jsonify({"error": error_msg}), 500
+                return {"error": error_msg}, 500
         
         # Simpan hasil gabungan forecast ke collection final
         if forecast_data:
             # Hapus data lama untuk config ini
-            db["lstm-forecast"].delete_many({"config_id": config_id})
+            local_db["lstm-forecast"].delete_many({"config_id": config_id})
             
             # Insert data gabungan
             combined_docs = list(forecast_data.values())
-            db["lstm-forecast"].insert_many(combined_docs)
+            local_db["lstm-forecast"].insert_many(combined_docs)
             
             print(f"✓ Inserted {len(combined_docs)} combined LSTM forecast documents")
         
         # ✅ TAMBAH: Simpan hasil gabungan decompose ke collection final
         if decompose_data:
-            db["decompose-lstm"].delete_many({"config_id": config_id})
+            local_db["decompose-lstm"].delete_many({"config_id": config_id})
             combined_decompose = list(decompose_data.values())
-            db["decompose-lstm"].insert_many(combined_decompose)
+            local_db["decompose-lstm"].insert_many(combined_decompose)
             print(f"✓ Inserted {len(combined_decompose)} combined decompose documents")
         
         # Bersihkan collection temporary
-        db["temp-lstm"].delete_many({})
-        db["decompose-lstm-temp"].delete_many({})  # ✅ TAMBAH
+        local_db["temp-lstm"].delete_many({})
+        local_db["decompose-lstm-temp"].delete_many({})  # ✅ TAMBAH
         
         # Update status config dan simpan error metrics
         update_data = {
             "status": "done",
-            "error_metrics": error_metrics_list
+            "error_metrics": error_metrics_list,
+            "finishedAt": datetime.now(),
+            "updatedAt": datetime.now()
         }
 
-        db.lstm_configs.update_one(
+        local_db.lstm_configs.update_one(
             {"_id": config["_id"]},
             {"$set": update_data}
         )
 
-        return jsonify({
+        return {
             "message": f"LSTM Forecasting completed for config: {name}",
             "config_id": config_id,
             "forecastResultCollection": forecast_coll,
@@ -244,17 +272,42 @@ def run_lstm_from_config():
             "total_forecast_dates": len(forecast_data),
             "total_decompose_dates": len(decompose_data),  # ✅ TAMBAH
             "error_metrics": error_metrics_list
-        }), 200
+        }, 200
         
     except Exception as e:
         error_msg = f"Internal server error: {str(e)}"
-        if 'config' in locals():
-            db.lstm_configs.update_one(
+        if config is not None:
+            local_db.lstm_configs.update_one(
                 {"_id": config["_id"]},
-                {"$set": {"status": "failed", "error_message": error_msg}}
+                {"$set": {"status": "failed", "error_message": error_msg, "updatedAt": datetime.now()}}
             )
         traceback.print_exc()
-        return jsonify({"error": error_msg}), 500
+        return {"error": error_msg}, 500
+    finally:
+        local_client.close()
+
+def run_lstm_from_config(config_id=None):
+    payload, status_code = run_lstm_from_config_core(config_id=config_id)
+    return jsonify(payload), status_code
+
+def run_lstm_background_worker(config_id=None, mongo_uri=None, db_name=None):
+    """Entry point for multiprocessing child process."""
+    try:
+        import torch
+        safe_threads = int(os.getenv("LSTM_TORCH_THREADS", "2"))
+        safe_threads = max(1, safe_threads)
+        torch.set_num_threads(safe_threads)
+        torch.set_num_interop_threads(safe_threads)
+        print(f"[INFO] LSTM background worker using {safe_threads} torch CPU threads")
+    except Exception as e:
+        print(f"[WARN] Failed to configure torch CPU threads: {e}")
+
+    payload, status_code = run_lstm_from_config_core(
+        config_id=config_id,
+        mongo_uri=mongo_uri,
+        db_name=db_name
+    )
+    print(f"[INFO] LSTM background worker finished with status {status_code}: {payload}")
 
 def get_lstm_status(config_id):
     """Get LSTM execution status from lstm_configs collection"""
@@ -271,7 +324,7 @@ def get_lstm_status(config_id):
 def get_all_lstm_statuses():
     """Get all LSTM execution statuses from lstm_configs collection"""
     try:
-        statuses = list(db["lstm_configs"].find().sort("updated_at", -1))
+        statuses = list(db["lstm_configs"].find().sort("updatedAt", -1))
         return convert_objectid(statuses)
     except Exception as e:
         print(f"❌ Error getting all LSTM statuses: {str(e)}")
