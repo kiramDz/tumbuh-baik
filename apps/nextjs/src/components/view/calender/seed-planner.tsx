@@ -62,6 +62,22 @@ const RADIATION_MAX = 25;
 const GARAP_DURATION = 5;
 const SEMAI_DURATION = 20;
 
+const getForecastParameterValue = (
+  parameters: any,
+  paramNames: string[],
+): number => {
+  if (!parameters) return 0;
+
+  for (const name of paramNames) {
+    const value = parameters?.[name]?.forecast_value;
+    if (value !== undefined && value !== null && !isNaN(value)) {
+      return value;
+    }
+  }
+
+  return 0;
+};
+
 export default function CalendarSeedPlanner() {
   const queryClient = useQueryClient();
   const [selectedSeedName, setSelectedSeedName] = useState<string>("");
@@ -164,52 +180,52 @@ export default function CalendarSeedPlanner() {
   ) => {
     const criteria = {
       isRainSesuai: rain >= RAIN_MIN && rain <= RAIN_MAX,
+      isRainTooLow: rain < RAIN_MIN,
+      isRainTooHigh: rain > RAIN_MAX,
       isTempSesuai: temp >= TEMP_MIN && temp <= TEMP_MAX,
       isHumiditySesuai: hum >= HUM_MIN && hum <= HUM_MAX,
       isRadiationSesuai:
         radiation >= RADIATION_MIN && radiation <= RADIATION_MAX,
+      isRadiationTooLow: radiation < RADIATION_MIN,
+      isRadiationTooHigh: radiation > RADIATION_MAX,
     };
 
-    // 1. SYARAT MUTLAK: HUJAN
-    if (!criteria.isRainSesuai) {
-      return {
-        color: "bg-red-100 border-red-200 text-red-800",
-        label: "Masa Bera (Air Tidak Sesuai)",
-        icon: <XCircle className="w-3 h-3" />,
-        criteria,
-        type: "tidakCocok" as const,
-      };
-    }
+    const isSuitable =
+      criteria.isRainSesuai &&
+      criteria.isTempSesuai &&
+      criteria.isHumiditySesuai &&
+      criteria.isRadiationSesuai;
 
-    // 2. HITUNG SKOR (Hujan sudah pasti sesuai)
-    const sesuaiCount = Object.values(criteria).filter(Boolean).length;
+    const isPlantableWithWarning =
+      !criteria.isRainTooLow &&
+      criteria.isTempSesuai &&
+      criteria.isHumiditySesuai &&
+      !criteria.isRadiationTooLow &&
+      (criteria.isRainTooHigh || criteria.isRadiationTooHigh);
 
-    // Skor 4/4: Sempurna
-    if (sesuaiCount === 4) {
+    if (isSuitable) {
       return {
         color: "bg-emerald-100 border-emerald-200 text-emerald-800",
-        label: "Sangat Cocok (Optimal)",
+        label: "Sesuai",
         icon: <CheckCircle className="w-3 h-3" />,
         criteria,
         type: "sangatCocok" as const,
       };
     }
 
-    // Skor 3/4: Cukup Cocok
-    if (sesuaiCount === 3) {
+    if (isPlantableWithWarning) {
       return {
         color: "bg-amber-100 border-amber-200 text-amber-800",
-        label: "Cukup Cocok (Kondisi Baik)",
+        label: "Waspada, Masih Dapat Tanam",
         icon: <AlertCircle className="w-3 h-3" />,
         criteria,
         type: "cukupCocok" as const,
       };
     }
 
-    // Skor < 3: Tidak Cocok
     return {
       color: "bg-red-100 border-red-200 text-red-800",
-      label: "Tidak Cocok (Parameter Lingkungan)",
+      label: "Tidak Sesuai",
       icon: <XCircle className="w-3 h-3" />,
       criteria,
       type: "tidakCocok" as const,
@@ -225,13 +241,13 @@ export default function CalendarSeedPlanner() {
     const issues = [];
     if (rain < RAIN_MIN)
       issues.push({
-        type: "warning",
+        type: "danger",
         text: `Curah hujan rendah: ${rain.toFixed(1)}mm (min: ${RAIN_MIN}mm)`,
       });
     if (rain > RAIN_MAX)
       issues.push({
-        type: "danger",
-        text: `Curah hujan tinggi: ${rain.toFixed(1)}mm (max: ${RAIN_MAX}mm)`,
+        type: "warning",
+        text: `Curah hujan tinggi: ${rain.toFixed(1)}mm (perlu drainase)`,
       });
     if (temp < TEMP_MIN)
       issues.push({
@@ -255,13 +271,13 @@ export default function CalendarSeedPlanner() {
       });
     if (radiation < RADIATION_MIN)
       issues.push({
-        type: "warning",
+        type: "danger",
         text: `Radiasi matahari rendah: ${radiation.toFixed(1)} (min: ${RADIATION_MIN})`,
       });
     if (radiation > RADIATION_MAX)
       issues.push({
-        type: "danger",
-        text: `Radiasi matahari tinggi: ${radiation.toFixed(1)} (max: ${RADIATION_MAX})`,
+        type: "warning",
+        text: `Radiasi matahari tinggi: ${radiation.toFixed(1)} (perlu perhatian air)`,
       });
     return issues;
   };
@@ -292,8 +308,11 @@ export default function CalendarSeedPlanner() {
         radiation = 0;
       let hasData = false;
       let issues: any[] = [];
-      let suitabilityType: "sangatCocok" | "cukupCocok" | "tidakCocok" | null =
-        null;
+      let suitabilityType:
+        | "sangatCocok"
+        | "cukupCocok"
+        | "tidakCocok"
+        | null = null;
 
       if (i < preparationDays) {
         if (semaiStatus === "belum") {
@@ -321,11 +340,25 @@ export default function CalendarSeedPlanner() {
 
         if (forecastDay) {
           hasData = true;
-          rain = forecastDay.parameters?.RR?.forecast_value ?? 0;
-          temp = forecastDay.parameters?.TAVG?.forecast_value ?? 0;
-          hum = forecastDay.parameters?.RH_AVG?.forecast_value ?? 0;
-          radiation =
-            forecastDay.parameters?.ALLSKY_SFC_SW_DWN?.forecast_value ?? 0;
+          rain = getForecastParameterValue(forecastDay.parameters, [
+            "RR_imputed",
+            "RR",
+            "PRECTOTCORR",
+          ]);
+          temp = getForecastParameterValue(forecastDay.parameters, [
+            "TAVG",
+            "T2M",
+            "T2M_MAX",
+            "TMAX",
+          ]);
+          hum = getForecastParameterValue(forecastDay.parameters, [
+            "RH_AVG_preprocessed",
+            "RH_AVG",
+            "RH2M",
+          ]);
+          radiation = getForecastParameterValue(forecastDay.parameters, [
+            "ALLSKY_SFC_SW_DWN",
+          ]);
 
           // ✅ GUNAKAN LOGIKA BARU
           const suitability = getSuitability(rain, temp, hum, radiation);
@@ -426,7 +459,9 @@ export default function CalendarSeedPlanner() {
                     <span className="text-2xl font-bold text-emerald-800">
                       {goodDays}
                     </span>
-                    <span className="text-xs text-emerald-600">Hari Ideal</span>
+                    <span className="text-xs text-emerald-600">
+                      Hari Sesuai
+                    </span>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-amber-100 rounded-lg border border-amber-200">
                     <AlertCircle className="w-5 h-5 text-amber-600 mb-1" />
@@ -434,7 +469,7 @@ export default function CalendarSeedPlanner() {
                       {warningDays}
                     </span>
                     <span className="text-xs text-amber-600">
-                      Hari Hati-hati
+                      Hari Waspada
                     </span>
                   </div>
                   <div className="flex flex-col items-center p-3 bg-red-100 rounded-lg border border-red-200">
@@ -442,7 +477,9 @@ export default function CalendarSeedPlanner() {
                     <span className="text-2xl font-bold text-red-800">
                       {badDays}
                     </span>
-                    <span className="text-xs text-red-600">Hari Berisiko</span>
+                    <span className="text-xs text-red-600">
+                      Hari Tidak Sesuai
+                    </span>
                   </div>
                 </div>
                 <p className="text-xs text-gray-600 mt-3 text-center">
@@ -524,7 +561,7 @@ export default function CalendarSeedPlanner() {
                               <Sun className="w-3 h-3 text-yellow-500" />
                               <span>
                                 Radiasi Matahari: {item.radiation.toFixed(1)}{" "}
-                                W/m²
+                                MJ/m²/hari
                               </span>
                             </div>
                           </div>

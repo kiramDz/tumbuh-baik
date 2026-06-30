@@ -80,34 +80,33 @@ const getSuitability = (
   radiation: number,
 ) => {
   const criteria = {
-    isRainSesuai: rain >= 5.7 && rain <= 16.7, // Syarat Mutlak Tanam
+    isRainSesuai: rain >= 5.7 && rain <= 16.7,
+    isRainTooLow: rain < 5.7,
+    isRainTooHigh: rain > 16.7,
     isTempSesuai: temp >= 24 && temp <= 29,
-    isHumiditySesuai: humidity >= 33 && humidity <= 90, // Kelembaban ada di sini
+    isHumiditySesuai: humidity >= 33 && humidity <= 90,
     isRadiationSesuai: radiation >= 15 && radiation <= 25,
+    isRadiationTooLow: radiation < 15,
+    isRadiationTooHigh: radiation > 25,
   };
 
-  // 1. SYARAT MUTLAK: HUJAN
-  // Jika hujan kurang/banjir, langsung MERAH (Bera), tidak peduli kelembaban bagus.
-  if (!criteria.isRainSesuai) {
-    return {
-      color: "bg-red-300 hover:bg-red-400 border-red-400",
-      label: "Masa Bera (Air Tidak Sesuai)",
-      count: 0,
-      icon: "✕",
-      iconColor: "text-red-700",
-      criteria,
-      type: "tidakCocok" as const,
-    };
-  }
+  const isSuitable =
+    criteria.isRainSesuai &&
+    criteria.isTempSesuai &&
+    criteria.isHumiditySesuai &&
+    criteria.isRadiationSesuai;
 
-  // 2. HITUNG SKOR (Hujan sudah pasti Benar/True di sini)
-  const sesuaiCount = Object.values(criteria).filter(Boolean).length;
+  const isPlantableWithWarning =
+    !criteria.isRainTooLow &&
+    criteria.isTempSesuai &&
+    criteria.isHumiditySesuai &&
+    !criteria.isRadiationTooLow &&
+    (criteria.isRainTooHigh || criteria.isRadiationTooHigh);
 
-  // Skor 4/4: Sempurna (Hijau Tua)
-  if (sesuaiCount === 4) {
+  if (isSuitable) {
     return {
       color: "bg-green-300 hover:bg-green-400 border-green-400",
-      label: "Sangat Cocok (Optimal)",
+      label: "Sesuai",
       count: 4,
       icon: "●",
       iconColor: "text-green-700",
@@ -116,13 +115,10 @@ const getSuitability = (
     };
   }
 
-  // Skor 3/4: Masih Tanam (Hijau Muda/Kuning)
-  // Contoh: Hujan OK, Suhu OK, Solar OK, tapi KELEMBABAN BURUK.
-  // Ini masuk kategori "Cukup Cocok".
-  if (sesuaiCount === 3) {
+  if (isPlantableWithWarning) {
     return {
       color: "bg-yellow-300 hover:bg-yellow-400 border-yellow-400",
-      label: "Cukup Cocok (Kondisi Baik)",
+      label: "Waspada, Masih Dapat Tanam",
       count: 3,
       icon: "●",
       iconColor: "text-yellow-800",
@@ -131,13 +127,15 @@ const getSuitability = (
     };
   }
 
-  // Skor < 3: Parameter Pendukung Buruk (Merah)
-  // Hujan OK, tapi Kelembaban DAN Suhu jelek (Skor 2).
-  // Maka jadi TIDAK COCOK.
   return {
     color: "bg-red-300 hover:bg-red-400 border-red-400",
-    label: "Tidak Cocok (Parameter Lingkungan)",
-    count: sesuaiCount,
+    label: "Tidak Sesuai",
+    count: [
+      criteria.isRainSesuai || criteria.isRainTooHigh,
+      criteria.isTempSesuai,
+      criteria.isHumiditySesuai,
+      criteria.isRadiationSesuai || criteria.isRadiationTooHigh,
+    ].filter(Boolean).length,
     icon: "✕",
     iconColor: "text-red-700",
     criteria,
@@ -445,26 +443,26 @@ export default function PeriodCalendar() {
                           radiation,
                         );
 
-                        // --- LOGIKA TOOLTIP ERROR (DIMUNCULKAN KELEMBABANNYA) ---
                         const unsuitable: string[] = [];
-                        if (!suitability.criteria?.isRainSesuai)
-                          unsuitable.push("Hujan");
+                        const warnings: string[] = [];
+                        if (suitability.criteria?.isRainTooLow)
+                          unsuitable.push("Hujan rendah");
+                        if (suitability.criteria?.isRainTooHigh)
+                          warnings.push("Hujan tinggi");
                         if (
                           suitability.criteria &&
                           !suitability.criteria.isTempSesuai
                         )
                           unsuitable.push("Suhu");
-                        // DI SINI KELEMBABAN DIPANGGIL JIKA TIDAK SESUAI
                         if (
                           suitability.criteria &&
                           !suitability.criteria.isHumiditySesuai
                         )
                           unsuitable.push("Kelembaban");
-                        if (
-                          suitability.criteria &&
-                          !suitability.criteria.isRadiationSesuai
-                        )
-                          unsuitable.push("Radiasi");
+                        if (suitability.criteria?.isRadiationTooLow)
+                          unsuitable.push("Radiasi rendah");
+                        if (suitability.criteria?.isRadiationTooHigh)
+                          warnings.push("Radiasi tinggi");
 
                         return (
                           <Tooltip key={colIdx}>
@@ -513,9 +511,10 @@ export default function PeriodCalendar() {
                                   <div
                                     className={clsx(
                                       "flex items-center justify-between gap-2",
-                                      suitability.criteria &&
-                                        !suitability.criteria.isRainSesuai &&
+                                      suitability.criteria?.isRainTooLow &&
                                         "text-red-600",
+                                      suitability.criteria?.isRainTooHigh &&
+                                        "text-yellow-700",
                                     )}
                                   >
                                     <div className="flex items-center gap-2">
@@ -525,10 +524,9 @@ export default function PeriodCalendar() {
                                         <strong>{rain.toFixed(2)} mm</strong>
                                       </span>
                                     </div>
-                                    {suitability.criteria &&
-                                      !suitability.criteria.isRainSesuai && (
-                                        <XCircle className="w-3 h-3 text-red-500" />
-                                      )}
+                                    {suitability.criteria?.isRainTooLow && (
+                                      <XCircle className="w-3 h-3 text-red-500" />
+                                    )}
                                   </div>
 
                                   <div
@@ -579,10 +577,11 @@ export default function PeriodCalendar() {
                                   <div
                                     className={clsx(
                                       "flex items-center justify-between gap-2",
-                                      suitability.criteria &&
-                                        !suitability.criteria
-                                          .isRadiationSesuai &&
+                                      suitability.criteria?.isRadiationTooLow &&
                                         "text-red-600",
+                                      suitability.criteria
+                                        ?.isRadiationTooHigh &&
+                                        "text-yellow-700",
                                     )}
                                   >
                                     <div className="flex items-center gap-2">
@@ -594,11 +593,10 @@ export default function PeriodCalendar() {
                                         </strong>
                                       </span>
                                     </div>
-                                    {suitability.criteria &&
-                                      !suitability.criteria
-                                        .isRadiationSesuai && (
-                                        <XCircle className="w-3 h-3 text-red-500" />
-                                      )}
+                                    {suitability.criteria
+                                      ?.isRadiationTooLow && (
+                                      <XCircle className="w-3 h-3 text-red-500" />
+                                    )}
                                   </div>
                                 </div>
 
@@ -609,6 +607,11 @@ export default function PeriodCalendar() {
                                   {unsuitable.length > 0 && (
                                     <p className="text-xs text-red-600 text-center mt-1">
                                       Tidak sesuai: {unsuitable.join(", ")}
+                                    </p>
+                                  )}
+                                  {warnings.length > 0 && (
+                                    <p className="text-xs text-yellow-700 text-center mt-1">
+                                      Perhatian: {warnings.join(", ")}
                                     </p>
                                   )}
                                 </div>
@@ -749,7 +752,7 @@ export default function PeriodCalendar() {
                 ●
               </div>
               <div className="space-y-1">
-                <p className="font-medium text-sm leading-none">Sangat Cocok</p>
+                <p className="font-medium text-sm leading-none">Sesuai</p>
                 <p className="text-xs text-muted-foreground leading-none">
                   4/4 parameter sesuai
                 </p>
@@ -760,9 +763,9 @@ export default function PeriodCalendar() {
                 ●
               </div>
               <div className="space-y-1">
-                <p className="font-medium text-sm leading-none">Cukup Cocok</p>
+                <p className="font-medium text-sm leading-none">Waspada</p>
                 <p className="text-xs text-muted-foreground leading-none">
-                  3/4 (Hujan Wajib + 2 Lainnya)
+                  Hujan/radiasi tinggi, masih dapat tanam
                 </p>
               </div>
             </div>
@@ -771,11 +774,9 @@ export default function PeriodCalendar() {
                 ✕
               </div>
               <div className="space-y-1">
-                <p className="font-medium text-sm leading-none">
-                  Tidak Cocok (Bera)
-                </p>
+                <p className="font-medium text-sm leading-none">Tidak Sesuai</p>
                 <p className="text-xs text-muted-foreground leading-none">
-                  Hujan tidak sesuai / &lt;3 parameter
+                  Minimal 1 parameter di luar rentang
                 </p>
               </div>
             </div>
