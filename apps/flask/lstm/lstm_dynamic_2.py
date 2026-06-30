@@ -12,8 +12,7 @@ import warnings
 import random
 import gc
 import os
-# Import library seasonal decompose
-from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.seasonal import STL
 
 warnings.filterwarnings('ignore')
 
@@ -110,6 +109,31 @@ def inverse_transformation(data, method):
         return np.maximum(0, np.expm1(data))
     return data
 
+def estimate_log_bias_correction(actual_physical, predicted_transformed, transform_method):
+    """
+    Estimate median residual correction in transformed log space.
+    Median correction is intentionally used instead of Duan smearing so rainfall
+    zeros and extremes do not create unstable exp residuals.
+    """
+    if transform_method != "log1p":
+        return 0.0
+
+    actual_log = np.log1p(np.asarray(actual_physical, dtype=float))
+    predicted_log = np.asarray(predicted_transformed, dtype=float)
+    mask = np.isfinite(actual_log) & np.isfinite(predicted_log)
+    if not mask.any():
+        return 0.0
+
+    residuals = np.clip(actual_log[mask] - predicted_log[mask], -5, 5)
+    correction = float(np.median(residuals))
+    return correction if np.isfinite(correction) else 0.0
+
+def apply_log_bias_correction(values, transform_method, bias_correction=0.0):
+    values = np.asarray(values, dtype=float)
+    if transform_method == "log1p" and bias_correction:
+        return values + float(bias_correction)
+    return values
+
 # ======================================================
 # Seasonal Decomposition Helper
 # ======================================================
@@ -122,9 +146,8 @@ def apply_seasonal_decomposition(series, period=365):
         print("   ⚠️ Data too short for seasonal decomposition. Skipping.")
         return series, None, None
 
-    print(f"   🍂 Applying Seasonal Decomposition (period={period})...")
-    # Menggunakan model 'additive'
-    decomposition = seasonal_decompose(series, model='additive', period=period, extrapolate_trend='freq')
+    print(f"   🍂 Applying STL Decomposition (period={period}, robust=True)...")
+    decomposition = STL(series, period=period, robust=True).fit()
     
     seasonal = decomposition.seasonal
     # Deseasonalized = Original - Seasonal (Data bersih dari pola tahunan untuk dilatih LSTM)
@@ -135,16 +158,16 @@ def apply_seasonal_decomposition(series, period=365):
     
     return deseasonalized, seasonal, decomposition
 
-def save_lstm_decomposition(db, decomposition, collection_name, target_column, config_id):
+def save_lstm_decomposition(db, decomposition, observed_series, collection_name, target_column, config_id):
     """Persist STL decomposition into temp collection for run_lstm aggregation."""
     if decomposition is None:
         return 0
 
     saved_count = 0
-    for idx in decomposition.observed.index:
+    for idx in observed_series.index:
         date_str = pd.Timestamp(idx).strftime("%Y-%m-%d")
         param_doc = {
-            "observed": float(decomposition.observed.loc[idx]) if pd.notna(decomposition.observed.loc[idx]) else None,
+            "observed": float(observed_series.loc[idx]) if pd.notna(observed_series.loc[idx]) else None,
             "trend": float(decomposition.trend.loc[idx]) if pd.notna(decomposition.trend.loc[idx]) else None,
             "seasonal": float(decomposition.seasonal.loc[idx]) if pd.notna(decomposition.seasonal.loc[idx]) else None,
             "resid": float(decomposition.resid.loc[idx]) if pd.notna(decomposition.resid.loc[idx]) else None,
@@ -429,12 +452,85 @@ def calculate_metrics(y_true, y_pred, param_name="generic"):
 # ======================================================
 # Grid search
 # ======================================================
-def restore_physical_scale(values, index, transform_method, seasonal_component=None):
+def restore_transformed_scale(values, index, seasonal_component=None):
     values = np.asarray(values, dtype=float)
     if seasonal_component is not None:
         seasonal_values = seasonal_component.reindex(index).ffill().bfill().values
         values = values + seasonal_values
+    return values
+
+def restore_physical_scale(values, index, transform_method, seasonal_component=None, bias_correction=0.0):
+    values = restore_transformed_scale(values, index, seasonal_component)
+    values = apply_log_bias_correction(values, transform_method, bias_correction)
     return inverse_transformation(values, transform_method)
+
+def project_future_seasonality(seasonal_component, forecast_dates):
+    """Project seasonal component by calendar day-of-year instead of blind tiling."""
+    if seasonal_component is None:
+        return None
+
+    seasonal_by_doy = seasonal_component.groupby(seasonal_component.index.dayofyear).mean()
+    fallback = float(seasonal_component.mean()) if len(seasonal_component) else 0.0
+    future_values = []
+    for forecast_date in pd.to_datetime(forecast_dates):
+        day_of_year = forecast_date.dayofyear
+        if day_of_year in seasonal_by_doy.index:
+            future_values.append(float(seasonal_by_doy.loc[day_of_year]))
+        elif day_of_year == 366 and 365 in seasonal_by_doy.index:
+            future_values.append(float(seasonal_by_doy.loc[365]))
+        else:
+            future_values.append(fallback)
+
+    return np.asarray(future_values, dtype=float)
+
+def build_horizon_confidence(one_step_rmse, recursive_rmse, forecast_dates):
+    """Create lightweight horizon-risk metadata for downstream planting calendar logic."""
+    dates = pd.to_datetime(forecast_dates)
+    horizon_days = np.arange(1, len(dates) + 1, dtype=float)
+
+    one_step = float(one_step_rmse) if one_step_rmse is not None and np.isfinite(one_step_rmse) else None
+    recursive = float(recursive_rmse) if recursive_rmse is not None and np.isfinite(recursive_rmse) else one_step
+
+    if one_step is None or recursive is None or len(horizon_days) == 0:
+        return {
+            "rmse_proxy": [None] * len(dates),
+            "confidence": [None] * len(dates),
+            "summary": {
+                "one_step_rmse": one_step,
+                "recursive_rmse": recursive,
+                "rmse_degradation_pct": None,
+                "monthly": {}
+            }
+        }
+
+    max_horizon = max(float(horizon_days[-1]), 1.0)
+    rmse_proxy = one_step + (recursive - one_step) * (horizon_days / max_horizon)
+    scale = max(recursive, one_step, 1e-6)
+    confidence = np.clip(1.0 - (rmse_proxy / (scale * 1.5)), 0.0, 1.0)
+    degradation_pct = ((recursive - one_step) / one_step) * 100 if one_step > 0 else None
+
+    monthly = {}
+    temp_df = pd.DataFrame({
+        "month": dates.strftime("%Y-%m"),
+        "rmse_proxy": rmse_proxy,
+        "confidence": confidence
+    })
+    for month, month_df in temp_df.groupby("month"):
+        monthly[month] = {
+            "rmse_proxy": round(float(month_df["rmse_proxy"].mean()), 4),
+            "confidence": round(float(month_df["confidence"].mean()), 4)
+        }
+
+    return {
+        "rmse_proxy": [round(float(value), 4) for value in rmse_proxy],
+        "confidence": [round(float(value), 4) for value in confidence],
+        "summary": {
+            "one_step_rmse": round(one_step, 4),
+            "recursive_rmse": round(recursive, 4),
+            "rmse_degradation_pct": round(float(degradation_pct), 2) if degradation_pct is not None else None,
+            "monthly": monthly
+        }
+    }
 
 def grid_search_pytorch(train_data, param_name, transform_method="none",
                         original_data=None, seasonal_component=None):
@@ -553,15 +649,31 @@ def grid_search_pytorch(train_data, param_name, transform_method="none",
                     transform_method,
                     seasonal_component
                 )
+
+            bias_correction = 0.0
+            if is_rainfall_param(param_name) and transform_method == "log1p":
+                val_pred_transformed = restore_transformed_scale(
+                    val_pred_unscaled,
+                    val_metric_index,
+                    seasonal_component
+                )
+                bias_correction = estimate_log_bias_correction(
+                    y_true_physical,
+                    val_pred_transformed,
+                    transform_method
+                )
+
             y_pred_physical = restore_physical_scale(
                 val_pred_unscaled,
                 val_metric_index,
                 transform_method,
-                seasonal_component
+                seasonal_component,
+                bias_correction
             )
             y_pred_physical = post_process_forecast(y_pred_physical, param_name)
 
             metrics = calculate_metrics(y_true_physical, y_pred_physical, param_name)
+            metrics["log_bias_correction"] = bias_correction
 
             recursive_horizon = min(BACKTEST_HORIZON, len(val_split))
             recursive_metrics = None
@@ -578,7 +690,8 @@ def grid_search_pytorch(train_data, param_name, transform_method="none",
                     recursive_pred,
                     recursive_index,
                     transform_method,
-                    seasonal_component
+                    seasonal_component,
+                    bias_correction
                 )
                 recursive_pred_physical = post_process_forecast(recursive_pred_physical, param_name)
                 if original_data is not None:
@@ -645,7 +758,8 @@ def grid_search_pytorch(train_data, param_name, transform_method="none",
         'dropout': 0.3,
         'epochs': FINAL_EPOCHS,
         'batch_size': 128,
-        'learning_rate': 0.001
+        'learning_rate': 0.001,
+        'log_bias_correction': best_result['metrics'].get('log_bias_correction', 0.0)
     }
     
     return best_params, best_result['metrics']
@@ -692,6 +806,14 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         df = pd.DataFrame(source_data)
         
         param_data = prepare_cleaned_series(df, target_column)
+        warnings_list = []
+        if not collection_name.endswith("_cleaned"):
+            warning_msg = (
+                f"Collection '{collection_name}' does not end with '_cleaned'. "
+                "LSTM expects BMKG/NASA preprocessing output for best consistency."
+            )
+            print(f"   ⚠️ {warning_msg}")
+            warnings_list.append(warning_msg)
         
         if len(param_data) < 500:
             raise ValueError(f"Insufficient data: {len(param_data)}")
@@ -716,6 +838,7 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         decompose_count = save_lstm_decomposition(
             db=db,
             decomposition=decomposition,
+            observed_series=transformed_data,
             collection_name=collection_name,
             target_column=target_column,
             config_id=config_id
@@ -796,21 +919,27 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
             scaler=scaler,
             device=device
         )
+
+        forecast_dates = pd.date_range(
+            start=data_end_date + pd.Timedelta(days=1),
+            periods=forecast_horizon,
+            freq='D'
+        )
         
         # 8. [NEW] Recombine Seasonality
-        print(f"   🍂 Recombining Seasonal Component...")
+        print(f"   🍂 Recombining Seasonal Component by day-of-year...")
+        log_bias_correction = best_params.get("log_bias_correction", 0.0)
         if seasonal_component is not None:
-            # Get last year of seasonality to project future
-            last_year_seasonal = seasonal_component.values[-365:]
-            
-            # Jika horizon > 365, kita perlu mengulang seasonal component
-            repeats = int(np.ceil(forecast_horizon / 365))
-            future_seasonality = np.tile(last_year_seasonal, repeats)[:forecast_horizon]
-            
-            # Combine: Deseasonalized Forecast + Future Seasonality
+            future_seasonality = project_future_seasonality(seasonal_component, forecast_dates)
             forecast_transformed = forecast_deseasonalized + future_seasonality
         else:
             forecast_transformed = forecast_deseasonalized
+
+        forecast_transformed = apply_log_bias_correction(
+            forecast_transformed,
+            transform_method,
+            log_bias_correction
+        )
         
         # Inverse transformation (Log1p -> Original)
         print(f"   🔄 Inverting transformation ({transform_method})...")
@@ -823,11 +952,11 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
         print(f"   Mean: {forecast_final.mean():.2f}")
         
         print("\n💾 Step 8: Saving to database...")
-        
-        forecast_dates = pd.date_range(
-            start=data_end_date + pd.Timedelta(days=1),
-            periods=forecast_horizon,
-            freq='D'
+
+        horizon_confidence = build_horizon_confidence(
+            val_metrics.get("rmse"),
+            val_metrics.get("recursive_rmse"),
+            forecast_dates
         )
         
         forecast_docs = []
@@ -852,7 +981,7 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                         "model_metadata": {
                             "framework": "PyTorch",
                             "model": "LSTM_Recursive_STL",
-                            "version": "3.0_seasonal_decompose",
+                            "version": "3.1_stl_bias_confidence",
                             "transform": transform_method,
                             "forecast_method": "recursive_stl",
                             "lookback_days": best_params['lookback'],
@@ -861,7 +990,12 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
                             "test_mape": val_metrics['mape'],
                             "recursive_rmse": val_metrics.get('recursive_rmse'),
                             "recursive_mae": val_metrics.get('recursive_mae'),
-                            "recursive_mape": val_metrics.get('recursive_mape')
+                            "recursive_mape": val_metrics.get('recursive_mape'),
+                            "log_bias_correction": log_bias_correction,
+                            "horizon_rmse_proxy": horizon_confidence["rmse_proxy"][i],
+                            "horizon_confidence": horizon_confidence["confidence"][i],
+                            "rmse_degradation_pct": horizon_confidence["summary"].get("rmse_degradation_pct"),
+                            "warnings": warnings_list
                         }
                     }
                 }
@@ -910,6 +1044,14 @@ def run_lstm_analysis(collection_name, target_column, save_collection="lstm-fore
             "transform": transform_method,
             "target_column": target_column,
             "error_metrics": val_metrics,
+            "horizon_confidence": horizon_confidence["summary"],
+            "warnings": warnings_list,
+            "metric_context": {
+                "scale": "physical_original_units",
+                "one_step_metrics": ["mae", "mse", "rmse", "mape", "r2", "directional_accuracy"],
+                "recursive_metrics": ["recursive_mae", "recursive_rmse", "recursive_mape"],
+                "selection_metric": "recursive_rmse_when_available"
+            },
             "forecast": {
                 "values": forecast_final.tolist(),
                 "dates": [d.strftime('%Y-%m-%d') for d in forecast_dates]

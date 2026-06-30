@@ -145,6 +145,11 @@ def run_lstm_from_config():
                             "recursive_mae": metrics.get("recursive_mae"),
                             "recursive_rmse": metrics.get("recursive_rmse"),
                             "recursive_mape": metrics.get("recursive_mape"),
+                            "log_bias_correction": metrics.get("log_bias_correction"),
+                            "rmse_degradation_pct": result.get("horizon_confidence", {}).get("rmse_degradation_pct"),
+                            "horizon_confidence": result.get("horizon_confidence"),
+                            "metric_context": result.get("metric_context"),
+                            "warnings": result.get("warnings", []),
                         }
                     })
                 
