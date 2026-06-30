@@ -1,10 +1,14 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, ReturnDocument
 from flask import Flask, jsonify, request, Blueprint, Response, stream_with_context, current_app
 from flask_cors import CORS
 import os
 from helpers.objectid_converter import convert_objectid
 from jobs.run_forecast_from_config import run_forecast_from_config
-from jobs.run_lstm import run_lstm_from_config
+from jobs.run_lstm import (
+    get_all_lstm_statuses,
+    get_lstm_status,
+    run_lstm_background_worker,
+)
 from bson import ObjectId
 import json
 from bson.json_util import dumps
@@ -17,6 +21,7 @@ import tempfile
 import shutil
 from queue import Queue
 import threading
+from multiprocessing import Process
 import time
 from typing import Dict, Any
 from preprocessing.buoys.preprocessing_buoys import (
@@ -85,12 +90,59 @@ def run_forecast():
 @app.route("/run-lstm", methods=["POST"])
 def run_lstm():
     print("Received request to run LSTM forecast")
-    return run_lstm_from_config()
+    running_config = db.lstm_configs.find_one({"status": "running"})
+    if running_config:
+        return jsonify({
+            "message": "An LSTM job is already running.",
+            "status": "running",
+            "config_id": str(running_config["_id"])
+        }), 202
+
+    pending_config = db.lstm_configs.find_one_and_update(
+        {"status": "pending"},
+        {"$set": {"status": "running", "startedAt": datetime.now(), "updatedAt": datetime.now()}},
+        sort=[("createdAt", 1)],
+        return_document=ReturnDocument.AFTER
+    )
+    if not pending_config:
+        return jsonify({"message": "No pending LSTM config found."}), 404
+
+    config_id = str(pending_config["_id"])
+    process = Process(
+        target=run_lstm_background_worker,
+        args=(config_id, mongo_uri, db_name)
+    )
+    try:
+        process.start()
+    except Exception as e:
+        db.lstm_configs.update_one(
+            {"_id": pending_config["_id"]},
+            {"$set": {"status": "failed", "error_message": f"Failed to start background process: {str(e)}", "updatedAt": datetime.now()}}
+        )
+        return jsonify({"error": "Failed to start LSTM background process", "details": str(e)}), 500
+
+    return jsonify({
+        "message": "LSTM job started in background.",
+        "status": "running",
+        "config_id": config_id,
+        "pid": process.pid
+    }), 202
 
 @app.route("/run-lstm" , methods=["GET"])
 def run_lstm_get():
     print("Received GET request to run LSTM forecast")
     return jsonify({"message": "Use POST method to run LSTM forecast"}), 200
+
+@app.route("/lstm/status/<config_id>", methods=["GET"])
+def lstm_status(config_id):
+    status = get_lstm_status(config_id)
+    if not status:
+        return jsonify({"error": "LSTM config not found"}), 404
+    return jsonify(status), 200
+
+@app.route("/lstm/status", methods=["GET"])
+def all_lstm_statuses():
+    return jsonify(get_all_lstm_statuses()), 200
 
 @app.route("/check-mongodb")
 def check_mongodb():
