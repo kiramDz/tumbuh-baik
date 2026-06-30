@@ -291,7 +291,7 @@ def run_lstm_from_config(config_id=None):
     return jsonify(payload), status_code
 
 def run_lstm_background_worker(config_id=None, mongo_uri=None, db_name=None):
-    """Entry point for multiprocessing child process."""
+    """Entry point for the detached LSTM worker process."""
     try:
         import torch
         safe_threads = int(os.getenv("LSTM_TORCH_THREADS", "2"))
